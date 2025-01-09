@@ -14,17 +14,17 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 
 ## Implementation status
 
-[X] Profile pages (posts, replies, media, following, followers)
-[X] Reverse relationships (post likers/reposts/quotes)
-[X] Custom feeds
-[X] Handle deletions
-[X] Full text search (including date and author filtering)
-[ ] Login support (it's probably easier to reuse the TypeScript from the main appview and add a backend API adapter)
-[ ] Pagination
-[ ] Honor blocks and labels
-[ ] Use user-friendly handles instead of DIDs for URLs
-[ ] CIDs in likes and reposts are not verified.
-[ ] Backfill historical data
+- [X] Profile pages (posts, replies, media, following, followers)
+- [X] Reverse relationships (post likers/reposts/quotes)
+- [X] Custom feeds
+- [X] Handle deletions
+- [X] Full text search (including date and author filtering)
+- [ ] Login support (it's probably easier to reuse the TypeScript from the main appview and add a backend API adapter)
+- [ ] Pagination
+- [ ] Honor blocks and labels
+- [ ] Use user-friendly handles instead of DIDs for URLs
+- [ ] CIDs in likes and reposts are not verified.
+- [ ] Backfill historical data
 
 ## Storage mechanism
 Each "table" is a set of memory-mapped columnar storage files that associates one key, to one or many values.

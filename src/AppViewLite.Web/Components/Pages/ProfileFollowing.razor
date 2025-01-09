@@ -1,0 +1,18 @@
+@page "/@{did}/following"
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    private BlueskyProfile[] Following = [];
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Following = await BlueskyEnrichedApis.Instance.GetFollowing(Did, EnrichDeadlineToken.Create());
+    }
+}
+
+<PageTitle>Following</PageTitle>
+
+<ProfileGraphHeader Did="@Did" Kind="following" />
+
+<ProfileList Profiles="Following" />
+

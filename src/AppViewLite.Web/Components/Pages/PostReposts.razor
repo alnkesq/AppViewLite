@@ -1,0 +1,21 @@
+@page "/@{did}/{rkey}/reposts"
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    [Parameter] public required string RKey { get; set; }
+
+    private BlueskyProfile[] Reposters = [];
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Reposters = await BlueskyEnrichedApis.Instance.EnrichAsync(Program.WithRelationshipsLock(rels => rels.GetPostReposts(Did, RKey)), EnrichDeadlineToken.Create());
+    }
+}
+
+<PageTitle>Reposts</PageTitle>
+
+<PostEngagementHeader Did="@Did" RKey="@RKey" Kind="reposts" />
+
+<ProfileList Profiles="Reposters" />
+
+

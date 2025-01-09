@@ -1,0 +1,18 @@
+
+@code {
+    [Parameter] required public string Did { get; set; }
+    [Parameter] required public string RKey { get; set; }
+    [Parameter] required public string Kind { get; set; }
+
+    private string PostBaseUrl => $"/@{Did}/{RKey}";
+}
+
+<h1>Post engagements</h1>
+<a href="@PostBaseUrl">Back to post</a>
+<div class="tabbed-lists-header">
+    
+    <NavLink Match="NavLinkMatch.All" href="@(PostBaseUrl + "/quotes")">Quotes</NavLink>
+    <NavLink Match="NavLinkMatch.All" href="@(PostBaseUrl + "/reposts")">Reposts</NavLink>
+    <NavLink Match="NavLinkMatch.All" href="@(PostBaseUrl + "/likes")">Likes</NavLink>
+</div>
+

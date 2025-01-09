@@ -1,0 +1,14 @@
+@code {
+    [Parameter] public required BlueskyPost[] Posts { get; set; }
+    [Parameter] public bool ShowInReplyTo { get; set; } = true;
+    [Parameter] public string FocalPostDid { get; set; }
+    [Parameter] public string FocalPostRKey { get; set; }
+}
+
+<ul class="post-list">
+    @foreach (var post in Posts)
+    {
+        <PostRow Post="post" ShowInReplyTo="@ShowInReplyTo" IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" />
+
+    }
+</ul>

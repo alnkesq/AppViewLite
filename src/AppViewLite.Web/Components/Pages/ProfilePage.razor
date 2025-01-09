@@ -1,0 +1,72 @@
+@page "/@{did}"
+
+@code {
+    [Parameter][SupplyParameterFromQuery] public int? Replies { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Reposts { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Likes { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Media { get; set; }
+    [Parameter] public string Did { get; set; }
+
+    public bool ShowMediaOnly => (Media ?? 0) != 0;
+    public bool ShowLikes => (Likes ?? 0) != 0;
+    public bool ShowReplies => !ShowLikes && (Replies ?? (ShowMediaOnly ? 1 : 0)) != 0;
+    public bool ShowReposts => !ShowLikes && (Reposts ?? (ShowReplies || ShowMediaOnly ? 0 : 1)) != 0;
+    
+
+    // [Parameter] public string? DidUnprefixed { get; set; }
+    // public string? Did => DidUnprefixed != null ? "did:" + DidUnprefixed : null;
+    private BlueskyFullProfile? Profile;
+    private BlueskyPost[] Posts = [];
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Profile = Program.WithRelationshipsLock(rels => rels.GetFullProfile(Did));
+        Posts = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(Did, includePosts: !ShowLikes, includeReplies: ShowReplies, includeReposts: ShowReposts, includeLikes: ShowLikes, mediaOnly: ShowMediaOnly, deadline: EnrichDeadlineToken.Create());
+    }
+}
+
+<PageTitle>@Profile?.Profile.DisplayNameOrFallback</PageTitle>
+
+@if(Profile != null)
+{
+    <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
+    <h1>@Profile.Profile.DisplayNameOrFallback</h1>
+
+    <div>
+        <a href="@Profile.Profile.BaseUrl/following">Following</a> ·
+        <a href="@Profile.Profile.BaseUrl/followers">Followers</a>
+    </div>
+
+    <div class="tabbed-lists-header">
+
+        <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
+        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
+        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
+        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+@*         <a href="@Profile.Profile.BaseUrl" class="@(!ShowMediaOnly && !ShowReplies && ShowReposts ? "selected" : null)">Posts</a>
+        <a href="@Profile.Profile.BaseUrl?replies=1" class="@(!ShowMediaOnly && ShowReplies && !ShowReposts ? "selected" : null)">Replies</a>
+        <a href="@Profile.Profile.BaseUrl?media=1" class="@(ShowMediaOnly && ShowReplies && !ShowReposts ? "selected" : null)">Media</a>
+        <a href="@Profile.Profile.BaseUrl?replies=0&reposts=0" class="@(!ShowMediaOnly && !ShowLikes && !ShowReplies && !ShowReposts ? "selected" : null)">Original posts</a>
+        <a href="@Profile.Profile.BaseUrl?likes=1" class="@(!ShowMediaOnly && ShowLikes ? "selected" : null)">Likes</a>
+
+ *@
+
+        @*      @if (ShowReposts)
+        {
+            <a href="@Profile.Profile.BaseUrl">Posts</a>
+            <a href="@Profile.Profile.BaseUrl?replies=1">Replies</a>
+            <a href="@Profile.Profile.BaseUrl?@(ShowReplies ? "replies=1&" : null)reposts=0">Hide reposts</a>
+        }
+        else
+        {
+            <a href="@Profile.Profile.BaseUrl?reposts=0">Posts</a>
+            <a href="@Profile.Profile.BaseUrl?reposts=0&replies=1">Replies</a>
+            <a href="@Profile.Profile.BaseUrl?@(ShowReplies ? "replies=1&" : null)reposts=1">Show reposts</a>
+        }  *@
+        <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a>
+        <a class="search-link" href="/search?from=@Did" title="Search"><img src="/assets/search.png"></a>
+    </div>
+    <PostList Posts="@Posts" />
+}
+

@@ -1,0 +1,15 @@
+
+@code {
+    [Parameter] required public string Did { get; set; }
+    [Parameter] required public string Kind { get; set; }
+
+    private string ProfileBaseUrl => "/@" + Did;
+}
+
+<a href="@ProfileBaseUrl">Back to profile</a>
+<div class="tabbed-lists-header">
+    
+    <NavLink Match="NavLinkMatch.All" href="@(ProfileBaseUrl + "/following")">Following</NavLink>
+    <NavLink Match="NavLinkMatch.All" href="@(ProfileBaseUrl + "/followers")">Followers</NavLink>
+</div>
+

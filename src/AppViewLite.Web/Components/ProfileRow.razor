@@ -1,0 +1,11 @@
+
+@code {
+    [Parameter]
+    public required BlueskyProfile Profile { get; set; }
+}
+<li class="profile-row">
+    <a href="@Profile.BaseUrl">
+        <img src="@Profile.AvatarUrl" class="profile-image-small">
+        @Profile.DisplayNameOrFallback
+    </a>
+</li>

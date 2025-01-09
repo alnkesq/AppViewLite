@@ -1,0 +1,19 @@
+@page "/@{did}/{rkey:length(13)}"
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    [Parameter] public required string RKey { get; set; }
+
+    private BlueskyPost[] Posts = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Posts = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(Did, RKey, EnrichDeadlineToken.Create());
+    }
+}
+
+<PageTitle>Post</PageTitle>
+
+<PostList Posts="@Posts" ShowInReplyTo="false" FocalPostDid="@Did" FocalPostRKey="@RKey" />
+

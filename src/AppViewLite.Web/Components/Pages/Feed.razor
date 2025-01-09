@@ -1,0 +1,21 @@
+@page "/feed/{did}/{rkey}"
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    [Parameter] public required string RKey { get; set; }
+
+
+    private BlueskyPost[] Posts = [];
+    private string? DisplayName;
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        (Posts, DisplayName) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, EnrichDeadlineToken.Create());
+    }
+}
+
+<PageTitle>@DisplayName</PageTitle>
+
+<h1>@DisplayName</h1>
+
+<PostList Posts="@Posts" />

@@ -1,0 +1,10 @@
+@page "/bsky.app/{*rest}"
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter] public required string Rest { get; set; }
+    protected override void OnParametersSet()
+    {
+        Navigation.NavigateTo("/" + Rest);
+    }
+}

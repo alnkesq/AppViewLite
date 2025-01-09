@@ -1,0 +1,33 @@
+@page "/search"
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter][SupplyParameterFromQuery] public required string Q { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required string? From { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required DateTime? Since { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required DateTime? Until { get; set; }
+
+
+    private BlueskyPost[] Posts = [];
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Q != null && Q.StartsWith("https://bsky.app/", StringComparison.Ordinal))
+        {
+            Navigation.NavigateTo("/" + Q);
+            return; 
+        }
+        Posts = await BlueskyEnrichedApis.Instance.SearchAsync(Q, Since, Until, From, EnrichDeadlineToken.Create());
+    }
+}
+
+<PageTitle>Search: @Q</PageTitle>
+
+<form action="/search" method="get" class="search-form">
+    <label>Text: <input type="search" name="q" value="@Q" autofocus /></label>
+    <label>Author: <input type="text" name="from" value="@From" /></label>
+    <label>Since: <input type="date" name="since" value="@Since?.ToString("yyyy-MM-dd")" /></label>
+    <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
+    <input type="submit" value="Search">
+</form>
+
+<PostList Posts="@Posts" />

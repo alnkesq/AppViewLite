@@ -37,4 +37,4 @@ All the slices of a table are periodically compacted into larger slices.
 Accounts are rekeyed using 32-bit integers. RKeys are converted back into their underlying 64-bit values in order to save space.
 
 ### Post text
-Post data is compressed by turning it into GPT/Tiktoken tokens, then encoding the 18-bit tokens using a variable-length bit representation, and then serializing everything into a Protobuf message, which is then Brotli-compressed (this was the most compact representation I could find after some experimentation).
+Post data is compressed by turning it into GPT/Tiktoken tokens, then encoding the 18-bit tokens using a variable-length bit representation, and then serializing everything into a Protobuf message (along with other metadata), which is then Brotli-compressed (this was the most compact representation I could find after some experimentation).

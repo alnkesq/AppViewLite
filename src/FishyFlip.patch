@@ -1,0 +1,142 @@
+diff --git a/src/FishyFlip/ATProtocol.cs b/src/FishyFlip/ATProtocol.cs
+index de91b01..e71997e 100644
+--- a/src/FishyFlip/ATProtocol.cs
++++ b/src/FishyFlip/ATProtocol.cs
+@@ -237,8 +237,7 @@ public sealed partial class ATProtocol : IDisposable
+     /// <returns>String of Host URI if it could be resolved, null if it could not.</returns>
+     public async Task<Result<string?>> ResolveATHandleHostAsync(ATHandle handle, CancellationToken? token = default)
+     {
+-        string? host = this.options.DidCache.FirstOrDefault(n => n.Key == handle.ToString()).Value;
+-        if (!string.IsNullOrEmpty(host))
++        if (this.options.DidCache.TryGetValue(handle.ToString(), out var host) && !string.IsNullOrEmpty(host))
+         {
+             this.options.Logger?.LogDebug($"Resolved handle from cache: {handle} to {host}");
+             return host;
+@@ -315,8 +314,7 @@ public sealed partial class ATProtocol : IDisposable
+     /// <returns>String of Host URI if it could be resolved, null if it could not.</returns>
+     public async Task<Result<string?>> ResolveATDidHostAsync(ATDid did, CancellationToken? token = default)
+     {
+-        string? host = this.options.DidCache.FirstOrDefault(n => n.Key == did.ToString()).Value;
+-        if (!string.IsNullOrEmpty(host))
++        if (this.options.DidCache.TryGetValue(did.ToString(), out var host) && !string.IsNullOrEmpty(host))
+         {
+             this.options.Logger?.LogDebug($"Resolved DID from cache: {did} to {host}");
+             return host;
+diff --git a/src/FishyFlip/ATProtocolOptions.cs b/src/FishyFlip/ATProtocolOptions.cs
+index 0bc9d93..892d33d 100644
+--- a/src/FishyFlip/ATProtocolOptions.cs
++++ b/src/FishyFlip/ATProtocolOptions.cs
+@@ -3,6 +3,7 @@
+ // </copyright>
+ 
+ using FishyFlip.Tools.Json;
++using System.Collections.Concurrent;
+ using System.Net;
+ 
+ namespace FishyFlip;
+@@ -72,7 +73,7 @@ public class ATProtocolOptions
+     /// <summary>
+     /// Gets the Did Cache.
+     /// </summary>
+-    internal Dictionary<string, string> DidCache { get; } = new Dictionary<string, string>();
++    internal ConcurrentDictionary<string, string> DidCache { get; } = new();
+ 
+     /// <summary>
+     /// Gets the source generation context.
+diff --git a/src/FishyFlip/Tools/CarDecoder.cs b/src/FishyFlip/Tools/CarDecoder.cs
+index fef4526..45f8416 100644
+--- a/src/FishyFlip/Tools/CarDecoder.cs
++++ b/src/FishyFlip/Tools/CarDecoder.cs
+@@ -2,6 +2,8 @@
+ // Copyright (c) Drastic Actions. All rights reserved.
+ // </copyright>
+ 
++using System.Runtime.InteropServices;
++
+ namespace FishyFlip.Tools;
+ 
+ /// <summary>
+@@ -23,7 +25,7 @@ public static class CarDecoder
+     /// </summary>
+     /// <param name="bytes">Byte Array.</param>
+     /// <param name="progress">Fires when a car file is decoded.</param>
+-    public static void DecodeCar(byte[] bytes, OnCarDecoded? progress = null)
++    public static void DecodeCar(ReadOnlySpan<byte> bytes, OnCarDecoded? progress = null)
+     {
+         int bytesLength = bytes.Length;
+         var header = DecodeReader(bytes);
+@@ -41,12 +43,12 @@ public static class CarDecoder
+             start += body.Length;
+ 
+             var cidBytes = bytes[start..(start + ATCidV1BytesLength)];
+-            var cid = Cid.Read(cidBytes);
++            var cid = Cid.Read(cidBytes.ToArray());
+ 
+             start += ATCidV1BytesLength;
+             var bs = bytes[start..(start + body.Value - ATCidV1BytesLength)];
+             start += body.Value - ATCidV1BytesLength;
+-            progress?.Invoke(new CarProgressStatusEvent(cid, bs));
++            progress?.Invoke(new CarProgressStatusEvent(cid, bs.ToArray()));
+         }
+     }
+ 
+@@ -121,33 +123,28 @@ public static class CarDecoder
+             }
+         }
+ 
+-        return new DecodedBlock(Decode(a), a.Count);
++        return new DecodedBlock(Decode(CollectionsMarshal.AsSpan(a)), a.Count);
+     }
+ 
+-    private static DecodedBlock DecodeReader(byte[] bytes)
++    private static DecodedBlock DecodeReader(ReadOnlySpan<byte> bytes)
+     {
+-        var a = new List<byte>();
+-
+-        int i = 0;
+-        while (true)
++        for (int i = 0; i < bytes.Length; i++)
+         {
+-            byte b = bytes[i];
+-
+-            i++;
+-            a.Add(b);
++            var b = bytes[i];
+             if ((b & 0x80) == 0)
+             {
+-                break;
++                var a = bytes.Slice(0, i + 1);
++                return new DecodedBlock(Decode(a), a.Length);
+             }
+         }
+ 
+-        return new DecodedBlock(Decode(a), a.Count);
++        throw new Exception();
+     }
+ 
+-    private static int Decode(List<byte> b)
++    private static int Decode(ReadOnlySpan<byte> b)
+     {
+         int r = 0;
+-        for (int i = 0; i < b.Count; i++)
++        for (int i = 0; i < b.Length; i++)
+         {
+             int e = b[i];
+             r = r + ((e & 0x7F) << (i * 7));
+diff --git a/src/FishyFlip/Tools/CarProgressStatusEvent.cs b/src/FishyFlip/Tools/CarProgressStatusEvent.cs
+index bda462e..17fd118 100644
+--- a/src/FishyFlip/Tools/CarProgressStatusEvent.cs
++++ b/src/FishyFlip/Tools/CarProgressStatusEvent.cs
+@@ -7,10 +7,10 @@ namespace FishyFlip.Tools;
+ /// <summary>
+ /// Represents an event that contains the progress status of a car.
+ /// </summary>
+-public class CarProgressStatusEvent
++public ref struct CarProgressStatusEvent
+ {
+     /// <summary>
+-    /// Initializes a new instance of the <see cref="CarProgressStatusEvent"/> class.
++    /// Initializes a new instance of the <see cref="CarProgressStatusEvent"/> struct.
+     /// </summary>
+     /// <param name="cid">The car ID.</param>
+     /// <param name="bytes">The progress status bytes.</param>

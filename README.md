@@ -1,12 +1,12 @@
 # AppViewLite
 
-AppViewLite is an ATProto (Bluesky) appview focused on low resource consumption.
-
-![Screenshot of the bsky.app profile on AppViewLite](https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/screenshot-bsky.jpg)
+AppViewLite is an ATProto (Bluesky) appview focused on low resource consumption, able to run independently of the main appview APIs.
 
 It includes:
 * A firehose listener and indexer (`AppViewLite`)
 * A simple web UI for viewing the indexed data (`AppViewLite.Web`)
+
+![Screenshot of the bsky.app profile on AppViewLite](https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/screenshot-bsky.jpg)
 
 Indexing the firehose (posts, likes, reposts, follows, blocks) takes about 2.2 GB of disk space per day. By contrast, the raw data from the firehose (without inverse indexes) is reported to be around 200 GB per day.
 

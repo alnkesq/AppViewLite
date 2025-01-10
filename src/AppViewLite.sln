@@ -1,13 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35605.110 d17.13
+VisualStudioVersion = 17.13.35605.110
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppViewLite.Web", "AppViewLite.Web\AppViewLite.Web.csproj", "{1E222689-D1F0-45A2-0906-5CD186132274}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppViewLite", "AppViewLite\AppViewLite.csproj", "{23B357BB-D58A-3A6F-2BA1-EF2AEF520826}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FishyFlip", "..\..\FishyFlip\src\FishyFlip\FishyFlip.csproj", "{D7F507D7-7B6A-805E-E736-3C6845A5560B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +21,6 @@ Global
 		{23B357BB-D58A-3A6F-2BA1-EF2AEF520826}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{23B357BB-D58A-3A6F-2BA1-EF2AEF520826}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{23B357BB-D58A-3A6F-2BA1-EF2AEF520826}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D7F507D7-7B6A-805E-E736-3C6845A5560B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D7F507D7-7B6A-805E-E736-3C6845A5560B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D7F507D7-7B6A-805E-E736-3C6845A5560B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D7F507D7-7B6A-805E-E736-3C6845A5560B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

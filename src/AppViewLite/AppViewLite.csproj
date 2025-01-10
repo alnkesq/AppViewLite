@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\FishyFlip\src\FishyFlip\FishyFlip.csproj" />
+    <PackageReference Include="FishyFlip" Version="3.2.1" />
     <PackageReference Include="System.IO.Hashing" Version="9.0.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="1.0.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="1.0.0" />

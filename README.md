@@ -23,10 +23,10 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 - [X] Custom feeds
 - [X] Handle deletions
 - [X] Full text search (including date and author filtering)
-- [ ] [Login support (it's probably easier to reuse the TypeScript from the main appview and add a backend API adapter)](/../../issues/1)
+- [ ] [Login support or reuse existing UI](/../../issues/1)
 - [ ] [Honor blocks and labels](/../../issues/7)
-- [ ] [Use user-friendly handles instead of DIDs for URLs](/../../issues/6)
-- [ ] [CIDs in likes and reposts are not verified](/../../issues/5)
+- [ ] [Show handles instead of DIDs](/../../issues/6)
+- [ ] [CID verification](/../../issues/5)
 - [ ] [Backfill historical data](/../../issues/8)
 
 ## Storage mechanism

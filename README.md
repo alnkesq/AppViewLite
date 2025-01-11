@@ -14,6 +14,8 @@ If you try to access a post or profile that hasn't been indexed (because it was 
 
 This AppView runs independently of the main bsky.app appview, except for CDN image delivery and handle resolution. Other than that, it only needs a relay.
 
+**Tip**: You can browse to `http://localhost:PORT/https://bsky.app/...` to easily convert a bsky.app URL into an AppViewLite one.
+
 ## Implementation status
 
 - [X] Profile pages (posts, replies, media, following, followers)
@@ -21,12 +23,11 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 - [X] Custom feeds
 - [X] Handle deletions
 - [X] Full text search (including date and author filtering)
-- [ ] Login support (it's probably easier to reuse the TypeScript from the main appview and add a backend API adapter)
-- [ ] Pagination
-- [ ] Honor blocks and labels
-- [ ] Use user-friendly handles instead of DIDs for URLs
-- [ ] CIDs in likes and reposts are not verified.
-- [ ] Backfill historical data
+- [ ] Login support (it's probably easier to reuse the TypeScript from the main appview and add a backend API adapter) (#1)
+- [ ] Honor blocks and labels (#7)
+- [ ] Use user-friendly handles instead of DIDs for URLs (#6)
+- [ ] CIDs in likes and reposts are not verified (#5)
+- [ ] Backfill historical data (#8)
 
 ## Storage mechanism
 Each "table" is a set of memory-mapped columnar storage files that associates one key, to one or many values.

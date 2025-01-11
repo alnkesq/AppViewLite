@@ -232,14 +232,21 @@ namespace AppViewLite
             return ATIdentifier.Create(did)!;
         }
 
-        public async Task<BlueskyPost[]> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, EnrichDeadlineToken deadline = default)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, string? continuation = null, EnrichDeadlineToken deadline = default)
         {
             authorDid = !string.IsNullOrEmpty(authorDid) ? await this.ResolveHandleAsync(authorDid) : null;
             var author = authorDid != null ? WithRelationshipsLock(rels => rels.SerializeDid(authorDid)) : default;
             var queryWords = StringUtils.GetWords(query);
-            if (queryWords.Length == 0) return [];
+            if (queryWords.Length == 0) return ([], null);
             var tags = Regex.Matches(query, @"#\w+\b").Select(x => x.Value.Substring(1).ToLowerInvariant()).ToArray();
             Regex[] hashtagRegexes = tags.Select(x => new Regex("#" + Regex.Escape(x) + "\\b", RegexOptions.IgnoreCase)).ToArray();
+
+            PostIdTimeFirst? continuationParsed = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : null;
+            if (continuationParsed != null)
+            {
+                var continuationDate = continuationParsed.Value.PostRKey.Date;
+                if (until == null || continuationDate < until) until = continuationDate;
+            }
 
             bool IsMatch(string postText)
             {
@@ -255,7 +262,6 @@ namespace AppViewLite
                 return rels
                     .SearchPosts(coreSearchTerms, since != null ? (ApproximateDateTime32)since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author)
                     .DistinctAssumingOrderedInput(skipCheck: true)
-                    .Take(100)
                     .SelectMany(approxDate =>
                     {
                         var startPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate, 0), default);
@@ -266,6 +272,10 @@ namespace AppViewLite
                                 var date = x.Key.PostRKey.Date;
                                 if (date < since) return false;
                                 if (until != null && date >= until) return false;
+                                if (continuationParsed != null)
+                                {
+                                    if (x.Key.CompareTo(continuationParsed.Value) >= 0) return false;
+                                }
                                 return true;
                             })
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
@@ -278,7 +288,7 @@ namespace AppViewLite
                     .ToArray();
             });
             await EnrichAsync(posts, deadline);
-            return posts;
+            return (posts, posts.LastOrDefault()?.PostId.Serialize());
         }
 
         public async Task<BlueskyPost[]> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, EnrichDeadlineToken deadline)
@@ -395,20 +405,22 @@ namespace AppViewLite
         }
 
         private Dictionary<(string Did, string RKey), (string ImplementationDid, string DisplayName, DateTime DateCached)> FeedDomainCache = new();
-        public async Task<(BlueskyPost[], string DisplayName)> GetFeedAsync(string did, string rkey, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[], string DisplayName, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, EnrichDeadlineToken deadline)
         {
             var eedGenInfo = await GetFeedGeneratorInfoAsync(did, rkey);
             if (!eedGenInfo.ImplementationDid.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
             var domain = eedGenInfo.ImplementationDid.Substring(8);
 
             var skeletonUrl = $"https://{domain}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}&limit=30";
+            if (continuation != null)
+                skeletonUrl += "&cursor=" + Uri.EscapeDataString(continuation);
 
             var postsJson = JsonConvert.DeserializeObject<AtFeedSkeletonResponse>(await DefaultHttpClient.GetStringAsync(skeletonUrl))!;
             var posts = WithRelationshipsLock(rels =>
             {
                 return postsJson.feed.Select(x => rels.GetPost(new ATUri(x.post))).ToArray();
             });
-            return (await EnrichAsync(posts, deadline), eedGenInfo.DisplayName);
+            return (await EnrichAsync(posts, deadline), eedGenInfo.DisplayName, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 
 
@@ -430,6 +442,33 @@ namespace AppViewLite
             }
             return (feedGenDid, displayName);
         }
+
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, EnrichDeadlineToken deadline)
+        {
+            var limit = 30;
+            var maxPostIdExclusive = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : new PostIdTimeFirst(Tid.FromDateTime(maxDate, 0), default);
+            var posts = WithRelationshipsLock(rels =>
+            {
+                var enumerables = rels.PostData.slices.Select(slice =>
+                {
+                    return rels.GetRecentPosts(slice, maxPostIdExclusive); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
+                })
+                .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, rels.DeserializePostData(x.Values.ToArray()))))
+                .ToArray();
+
+                var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
+                //  .AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
+                if (!includeReplies)
+                    merged = merged.Where(x => x.Data!.InReplyToPlc == null);
+                return merged
+                    .Take(limit)
+                    .ToArray();
+            });
+            await EnrichAsync(posts, deadline);
+            return (posts, posts.LastOrDefault()?.PostId.Serialize());
+        }
+
+
 
         private readonly static HttpClient DefaultHttpClient = new();
     }

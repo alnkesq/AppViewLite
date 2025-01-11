@@ -23,6 +23,8 @@ namespace AppViewLite.Models
         public BlueskyPostData? Data;
 
         public BlueskyProfile? InReplyToUser;
+
+        public PostId PostId;
     }
 }
 

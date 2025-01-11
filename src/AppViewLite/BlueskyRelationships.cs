@@ -523,6 +523,7 @@ namespace AppViewLite
                 ReplyCount = DirectReplies.GetValueCount(id),
                 RepostCount = Reposts.GetActorCount(id),
                 Date = DateTime.UnixEpoch.AddMicroseconds(id.PostRKey.Timestamp),
+                PostId = id,
             };
         }
 
@@ -600,6 +601,20 @@ namespace AppViewLite
         internal void EnsureNotDisposed()
         {
             if (_disposed) throw new ObjectDisposedException(nameof(BlueskyRelationships));
+        }
+
+        internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst maxPostIdExlusive)
+        {
+            var index = slice.Reader.BinarySearch(maxPostIdExlusive);
+            if (index > 0) index--;
+            else index = ~index;
+            for (long i = index - 1; i >= 0; i--)
+            {
+                var postId = slice.Reader.Keys[i];
+                if (PostDeletions.ContainsKey(postId)) continue;
+                var postData = DeserializePostData(slice.Reader.GetValues(i).Span.AsSmallSpan);
+                yield return GetPost(postId, postData);
+            }
         }
     }
 }

@@ -6,7 +6,8 @@
     [Parameter][SupplyParameterFromQuery] public required string? From { get; set; }
     [Parameter][SupplyParameterFromQuery] public required DateTime? Since { get; set; }
     [Parameter][SupplyParameterFromQuery] public required DateTime? Until { get; set; }
-
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
     protected override async Task OnParametersSetAsync()
@@ -16,7 +17,7 @@
             Navigation.NavigateTo("/" + Q);
             return; 
         }
-        Posts = await BlueskyEnrichedApis.Instance.SearchAsync(Q, Since, Until, From, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchAsync(Q, Since, Until, From, Continuation, EnrichDeadlineToken.Create());
     }
 }
 
@@ -30,4 +31,4 @@
     <input type="submit" value="Search">
 </form>
 
-<PostList Posts="@Posts" />
+<PostList Posts="@Posts" NextContinuation="@NextContinuation" />

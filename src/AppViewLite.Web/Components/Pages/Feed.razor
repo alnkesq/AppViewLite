@@ -3,14 +3,15 @@
 @code {
     [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
-
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
     private string? DisplayName;
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Posts, DisplayName) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, EnrichDeadlineToken.Create());
+        (Posts, DisplayName, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, EnrichDeadlineToken.Create());
     }
 }
 
@@ -18,4 +19,4 @@
 
 <h1>@DisplayName</h1>
 
-<PostList Posts="@Posts" />
+<PostList Posts="@Posts" NextContinuation="@NextContinuation" />

@@ -11,6 +11,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using FishyFlip;
 using AppViewLite.Numerics;
+using Ipfs;
+using System.Collections.Generic;
+using System.IO;
+using FishyFlip.Tools;
+using PeterO.Cbor;
+using System.Text;
+using System.Threading;
 
 namespace AppViewLite
 {
@@ -189,6 +196,45 @@ namespace AppViewLite
             }
 
             OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record);
+        }
+
+
+
+        public async Task ImportCarAsync(string did, string carPath)
+        {
+            using var stream = File.Open(carPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            await ImportCarAsync(did, stream);
+        }
+
+        
+        public async Task ImportCarAsync(string did, Stream stream)
+        {
+            var importer = new CarImporter(did);
+            importer.Log("Reading stream");
+
+            await CarDecoder.DecodeCarAsync(stream, importer.OnCarDecoded);
+            importer.LogStats();
+            foreach (var record in importer.EnumerateRecords())
+            {
+                OnRecordCreated(record.Did, record.Path, record.Record);
+            }
+            importer.Log("Done.");
+        }
+        public async Task ImportCarAsync(string did, CancellationToken ct = default)
+        {
+            var proto = new ATProtocolBuilder().WithInstanceUrl(new Uri("https://bsky.network")).Build();
+            var importer = new CarImporter(did);
+            importer.Log("Reading stream");
+
+            var result = await proto.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct);
+            if (!result.IsT0)
+                throw new Exception(result.AsT1.Detail!.Error);
+            importer.LogStats();
+            foreach (var record in importer.EnumerateRecords())
+            {
+                OnRecordCreated(record.Did, record.Path, record.Record);
+            }
+            importer.Log("Done.");
         }
     }
 }

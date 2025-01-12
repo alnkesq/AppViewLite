@@ -59,7 +59,7 @@ namespace AppViewLite.Web
 
             app.Lifetime.ApplicationStopping.Register(Relationships.Dispose);
             var indexer = new Indexer(Relationships);
-            _ = Task.Run(() => indexer.ListenJetStreamFirehoseAsync());
+
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -82,6 +82,12 @@ namespace AppViewLite.Web
                 .AddInteractiveServerRenderMode()
                 .AddInteractiveWebAssemblyRenderMode();
 
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1000);
+                app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
+                return indexer.ListenJetStreamFirehoseAsync();
+            });
             app.Run();
             
         }

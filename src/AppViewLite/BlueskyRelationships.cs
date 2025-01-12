@@ -47,8 +47,10 @@ namespace AppViewLite
         { 
         }
 
+        public string BaseDirectory { get; }
         public BlueskyRelationships(string basedir)
         {
+            this.BaseDirectory = basedir;
             Directory.CreateDirectory(basedir);
             T Register<T>(T r) where T : IDisposable
             {

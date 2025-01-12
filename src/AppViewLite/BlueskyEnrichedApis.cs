@@ -236,8 +236,9 @@ namespace AppViewLite
         {
             authorDid = !string.IsNullOrEmpty(authorDid) ? await this.ResolveHandleAsync(authorDid) : null;
             var author = authorDid != null ? WithRelationshipsLock(rels => rels.SerializeDid(authorDid)) : default;
-            var queryWords = StringUtils.GetWords(query);
+            var queryWords = StringUtils.GetDistinctWords(query);
             if (queryWords.Length == 0) return ([], null);
+            var queryPhrases = StringUtils.GetExactPhrases(query);
             var tags = Regex.Matches(query, @"#\w+\b").Select(x => x.Value.Substring(1).ToLowerInvariant()).ToArray();
             Regex[] hashtagRegexes = tags.Select(x => new Regex("#" + Regex.Escape(x) + "\\b", RegexOptions.IgnoreCase)).ToArray();
 
@@ -250,9 +251,15 @@ namespace AppViewLite
 
             bool IsMatch(string postText)
             {
-                var postWords = StringUtils.GetWords(postText);
+                var postWords = StringUtils.GetDistinctWords(postText);
                 if (queryWords.Any(x => !postWords.Contains(x))) return false;
                 if (hashtagRegexes.Any(r => !r.IsMatch(postText))) return false;
+                if (queryPhrases.Count != 0)
+                {
+                    var postAllWords = StringUtils.GetAllWords(postText).ToArray();
+                    if (!queryPhrases.All(queryPhrase => ContainsExactPhrase(postAllWords, queryPhrase)))
+                        return false;
+                }
                 return true;
             }
             var coreSearchTerms = queryWords.Select(x => x.ToString()).Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x)).ToArray();
@@ -289,6 +296,16 @@ namespace AppViewLite
             });
             await EnrichAsync(posts, deadline);
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
+        }
+
+        private static bool ContainsExactPhrase(string[] haystack, string[] needle)
+        {
+            for (int i = 0; i < haystack.Length - needle.Length; i++)
+            {
+                if (haystack.AsSpan(i, needle.Length).SequenceEqual(needle))
+                    return true;
+            }
+            return false;
         }
 
         public async Task<BlueskyPost[]> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, EnrichDeadlineToken deadline)

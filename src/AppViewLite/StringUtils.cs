@@ -26,14 +26,34 @@ namespace AppViewLite
             System.Security.Cryptography.SHA256.HashData(b, buffer);
             return new DuckDbUuid(buffer.Slice(0, 16));
         }
-        public static string[] GetWords(string? text)
+        public static IEnumerable<string> GetAllWords(string? text)
         {
             if (string.IsNullOrEmpty(text)) return [];
 
             text = RemoveDiacritics(text);
 
-            return Regex.Matches(text.ToLowerInvariant(), @"\w+").Select(x => x.Value).Distinct().ToArray();
+            return Regex.Matches(text.ToLowerInvariant(), @"\w+").Select(x => x.Value);
         }
+
+        public static string[] GetDistinctWords(string? text)
+        {
+            return GetAllWords(text).Distinct().ToArray();
+        }
+
+
+        public static List<string[]> GetExactPhrases(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return [];
+            var result = new List<string[]>();
+            foreach (Match phrase in Regex.Matches(text, @""".*?"""))
+            {
+                var words = GetAllWords(phrase.Value).ToArray();
+                if (words.Length != 0)
+                    result.Add(words);
+            }
+            return result;
+        }
+
 
         private static string RemoveDiacritics(string text)
         {

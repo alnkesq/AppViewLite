@@ -240,7 +240,7 @@ namespace AppViewLite
 
                 if (proto.Text != null)
                 {
-                    var words = StringUtils.GetWords(proto.Text);
+                    var words = StringUtils.GetDistinctWords(proto.Text);
                     foreach (var word in words)
                     {
                         ulong hash = HashWord(word);

@@ -5,6 +5,7 @@ AppViewLite is an ATProto (Bluesky) appview focused on low resource consumption,
 It includes:
 * A firehose listener and indexer (`AppViewLite`)
 * A simple web UI for viewing the indexed data (`AppViewLite.Web`)
+* An XRPC interface that allows you to reuse the official TypeScript [client](https://github.com/bluesky-social/social-app/) implementation
 
 <img src="https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/screenshot-bsky.jpg" alt="Screenshot of the bsky.app profile on AppViewLite" width="600">
 

@@ -89,15 +89,16 @@ namespace AppViewLite
             return profiles;
         }
 
-        public async Task<BlueskyProfile[]> GetFollowing(string did, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowing(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
         {
-            var records = (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.graph.follow")).AsT0.Records;
+            EnsureLimit(ref limit);
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.graph.follow", limit: limit, cursor: continuation)).AsT0;
             var following = WithRelationshipsLock(rels =>
             {
-                return records.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value).Subject.Handler))).ToArray();
+                return response.Records.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value).Subject.Handler))).ToArray();
             });
             await EnrichAsync(following, deadline);
-            return following;
+            return (following, response.Cursor);
         }
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, EnrichDeadlineToken deadline, bool loadQuotes = true, CancellationToken ct = default)
         {
@@ -522,9 +523,9 @@ namespace AppViewLite
             new Random((int)System.IO.Hashing.XxHash32.HashToUInt32(MemoryMarshal.AsBytes<char>(seed))).Shuffle(items);
         }
 
-        private static void EnsureLimit(ref int limit)
+        private static void EnsureLimit(ref int limit, int defaultLimit = 100)
         {
-            if (limit <= 0) limit = 100;
+            if (limit <= 0) limit = defaultLimit;
             limit = Math.Min(limit, 200);
         }
 

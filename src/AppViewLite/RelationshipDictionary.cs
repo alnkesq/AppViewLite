@@ -49,24 +49,18 @@ namespace AppViewLite
             return c - deletionCount;
         }
 
-        public IEnumerable<Relationship> GetRelationships(TTarget target)
+        public IEnumerable<Relationship> GetRelationshipsSorted(TTarget target, Relationship continuation)
         {
-            var chunks = creations.GetValuesChunked(target);
-            foreach (var chunk in chunks)
+
+            foreach (var r in creations.GetValuesSorted(target, continuation != default ? continuation : null))
             {
-                foreach (var r in chunk)
-                {
-                    if (deletions.ContainsKey(r))
-                        continue;
-                    yield return r;
-                }
+                if (deletions.ContainsKey(r))
+                    continue;
+                yield return r;
             }
+            
         }
 
-        public IEnumerable<Plc> GetActors(TTarget target)
-        {
-            return GetRelationships(target).Select(x => x.Actor).Distinct();
-        }
 
         public bool HasActor(TTarget target, Plc actor, out Relationship relationship)
         {

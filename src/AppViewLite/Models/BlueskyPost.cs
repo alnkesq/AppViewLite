@@ -1,3 +1,4 @@
+using FishyFlip.Models;
 using System;
 
 namespace AppViewLite.Models
@@ -25,6 +26,7 @@ namespace AppViewLite.Models
         public BlueskyProfile? InReplyToUser;
 
         public PostId PostId;
+        public string Did => Author.Did;
     }
 }
 

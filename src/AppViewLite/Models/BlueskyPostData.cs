@@ -1,4 +1,5 @@
 using ProtoBuf;
+using AppViewLite.Numerics;
 
 namespace AppViewLite.Models
 {
@@ -29,6 +30,8 @@ namespace AppViewLite.Models
 
         [ProtoMember(14)] public FacetData[]? Facets;
 
+
+        public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;
 
     }
 }

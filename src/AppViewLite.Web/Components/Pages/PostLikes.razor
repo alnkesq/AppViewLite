@@ -3,12 +3,14 @@
 @code {
     [Parameter] public string Did { get; set; }
     [Parameter] public string RKey { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
 
     private BlueskyProfile[] Likers = [];
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Likers = await BlueskyEnrichedApis.Instance.EnrichAsync(Program.WithRelationshipsLock(rels => rels.GetPostLikers(Did, RKey)), EnrichDeadlineToken.Create());
+        (Likers, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostLikersAsync(Did, RKey, Continuation, default, EnrichDeadlineToken.Create());
     }
 }
 
@@ -16,5 +18,5 @@
 
 <PostEngagementHeader Did="@Did" RKey="@RKey" Kind="likes" />
 
-<ProfileList Profiles="Likers" />
+<ProfileList Profiles="Likers" NextContinuation="@NextContinuation" />
 

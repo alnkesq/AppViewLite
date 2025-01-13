@@ -3,10 +3,13 @@
 @code {
     [Parameter] public required string Did { get; set; }
     private BlueskyProfile[] Followers = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Followers = await BlueskyEnrichedApis.Instance.EnrichAsync(Program.WithRelationshipsLock(rels => rels.GetFollowers(Did)), EnrichDeadlineToken.Create());
+        (Followers, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowersAsync(Did, Continuation, default, EnrichDeadlineToken.Create());
     }
 }
 
@@ -14,5 +17,5 @@
 
 <ProfileGraphHeader Did="@Did" Kind="followers" />
 
-<ProfileList Profiles="Followers" />
+<ProfileList Profiles="Followers" NextContinuation="@NextContinuation" />
 

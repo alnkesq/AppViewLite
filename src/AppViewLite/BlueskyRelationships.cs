@@ -478,13 +478,13 @@ namespace AppViewLite
         }
 
 
-        public BlueskyProfile[] GetPostLikers(string profile, string rkey)
+        public BlueskyProfile[] GetPostLikers(string profile, string rkey, Relationship continuation, int limit)
         {
-            return Likes.GetActors(GetPostId(profile, rkey)).Take(100).Select(GetProfile).ToArray();
+            return Likes.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
-        public BlueskyProfile[] GetPostReposts(string profile, string rkey)
+        public BlueskyProfile[] GetPostReposts(string profile, string rkey, Relationship continuation, int limit)
         {
-            return Reposts.GetActors(GetPostId(profile, rkey)).Take(100).Select(GetProfile).ToArray();
+            return Reposts.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
         public BlueskyPost[] GetPostQuotes(string profile, string rkey)
         {
@@ -503,7 +503,7 @@ namespace AppViewLite
         public BlueskyPost GetPost(PostId id)
         {
             var post = GetPostWithoutData(id);
-            post.Data = TryGetPostData(id);
+            (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id);
             return post;
         }
 
@@ -527,6 +527,15 @@ namespace AppViewLite
                 Date = DateTime.UnixEpoch.AddMicroseconds(id.PostRKey.Timestamp),
                 PostId = id,
             };
+        }
+
+        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo) TryGetPostDataAndInReplyTo(PostId id)
+        {
+            var d = TryGetPostData(id);
+            if (d == null) return default;
+            if (d.InReplyToPlc == null) return (d, null);
+            return (d, GetProfile(new Plc(d.InReplyToPlc.Value)));
+
         }
 
         internal BlueskyPostData? TryGetPostData(PostId id)
@@ -566,12 +575,17 @@ namespace AppViewLite
 
         public BlueskyProfile GetProfile(Plc plc)
         {
+            return GetProfile(plc, null);
+        }
+        public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey)
+        {
             var basic = GetProfileBasicInfo(plc);
             return new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,
                 Did = TryGetDid(plc),
                 BasicData = basic,
+                RelationshipRKey = relationshipRKey,
             };
         }
 
@@ -585,9 +599,9 @@ namespace AppViewLite
             return GetPostId(uri.Did!.ToString(), uri.Rkey);
         }
 
-        public BlueskyProfile[] GetFollowers(string did)
+        public BlueskyProfile[] GetFollowers(string did, Relationship continuation, int limit)
         {
-            return Follows.GetActors(SerializeDid(did)).Select(x => GetProfile(x)).ToArray();
+            return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
         public BlueskyFullProfile GetFullProfile(string did)

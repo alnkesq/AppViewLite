@@ -1,3 +1,5 @@
+using AppViewLite.Numerics;
+
 namespace AppViewLite.Models
 {
     public class BlueskyProfile
@@ -13,6 +15,8 @@ namespace AppViewLite.Models
 
         public BlueskyProfileBasicInfo? BasicData;
         public string? AvatarUrl => AvatarCid != null ? $"https://cdn.bsky.app/img/avatar_thumbnail/plain/{Did}/{AvatarCid}@jpeg" : null;
+
+        public Tid? RelationshipRKey;
     }
 }
 

@@ -109,6 +109,15 @@ namespace AppViewLite.Web
             app.Run();
             
         }
+
+        public static async Task<ATUri> ResolveUriAsync(string uri)
+        {
+            var aturi = new ATUri(uri);
+            if (aturi.Did != null) return aturi;
+            
+            var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(aturi.Handle!.Handle);
+            return new ATUri("at://" + did + aturi.Pathname + aturi.Hash);
+        }
     }
 }
 

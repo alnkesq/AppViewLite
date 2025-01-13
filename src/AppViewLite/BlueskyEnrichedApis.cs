@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Threading;
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Graph;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using System.Net.Http;
@@ -20,6 +19,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
@@ -94,7 +94,7 @@ namespace AppViewLite
             var records = (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.graph.follow")).AsT0.Records;
             var following = WithRelationshipsLock(rels =>
             {
-                return records.Select(x => rels.GetProfile(rels.SerializeDid(((Follow)x.Value).Subject.Handler))).ToArray();
+                return records.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value).Subject.Handler))).ToArray();
             });
             await EnrichAsync(following, deadline);
             return following;
@@ -114,7 +114,7 @@ namespace AppViewLite
                 {
                     if (post.Data == null)
                     {
-                        post.Data = rels.TryGetPostData(rels.GetPostId(post.Author.Did, post.RKey));
+                        (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey));
                     }
 
                     if (loadQuotes && post.Data?.QuotedPlc != null)
@@ -128,10 +128,9 @@ namespace AppViewLite
 
             WithRelationshipsLock(rels =>
             {
-
                 foreach (var post in posts)
                 {
-                    if (post.Data?.InReplyToPlc != null)
+                    if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
                     {
                         post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
                     }
@@ -153,6 +152,7 @@ namespace AppViewLite
 
         private Task LookupManyRecordsAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, EnrichDeadlineToken deadline) where TValue : ATObject
         {
+            //return Task.CompletedTask;
             var date = DateTime.UtcNow;
 
             var failedKeys = new List<RelationshipStr>();
@@ -415,9 +415,9 @@ namespace AppViewLite
             thread.AddRange(opReplies.OrderBy(x => x.Date));
             
 
-            var replies = WithRelationshipsLock(rels => rels.DirectReplies.GetDistinctValuesSorted(focalPostId).Where(x => x.Author != focalPostId.Author).Select(x => rels.GetPost(x)).ToArray());
-            thread.AddRange(replies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
-            await EnrichAsync(replies, deadline);
+            var otherReplies = WithRelationshipsLock(rels => rels.DirectReplies.GetDistinctValuesSorted(focalPostId).Where(x => x.Author != focalPostId.Author).Select(x => rels.GetPost(x)).ToArray());
+            thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
+            await EnrichAsync([..opReplies, ..otherReplies], deadline);
             return thread.ToArray();
         }
 
@@ -485,7 +485,62 @@ namespace AppViewLite
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
         }
 
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        {
+            EnsureLimit(ref limit);
+            var profiles = WithRelationshipsLock(rels => rels.GetPostLikers(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
+            DeterministicShuffle(profiles, did + rkey);
+            await EnrichAsync(profiles, deadline);
+            return (profiles, nextContinuation);
+        }
 
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        {
+            EnsureLimit(ref limit);
+            var profiles = WithRelationshipsLock(rels => rels.GetPostReposts(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
+            DeterministicShuffle(profiles, did + rkey);
+            await EnrichAsync(profiles, deadline);
+            return (profiles, nextContinuation);
+        }
+
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowersAsync(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
+        {
+            EnsureLimit(ref limit);
+            var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
+            DeterministicShuffle(profiles, did);
+            await EnrichAsync(profiles, deadline);
+            return (profiles, nextContinuation);
+        }
+
+        private static void DeterministicShuffle<T>(T[] items, string seed)
+        {
+            // The values in the multidictionary are sorted by (Plc,RKey) for each key, and we don't want to prioritize always the same accounts
+            // This is not a perfect solution, since if there are more than "limit" accounts in such value list, we'll always prioritize those "limit" first.
+            new Random((int)System.IO.Hashing.XxHash32.HashToUInt32(MemoryMarshal.AsBytes<char>(seed))).Shuffle(items);
+        }
+
+        private static void EnsureLimit(ref int limit)
+        {
+            if (limit <= 0) limit = 100;
+            limit = Math.Min(limit, 200);
+        }
+
+        private static string? SerializeRelationshipContinuation(BlueskyProfile[] actors, int limit)
+        {
+            if (actors.Length == 0) return null;
+            if (actors.Length <= limit) return null; // we request limit + 1
+            var last = actors[^1];
+            var relationship = new Relationship(new Plc(last.PlcId), last.RelationshipRKey!.Value);
+            return relationship.Serialize();
+        }
+
+        private static Relationship DeserializeRelationshipContinuation(string? continuation)
+        {
+            return continuation != null ? Relationship.Deserialize(continuation) : default;
+        }
 
         private readonly static HttpClient DefaultHttpClient = new();
     }

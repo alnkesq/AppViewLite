@@ -104,7 +104,7 @@ namespace AppViewLite.Web
             {
                 await Task.Delay(1000);
                 app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
-                return indexer.ListenJetStreamFirehoseAsync();
+                await indexer.ListenJetStreamFirehoseAsync();
             });
             app.Run();
             

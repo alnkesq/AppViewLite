@@ -5,6 +5,7 @@ using FishyFlip.Models;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using AppViewLite.Storage;
 using Ipfs;
+using System.Text.Json.Serialization;
 
 namespace AppViewLite.Web
 {
@@ -54,6 +55,15 @@ namespace AppViewLite.Web
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents()
                 .AddInteractiveWebAssemblyComponents();
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+            });
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("BskyClient", b => b.WithOrigins("http://localhost:19006").AllowAnyHeader().AllowAnyMethod());
+            });
+
 
             var app = builder.Build();
 
@@ -81,6 +91,14 @@ namespace AppViewLite.Web
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode()
                 .AddInteractiveWebAssemblyRenderMode();
+
+            app.UseRouting();
+            app.UseCors();
+            app.UseAntiforgery();
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
 
             _ = Task.Run(async () =>
             {

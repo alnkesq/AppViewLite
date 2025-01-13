@@ -542,6 +542,13 @@ namespace AppViewLite
             return continuation != null ? Relationship.Deserialize(continuation) : default;
         }
 
+        public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, EnrichDeadlineToken deadline)
+        {
+            var profile = WithRelationshipsLock(rels => rels.GetFullProfile(did));
+            await EnrichAsync([profile.Profile], deadline);
+            return profile;
+        }
+
         private readonly static HttpClient DefaultHttpClient = new();
     }
 }

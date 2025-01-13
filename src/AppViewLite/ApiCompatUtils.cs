@@ -112,6 +112,26 @@ namespace AppViewLite
                 },
             };
         }
+        public static ProfileViewDetailed ToApiCompatDetailed(this BlueskyFullProfile fullProfile)
+        {
+            var profile = fullProfile.Profile;
+            return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileViewDetailed
+            {
+                DisplayName = profile.DisplayNameOrFallback,
+                Labels = [],
+                CreatedAt = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                Avatar = profile.AvatarUrl,
+                Did = new FishyFlip.Models.ATDid(profile.Did),
+                Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
+                Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
+                {
+                    Muted = false,
+                    BlockedBy = false,
+                },
+                FollowersCount = fullProfile.Followers,
+                FollowsCount = fullProfile.Following,
+            };
+        }
 
         private static ProfileAssociated CreateProfileAssociated()
         {

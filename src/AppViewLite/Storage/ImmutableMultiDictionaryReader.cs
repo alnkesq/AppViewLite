@@ -70,8 +70,24 @@ namespace AppViewLite.Storage
             return index >= 0;
         }
 
-
         public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key) => GetValues(GetIndex(key));
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key, TValue? minExclusive) => GetValues(GetIndex(key), minExclusive);
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(long index, TValue? minExclusive)
+        {
+            var vals = GetValues(index);
+            if (vals.Length == 0 || minExclusive == null) return vals;
+
+            var z = vals.Span.BinarySearch(minExclusive.Value);
+            if (z > 0)
+            {
+                return vals.Slice(z + 1);
+            }
+            else
+            {
+                z = ~z;
+                return vals.Slice(z);
+            }
+        }
         public DangerousHugeReadOnlyMemory<TValue> GetValues(long index)
         {
             if (index == -1) return default;

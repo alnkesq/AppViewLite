@@ -211,12 +211,24 @@ namespace AppViewLite.Storage
             return false;
         }
 
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key)
+        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            var extra = queue.TryGetValues(key);
-            var extraFunc = extra.Count != 0 ? new ManagedOrNativeArray<TValue>(extra.ToArray()) : default;
-            var z = slices.Select(slice => slice.Reader.GetValues(key)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x).Concat(extraFunc.Count != 0 ? [(ManagedOrNativeArray<TValue>)extraFunc] : []).ToArray();
+            ManagedOrNativeArray<TValue> extraArr = default;
+            if (queue.TryGetValues(key, out var extra))
+            {
+                if (minExclusive != null)
+                {
+                    extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).ToArray();
+                }
+                else
+                {
+                    extraArr = extra.ToArray();
+                }
+            }
+            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
+            if (extraArr.Count != 0)
+                z = z.Append(extraArr);
             return z;
         }
         public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key)
@@ -260,9 +272,9 @@ namespace AppViewLite.Storage
             return GetValuesSorted(key).DistinctAssumingOrderedInput();
         }
 
-        public IEnumerable<TValue> GetValuesSorted(TKey key)
+        public IEnumerable<TValue> GetValuesSorted(TKey key, TValue? minExclusive = null)
         {
-            var chunks = GetValuesChunked(key).ToArray();
+            var chunks = GetValuesChunked(key, minExclusive).ToArray();
             if (chunks.Length == 0) return [];
             if (chunks.Length == 1) return chunks[0].AsEnumerable();
             var chunksEnumerables = chunks.Select(x => x.AsEnumerable()).ToArray();

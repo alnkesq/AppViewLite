@@ -11,17 +11,16 @@ using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using System.Net.Http;
 using Newtonsoft.Json;
-using Ipfs;
 using FishyFlip.Lexicon.Com.Atproto.Identity;
 using AppViewLite.Storage;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System.Runtime.InteropServices;
 using FishyFlip.Tools;
 using FishyFlip.Lexicon.App.Bsky.Graph;
+
 namespace AppViewLite
 {
     public class BlueskyEnrichedApis
@@ -435,12 +434,12 @@ namespace AppViewLite
             return thread.ToArray();
         }
 
-        private Dictionary<(string Did, string RKey), (string ImplementationDid, string DisplayName, DateTime DateCached)> FeedDomainCache = new();
-        public async Task<(BlueskyPost[], string DisplayName, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, EnrichDeadlineToken deadline)
+        private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
+        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, EnrichDeadlineToken deadline)
         {
-            var eedGenInfo = await GetFeedGeneratorInfoAsync(did, rkey);
-            if (!eedGenInfo.ImplementationDid.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
-            var domain = eedGenInfo.ImplementationDid.Substring(8);
+            var feedGenInfo = await GetFeedGeneratorAsync(did, rkey);
+            if (!feedGenInfo.Data.ImplementationDid.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
+            var domain = feedGenInfo.Data.ImplementationDid.Substring(8);
 
             var skeletonUrl = $"https://{domain}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}&limit=30";
             if (continuation != null)
@@ -451,28 +450,33 @@ namespace AppViewLite
             {
                 return postsJson.feed.Select(x => rels.GetPost(new ATUri(x.post))).ToArray();
             });
-            return (await EnrichAsync(posts, deadline), eedGenInfo.DisplayName, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
+            return (await EnrichAsync(posts, deadline), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 
 
-        private async Task<(string ImplementationDid, string DisplayName)> GetFeedGeneratorInfoAsync(string did, string rkey)
+        private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey)
         {
             lock (FeedDomainCache)
             {
                 if (FeedDomainCache.TryGetValue((did, rkey), out var z) && (DateTime.UtcNow - z.DateCached).TotalHours < 3)
                 {
-                    return (z.ImplementationDid, z.DisplayName);
+                    return z.Info;
                 }
             }
             var recordOutput = (await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey)).HandleResult();
             var generator = (Generator)recordOutput!.Value!;
-            var feedGenDid = generator.Did!.Handler;
-            var displayName = generator.DisplayName;
+            var result = new BlueskyFeedGeneratorData
+            {
+                DisplayName = generator.DisplayName,
+                ImplementationDid = generator.Did!.Handler,
+                AvatarCid = generator.Avatar?.Ref?.Link?.ToArray(),
+                Description = generator.Description,
+            };
             lock (FeedDomainCache)
             {
-                FeedDomainCache[(did, rkey)] = (feedGenDid!, displayName!, DateTime.UtcNow);
+                FeedDomainCache[(did, rkey)] = (result, DateTime.UtcNow);
             }
-            return (feedGenDid!, displayName!);
+            return result;
         }
 
         public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, EnrichDeadlineToken deadline)
@@ -568,6 +572,36 @@ namespace AppViewLite
             var profile = WithRelationshipsLock(rels => rels.GetProfile(rels.SerializeDid(did)));
             await EnrichAsync([profile], deadline);
             return profile;
+        }
+        public async Task PopulateFullInReplyToAsync(BlueskyPost[] posts, EnrichDeadlineToken deadline)
+        {
+            WithRelationshipsLock(rels =>
+            {
+                foreach (var post in posts)
+                {
+                    if (post.IsReply)
+                    {
+                        post.InReplyToFullPost = rels.GetPost(post.InReplyToPostId!.Value);
+                        //post.RootFullPost = rels.GetPost(post.Data.InReplyToRKey); // TODO: https://github.com/alnkesq/AppViewLite/issues/15
+                    }
+                }
+            });
+            await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).Where(x => x != null)!, .. posts.Select(x => x.RootFullPost).Where(x => x != null)!], deadline);
+        }
+
+        public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey)
+        {
+            return new BlueskyFeedGenerator
+            {
+                Did = did,
+                RKey = rkey,
+                Data = await GetFeedGeneratorDataAsync(did, rkey),
+            };
+        }
+
+        internal static string? GetAvatarUrl(string did, string? avatarCid)
+        {
+            return avatarCid != null ? $"https://cdn.bsky.app/img/avatar_thumbnail/plain/{did}/{avatarCid}@jpeg" : null;
         }
 
         private readonly static HttpClient DefaultHttpClient = new();

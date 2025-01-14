@@ -92,13 +92,16 @@ namespace AppViewLite
         {
             return new ATUri("at://" + did + "/app.bsky.feed.post/" + rkey);
         }
+
+        private readonly static DateTime DummyDate = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+
         public static ProfileView ToApiCompatProfile(this BlueskyProfile profile)
         {
             return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileView
             {
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
-                CreatedAt = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = DummyDate,
                 Avatar = profile.AvatarUrl,
                 Did = new FishyFlip.Models.ATDid(profile.Did),
                 Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
@@ -115,7 +118,7 @@ namespace AppViewLite
             {
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
-                CreatedAt = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = DummyDate,
                 Avatar = profile.AvatarUrl,
                 Did = new FishyFlip.Models.ATDid(profile.Did),
                 Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
@@ -133,7 +136,7 @@ namespace AppViewLite
             {
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
-                CreatedAt = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = DummyDate,
                 Avatar = profile.AvatarUrl,
                 Did = new FishyFlip.Models.ATDid(profile.Did),
                 Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
@@ -159,6 +162,23 @@ namespace AppViewLite
                 {
                     AllowIncoming = "none"
                 }
+            };
+        }
+
+        public static GeneratorView ToApiCompat(this BlueskyFeedGenerator feed, BlueskyProfile creator)
+        {
+            return new GeneratorView
+            {
+                Cid = GetSyntheticCid(feed.Uri),
+                DisplayName = feed.DisplayName,
+                Description = feed.Data.Description,
+                Uri = feed.Uri,
+                IndexedAt = DummyDate,
+                Did = new ATDid(feed.Did),
+                Avatar = feed.AvatarUrl,
+                AcceptsInteractions = false,
+                Creator = creator.ToApiCompatProfile(),
+
             };
         }
     }

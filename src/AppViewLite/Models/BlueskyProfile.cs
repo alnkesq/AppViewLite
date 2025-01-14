@@ -14,7 +14,7 @@ namespace AppViewLite.Models
         public string? AvatarCid => BasicData?.AvatarCid;
 
         public BlueskyProfileBasicInfo? BasicData;
-        public string? AvatarUrl => AvatarCid != null ? $"https://cdn.bsky.app/img/avatar_thumbnail/plain/{Did}/{AvatarCid}@jpeg" : null;
+        public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, AvatarCid);
 
         public Tid? RelationshipRKey;
     }

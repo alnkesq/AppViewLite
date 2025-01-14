@@ -7,16 +7,16 @@
     private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
-    private string? DisplayName;
+    private BlueskyFeedGenerator? Info;
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Posts, DisplayName, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, EnrichDeadlineToken.Create());
+        (Posts, Info, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, EnrichDeadlineToken.Create());
     }
 }
 
-<PageTitle>@DisplayName</PageTitle>
+<PageTitle>@Info?.DisplayName</PageTitle>
 
-<h1>@DisplayName</h1>
+<h1>@Info?.DisplayName</h1>
 
 <PostList Posts="@Posts" NextContinuation="@NextContinuation" />

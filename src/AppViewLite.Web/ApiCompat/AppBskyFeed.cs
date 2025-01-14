@@ -64,6 +64,38 @@ namespace AppViewLite.Web.ApiCompat
             };
         }
 
+        [HttpGet("app.bsky.feed.getFeedGenerator")]
+        public async Task<GetFeedGeneratorOutput> GetFeedGenerator(string feed)
+        {
+            var uri = await Program.ResolveUriAsync(feed);
+            var feedDid = uri.Did!.Handler!;
+            var feedRKey = uri.Rkey;
+            var generator = await BlueskyEnrichedApis.Instance.GetFeedGeneratorAsync(feedDid, feedRKey);
+            var creator = await BlueskyEnrichedApis.Instance.GetProfileAsync(feedDid, EnrichDeadlineToken.Create());
+            return new GetFeedGeneratorOutput
+            {
+                IsOnline = true,
+                IsValid = true,
+                View = generator.ToApiCompat(creator)
+            };
+        }
+
+        [HttpGet("app.bsky.feed.getFeed")]
+        public async Task<GetFeedOutput> GetFeed(string feed, int limit, string? cursor)
+        {
+            var uri = await Program.ResolveUriAsync(feed);
+            var feedDid = uri.Did!.Handler!;
+            var feedRKey = uri.Rkey;
+            var deadline = EnrichDeadlineToken.Create();
+            var (posts, displayName, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, deadline);
+            await BlueskyEnrichedApis.Instance.PopulateFullInReplyToAsync(posts, deadline);
+            return new GetFeedOutput
+            {
+                Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList(),
+                Cursor = nextContinuation,
+            };
+        }
+
         [HttpGet("app.bsky.feed.getAuthorFeed")]
         public async Task<GetAuthorFeedOutput> GetAuthorFeed(string actor, GetUserPostsFilter filter, string includePins, int limit, string? cursor)
         {
@@ -73,32 +105,22 @@ namespace AppViewLite.Web.ApiCompat
             var deadline = EnrichDeadlineToken.Create();
 
             var (posts, nextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(actor,
-                includePosts: true, 
+                includePosts: true,
                 includeReplies: filter != GetUserPostsFilter.posts_no_replies,
                 includeReposts: filter == GetUserPostsFilter.posts_no_replies,
                 includeLikes: false,
                 mediaOnly: filter == GetUserPostsFilter.posts_with_media,
                 cursor,
                 deadline);
+            await BlueskyEnrichedApis.Instance.PopulateFullInReplyToAsync(posts, deadline);
 
-            BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
-            {
-                foreach (var post in posts)
-                {
-                    if (post.IsReply)
-                    {
-                        post.InReplyToFullPost = rels.GetPost(post.InReplyToPostId!.Value);
-                        //post.RootFullPost = rels.GetPost(post.Data.InReplyToRKey); // TODO: https://github.com/alnkesq/AppViewLite/issues/15
-                    }
-                }
-            });
-            await BlueskyEnrichedApis.Instance.EnrichAsync([..posts.Select(x => x.InReplyToFullPost).Where(x => x != null)!, ..posts.Select(x => x.RootFullPost).Where(x => x != null)!], deadline);
             return new GetAuthorFeedOutput
             {
-                 Cursor = nextContinuation,
-                 Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList()
+                Cursor = nextContinuation,
+                Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList()
             };
         }
+
 
         public enum GetUserPostsFilter
         {

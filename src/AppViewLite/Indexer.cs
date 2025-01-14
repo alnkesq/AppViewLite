@@ -226,9 +226,7 @@ namespace AppViewLite
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
-            var (result, error) = await proto.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct);
-            if (error is not null)
-                throw new Exception(error.Detail!.Error);
+            var result = (await proto.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct)).HandleResult();
             importer.LogStats();
             foreach (var record in importer.EnumerateRecords())
             {

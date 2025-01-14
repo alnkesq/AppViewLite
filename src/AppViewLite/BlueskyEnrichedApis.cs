@@ -42,7 +42,7 @@ namespace AppViewLite
         public async Task<string> ResolveHandleAsync(string handle)
         {
             if (handle.StartsWith("did:", StringComparison.Ordinal)) return handle;
-            var (resolved, error) = await protoAppView.ResolveHandleAsync(new ATHandle(handle));
+            var resolved = (await protoAppView.ResolveHandleAsync(new ATHandle(handle))).HandleResult();
             return resolved!.Did!.ToString();
         }
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
@@ -93,7 +93,7 @@ namespace AppViewLite
         public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowing(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
         {
             EnsureLimit(ref limit);
-            var (response, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation);
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
             var following = WithRelationshipsLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
@@ -209,6 +209,7 @@ namespace AppViewLite
                         }
                         catch (Exception ex)
                         {
+                            // Should we cache network errors? Maybe we should save the error code to the failure dictionary
                             Console.Error.WriteLine("     > Exception: " + key);
                         }
 
@@ -315,7 +316,7 @@ namespace AppViewLite
             Record[] postRecords = [];
             if (includePosts)
             {
-                var (results, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Post.RecordType);
+                var results = (await proto.Repo.ListRecordsAsync(GetAtId(did), Post.RecordType)).HandleResult();
                 postRecords = results!.Records!.ToArray();
             }
             var posts = WithRelationshipsLock(rels =>
@@ -339,8 +340,8 @@ namespace AppViewLite
             List<Record> repostRecords = [];
             if (includeReposts)
             {
-                var (results, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Repost.RecordType);
-                repostRecords = results!.Records!.ToList();
+                var result = (await proto.Repo.ListRecordsAsync(GetAtId(did), Repost.RecordType)).HandleResult();
+                repostRecords = result!.Records!.ToList();
             }
             var reposts = WithRelationshipsLock(rels =>
             {
@@ -358,7 +359,7 @@ namespace AppViewLite
             List<Record> likeRecords = [];
             if (includeLikes)
             {
-                var (results, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Like.RecordType);
+                var results = (await proto.Repo.ListRecordsAsync(GetAtId(did), Like.RecordType)).HandleResult();
                 likeRecords = results!.Records!.ToList();
             }
             var likes = WithRelationshipsLock(rels =>
@@ -463,7 +464,7 @@ namespace AppViewLite
                     return (z.ImplementationDid, z.DisplayName);
                 }
             }
-            (var recordOutput, var error) = await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey);
+            var recordOutput = (await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey)).HandleResult();
             var generator = (Generator)recordOutput!.Value!;
             var feedGenDid = generator.Did!.Handler;
             var displayName = generator.DisplayName;

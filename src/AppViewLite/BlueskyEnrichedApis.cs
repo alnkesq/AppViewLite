@@ -20,7 +20,8 @@ using System.Text.RegularExpressions;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System.Runtime.InteropServices;
-
+using FishyFlip.Tools;
+using FishyFlip.Lexicon.App.Bsky.Graph;
 namespace AppViewLite
 {
     public class BlueskyEnrichedApis
@@ -41,8 +42,8 @@ namespace AppViewLite
         public async Task<string> ResolveHandleAsync(string handle)
         {
             if (handle.StartsWith("did:", StringComparison.Ordinal)) return handle;
-            var resolved = await protoAppView.ResolveHandleAsync(new ATHandle(handle));
-            return resolved.AsT0.Did.ToString();
+            var (resolved, error) = await protoAppView.ResolveHandleAsync(new ATHandle(handle));
+            return resolved!.Did!.ToString();
         }
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
         {
@@ -71,7 +72,7 @@ namespace AppViewLite
             toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
             if (toLookup.Length == 0) return profiles;
 
-            await LookupManyRecordsAsync<Profile>(toLookup, pendingProfileRetrievals, "app.bsky.actor.profile", ct,
+            await LookupManyRecordsAsync<Profile>(toLookup, pendingProfileRetrievals, Profile.RecordType, ct,
                 (key, profileRecord) => WithRelationshipsLock(rels => rels.StoreProfileBasicInfo(rels.SerializeDid(key.Did), profileRecord)),
                 key => WithRelationshipsLock(rels => rels.FailedProfileLookups.Add(rels.SerializeDid(key.Did), DateTime.UtcNow)), deadline);
 
@@ -92,19 +93,19 @@ namespace AppViewLite
         public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowing(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
         {
             EnsureLimit(ref limit);
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.graph.follow", limit: limit, cursor: continuation)).AsT0;
+            var (response, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation);
             var following = WithRelationshipsLock(rels =>
             {
-                return response.Records.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value).Subject.Handler))).ToArray();
+                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
             });
             await EnrichAsync(following, deadline);
-            return (following, response.Cursor);
+            return (following, response!.Cursor);
         }
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, EnrichDeadlineToken deadline, bool loadQuotes = true, CancellationToken ct = default)
         {
             var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
             toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray());
-            await LookupManyRecordsAsync<Post>(toLookup, pendingPostRetrievals, "app.bsky.feed.post", ct,
+            await LookupManyRecordsAsync<Post>(toLookup, pendingPostRetrievals, Post.RecordType, ct,
                 (key, postRecord) => WithRelationshipsLock(rels => rels.StorePostInfo(rels.GetPostId(key.Did, key.RKey), postRecord)), 
                 key => WithRelationshipsLock(rels => rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow)), deadline);
 
@@ -191,11 +192,11 @@ namespace AppViewLite
                         try
                         {
                             Console.Error.WriteLine("  Firing request for " + key);
-                            var response = await proto.Repo.GetRecordAsync(GetAtId(key.Did), collection, key.RKey, cancellationToken: ct);
+                            var (response, error) = await proto.Repo.GetRecordAsync(GetAtId(key.Did), collection, key.RKey, cancellationToken: ct);
 
-                            if (response.IsT0)
+                            if (response is not null)
                             {
-                                var obj = (TValue)response.AsT0.Value!;
+                                var obj = (TValue)response.Value!;
                                 onItemSuccess(key, obj);
                                 Console.Error.WriteLine("     > Completed: " + key);
                             }
@@ -311,8 +312,12 @@ namespace AppViewLite
 
         public async Task<BlueskyPost[]> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, EnrichDeadlineToken deadline)
         {
-
-            var postRecords = includePosts ? (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.feed.post")).AsT0!.Records!.ToArray() : [];
+            Record[] postRecords = [];
+            if (includePosts)
+            {
+                var (results, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Post.RecordType);
+                postRecords = results!.Records!.ToArray();
+            }
             var posts = WithRelationshipsLock(rels =>
             {
 
@@ -321,19 +326,22 @@ namespace AppViewLite
                     var postId = rels.GetPostId(record.Uri!);
                     if (!rels.PostData.ContainsKey(postId))
                     {
-                        rels.StorePostInfo(postId, (Post)record.Value);
+                        rels.StorePostInfo(postId, (Post)record.Value!);
                     }
                 }
 
 
-                var p = postRecords.Select(x => rels.GetPost(x.Uri));
+                var p = postRecords.Select(x => rels.GetPost(x.Uri!));
                 if (!includeReplies) p = p.Where(x => x.Data?.InReplyToPlc == null);
                 return p.ToArray();
             });
 
-
-
-            var repostRecords = includeReposts ? (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.feed.repost")).AsT0!.Records! : [];
+            List<Record> repostRecords = [];
+            if (includeReposts)
+            {
+                var (results, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Repost.RecordType);
+                repostRecords = results!.Records!.ToList();
+            }
             var reposts = WithRelationshipsLock(rels =>
             {
                 var reposter = rels.GetProfile(rels.SerializeDid(did));
@@ -347,8 +355,12 @@ namespace AppViewLite
                 }).ToArray();
             });
 
-
-            var likeRecords = includeLikes ? (await proto.Repo.ListRecordsAsync(GetAtId(did), "app.bsky.feed.like")).AsT0!.Records! : [];
+            List<Record> likeRecords = [];
+            if (includeLikes)
+            {
+                var (results, error) = await proto.Repo.ListRecordsAsync(GetAtId(did), Like.RecordType);
+                likeRecords = results!.Records!.ToList();
+            }
             var likes = WithRelationshipsLock(rels =>
             {
                 return likeRecords.Select(likeRecord =>
@@ -386,7 +398,7 @@ namespace AppViewLite
             while (thread[0].Data?.InReplyToPlc != null)
             {
                 var p = thread[0];
-                var prepend = WithRelationshipsLock(rels => rels.GetPost(new PostId(new Plc(p.Data.InReplyToPlc.Value), new Tid(p.Data.InReplyToRKey.Value))));
+                var prepend = WithRelationshipsLock(rels => rels.GetPost(new PostId(new Plc(p.Data!.InReplyToPlc!.Value), new Tid(p.Data!.InReplyToRKey!.Value))));
                 if (prepend.Data == null)
                 {
                     if (loadedBefore++ < 3)
@@ -451,14 +463,15 @@ namespace AppViewLite
                     return (z.ImplementationDid, z.DisplayName);
                 }
             }
-            var generator = (Generator)(await proto.GetRecordAsync(GetAtId(did), "app.bsky.feed.generator", rkey)).AsT0.Value;
-            var feedGenDid = generator.Did.Handler;
+            (var recordOutput, var error) = await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey);
+            var generator = (Generator)recordOutput!.Value!;
+            var feedGenDid = generator.Did!.Handler;
             var displayName = generator.DisplayName;
             lock (FeedDomainCache)
             {
-                FeedDomainCache[(did, rkey)] = (feedGenDid, displayName, DateTime.UtcNow);
+                FeedDomainCache[(did, rkey)] = (feedGenDid!, displayName!, DateTime.UtcNow);
             }
-            return (feedGenDid, displayName);
+            return (feedGenDid!, displayName!);
         }
 
         public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, EnrichDeadlineToken deadline)
@@ -534,13 +547,13 @@ namespace AppViewLite
             if (actors.Length == 0) return null;
             if (actors.Length <= limit) return null; // we request limit + 1
             var last = actors[^1];
-            var relationship = new Relationship(new Plc(last.PlcId), last.RelationshipRKey!.Value);
+            var relationship = new Models.Relationship(new Plc(last.PlcId), last.RelationshipRKey!.Value);
             return relationship.Serialize();
         }
 
-        private static Relationship DeserializeRelationshipContinuation(string? continuation)
+        private static Models.Relationship DeserializeRelationshipContinuation(string? continuation)
         {
-            return continuation != null ? Relationship.Deserialize(continuation) : default;
+            return continuation != null ? Models.Relationship.Deserialize(continuation) : default;
         }
 
         public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, EnrichDeadlineToken deadline)

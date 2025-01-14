@@ -9,7 +9,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Following, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowing(Did, Continuation, default, EnrichDeadlineToken.Create());
+        (Following, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingAsync(Did, Continuation, default, EnrichDeadlineToken.Create());
     }
 }
 

@@ -16,10 +16,24 @@ namespace AppViewLite.Web
             var deadline = EnrichDeadlineToken.Create();
             var subject = await BlueskyEnrichedApis.Instance.GetProfileAsync(actor, deadline);
             var (followers, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowersAsync(actor, cursor, limit, deadline);
-            
+
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetFollowersOutput
             {
                 Followers = followers.Select(x => x.ToApiCompatProfile()).ToList(),
+                Cursor = nextContinuation,
+                Subject = subject.ToApiCompatProfile()
+            };
+        }
+        [HttpGet("app.bsky.graph.getFollows")]
+        public async Task<FishyFlip.Lexicon.App.Bsky.Graph.GetFollowsOutput> GetFollows(string actor, string? cursor, int limit)
+        {
+            var deadline = EnrichDeadlineToken.Create();
+            var subject = await BlueskyEnrichedApis.Instance.GetProfileAsync(actor, deadline);
+            var (follows, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingAsync(actor, cursor, limit, deadline);
+
+            return new FishyFlip.Lexicon.App.Bsky.Graph.GetFollowsOutput
+            {
+                Follows = follows.Select(x => x.ToApiCompatProfile()).ToList(),
                 Cursor = nextContinuation,
                 Subject = subject.ToApiCompatProfile()
             };

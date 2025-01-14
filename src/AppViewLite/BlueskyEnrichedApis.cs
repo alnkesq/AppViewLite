@@ -90,7 +90,7 @@ namespace AppViewLite
             return profiles;
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowing(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowingAsync(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
         {
             EnsureLimit(ref limit);
             var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();

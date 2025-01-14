@@ -563,6 +563,12 @@ namespace AppViewLite
             await EnrichAsync([profile.Profile], deadline);
             return profile;
         }
+        public async Task<BlueskyProfile> GetProfileAsync(string did, EnrichDeadlineToken deadline)
+        {
+            var profile = WithRelationshipsLock(rels => rels.GetProfile(rels.SerializeDid(did)));
+            await EnrichAsync([profile], deadline);
+            return profile;
+        }
 
         private readonly static HttpClient DefaultHttpClient = new();
     }

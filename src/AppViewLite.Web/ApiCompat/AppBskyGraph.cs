@@ -38,6 +38,14 @@ namespace AppViewLite.Web
                 Subject = subject.ToApiCompatProfile()
             };
         }
+        [HttpGet("app.bsky.graph.getActorStarterPacks")]
+        public async Task<FishyFlip.Lexicon.App.Bsky.Graph.GetActorStarterPacksOutput> GetActorStarterPacks(string actor, string? cursor, int limit)
+        {
+            return new FishyFlip.Lexicon.App.Bsky.Graph.GetActorStarterPacksOutput
+            {
+                StarterPacks = []
+            };
+        }
     }
 }
 

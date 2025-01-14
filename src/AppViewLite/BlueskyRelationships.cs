@@ -211,27 +211,27 @@ namespace AppViewLite
 
             proto.Facets = (p.Facets ?? []).Select(x => 
             {
-                var feature = x.Features.FirstOrDefault();
+                var feature = x.Features!.FirstOrDefault();
                 if (feature == null) return null;
     
                 var facet = new FacetData
                 {
-                    Start = ((int)x.Index.ByteStart),
-                    Length = (int)(x.Index.ByteEnd.Value - x.Index.ByteStart.Value),
+                    Start = ((int)x.Index!.ByteStart!),
+                    Length = (int)(x.Index.ByteEnd!.Value - x.Index.ByteStart.Value),
                 };
 
                 if (feature is Mention m)
                 {
-                    facet.Did = m.Did.Handler;
+                    facet.Did = m.Did!.Handler;
                 }
                 else if (feature is Link l)
                 {
-                    facet.Link = l.Uri;
+                    facet.Link = l.Uri!;
                 }
                 else return null;
 
                 return facet;
-            }).Where(x => x != null).ToArray();
+            }).Where(x => x != null).ToArray()!;
             if (proto.Facets.Length == 0)
                 proto.Facets = null;
 
@@ -286,7 +286,7 @@ namespace AppViewLite
             var embed = p.Embed;
             if (embed is EmbedRecord { } er)
             {
-                var quoted = this.GetPostId(er.Record, ignoreIfNotPost: true);
+                var quoted = this.GetPostId(er.Record!, ignoreIfNotPost: true);
                 if (quoted != default)
                 {
                     proto.QuotedPlc = quoted.Author.PlcValue;
@@ -299,7 +299,7 @@ namespace AppViewLite
             }
             else if (embed is RecordWithMedia { } rm)
             {
-                var quoted = this.GetPostId(rm.Record.Record, ignoreIfNotPost: true);
+                var quoted = this.GetPostId(rm.Record!.Record!, ignoreIfNotPost: true);
                 if (quoted != default)
                 {
                     proto.QuotedPlc = quoted.Author.PlcValue;
@@ -314,7 +314,7 @@ namespace AppViewLite
 
             if (embed is EmbedImages { } ei)
             {
-                proto.Media = ei.Images.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref.Link.ToArray() }).ToArray();
+                proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref.Link.ToArray() }).ToArray();
             }
             else if (embed is EmbedExternal { } ext)
             {
@@ -328,7 +328,7 @@ namespace AppViewLite
                 proto.Media = (proto.Media ?? []).Concat([new BlueskyMediaData 
                 { 
                     AltText = vid.Alt,
-                    Cid = vid.Video.Ref.Link.ToArray(),
+                    Cid = vid.Video!.Ref!.Link!.ToArray(),
                     IsVideo = true,
                 }]).ToArray();
             }

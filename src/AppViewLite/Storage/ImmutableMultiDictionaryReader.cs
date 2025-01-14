@@ -78,7 +78,7 @@ namespace AppViewLite.Storage
             if (vals.Length == 0 || minExclusive == null) return vals;
 
             var z = vals.Span.BinarySearch(minExclusive.Value);
-            if (z > 0)
+            if (z >= 0)
             {
                 return vals.Slice(z + 1);
             }

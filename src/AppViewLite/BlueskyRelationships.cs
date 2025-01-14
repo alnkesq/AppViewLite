@@ -170,7 +170,7 @@ namespace AppViewLite
         public PostId GetPostId(StrongRef subject, bool ignoreIfNotPost = false)
         {
             var uri = subject.Uri;
-            if (uri.Collection != "app.bsky.feed.post")
+            if (uri.Collection != Post.RecordType)
             {
                 if (ignoreIfNotPost) return default;
                 throw new ArgumentException("Unexpected URI type: " + uri.Collection);
@@ -595,7 +595,7 @@ namespace AppViewLite
         }
         public PostId GetPostId(ATUri uri)
         {
-            if (uri.Collection != "app.bsky.feed.post") throw new ArgumentException();
+            if (uri.Collection != Post.RecordType) throw new ArgumentException();
             return GetPostId(uri.Did!.ToString(), uri.Rkey);
         }
 

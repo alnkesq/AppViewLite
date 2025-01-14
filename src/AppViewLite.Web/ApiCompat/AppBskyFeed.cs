@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using AppViewLite.Models;
 using AppViewLite;
+using System.Linq;
 
 namespace AppViewLite.Web.ApiCompat
 {
@@ -20,7 +21,7 @@ namespace AppViewLite.Web.ApiCompat
             var aturi = await Program.ResolveUriAsync(uri);
             var thread = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, EnrichDeadlineToken.Create());
 
-            var focalPostIndex = thread.FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
+            var focalPostIndex = thread.ToList().FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
             if (focalPostIndex == -1) throw new Exception();
             var rootPost = thread[0];
 

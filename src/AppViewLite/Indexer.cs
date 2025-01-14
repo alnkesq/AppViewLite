@@ -41,23 +41,23 @@ namespace AppViewLite
                 var deletionDate = DateTime.UtcNow;
                 if (!Tid.TryParse(rkey, out var tid)) return;
                 var rel = new Relationship(relationships.SerializeDid(commitAuthor), tid);
-                if (collection == "app.bsky.feed.like")
+                if (collection == Like.RecordType)
                 {
                     relationships.Likes.Delete(rel, deletionDate);
                 }
-                else if (collection == "app.bsky.graph.follow")
+                else if (collection == Follow.RecordType)
                 {
                     relationships.Follows.Delete(rel, deletionDate);
                 }
-                else if (collection == "app.bsky.graph.block")
+                else if (collection == Block.RecordType)
                 {
                     relationships.Blocks.Delete(rel, deletionDate);
                 }
-                else if (collection == "app.bsky.feed.repost")
+                else if (collection == Repost.RecordType)
                 {
                     relationships.Reposts.Delete(rel, deletionDate);
                 }
-                else if (collection == "app.bsky.feed.post")
+                else if (collection == Post.RecordType)
                 {
                     relationships.PostDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
                 }
@@ -76,28 +76,28 @@ namespace AppViewLite
                 var commitPlc = relationships.SerializeDid(commitAuthor);
                 if (record is Like l)
                 {
-                    if (l.Subject!.Uri!.Collection == "app.bsky.feed.post") // quick check to avoid noisy exceptions
-                        relationships.Likes.Add(relationships.GetPostId(l.Subject), new Relationship(commitPlc, GetMessageTid(path, "app.bsky.feed.like/")));
+                    if (l.Subject!.Uri!.Collection == Post.RecordType) // quick check to avoid noisy exceptions
+                        relationships.Likes.Add(relationships.GetPostId(l.Subject), new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                 }
                 else if (record is Follow f)
                 {
-                    relationships.Follows.Add(relationships.SerializeDid(f.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, "app.bsky.graph.follow/")));
+                    relationships.Follows.Add(relationships.SerializeDid(f.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, Follow.RecordType + "/")));
                 }
                 else if (record is Repost r)
                 {
-                    relationships.Reposts.Add(relationships.GetPostId(r.Subject), new Relationship(commitPlc, GetMessageTid(path, "app.bsky.feed.repost/")));
+                    relationships.Reposts.Add(relationships.GetPostId(r.Subject), new Relationship(commitPlc, GetMessageTid(path, Repost.RecordType + "/")));
                 }
                 else if (record is Block b)
                 {
-                    relationships.Blocks.Add(relationships.SerializeDid(b.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, "app.bsky.graph.block/")));
+                    relationships.Blocks.Add(relationships.SerializeDid(b.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, Block.RecordType + "/")));
 
                 }
                 else if (record is Post p)
                 {
-                    var postId = new PostId(commitPlc, GetMessageTid(path, "app.bsky.feed.post/"));
+                    var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
                     relationships.StorePostInfo(postId, p);
                 }
-                else if (record is Profile pf && GetMessageRKey(path, "app.bsky.actor.profile") == "/self")
+                else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
                 {
                     relationships.StoreProfileBasicInfo(commitPlc, pf);
                 }
@@ -226,9 +226,9 @@ namespace AppViewLite
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
-            var result = await proto.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct);
-            if (!result.IsT0)
-                throw new Exception(result.AsT1.Detail!.Error);
+            var (result, error) = await proto.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct);
+            if (error is not null)
+                throw new Exception(error.Detail!.Error);
             importer.LogStats();
             foreach (var record in importer.EnumerateRecords())
             {

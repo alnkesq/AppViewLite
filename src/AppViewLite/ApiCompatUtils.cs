@@ -43,9 +43,9 @@ namespace AppViewLite
                 {
                     CreatedAt = post.Date,
                     Text = post.Data?.Text,
-                    Reply = post.Data?.InReplyToPlc != null ? new ReplyRefDef 
+                    Reply = post.IsReply ? new ReplyRefDef 
                     { 
-                        Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data.InReplyToRKeyString!),
+                        Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
                         Root = rootPost != null ? GetPostStrongRef(rootPost.Did, rootPost.RKey) : null
                     } : null,
                 },
@@ -53,6 +53,20 @@ namespace AppViewLite
             };
         }
 
+
+        public static FeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post) 
+        {
+            return new FeedViewPost
+            {
+                 Post = post.ToApiCompat(null),
+                 Reply = post.InReplyToFullPost != null ? new ReplyRef
+                 {
+                       Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(),
+                       Root = post.RootFullPost?.ToApiCompatFeedViewPost(),
+                       GrandparentAuthor = post.InReplyToFullPost.Author.ToApiCompatBasic(),
+                 } : null
+            };
+        }
         private static StrongRef GetPostStrongRef(string did, string rkey)
         {
             var uri = GetPostUri(did, rkey);

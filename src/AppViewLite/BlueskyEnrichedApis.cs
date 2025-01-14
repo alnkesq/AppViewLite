@@ -311,7 +311,7 @@ namespace AppViewLite
             return false;
         }
 
-        public async Task<BlueskyPost[]> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, string? continuation, EnrichDeadlineToken deadline)
         {
             Record[] postRecords = [];
             if (includePosts)
@@ -333,7 +333,7 @@ namespace AppViewLite
 
 
                 var p = postRecords.Select(x => rels.GetPost(x.Uri!));
-                if (!includeReplies) p = p.Where(x => x.Data?.InReplyToPlc == null);
+                if (!includeReplies) p = p.Where(x => x.IsRootPost);
                 return p.ToArray();
             });
 
@@ -376,13 +376,13 @@ namespace AppViewLite
             var allPosts = reposts.Concat(posts).Concat(likes).OrderByDescending(x => x.RepostDate ?? x.Date).ToArray();
 
             await EnrichAsync(allPosts, deadline);
-            if (!includeReplies) allPosts = allPosts.Where(x =>  x.Data?.InReplyToPlc == null || x.RepostDate != null).ToArray();
+            if (!includeReplies) allPosts = allPosts.Where(x =>  x.IsRootPost || x.RepostDate != null).ToArray();
 
             if (mediaOnly)
                 allPosts = allPosts.Where(x => x.Data?.Media != null).ToArray();
             allPosts = allPosts.DistinctBy(x => (x.Author.Did, x.RKey)).ToArray();
 
-            return allPosts;
+            return (allPosts, null);
         }
 
 
@@ -396,10 +396,10 @@ namespace AppViewLite
             await EnrichAsync([focalPost], deadline);
 
             var loadedBefore = 0;
-            while (thread[0].Data?.InReplyToPlc != null)
+            while (thread[0].IsReply)
             {
                 var p = thread[0];
-                var prepend = WithRelationshipsLock(rels => rels.GetPost(new PostId(new Plc(p.Data!.InReplyToPlc!.Value), new Tid(p.Data!.InReplyToRKey!.Value))));
+                var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value));
                 if (prepend.Data == null)
                 {
                     if (loadedBefore++ < 3)
@@ -491,7 +491,7 @@ namespace AppViewLite
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 //  .AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 if (!includeReplies)
-                    merged = merged.Where(x => x.Data!.InReplyToPlc == null);
+                    merged = merged.Where(x => x.IsRootPost);
                 return merged
                     .Take(limit)
                     .ToArray();

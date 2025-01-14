@@ -5,7 +5,10 @@
     [Parameter][SupplyParameterFromQuery] public int? Reposts { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Likes { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Media { get; set; }
+
     [Parameter] public string Did { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
 
     public bool ShowMediaOnly => (Media ?? 0) != 0;
     public bool ShowLikes => (Likes ?? 0) != 0;
@@ -21,7 +24,15 @@
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
         Profile = Program.WithRelationshipsLock(rels => rels.GetFullProfile(Did));
-        Posts = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(Did, includePosts: !ShowLikes, includeReplies: ShowReplies, includeReposts: ShowReposts, includeLikes: ShowLikes, mediaOnly: ShowMediaOnly, deadline: EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
+            Did, 
+            includePosts: !ShowLikes, 
+            includeReplies: ShowReplies, 
+            includeReposts: ShowReposts, 
+            includeLikes: ShowLikes, 
+            mediaOnly: ShowMediaOnly, 
+            continuation: Continuation,
+            deadline: EnrichDeadlineToken.Create());
     }
 }
 
@@ -67,6 +78,6 @@
         <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a>
         <a class="search-link" href="/search?from=@Did" title="Search"><img src="/assets/search.png"></a>
     </div>
-    <PostList Posts="@Posts" />
+    <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
 }
 

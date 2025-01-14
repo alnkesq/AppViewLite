@@ -301,6 +301,17 @@ namespace AppViewLite.Storage
 
         public static IEnumerable<T> ConcatPresortedEnumerablesKeepOrdered<T, TKey>(IReadOnlyList<IEnumerable<T>> sources, Func<T, int, TKey> getSortKey, IComparer<TKey>? comparer = null)
         {
+            return sources.Count switch
+            {
+                0 => [],
+                1 => sources[0],
+                _ => ConcatPresortedEnumerablesKeepOrderedCore(sources, getSortKey, comparer)
+            };
+        }
+
+        private static IEnumerable<T> ConcatPresortedEnumerablesKeepOrderedCore<T, TKey>(IReadOnlyList<IEnumerable<T>> sources, Func<T, int, TKey> getSortKey, IComparer<TKey>? comparer)
+        {
+
             comparer ??= GetComparer<TKey>();
 
             var enumerators = new PriorityQueue<(IEnumerator<T> Enumerator, int SourceIndex), TKey>(comparer);

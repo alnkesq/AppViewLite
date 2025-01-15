@@ -64,6 +64,19 @@ namespace AppViewLite.Web.ApiCompat
             };
         }
 
+        [HttpGet("app.bsky.feed.getQuotes")]
+        public async Task<GetQuotesOutput> GetQuotes(string uri, string? cursor)
+        {
+            var aturi = await Program.ResolveUriAsync(uri);
+            var reposters = await BlueskyEnrichedApis.Instance.GetPostQuotes(aturi.Did!.Handler, aturi.Rkey, cursor, default, EnrichDeadlineToken.Create());
+            return new GetQuotesOutput
+            {
+                Uri = aturi,
+                Cursor = reposters.NextContinuation,
+                Posts = reposters.Posts.Select(x => x.ToApiCompat(null)).ToList(),
+            };
+        }
+
         [HttpGet("app.bsky.feed.getFeedGenerator")]
         public async Task<GetFeedGeneratorOutput> GetFeedGenerator(string feed)
         {

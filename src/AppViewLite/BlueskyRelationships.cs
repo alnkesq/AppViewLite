@@ -567,9 +567,9 @@ namespace AppViewLite
         {
             return Reposts.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
-        public BlueskyPost[] GetPostQuotes(string profile, string rkey)
+        public BlueskyPost[] GetPostQuotes(string profile, string rkey, PostId continuation, int limit)
         {
-            return Quotes.GetDistinctValuesSorted(GetPostId(profile, rkey)).OrderByDescending(x => x.PostRKey).Take(100).Select(GetPost).ToArray();
+            return Quotes.GetValuesSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(GetPost).ToArray();
         }
 
         public BlueskyPost GetPost(string did, string rkey)

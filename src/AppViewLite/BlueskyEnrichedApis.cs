@@ -509,9 +509,23 @@ namespace AppViewLite
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetPostLikers(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
-            DeterministicShuffle(profiles, did + rkey);
+            SortByDescendingRelationshipRKey(ref profiles);
+            //DeterministicShuffle(profiles, did + rkey);
             await EnrichAsync(profiles, deadline);
             return (profiles, nextContinuation);
+        }
+
+        private static void SortByDescendingRelationshipRKey(ref BlueskyProfile[] profiles)
+        {
+            // Only a best effort approach (pagination will return items sorted by PLC)
+            // Within a page, we sort by date instead.
+            profiles = profiles.OrderByDescending(x => x.RelationshipRKey!.Value).ToArray();
+        }
+        private static void SortByDescendingRelationshipRKey(ref BlueskyPost[] posts)
+        {
+            // Only a best effort approach (pagination will return items sorted by PLC)
+            // Within a page, we sort by date instead.
+            posts = posts.OrderByDescending(x => x.Date).ToArray();
         }
 
         public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
@@ -519,17 +533,31 @@ namespace AppViewLite
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetPostReposts(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
-            DeterministicShuffle(profiles, did + rkey);
+            SortByDescendingRelationshipRKey(ref profiles);
+            //DeterministicShuffle(profiles, did + rkey);
             await EnrichAsync(profiles, deadline);
             return (profiles, nextContinuation);
         }
+
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetPostQuotes(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        {
+            EnsureLimit(ref limit);
+            var posts = WithRelationshipsLock(rels => rels.GetPostQuotes(did, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1));
+            var nextContinuation = SerializeRelationshipContinuationPlcFirst(posts, limit);
+            SortByDescendingRelationshipRKey(ref posts);
+            //DeterministicShuffle(posts, did + rkey);
+            await EnrichAsync(posts, deadline);
+            return (posts, nextContinuation);
+        }
+
 
         public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowersAsync(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
-            DeterministicShuffle(profiles, did);
+            SortByDescendingRelationshipRKey(ref profiles);
+            //DeterministicShuffle(profiles, did);
             await EnrichAsync(profiles, deadline);
             return (profiles, nextContinuation);
         }
@@ -547,13 +575,21 @@ namespace AppViewLite
             limit = Math.Min(limit, 200);
         }
 
+        private static string? SerializeRelationshipContinuation<T>(T[] items, int limit, Func<T, string> serialize)
+        {
+            if (items.Length == 0) return null;
+            if (items.Length <= limit) return null; // we request limit + 1
+            var last = items[^1];
+            return serialize(last);
+        }
         private static string? SerializeRelationshipContinuation(BlueskyProfile[] actors, int limit)
         {
-            if (actors.Length == 0) return null;
-            if (actors.Length <= limit) return null; // we request limit + 1
-            var last = actors[^1];
-            var relationship = new Models.Relationship(new Plc(last.PlcId), last.RelationshipRKey!.Value);
-            return relationship.Serialize();
+            return SerializeRelationshipContinuation(actors, limit, last => new Models.Relationship(new Plc(last.PlcId), last.RelationshipRKey!.Value).Serialize());
+        }
+
+        private static string? SerializeRelationshipContinuationPlcFirst(BlueskyPost[] posts, int limit)
+        {
+            return SerializeRelationshipContinuation(posts, limit, last => last.PostId.Serialize());
         }
 
         private static Models.Relationship DeserializeRelationshipContinuation(string? continuation)

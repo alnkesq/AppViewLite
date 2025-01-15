@@ -3,12 +3,14 @@
 @code {
     [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Posts = await BlueskyEnrichedApis.Instance.EnrichAsync(Program.WithRelationshipsLock(rels => rels.GetPostQuotes(Did, RKey)), EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostQuotes(Did, RKey, Continuation, default, EnrichDeadlineToken.Create());
     }
 }
 
@@ -16,6 +18,6 @@
 
 <PostEngagementHeader Did="@Did" RKey="@RKey" Kind="quotes"  />
 
-<PostList Posts="@Posts" />
+<PostList Posts="@Posts" NextContinuation="@NextContinuation" />
 
 

@@ -539,7 +539,7 @@ namespace AppViewLite
             return (profiles, nextContinuation);
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetPostQuotes(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
         {
             EnsureLimit(ref limit);
             var posts = WithRelationshipsLock(rels => rels.GetPostQuotes(did, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1));

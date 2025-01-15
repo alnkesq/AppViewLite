@@ -68,7 +68,7 @@ namespace AppViewLite.Web.ApiCompat
         public async Task<GetQuotesOutput> GetQuotes(string uri, string? cursor)
         {
             var aturi = await Program.ResolveUriAsync(uri);
-            var reposters = await BlueskyEnrichedApis.Instance.GetPostQuotes(aturi.Did!.Handler, aturi.Rkey, cursor, default, EnrichDeadlineToken.Create());
+            var reposters = await BlueskyEnrichedApis.Instance.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, EnrichDeadlineToken.Create());
             return new GetQuotesOutput
             {
                 Uri = aturi,

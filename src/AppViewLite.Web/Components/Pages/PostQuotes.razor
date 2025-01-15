@@ -10,7 +10,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostQuotes(Did, RKey, Continuation, default, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostQuotesAsync(Did, RKey, Continuation, default, EnrichDeadlineToken.Create());
     }
 }
 

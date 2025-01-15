@@ -582,7 +582,15 @@ namespace AppViewLite
                     if (post.IsReply)
                     {
                         post.InReplyToFullPost = rels.GetPost(post.InReplyToPostId!.Value);
-                        //post.RootFullPost = rels.GetPost(post.Data.InReplyToRKey); // TODO: https://github.com/alnkesq/AppViewLite/issues/15
+                        if (post.Data!.RootPostId == post.InReplyToPostId)
+                        {
+                            post.RootFullPost = post.InReplyToFullPost;
+                        }
+                        else
+                        {
+                            post.RootFullPost = rels.GetPost(post.Data!.RootPostId);
+                        }
+                        
                     }
                 }
             });

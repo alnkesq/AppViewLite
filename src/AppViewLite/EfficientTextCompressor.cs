@@ -24,7 +24,7 @@ namespace AppViewLite
             return t;
         }
 
-        public void CompressInPlace(ref string? text, ref byte[] compressed)
+        public void CompressInPlace(ref string? text, ref byte[]? compressed)
         {
             if (string.IsNullOrEmpty(text)) return;
             compressed = Compress(text);

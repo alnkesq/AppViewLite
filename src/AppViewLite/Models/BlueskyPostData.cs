@@ -30,6 +30,8 @@ namespace AppViewLite.Models
 
         [ProtoMember(14)] public FacetData[]? Facets;
 
+        [ProtoMember(15)] public long? RootPostRKey;
+        [ProtoMember(16)] public int? RootPostPlc;
 
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;
 

@@ -272,6 +272,10 @@ namespace AppViewLite
             {
                 if(addToInverseDictionaries)
                     this.RecursiveReplies.Add(this.GetPostId(root), postId);
+
+                var rootPost = this.GetPostId(root);
+                proto.RootPostPlc = rootPost.Author.PlcValue;
+                proto.RootPostRKey = rootPost.PostRKey.TidValue;
             }
             if (p.Reply?.Parent is { } parent)
             {
@@ -452,8 +456,9 @@ namespace AppViewLite
         {
 
             var proto = PostRecordToPostData(p, postId);
-            
-            textCompressor.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+
+            Compress(proto, postId);
+
 
             using var protoMs = new MemoryStream();
             ProtoBuf.Serializer.Serialize(protoMs, proto);
@@ -467,9 +472,22 @@ namespace AppViewLite
 
             var z = dest.ToArray();
 
-
             this.PostData.AddRange(postId, z);
         }
+
+        private void Compress(BlueskyPostData proto, PostId postId)
+        {
+            textCompressor.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+        }
+        private void Decompress(BlueskyPostData proto)
+        {
+            if (proto.TextBpe != null)
+            {
+                proto.Text = textCompressor.Decompress(proto.TextBpe);
+                proto.TextBpe = null;
+            }
+        }
+
 
         public static void VerifyNotEnumerable<T>()
         {
@@ -564,14 +582,10 @@ namespace AppViewLite
             ms.Seek(0, SeekOrigin.Begin);
             using var decompress = new BrotliStream(ms, CompressionMode.Decompress);
             var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(decompress);
-
-            if (proto.TextBpe != null)
-            {
-                proto.Text = textCompressor.Decompress(proto.TextBpe);
-                proto.TextBpe = null;
-            }
+            Decompress(proto);
             return proto;
         }
+
 
         public BlueskyProfile GetProfile(Plc plc)
         {

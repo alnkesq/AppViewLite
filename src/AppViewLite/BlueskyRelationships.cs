@@ -699,7 +699,7 @@ namespace AppViewLite
         internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst maxPostIdExlusive)
         {
             var index = slice.Reader.BinarySearch(maxPostIdExlusive);
-            if (index > 0) index--;
+            if (index >= 0) index--;
             else index = ~index;
             for (long i = index - 1; i >= 0; i--)
             {

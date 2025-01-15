@@ -33,7 +33,7 @@ namespace AppViewLite.Models
         public bool IsReply => Data?.InReplyToPlc != null;
         public bool IsRootPost => !IsReply;
 
-        public PostId? InReplyToPostId => IsReply ? new PostId(new Plc(Data!.InReplyToPlc!.Value), new Numerics.Tid(Data!.InReplyToRKey!.Value)) : null;
+        public PostId? InReplyToPostId => Data?.InReplyToPostId;
     }
 }
 

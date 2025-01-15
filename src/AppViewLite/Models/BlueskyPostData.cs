@@ -35,6 +35,12 @@ namespace AppViewLite.Models
 
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;
 
+
+
+        [ProtoIgnore] public PostId PostId;
+        public PostId? InReplyToPostId => InReplyToRKey != null ? new PostId(new(InReplyToPlc!.Value), new(InReplyToRKey.Value)) : null;
+        public PostId RootPostId => new PostId(new(RootPostPlc!.Value), new(RootPostRKey!.Value));
+
     }
 }
 

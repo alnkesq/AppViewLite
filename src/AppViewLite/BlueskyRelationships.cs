@@ -204,6 +204,11 @@ namespace AppViewLite
             var proto = new BlueskyPostData
             {
                 Text = string.IsNullOrEmpty(p.Text) ? null : p.Text,
+                PostId = postId,
+
+                // We will change them later if necessary.
+                RootPostPlc = postId.Author.PlcValue,
+                RootPostRKey = postId.PostRKey.TidValue,
             };
 
 
@@ -457,7 +462,8 @@ namespace AppViewLite
 
             var proto = PostRecordToPostData(p, postId);
 
-            Compress(proto, postId);
+            // var (a, b, c) = (proto.PostId, proto.InReplyToPostId, proto.RootPostId);
+            Compress(proto);
 
 
             using var protoMs = new MemoryStream();
@@ -472,20 +478,77 @@ namespace AppViewLite
 
             var z = dest.ToArray();
 
+
+            //var test = DeserializePostData(z, postId);
+            //var (aa, bb, cc) = (test.PostId, test.InReplyToPostId, test.RootPostId);
+            //if ((aa, bb, cc) != (a, b, c))
+            //    throw new Exception("Bad roundtrip for post IDs");
+
             this.PostData.AddRange(postId, z);
         }
 
-        private void Compress(BlueskyPostData proto, PostId postId)
+        private void Compress(BlueskyPostData proto)
         {
             textCompressor.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+
+            PostId postId = proto.PostId;
+            PostId rootPostId = proto.RootPostId;
+            PostId? inReplyToPostId = proto.InReplyToPostId;
+
+            if (rootPostId == postId || rootPostId == inReplyToPostId)
+            {
+                // Either a root post, or a direct reply to a root post.
+                proto.RootPostPlc = null;
+                proto.RootPostRKey = null;
+            }
+            else if (rootPostId.Author == postId.Author)
+            {
+                // Self-reply. No need to store the author twice.
+                proto.RootPostPlc = null;
+            }
+
+
+            if (inReplyToPostId?.Author == postId.Author)
+            {
+                // Same author as previous post. No need to explicitly store the parent author.
+                proto.InReplyToPlc = null;
+            }
         }
-        private void Decompress(BlueskyPostData proto)
+        private void Decompress(BlueskyPostData proto, PostId postId)
         {
             if (proto.TextBpe != null)
             {
                 proto.Text = textCompressor.Decompress(proto.TextBpe);
                 proto.TextBpe = null;
             }
+
+            proto.PostId = postId;
+
+            // Decompression in reverse order, compared to compression.
+
+            if (proto.InReplyToRKey != null && proto.InReplyToPlc == null)
+            {
+                proto.InReplyToPlc = postId.Author.PlcValue;
+            }
+
+            if (proto.RootPostRKey != null)
+            {
+                if (proto.RootPostPlc != null)
+                {
+                    // Nothing to do.
+                }
+                else
+                {
+                    proto.RootPostPlc = postId.Author.PlcValue;
+                }
+            }
+            else
+            {
+                var rootPostId = proto.InReplyToPostId ?? postId;
+                proto.RootPostPlc = rootPostId.Author.PlcValue;
+                proto.RootPostRKey = rootPostId.PostRKey.TidValue;
+            }
+
         }
 
 
@@ -566,7 +629,7 @@ namespace AppViewLite
             BlueskyPostData? proto = null;
             if (PostData.TryGetPreserveOrderSpan(id, out var postDataCompressed))
             {
-                proto = DeserializePostData(postDataCompressed.AsSpan());
+                proto = DeserializePostData(postDataCompressed.AsSpan(), id);
             }
             else if (FailedPostLookups.ContainsKey(id))
             {
@@ -575,14 +638,14 @@ namespace AppViewLite
             return proto;
         }
 
-        internal BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed)
+        internal BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId)
         {
             using var ms = new MemoryStream(postDataCompressed.Length);
             ms.Write(postDataCompressed);
             ms.Seek(0, SeekOrigin.Begin);
             using var decompress = new BrotliStream(ms, CompressionMode.Decompress);
             var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(decompress);
-            Decompress(proto);
+            Decompress(proto, postId);
             return proto;
         }
 
@@ -642,7 +705,7 @@ namespace AppViewLite
             {
                 var postId = slice.Reader.Keys[i];
                 if (PostDeletions.ContainsKey(postId)) continue;
-                var postData = DeserializePostData(slice.Reader.GetValues(i).Span.AsSmallSpan);
+                var postData = DeserializePostData(slice.Reader.GetValues(i).Span.AsSmallSpan, postId);
                 yield return GetPost(postId, postData);
             }
         }

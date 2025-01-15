@@ -289,7 +289,7 @@ namespace AppViewLite
                             })
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
-                            .Select(x => rels.GetPost(x.Key, rels.DeserializePostData(x.Values.AsSpan())))
+                            .Select(x => rels.GetPost(x.Key, rels.DeserializePostData(x.Values.AsSpan(), x.Key)))
                             .Where(x => x.Data?.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
@@ -489,7 +489,7 @@ namespace AppViewLite
                 {
                     return rels.GetRecentPosts(slice, maxPostIdExclusive); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 })
-                .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, rels.DeserializePostData(x.Values.ToArray()))))
+                .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, rels.DeserializePostData(x.Values.ToArray(), x.Key))))
                 .ToArray();
 
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));

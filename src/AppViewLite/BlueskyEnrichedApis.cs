@@ -234,7 +234,7 @@ namespace AppViewLite
             return ATIdentifier.Create(did)!;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, string? continuation = null, EnrichDeadlineToken deadline = default)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, int minLikes = 0, string? continuation = null, EnrichDeadlineToken deadline = default)
         {
             authorDid = !string.IsNullOrEmpty(authorDid) ? await this.ResolveHandleAsync(authorDid) : null;
             var author = authorDid != null ? WithRelationshipsLock(rels => rels.SerializeDid(authorDid)) : default;
@@ -264,18 +264,22 @@ namespace AppViewLite
                 }
                 return true;
             }
-            var coreSearchTerms = queryWords.Select(x => x.ToString()).Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x)).ToArray();
+            var coreSearchTerms = queryWords.Select(x => x.ToString()).Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x));
+            if (minLikes > BlueskyRelationships.LikeCountSearchIndexMinLikes)
+            {
+                coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("likes", minLikes));
+            }
             var posts = WithRelationshipsLock(rels =>
             {
                 
                 return rels
-                    .SearchPosts(coreSearchTerms, since != null ? (ApproximateDateTime32)since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author)
+                    .SearchPosts(coreSearchTerms.ToArray(), since != null ? (ApproximateDateTime32)since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author)
                     .DistinctAssumingOrderedInput(skipCheck: true)
                     .SelectMany(approxDate =>
                     {
                         var startPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate, 0), default);
                         var endPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate.AddTicks(1), 0), default);
-                        var posts = rels.PostData.GetInRangeUnsorted(startPostId, endPostId)
+                        var postsCore = rels.PostData.GetInRangeUnsorted(startPostId, endPostId)
                             .Where(x =>
                             {
                                 var date = x.Key.PostRKey.Date;
@@ -286,7 +290,13 @@ namespace AppViewLite
                                     if (x.Key.CompareTo(continuationParsed.Value) >= 0) return false;
                                 }
                                 return true;
-                            })
+                            });
+                        if (minLikes > 0)
+                        {
+                            postsCore = postsCore.Where(x => rels.Likes.HasAtLeastActorCount(x.Key, minLikes));
+                        }
+
+                        var posts = postsCore
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
                             .Select(x => rels.GetPost(x.Key, rels.DeserializePostData(x.Values.AsSpan(), x.Key)))

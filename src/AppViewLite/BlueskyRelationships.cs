@@ -15,6 +15,7 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Hashing;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -95,6 +96,11 @@ namespace AppViewLite
             Quotes.BeforeFlush += flushMappings;
             PostDeletions.BeforeFlush += flushMappings;
             PlcToBasicInfo.BeforeFlush += flushMappings;
+        }
+
+        private static ApproximateDateTime32 GetApproxTime32(Tid tid)
+        {
+            return (ApproximateDateTime32)tid.Date;
         }
 
         private static ushort? GetApproxTime16(PostIdTimeFirst postId, bool saturate)
@@ -210,15 +216,13 @@ namespace AppViewLite
                 RootPostPlc = postId.Author.PlcValue,
                 RootPostRKey = postId.PostRKey.TidValue,
             };
+            var approxPostDate = GetApproxTime32(postId.PostRKey);
 
-
-            var approxPostDate = (ApproximateDateTime32)postId.PostRKey.Date;
-
-            proto.Facets = (p.Facets ?? []).Select(x => 
+            proto.Facets = (p.Facets ?? []).Select(x =>
             {
                 var feature = x.Features!.FirstOrDefault();
                 if (feature == null) return null;
-    
+
                 var facet = new FacetData
                 {
                     Start = ((int)x.Index!.ByteStart!),
@@ -275,7 +279,7 @@ namespace AppViewLite
 
             if (p.Reply?.Root is { } root)
             {
-                if(addToInverseDictionaries)
+                if (addToInverseDictionaries)
                     this.RecursiveReplies.Add(this.GetPostId(root), postId);
 
                 var rootPost = this.GetPostId(root);
@@ -287,7 +291,7 @@ namespace AppViewLite
                 var inReplyTo = this.GetPostId(parent);
                 proto.InReplyToPlc = inReplyTo.Author.PlcValue;
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
-                if(addToInverseDictionaries)
+                if (addToInverseDictionaries)
                     this.DirectReplies.Add(inReplyTo, postId);
             }
 
@@ -334,8 +338,8 @@ namespace AppViewLite
             }
             else if (embed is EmbedVideo { } vid)
             {
-                proto.Media = (proto.Media ?? []).Concat([new BlueskyMediaData 
-                { 
+                proto.Media = (proto.Media ?? []).Concat([new BlueskyMediaData
+                {
                     AltText = vid.Alt,
                     Cid = vid.Video!.Ref!.Link!.ToArray(),
                     IsVideo = true,
@@ -348,6 +352,7 @@ namespace AppViewLite
 
             return proto;
         }
+
 
 
         private static ulong HashPlcForTextSearch(Plc author)
@@ -708,6 +713,27 @@ namespace AppViewLite
                 var postData = DeserializePostData(slice.Reader.GetValues(i).Span.AsSmallSpan, postId);
                 yield return GetPost(postId, postData);
             }
+        }
+
+
+
+        internal const int LikeCountSearchIndexMinLikes = 4;
+
+        internal void MaybeIndexPopularPost(PostId postId)
+        {
+
+            var approxLikeCount = Likes.creations.GetValueCount(postId);
+            if (BitOperations.IsPow2(approxLikeCount) && approxLikeCount >= LikeCountSearchIndexMinLikes)
+            {
+                PostTextSearch.AddIfMissing(HashWord("%likes-" + approxLikeCount), GetApproxTime32(postId.PostRKey));
+            }
+        }
+
+        internal static string GetPopularityIndexConstraint(string name, int minLikes)
+        {
+            if (!BitOperations.IsPow2(minLikes))
+                minLikes = (int)BitOperations.RoundUpToPowerOf2((uint)minLikes) / 2;
+            return "%" + name + "-" + minLikes;
         }
     }
 }

@@ -18,6 +18,7 @@ using FishyFlip.Tools;
 using PeterO.Cbor;
 using System.Text;
 using System.Threading;
+using System.Numerics;
 
 namespace AppViewLite
 {
@@ -76,8 +77,14 @@ namespace AppViewLite
                 var commitPlc = relationships.SerializeDid(commitAuthor);
                 if (record is Like l)
                 {
-                    if (l.Subject!.Uri!.Collection == Post.RecordType) // quick check to avoid noisy exceptions
-                        relationships.Likes.Add(relationships.GetPostId(l.Subject), new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
+                    if (l.Subject!.Uri!.Collection == Post.RecordType)
+                    {
+                        // quick check to avoid noisy exceptions
+                        var postId = relationships.GetPostId(l.Subject);
+
+                        relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
+                        relationships.MaybeIndexPopularPost(postId);
+                    }
                 }
                 else if (record is Follow f)
                 {

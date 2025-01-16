@@ -49,6 +49,15 @@ namespace AppViewLite
             return c - deletionCount;
         }
 
+        public bool HasAtLeastActorCount(TTarget target, long minimum)
+        {
+            var c = creations.GetValueCount(target);
+            if (c < minimum) return false;
+
+            var deletionCount = GetDeletionCount(target);
+            return c - deletionCount >= minimum;
+        }
+
         public IEnumerable<Relationship> GetRelationshipsSorted(TTarget target, Relationship continuation)
         {
 

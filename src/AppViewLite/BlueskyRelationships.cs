@@ -729,11 +729,11 @@ namespace AppViewLite
             }
         }
 
-        internal static string GetPopularityIndexConstraint(string name, int minLikes)
+        internal static string GetPopularityIndexConstraint(string name, int minPopularity)
         {
-            if (!BitOperations.IsPow2(minLikes))
-                minLikes = (int)BitOperations.RoundUpToPowerOf2((uint)minLikes) / 2;
-            return "%" + name + "-" + minLikes;
+            if (!BitOperations.IsPow2(minPopularity))
+                minPopularity = (int)BitOperations.RoundUpToPowerOf2((uint)minPopularity) / 2;
+            return "%" + name + "-" + minPopularity;
         }
     }
 }

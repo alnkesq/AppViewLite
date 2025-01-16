@@ -234,14 +234,16 @@ namespace AppViewLite
             return ATIdentifier.Create(did)!;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, int minLikes = 0, int minReposts = 0, string? continuation = null, EnrichDeadlineToken deadline = default)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchLatestPostsAsync(PostSearchOptions options, string? continuation = null, EnrichDeadlineToken deadline = default)
         {
-            authorDid = !string.IsNullOrEmpty(authorDid) ? await this.ResolveHandleAsync(authorDid) : null;
-            var author = authorDid != null ? WithRelationshipsLock(rels => rels.SerializeDid(authorDid)) : default;
+            var until = options.Until;
+            var query = options.Query;
+            options.Author = !string.IsNullOrEmpty(options.Author) ? await this.ResolveHandleAsync(options.Author) : null;
+            var author = options.Author != null ? WithRelationshipsLock(rels => rels.SerializeDid(options.Author)) : default;
             var queryWords = StringUtils.GetDistinctWords(query);
             if (queryWords.Length == 0) return ([], null);
             var queryPhrases = StringUtils.GetExactPhrases(query);
-            var tags = Regex.Matches(query, @"#\w+\b").Select(x => x.Value.Substring(1).ToLowerInvariant()).ToArray();
+            var tags = Regex.Matches(query!, @"#\w+\b").Select(x => x.Value.Substring(1).ToLowerInvariant()).ToArray();
             Regex[] hashtagRegexes = tags.Select(x => new Regex("#" + Regex.Escape(x) + "\\b", RegexOptions.IgnoreCase)).ToArray();
 
             PostIdTimeFirst? continuationParsed = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : null;
@@ -265,19 +267,19 @@ namespace AppViewLite
                 return true;
             }
             var coreSearchTerms = queryWords.Select(x => x.ToString()).Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x));
-            if (minLikes > BlueskyRelationships.SearchIndexPopularityMinLikes)
+            if (options.MinLikes > BlueskyRelationships.SearchIndexPopularityMinLikes)
             {
-                coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("likes", minLikes));
+                coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("likes", options.MinLikes));
             }
-            if (minReposts > BlueskyRelationships.SearchIndexPopularityMinReposts)
+            if (options.MinReposts > BlueskyRelationships.SearchIndexPopularityMinReposts)
             {
-                coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("reposts", minReposts));
+                coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("reposts", options.MinReposts));
             }
             var posts = WithRelationshipsLock(rels =>
             {
                 
                 return rels
-                    .SearchPosts(coreSearchTerms.ToArray(), since != null ? (ApproximateDateTime32)since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author)
+                    .SearchPosts(coreSearchTerms.ToArray(), options.Since != null ? (ApproximateDateTime32)options.Since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author)
                     .DistinctAssumingOrderedInput(skipCheck: true)
                     .SelectMany(approxDate =>
                     {
@@ -287,7 +289,7 @@ namespace AppViewLite
                             .Where(x =>
                             {
                                 var date = x.Key.PostRKey.Date;
-                                if (date < since) return false;
+                                if (date < options.Since) return false;
                                 if (until != null && date >= until) return false;
                                 if (continuationParsed != null)
                                 {
@@ -295,13 +297,13 @@ namespace AppViewLite
                                 }
                                 return true;
                             });
-                        if (minLikes > 0)
+                        if (options.MinLikes > 0)
                         {
-                            postsCore = postsCore.Where(x => rels.Likes.HasAtLeastActorCount(x.Key, minLikes));
+                            postsCore = postsCore.Where(x => rels.Likes.HasAtLeastActorCount(x.Key, options.MinLikes));
                         }
-                        if (minReposts > 0)
+                        if (options.MinReposts > 0)
                         {
-                            postsCore = postsCore.Where(x => rels.Reposts.HasAtLeastActorCount(x.Key, minReposts));
+                            postsCore = postsCore.Where(x => rels.Reposts.HasAtLeastActorCount(x.Key, options.MinReposts));
                         }
 
                         var posts = postsCore

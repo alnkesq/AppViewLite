@@ -19,7 +19,15 @@
             Navigation.NavigateTo("/" + Q);
             return; 
         }
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchAsync(Q, Since, Until, From, MinLikes, MinReposts, Continuation, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(new PostSearchOptions
+        {
+            Query = Q,
+            Since = Since,
+            Until = Until,
+            Author = From,
+            MinLikes = MinLikes,
+            MinReposts = MinReposts,
+        }, Continuation, EnrichDeadlineToken.Create());
     }
 }
 

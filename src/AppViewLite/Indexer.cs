@@ -71,8 +71,20 @@ namespace AppViewLite
 
         record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
 
+
+
+        private static bool HasNumericRKey(string path)
+        {
+            // Some spam bots?
+            // Avoid noisy exceptions.
+            var rkey = path.Split('/')[1];
+            return long.TryParse(rkey, out _);
+        }
+
         private void OnRecordCreated(string commitAuthor, string path, ATObject record)
         {
+        
+
             ContinueOutsideLock? continueOutsideLock = null;
             lock (relationships)
             {
@@ -91,6 +103,7 @@ namespace AppViewLite
                 }
                 else if (record is Follow f)
                 {
+                    if (HasNumericRKey(path)) return;
                     relationships.Follows.Add(relationships.SerializeDid(f.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, Follow.RecordType + "/")));
                 }
                 else if (record is Repost r)

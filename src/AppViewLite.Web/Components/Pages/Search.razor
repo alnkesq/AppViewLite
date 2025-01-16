@@ -40,17 +40,29 @@
 <PageTitle>Search: @Q</PageTitle>
 
 <form action="/search" method="get" class="search-form">
-    <label>Text: <input type="search" name="q" value="@Q" autofocus /></label>
-    <label>Author: <input type="text" name="from" value="@From" /></label>
-    <label>Since: <input type="date" name="since" value="@Since?.ToString("yyyy-MM-dd")" /></label>
-    <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
-    <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
-    <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
-    <select name="sort" onchange="this.form.submit()">
-        <option value="latest">Latest</option>
-        <option value="top" selected="@IsTopPosts">Top</option>
-    </select>
-    <input type="submit" value="Search">
+    <div class="search-form-row">
+        <label>Text: <input type="search" name="q" value="@Q" autofocus /></label>
+        <label>Author: <input type="text" name="from" value="@From" /></label>
+    </div>
+    <div class="search-form-row">
+        <label>Since: <input type="date" name="since" value="@Since?.ToString("yyyy-MM-dd")" /></label>
+        <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
+    </div>
+    <div class="search-form-row">
+        <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
+        <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
+    </div>
+    <div class="search-form-row">
+        <label>
+            <select name="sort" onchange="this.form.submit()">
+                <option value="latest">Most recent</option>
+                <option value="top" selected="@IsTopPosts">Top posts</option>
+            </select>
+        </label>
+        <label>
+            <input type="submit" value="Search">
+        </label>
+    </div>
 </form>
 
 <PostList Posts="@Posts" NextContinuation="@NextContinuation" />

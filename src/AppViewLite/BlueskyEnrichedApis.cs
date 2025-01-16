@@ -234,7 +234,7 @@ namespace AppViewLite
             return ATIdentifier.Create(did)!;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, int minLikes = 0, string? continuation = null, EnrichDeadlineToken deadline = default)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchAsync(string query, DateTime? since = null, DateTime? until = null, string? authorDid = null, int minLikes = 0, int minReposts = 0, string? continuation = null, EnrichDeadlineToken deadline = default)
         {
             authorDid = !string.IsNullOrEmpty(authorDid) ? await this.ResolveHandleAsync(authorDid) : null;
             var author = authorDid != null ? WithRelationshipsLock(rels => rels.SerializeDid(authorDid)) : default;
@@ -265,9 +265,13 @@ namespace AppViewLite
                 return true;
             }
             var coreSearchTerms = queryWords.Select(x => x.ToString()).Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x));
-            if (minLikes > BlueskyRelationships.LikeCountSearchIndexMinLikes)
+            if (minLikes > BlueskyRelationships.SearchIndexPopularityMinLikes)
             {
                 coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("likes", minLikes));
+            }
+            if (minReposts > BlueskyRelationships.SearchIndexPopularityMinReposts)
+            {
+                coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("reposts", minReposts));
             }
             var posts = WithRelationshipsLock(rels =>
             {
@@ -294,6 +298,10 @@ namespace AppViewLite
                         if (minLikes > 0)
                         {
                             postsCore = postsCore.Where(x => rels.Likes.HasAtLeastActorCount(x.Key, minLikes));
+                        }
+                        if (minReposts > 0)
+                        {
+                            postsCore = postsCore.Where(x => rels.Reposts.HasAtLeastActorCount(x.Key, minReposts));
                         }
 
                         var posts = postsCore

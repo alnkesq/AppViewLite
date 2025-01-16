@@ -8,6 +8,7 @@
     [Parameter][SupplyParameterFromQuery] public required DateTime? Until { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     [Parameter][SupplyParameterFromQuery] public required int MinLikes { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required int MinReposts { get; set; }
     private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
@@ -18,7 +19,7 @@
             Navigation.NavigateTo("/" + Q);
             return; 
         }
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchAsync(Q, Since, Until, From, MinLikes, Continuation, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchAsync(Q, Since, Until, From, MinLikes, MinReposts, Continuation, EnrichDeadlineToken.Create());
     }
 }
 
@@ -30,6 +31,7 @@
     <label>Since: <input type="date" name="since" value="@Since?.ToString("yyyy-MM-dd")" /></label>
     <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
     <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
+    <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
     <input type="submit" value="Search">
 </form>
 

@@ -83,7 +83,7 @@ namespace AppViewLite
                         var postId = relationships.GetPostId(l.Subject);
 
                         relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
-                        relationships.MaybeIndexPopularPost(postId);
+                        relationships.MaybeIndexPopularPost(postId, "likes", relationships.Likes.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinLikes);
                     }
                 }
                 else if (record is Follow f)
@@ -92,7 +92,9 @@ namespace AppViewLite
                 }
                 else if (record is Repost r)
                 {
-                    relationships.Reposts.Add(relationships.GetPostId(r.Subject), new Relationship(commitPlc, GetMessageTid(path, Repost.RecordType + "/")));
+                    var postId = relationships.GetPostId(r.Subject);
+                    relationships.Reposts.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Repost.RecordType + "/")));
+                    relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
                 }
                 else if (record is Block b)
                 {

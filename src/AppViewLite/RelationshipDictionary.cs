@@ -270,6 +270,11 @@ namespace AppViewLite
             deletionCounts.Flush();
             relationshipIdHashToApproxTarget?.Flush();
         }
+
+        public long GetApproximateActorCount(TTarget key)
+        {
+            return creations.GetValueCount(key);
+        }
     }
 }
 

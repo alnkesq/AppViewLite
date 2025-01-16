@@ -717,15 +717,15 @@ namespace AppViewLite
 
 
 
-        internal const int LikeCountSearchIndexMinLikes = 4;
+        internal const int SearchIndexPopularityMinLikes = 4;
+        internal const int SearchIndexPopularityMinReposts = 1;
 
-        internal void MaybeIndexPopularPost(PostId postId)
+        internal void MaybeIndexPopularPost(PostId postId, string indexName, long approxPopularity, int minPopularityForIndex)
         {
 
-            var approxLikeCount = Likes.creations.GetValueCount(postId);
-            if (BitOperations.IsPow2(approxLikeCount) && approxLikeCount >= LikeCountSearchIndexMinLikes)
+            if (BitOperations.IsPow2(approxPopularity) && approxPopularity >= minPopularityForIndex)
             {
-                PostTextSearch.AddIfMissing(HashWord("%likes-" + approxLikeCount), GetApproxTime32(postId.PostRKey));
+                PostTextSearch.AddIfMissing(HashWord("%" + indexName + "-" + approxPopularity), GetApproxTime32(postId.PostRKey));
             }
         }
 

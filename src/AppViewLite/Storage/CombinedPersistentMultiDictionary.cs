@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace AppViewLite.Storage
 {
@@ -65,9 +66,12 @@ namespace AppViewLite.Storage
         public MultiDictionary<TKey, TValue> QueuedItems => queue;
         public record struct SliceInfo(DateTime StartTime, long Count, ImmutableMultiDictionaryReader<TKey, TValue> Reader);
 
-        public void Dispose()
+        
+        public void Dispose() // Dispose() must also be called while holding the lock.
         {
-            Flush();
+            Flush(avoidNewCompactations: true);
+            if (pendingCompactation != null) throw new Exception();
+
             foreach (var slice in slices)
             {
                 slice.Reader.Dispose();
@@ -76,8 +80,10 @@ namespace AppViewLite.Storage
 
         public long GroupCount => slices.Sum(x => x.Count) + queue.GroupCount;
 
-        public void Flush()
+        public void Flush(bool avoidNewCompactations = false)
         {
+            MaybeCommitPendingCompactation(forceWait: true);
+
             if (queue.GroupCount != 0)
             {
                 BeforeFlush?.Invoke(this, EventArgs.Empty);
@@ -112,7 +118,8 @@ namespace AppViewLite.Storage
                 slices.Add(new(date, groupCount, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
                 
 
-                MaybeCompact();
+                if (!avoidNewCompactations)
+                    MaybeCompact();
                 lastFlushed = null;
             }
         }
@@ -122,6 +129,8 @@ namespace AppViewLite.Storage
 
         private void MaybeCompactOnce()
         {
+            if (pendingCompactation != null) throw new InvalidOperationException();
+
             var desiredGroupSize = 4;
 
 
@@ -169,7 +178,7 @@ namespace AppViewLite.Storage
                 if (slices.Count == prevSlices) return;
             }
         }
-       
+
         private void Compact(int groupStart, int groupLength)
         {
             if (groupLength <= 1) return;
@@ -177,20 +186,46 @@ namespace AppViewLite.Storage
             var mergedDate = inputs.Min(x => x.StartTime);
             var mergedCount = inputs.Sum(x => x.Count);
             var mergedPrefix = this.DirectoryPath + "/" + mergedDate.Ticks + "-" + mergedCount;
-            using var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
-            Compact(inputs.Select(x => x.Reader).ToArray(), writer, OnCompactation);
-            Console.Error.WriteLine("Compact " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => x.Count)) + " => " + inputs.Sum(x => x.Count));
 
-            foreach (var input in inputs)
+            var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
+            var inputSlices = inputs.Select(x => x.Reader).ToArray();
+            var sw = Stopwatch.StartNew();
+
+            if (pendingCompactation != null) throw new Exception();
+
+            var compactationThread = Task.Factory.StartNew(() =>
             {
-                input.Reader.Dispose();
-                for (int i = 0; i < (IsSingleValue ? 2 : 3); i++)
+                try
                 {
-                    File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
+                    Compact(inputSlices, writer, OnCompactation);
                 }
-            }
-            slices.RemoveRange(groupStart, groupLength);
-            slices.Insert(groupStart, new SliceInfo(mergedDate, mergedCount, new(mergedPrefix, behavior)));
+                finally
+                {
+                    writer.Dispose();
+                }
+                sw.Stop();
+
+                return new Action(() => 
+                {
+                    // Here we are again inside the lock.
+                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => x.Count)) + " => " + inputs.Sum(x => x.Count));
+
+                    foreach (var input in inputs)
+                    {
+                        input.Reader.Dispose();
+                        for (int i = 0; i < (IsSingleValue ? 2 : 3); i++)
+                        {
+                            File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
+                        }
+                    }
+                    slices.RemoveRange(groupStart, groupLength);
+                    slices.Insert(groupStart, new SliceInfo(mergedDate, mergedCount, new(mergedPrefix, behavior)));
+                });
+            }, TaskCreationOptions.LongRunning);
+
+            pendingCompactation = compactationThread;
+
+
         }
 
         public bool TryGetSingleValue(TKey key, out TValue value)
@@ -380,11 +415,34 @@ namespace AppViewLite.Storage
 
         private void MaybeFlush()
         {
+            MaybeCommitPendingCompactation();
+            if (pendingCompactation != null) return;
+            
             if (queue.GroupCount >= ItemsToBuffer || (lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
                 Flush();
             }
             lastFlushed ??= Stopwatch.StartNew();
+        }
+
+
+        // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
+        private Task<Action>? pendingCompactation;
+
+        private void MaybeCommitPendingCompactation(bool forceWait = false)
+        {
+            if (pendingCompactation == null) return;
+            if (forceWait)
+            {
+                pendingCompactation.GetAwaiter().GetResult();
+            }
+            if (!pendingCompactation.IsCompleted)
+            {
+                if (forceWait) throw new Exception();
+                return;
+            }
+            pendingCompactation.Result();
+            pendingCompactation = null;
         }
 
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)

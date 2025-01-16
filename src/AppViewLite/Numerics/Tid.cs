@@ -6,7 +6,11 @@ namespace AppViewLite.Numerics
     {
         public static Tid Parse(string rkey)
         {
-            if (!TryParse(rkey, out var r)) throw new Exception();
+            if (!TryParse(rkey, out var r))
+            { 
+                if(long.TryParse(rkey, out _)) throw new Exception("Decimal timestamp IDs are not supported: " + rkey);
+                else throw new Exception("Timestamp ID could not be parsed: " + rkey);
+            }
             return r;
         }
         public static bool TryParse(string rkey, out Tid result)

@@ -51,6 +51,7 @@ namespace AppViewLite
         public string BaseDirectory { get; }
         public BlueskyRelationships(string basedir)
         {
+            ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
             this.BaseDirectory = basedir;
             Directory.CreateDirectory(basedir);
             T Register<T>(T r) where T : IDisposable

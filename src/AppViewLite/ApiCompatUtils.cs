@@ -24,7 +24,7 @@ namespace AppViewLite
                  Parent = parent,
             };
         }
-        public static PostView ToApiCompat(this BlueskyPost post, BlueskyPost? rootPost)
+        public static PostView ToApiCompat(this BlueskyPost post, BlueskyPost? rootPost = null)
         {
             var aturi = GetPostUri(post.Author.Did, post.RKey);
             return new PostView

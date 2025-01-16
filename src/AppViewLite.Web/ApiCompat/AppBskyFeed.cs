@@ -134,6 +134,16 @@ namespace AppViewLite.Web.ApiCompat
             };
         }
 
+        [HttpGet("app.bsky.feed.searchPosts")]
+        public async Task<SearchPostsOutput> SearchPosts(string q, int limit, SearchPostsSort sort, string? cursor)
+        {
+            var results = await BlueskyEnrichedApis.Instance.SearchAsync(q, minLikes: sort == SearchPostsSort.top ? 10 : 0, continuation: cursor, deadline: EnrichDeadlineToken.Create());
+            return new SearchPostsOutput
+            {
+                 Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),
+                 Cursor = results.NextContinuation,
+            };
+        }
 
         public enum GetUserPostsFilter
         {
@@ -142,6 +152,13 @@ namespace AppViewLite.Web.ApiCompat
             posts_no_replies,
             posts_with_media,
             posts_and_author_threads,
+        }
+
+        public enum SearchPostsSort
+        { 
+            None,
+            latest,
+            top,
         }
     }
 }

@@ -14,7 +14,7 @@ namespace AppViewLite.Models
             return PostRKey.CompareTo(other.PostRKey);
         }
         public string Serialize() => ((PostIdTimeFirst)this).Serialize();
-        public static PostId Deserialize(string s) => PostId.Deserialize(s);
+        public static PostId Deserialize(string s) => PostIdTimeFirst.Deserialize(s);
     }
 }
 

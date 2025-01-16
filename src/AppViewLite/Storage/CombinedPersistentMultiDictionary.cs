@@ -219,11 +219,11 @@ namespace AppViewLite.Storage
             {
                 if (minExclusive != null)
                 {
-                    extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).ToArray();
+                    extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).Order().ToArray();
                 }
                 else
                 {
-                    extraArr = extra.ToArray();
+                    extraArr = extra.Order().ToArray();
                 }
             }
             var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);

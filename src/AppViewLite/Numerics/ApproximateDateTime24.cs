@@ -15,8 +15,8 @@ namespace AppViewLite.Numerics
         public static implicit operator DateTime(ApproximateDateTime24 d) => BaseTime + new TimeSpan(TickDuration.Ticks * d.Value);
         public static explicit operator ApproximateDateTime24(DateTime d)
         {
-            if (d < BaseTime) throw new ArgumentOutOfRangeException();
-            if (d > MaxValue) throw new ArgumentOutOfRangeException();
+            if (d < MinValueAsDateTime) throw new ArgumentOutOfRangeException();
+            if (d > MaxValueAsDateTime) throw new ArgumentOutOfRangeException();
             var v = (d - BaseTime).Ticks / TickDuration.Ticks;
             return new ApproximateDateTime24((UInt24)v);
         }
@@ -26,6 +26,8 @@ namespace AppViewLite.Numerics
 
         public readonly static ApproximateDateTime24 MinValue = new ApproximateDateTime24(UInt24.MinValue);
         public readonly static ApproximateDateTime24 MaxValue = new ApproximateDateTime24(UInt24.MaxValue);
+        public readonly static DateTime MinValueAsDateTime = MinValue;
+        public readonly static DateTime MaxValueAsDateTime = MaxValue;
 
         public readonly override string ToString()
         {

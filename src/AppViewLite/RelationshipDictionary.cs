@@ -1,4 +1,5 @@
 using AppViewLite.Models;
+using AppViewLite.Numerics;
 using AppViewLite;
 using AppViewLite.Storage;
 using System;
@@ -14,11 +15,11 @@ namespace AppViewLite
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
         private CombinedPersistentMultiDictionary<Relationship, DateTime> deletions;
         private CombinedPersistentMultiDictionary<TTarget, int> deletionCounts;
-        private CombinedPersistentMultiDictionary<RelationshipHash, ushort> relationshipIdHashToApproxTarget;
-        private Func<TTarget, bool, ushort?>? targetToApproxTarget;
+        private CombinedPersistentMultiDictionary<RelationshipHash, UInt24> relationshipIdHashToApproxTarget;
+        private Func<TTarget, bool, UInt24?>? targetToApproxTarget;
         public event EventHandler BeforeFlush;
 
-        public RelationshipDictionary(string pathPrefix, Func<TTarget, bool, ushort?>? targetToApproxTarget = null)
+        public RelationshipDictionary(string pathPrefix, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             this.creations = new CombinedPersistentMultiDictionary<TTarget, Relationship>(pathPrefix) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems};
             this.deletions = new CombinedPersistentMultiDictionary<Relationship, DateTime>(pathPrefix + "-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItemsForDeletion };
@@ -29,7 +30,7 @@ namespace AppViewLite
             this.targetToApproxTarget = targetToApproxTarget;
             if (targetToApproxTarget != null)
             {
-                this.relationshipIdHashToApproxTarget = new CombinedPersistentMultiDictionary<RelationshipHash, ushort>(pathPrefix + "-rkey-hash-to-approx-target", PersistentDictionaryBehavior.SingleValue);
+                this.relationshipIdHashToApproxTarget = new(pathPrefix + "-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
                 this.relationshipIdHashToApproxTarget.BeforeFlush += OnBeforeFlush;
             }
             this.creations.BeforeFlush += OnBeforeFlush;
@@ -184,7 +185,7 @@ namespace AppViewLite
                 var slice = sliceTuple.Reader;
 
                 var keySpan = slice.Keys.Span;
-                var z = slice.BinarySearch(new LambdaComparable<TTarget, ushort>(approxTarget, x => targetToApproxTarget(x, true)));
+                var z = slice.BinarySearch(new LambdaComparable<TTarget, UInt24>(approxTarget, x => targetToApproxTarget(x, true)));
                 if (z < 0) continue;
 
                 for (long i = z; i < keySpan.Length; i++)

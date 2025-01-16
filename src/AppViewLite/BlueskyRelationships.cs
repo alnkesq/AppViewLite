@@ -72,10 +72,10 @@ namespace AppViewLite
 
 
 
-            Likes = Register(new RelationshipDictionary<PostIdTimeFirst>(basedir + "/post-like-time-first", GetApproxTime16));
-            Reposts = Register(new RelationshipDictionary<PostIdTimeFirst>(basedir + "/post-repost-time-first", GetApproxTime16));
-            Follows = Register(new RelationshipDictionary<Plc>(basedir + "/follow", GetApproxPlc));
-            Blocks = Register(new RelationshipDictionary<Plc>(basedir + "/block", GetApproxPlc));
+            Likes = Register(new RelationshipDictionary<PostIdTimeFirst>(basedir + "/post-like-time-first", GetApproxTime24));
+            Reposts = Register(new RelationshipDictionary<PostIdTimeFirst>(basedir + "/post-repost-time-first", GetApproxTime24));
+            Follows = Register(new RelationshipDictionary<Plc>(basedir + "/follow", GetApproxPlc24));
+            Blocks = Register(new RelationshipDictionary<Plc>(basedir + "/block", GetApproxPlc24));
             DirectReplies = Register(new CombinedPersistentMultiDictionary<PostId, PostId>(basedir + "/post-reply-direct") { ItemsToBuffer = DefaultBufferedItems });
             RecursiveReplies = Register(new CombinedPersistentMultiDictionary<PostId, PostId>(basedir + "/post-reply-recursive") { ItemsToBuffer = DefaultBufferedItems });
             Quotes = Register(new CombinedPersistentMultiDictionary<PostId, PostId>(basedir + "/post-quote") { ItemsToBuffer = DefaultBufferedItems });
@@ -118,9 +118,28 @@ namespace AppViewLite
             }
             return (ushort)value;
         }
-        private static ushort? GetApproxPlc(Plc plc, bool saturate)
+
+        private static UInt24? GetApproxTime24(PostIdTimeFirst postId, bool saturate)
+        {
+            var date = postId.PostRKey.Date;
+            if (date < ApproximateDateTime24.MinValueAsDateTime)
+            {
+                return saturate ? 0 : null;
+            }
+            if (date > ApproximateDateTime24.MaxValueAsDateTime)
+            {
+                return saturate ? ApproximateDateTime24.MaxValue.Value : null;
+            }
+            return ((ApproximateDateTime24)date).Value;
+        }
+
+        private static ushort? GetApproxPlc16(Plc plc, bool saturate)
         {
             return (ushort)(((uint)plc.PlcValue) >> 16);
+        }
+        private static UInt24? GetApproxPlc24(Plc plc, bool saturate)
+        {
+            return (UInt24)(((uint)plc.PlcValue) >> 8);
         }
 
         public void Dispose()

@@ -461,12 +461,18 @@ namespace AppViewLite
             PlcToBasicInfo.AddRange(plc, [.. Encoding.UTF8.GetBytes(pf.DisplayName ?? string.Empty), 0, .. (pf.Avatar?.Ref?.Link?.ToArray() ?? [])]);
         }
 
-        internal EfficientTextCompressor textCompressor = new();
+        internal readonly static EfficientTextCompressor textCompressorUnlocked = new();
+
         internal void StorePostInfo(PostId postId, Post p)
         {
+            // PERF: This method performs the slow brotli compression while holding the lock. Avoid if possible.
 
             var proto = PostRecordToPostData(p, postId);
+            this.PostData.AddRange(postId, CompressPostDataToBytes(proto));
+        }
 
+        internal static byte[] CompressPostDataToBytes(BlueskyPostData proto)
+        {
             // var (a, b, c) = (proto.PostId, proto.InReplyToPostId, proto.RootPostId);
             Compress(proto);
 
@@ -474,27 +480,22 @@ namespace AppViewLite
             using var protoMs = new MemoryStream();
             ProtoBuf.Serializer.Serialize(protoMs, proto);
             protoMs.Seek(0, SeekOrigin.Begin);
-            
+
             using var dest = new System.IO.MemoryStream();
             using (var compressed = new System.IO.Compression.BrotliStream(dest, System.IO.Compression.CompressionLevel.SmallestSize))
             {
                 protoMs.CopyTo(compressed);
             }
 
-            var z = dest.ToArray();
-
-
-            //var test = DeserializePostData(z, postId);
-            //var (aa, bb, cc) = (test.PostId, test.InReplyToPostId, test.RootPostId);
-            //if ((aa, bb, cc) != (a, b, c))
-            //    throw new Exception("Bad roundtrip for post IDs");
-
-            this.PostData.AddRange(postId, z);
+            return dest.ToArray();
         }
 
-        private void Compress(BlueskyPostData proto)
+        private static void Compress(BlueskyPostData proto)
         {
-            textCompressor.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+            lock (textCompressorUnlocked)
+            {
+                textCompressorUnlocked.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+            }
 
             PostId postId = proto.PostId;
             PostId rootPostId = proto.RootPostId;
@@ -519,11 +520,14 @@ namespace AppViewLite
                 proto.InReplyToPlc = null;
             }
         }
-        private void Decompress(BlueskyPostData proto, PostId postId)
+        private static void Decompress(BlueskyPostData proto, PostId postId)
         {
             if (proto.TextBpe != null)
             {
-                proto.Text = textCompressor.Decompress(proto.TextBpe);
+                lock (textCompressorUnlocked)
+                {
+                    proto.Text = textCompressorUnlocked.Decompress(proto.TextBpe);
+                }
                 proto.TextBpe = null;
             }
 
@@ -643,7 +647,7 @@ namespace AppViewLite
             return proto;
         }
 
-        internal BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId)
+        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId)
         {
             using var ms = new MemoryStream(postDataCompressed.Length);
             ms.Write(postDataCompressed);

@@ -69,8 +69,11 @@ namespace AppViewLite
             }
         }
 
+        record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
+
         private void OnRecordCreated(string commitAuthor, string path, ATObject record)
         {
+            ContinueOutsideLock? continueOutsideLock = null;
             lock (relationships)
             {
                 relationships.EnsureNotDisposed();
@@ -104,11 +107,28 @@ namespace AppViewLite
                 else if (record is Post p)
                 {
                     var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
-                    relationships.StorePostInfo(postId, p);
+                    var proto = relationships.PostRecordToPostData(p, postId);
+
+                    byte[]? postBytes = null;
+                    continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.CompressPostDataToBytes(proto), relationships => 
+                    {
+                        relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
+                    });
+                    
+                    //relationships.StorePostInfo(postId, p);
                 }
                 else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
                 {
                     relationships.StoreProfileBasicInfo(commitPlc, pf);
+                }
+            }
+
+            if (continueOutsideLock != null)
+            {
+                continueOutsideLock.Value.OutsideLock();
+                lock (relationships)
+                {
+                    continueOutsideLock.Value.Complete(relationships);
                 }
             }
         }

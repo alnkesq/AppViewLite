@@ -141,7 +141,7 @@ namespace AppViewLite.Web.ApiCompat
             { 
                 Query = q,
                 MinLikes = sort == SearchPostsSort.top ? 10 : 0,
-            }, continuation: cursor, deadline: EnrichDeadlineToken.Create());
+            }, continuation: cursor, limit: limit, deadline: EnrichDeadlineToken.Create());
             return new SearchPostsOutput
             {
                  Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),

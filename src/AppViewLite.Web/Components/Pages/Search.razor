@@ -7,11 +7,15 @@
     [Parameter][SupplyParameterFromQuery] public required DateTime? Since { get; set; }
     [Parameter][SupplyParameterFromQuery] public required DateTime? Until { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
-    [Parameter][SupplyParameterFromQuery] public required int MinLikes { get; set; }
-    [Parameter][SupplyParameterFromQuery] public required int MinReposts { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required int? MinLikes { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required int? MinReposts { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required string? Sort { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required int? Limit { get; set; }
     private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
+    public bool IsTopPosts => Sort == "top";
+
     protected override async Task OnParametersSetAsync()
     {
         if (Q != null && Q.StartsWith("https://bsky.app/", StringComparison.Ordinal))
@@ -19,15 +23,17 @@
             Navigation.NavigateTo("/" + Q);
             return; 
         }
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(new PostSearchOptions
-        {
-            Query = Q,
-            Since = Since,
-            Until = Until,
-            Author = From,
-            MinLikes = MinLikes,
-            MinReposts = MinReposts,
-        }, Continuation, EnrichDeadlineToken.Create());
+        var options = new PostSearchOptions
+            {
+                Query = Q,
+                Since = Since,
+                Until = Until,
+                Author = From,
+                MinLikes = MinLikes ?? 0,
+                MinReposts = MinReposts ?? 0,
+            };
+
+        (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, EnrichDeadlineToken.Create()) :  await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, EnrichDeadlineToken.Create());
     }
 }
 
@@ -40,6 +46,10 @@
     <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
     <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
     <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
+    <select name="sort" onchange="this.form.submit()">
+        <option value="latest">Latest</option>
+        <option value="top" selected="@IsTopPosts">Top</option>
+    </select>
     <input type="submit" value="Search">
 </form>
 

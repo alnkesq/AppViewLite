@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    public class PostSearchOptions
+    public record PostSearchOptions
     {
-        public required string? Query;
-        public int MinLikes;
-        public int MinReposts;
-        public DateTime? Since;
-        public DateTime? Until;
-        public string? Author;
+        public required string? Query { get; init; }
+        public int MinLikes { get; init; }
+        public int MinReposts { get; init; }
+        public DateTime? Since { get; init; }
+        public DateTime? Until { get; init; }
+        public string? Author { get; init; }
     }
 }
 

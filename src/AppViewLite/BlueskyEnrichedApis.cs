@@ -20,6 +20,8 @@ using AppViewLite.Numerics;
 using System.Runtime.InteropServices;
 using FishyFlip.Tools;
 using FishyFlip.Lexicon.App.Bsky.Graph;
+using AppViewLite.Numerics;
+using System.Diagnostics;
 
 namespace AppViewLite
 {
@@ -234,11 +236,147 @@ namespace AppViewLite
             return ATIdentifier.Create(did)!;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchLatestPostsAsync(PostSearchOptions options, string? continuation = null, EnrichDeadlineToken deadline = default)
+        public record struct CachedSearchResult(BlueskyPost? Post, long LikeCount);
+
+        private Dictionary<DuckDbUuid, SearchSession> recentSearches = new();
+        private class SearchSession
         {
+            public Stopwatch LastSeen = Stopwatch.StartNew();
+            public List<(PostId[] Posts, int NextContinuationMinLikes)> Pages = new();
+            public ConcurrentDictionary<PostId, CachedSearchResult> AlreadyProcessed = new();
+
+        }
+
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, EnrichDeadlineToken deadline = default)
+        {
+            EnsureLimit(ref limit, 30);
+            options = await InitializeSearchOptionsAsync(options);
+
+            var cursor = continuation != null ? TopPostSearchCursor.Deserialize(continuation) : new TopPostSearchCursor(65536, Guid.NewGuid(), 0);
+            var minLikes = cursor.MinLikes;
+
+            SearchSession? searchSession;
+            lock (recentSearches)
+            {
+                if (continuation == null)
+                {
+                    recentSearches[cursor.SearchId] = searchSession = new();
+                }
+                else
+                {
+                    if (!recentSearches.TryGetValue(cursor.SearchId, out searchSession))
+                    {
+                        // Search session expired. Approximate a new one.
+                        cursor = new TopPostSearchCursor(cursor.MinLikes, Guid.NewGuid(), 0);
+                        recentSearches[cursor.SearchId] = searchSession = new();
+                    }
+                }
+            }
+
+            lock (searchSession)
+            {
+                searchSession.LastSeen.Restart();
+            }
+
+
+
+            if (recentSearches.Count >= 10000)
+            {
+                foreach (var item in recentSearches.ToArray())
+                {
+                    if (item.Value.LastSeen.Elapsed.TotalMinutes >= 30)
+                        recentSearches.Remove(item.Key, out _);
+                }
+            }
+
+            BlueskyPost[]? mandatoryPosts = null;
+            TopPostSearchCursor? mandatoryNextContinuation = null;
+            lock (searchSession)
+            {
+                if (cursor.PageIndex < searchSession.Pages.Count)
+                {
+                    var page = searchSession.Pages[cursor.PageIndex];
+                    mandatoryPosts = WithRelationshipsLock(rels => page.Posts.Select(x => rels.GetPost(x)).ToArray());
+                    mandatoryNextContinuation = page.NextContinuationMinLikes != -1 ? new TopPostSearchCursor(page.NextContinuationMinLikes, cursor.SearchId, cursor.PageIndex + 1) : null;
+                }
+            }
+            if (mandatoryPosts != null)
+            {
+                await EnrichAsync(mandatoryPosts, deadline);
+                return (mandatoryPosts, mandatoryNextContinuation?.Serialize());
+            }
+
+            bool HasEnoughPrefetchedResults() => searchSession.AlreadyProcessed.Count(x => x.Value.LikeCount != -1) > limit; // strictly greater (we want limit + 1)
+
+
+            if (!HasEnoughPrefetchedResults()) 
+            {
+                while (true)
+                {
+                    Console.Error.WriteLine("Try top search with minLikes: " + minLikes);
+                    var latest = await SearchLatestPostsAsync(options with { MinLikes = Math.Max(minLikes, options.MinLikes) }, limit: limit * 2, deadline: default, enrichOutput: false, alreadyProcessedPosts: searchSession.AlreadyProcessed);
+                    if (latest.Posts.Length != 0)
+                    {
+                        foreach (var post in latest.Posts)
+                        {
+                            searchSession.AlreadyProcessed[post.PostId] = new CachedSearchResult(post, post.LikeCount);
+                        }
+                        if (HasEnoughPrefetchedResults()) break;
+                    }
+                    if (minLikes == 0) break;
+                    if (minLikes == 1) minLikes = 0;
+                    else minLikes = minLikes / 2;
+                    if (minLikes < options.MinLikes / 2) break;
+                }
+            }
+
+            var resultCore = searchSession.AlreadyProcessed
+                .Where(x => x.Value.LikeCount != -1)
+                .OrderByDescending(x => x.Value.LikeCount)
+                .Take(limit + 1)
+                .ToArray();
+            var result = WithRelationshipsLock(rels => resultCore.Select(x => x.Value.Post ?? rels.GetPost(x.Key)).ToArray());
+
+
+            var hasMorePages = result.Length > limit;
+            if (hasMorePages)
+                result = result.AsSpan(0, limit).ToArray();
+
+            bool tryAgainAlreadyProcessed = false;
+            lock (searchSession)
+            {
+                var pages = searchSession.Pages;
+                if (cursor.PageIndex < pages.Count)
+                {
+                    // A concurrent request for the same cursor occurred.
+                    tryAgainAlreadyProcessed = true;
+                }
+                else if (cursor.PageIndex == pages.Count)
+                {
+                    pages.Add((result.Select(x => x.PostId).ToArray(), minLikes));
+                    foreach (var p in result)
+                    {
+                        searchSession.AlreadyProcessed[p.PostId] = new CachedSearchResult(null, -1);
+                    }
+                }
+                else throw new Exception();
+            }
+            if (tryAgainAlreadyProcessed)
+            {
+                return await SearchTopPostsAsync(options, limit, continuation, deadline);
+            }
+
+
+            await EnrichAsync(result, deadline);
+            return (result, hasMorePages ? new TopPostSearchCursor(minLikes, cursor.SearchId, cursor.PageIndex + 1).Serialize() : null);
+        }
+
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, EnrichDeadlineToken deadline = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
+        {
+            EnsureLimit(ref limit);
+            options = await InitializeSearchOptionsAsync(options);
             var until = options.Until;
             var query = options.Query;
-            options.Author = !string.IsNullOrEmpty(options.Author) ? await this.ResolveHandleAsync(options.Author) : null;
             var author = options.Author != null ? WithRelationshipsLock(rels => rels.SerializeDid(options.Author)) : default;
             var queryWords = StringUtils.GetDistinctWords(query);
             if (queryWords.Length == 0) return ([], null);
@@ -288,6 +426,11 @@ namespace AppViewLite
                         var postsCore = rels.PostData.GetInRangeUnsorted(startPostId, endPostId)
                             .Where(x =>
                             {
+                                if (alreadyProcessedPosts != null)
+                                {
+                                    if (!alreadyProcessedPosts.TryAdd(x.Key, new CachedSearchResult(null, -1))) // Will be overwritten later with actual post, if it matches
+                                        return false;
+                                }
                                 var date = x.Key.PostRKey.Date;
                                 if (date < options.Since) return false;
                                 if (until != null && date >= until) return false;
@@ -313,11 +456,21 @@ namespace AppViewLite
                             .Where(x => x.Data?.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
-                    .Take(100)
+                    .Take(limit)
                     .ToArray();
             });
-            await EnrichAsync(posts, deadline);
+            if (enrichOutput)
+                await EnrichAsync(posts, deadline);
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
+        }
+
+        private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options)
+        {
+            
+            var author = !string.IsNullOrEmpty(options.Author) ? await this.ResolveHandleAsync(options.Author) : null;
+            if (author != options.Author)
+                return options with { Author = author };
+            return options;
         }
 
         private static bool ContainsExactPhrase(string[] haystack, string[] needle)

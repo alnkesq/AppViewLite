@@ -1,3 +1,4 @@
+using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +17,15 @@ namespace AppViewLite.Web
             var profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(actor, EnrichDeadlineToken.Create());
 
             return profile.ToApiCompatDetailed();
+        }
+
+        [HttpGet("app.bsky.actor.searchActorsTypeahead")]
+        public Task<SearchActorsTypeaheadOutput> SearchActorsTypeahead(string q, int limit)
+        {
+            return Task.FromResult(new SearchActorsTypeaheadOutput 
+            { 
+                Actors = []
+            });
         }
     }
 }

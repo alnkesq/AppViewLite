@@ -137,11 +137,13 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.searchPosts")]
         public async Task<SearchPostsOutput> SearchPosts(string q, int limit, SearchPostsSort sort, string? cursor)
         {
-            var results = await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(new PostSearchOptions 
-            { 
+            var options = new PostSearchOptions
+            {
                 Query = q,
-                MinLikes = sort == SearchPostsSort.top ? 10 : 0,
-            }, continuation: cursor, limit: limit, deadline: EnrichDeadlineToken.Create());
+            };
+            var results = 
+                sort == SearchPostsSort.top ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, continuation: cursor, limit: limit, deadline: EnrichDeadlineToken.Create()) :
+                await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, deadline: EnrichDeadlineToken.Create());
             return new SearchPostsOutput
             {
                  Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),

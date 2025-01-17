@@ -11,14 +11,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using FishyFlip;
 using AppViewLite.Numerics;
-using Ipfs;
-using System.Collections.Generic;
 using System.IO;
 using FishyFlip.Tools;
-using PeterO.Cbor;
-using System.Text;
 using System.Threading;
-using System.Numerics;
+using System.Diagnostics;
 
 namespace AppViewLite
 {
@@ -35,6 +31,7 @@ namespace AppViewLite
         {
             lock (relationships)
             {
+                var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
                 var slash = path!.IndexOf('/');
                 var collection = path.Substring(0, slash);
@@ -66,6 +63,7 @@ namespace AppViewLite
                 //{ 
 
                 //}
+                relationships.LogPerformance(sw, "Delete-" + path);
             }
         }
 
@@ -81,6 +79,7 @@ namespace AppViewLite
             return long.TryParse(rkey, out _);
         }
 
+
         private void OnRecordCreated(string commitAuthor, string path, ATObject record)
         {
         
@@ -88,6 +87,7 @@ namespace AppViewLite
             ContinueOutsideLock? continueOutsideLock = null;
             lock (relationships)
             {
+                var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
                 var commitPlc = relationships.SerializeDid(commitAuthor);
                 if (record is Like l)
@@ -134,17 +134,24 @@ namespace AppViewLite
                 {
                     relationships.StoreProfileBasicInfo(commitPlc, pf);
                 }
+                relationships.LogPerformance(sw, "Create-" + path);
             }
 
             if (continueOutsideLock != null)
             {
+                
                 continueOutsideLock.Value.OutsideLock();
                 lock (relationships)
                 {
+                    var sw = Stopwatch.StartNew();
                     continueOutsideLock.Value.Complete(relationships);
+                    relationships.LogPerformance(sw, "WritePost");
                 }
+                
             }
         }
+
+
 
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {

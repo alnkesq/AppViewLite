@@ -11,6 +11,7 @@ using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.IO.Hashing;
@@ -18,7 +19,6 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace AppViewLite
 {
@@ -151,7 +151,16 @@ namespace AppViewLite
                 {
                     d.Dispose();
                 }
+
                 _disposed = true;
+            }
+
+            lock (recordTypeDurations)
+            {
+                foreach (var item in recordTypeDurations.OrderByDescending(x => x.Value.TotalTime))
+                {
+                    Console.Error.WriteLine(item.Value + " " + item.Key + " (" + item.Value.Count + ", avg. " + (long)(item.Value.TotalTime / item.Value.Count).TotalMicroseconds  + ")");
+                }
             }
         }
         private bool _disposed;
@@ -759,6 +768,24 @@ namespace AppViewLite
                 minPopularity = (int)BitOperations.RoundUpToPowerOf2((uint)minPopularity) / 2;
             return "%" + name + "-" + minPopularity;
         }
+        
+        public void LogPerformance(Stopwatch sw, string operationAndPath)
+        {
+            return;
+            var slash = operationAndPath.IndexOf('/');
+            if (slash != -1)
+                operationAndPath = operationAndPath.Substring(0, slash);
+            sw.Stop();
+            lock (recordTypeDurations)
+            {
+                recordTypeDurations.TryGetValue(operationAndPath, out var total);
+                total.TotalTime += sw.Elapsed;
+                total.Count++;
+                recordTypeDurations[operationAndPath] = total;
+            }
+        }
+        private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
+
     }
 }
 

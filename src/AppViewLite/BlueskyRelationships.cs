@@ -831,6 +831,38 @@ namespace AppViewLite
             return protoMs.ToArray();
         }
 
+        public bool UserDirectlyBlocksUser(Plc blocker, Plc blockee)
+        {
+            return Blocks.HasActor(blockee, blocker, out _);
+        }
+
+        public bool IsMemberOfList(Relationship list, Plc member)
+        {
+            
+            foreach (var memberChunk in ListItems.GetValuesChunked(list))
+            {
+                var members = memberChunk.AsSpan();
+                var index = members.BinarySearch(new ListEntry(member, default));
+                if (index >= 0) throw new Exception();
+
+                index = ~index;
+
+                for (long i = index; i < members.Length; i++)
+                {
+                    var entry = members[i];
+                    if (entry.Member != member) break;
+
+                    var listItem = new Relationship(list.Actor, entry.ListItemRKey);
+                    if (ListItemDeletions.ContainsKey(listItem))
+                        continue;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 
     }

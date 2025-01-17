@@ -23,7 +23,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Profile = Program.WithRelationshipsLock(rels => rels.GetFullProfile(Did));
+        Profile = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetFullProfile(Did));
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
             Did, 
             includePosts: !ShowLikes, 

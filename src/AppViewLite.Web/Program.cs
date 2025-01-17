@@ -36,15 +36,6 @@ namespace AppViewLite.Web
             return $"https://cdn.bsky.app/img/feed_fullsize/plain/{did}/{Cid.Read(cid) }@jpeg";
         }
 
-        public static T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
-        {
-            BlueskyRelationships.VerifyNotEnumerable<T>();
-            lock (Relationships)
-            {
-                return func(Relationships);
-            }
-        }
-
         public static async Task Main(string[] args)
         {
             Relationships = new();

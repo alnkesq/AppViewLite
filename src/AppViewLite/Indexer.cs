@@ -71,6 +71,12 @@ namespace AppViewLite
                 {
                     relationships.ThreadGateDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
                 }
+                else if (collection == Listblock.RecordType)
+                {
+                    relationships.ListBlockDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                }
+                //else Console.Error.WriteLine("Deletion of unknown object type: " + collection);
+
                 relationships.LogPerformance(sw, "Delete-" + path);
             }
         }
@@ -158,6 +164,15 @@ namespace AppViewLite
                 {
 
                 }
+                else if (record is Listblock listBlock)
+                {
+                    var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
+                    if (listBlock.Subject.Collection != List.RecordType) throw new Exception();
+                    var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did.Handler), Tid.Parse(listBlock.Subject.Rkey));
+
+                    relationships.ListBlocks.Add(blockId, listId);
+                }
+                //else Console.Error.WriteLine("Creation of unknown object type: " + path);
                 relationships.LogPerformance(sw, "Create-" + path);
             }
 

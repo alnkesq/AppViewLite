@@ -35,6 +35,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ThreadGateDeletions;
+        public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
+        public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> RecursiveReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
@@ -101,6 +103,9 @@ namespace AppViewLite
 
             ThreadGateDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/threadgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
 
+            ListBlocks = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-block", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
+            ListBlockDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-block-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+
             Likes.BeforeFlush += flushMappings;
             Reposts.BeforeFlush += flushMappings;
             Follows.BeforeFlush += flushMappings;
@@ -115,6 +120,8 @@ namespace AppViewLite
             Lists.BeforeFlush += flushMappings;
             ListDeletions.BeforeFlush += flushMappings;
             ThreadGateDeletions.BeforeFlush += flushMappings;
+            ListBlocks.BeforeFlush += flushMappings;
+            ListBlockDeletions.BeforeFlush += flushMappings;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)

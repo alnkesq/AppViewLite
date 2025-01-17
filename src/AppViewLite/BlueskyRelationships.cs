@@ -843,6 +843,36 @@ namespace AppViewLite
             return Blocks.HasActor(blockee, blocker, out _);
         }
 
+        public BlockReason UserBlocksUser(Plc blocker, Plc blockee)
+        {
+            if (UserDirectlyBlocksUser(blocker, blockee)) return new BlockReason(BlockReasonKind.Blocks, default);
+            foreach (var subscription in GetSubscribedBlockLists(blocker))
+            {
+                if (IsMemberOfList(subscription, blockee)) return new BlockReason(BlockReasonKind.Blocks, subscription);
+            }
+            return default;
+        }
+
+        public BlockReason UsersHaveBlockRelationship(Plc a, Plc b)
+        {
+            var direct = UserBlocksUser(a, b);
+            var inverse = UserBlocksUser(b, a);
+            var directKind = direct.Kind;
+            var inverseKind = inverse.Kind;
+
+            if (directKind == default && inverseKind == default) return default;
+
+            if (directKind != default && inverseKind != default)
+            {
+                return new BlockReason(BlockReasonKind.MutualBlock, direct.List);
+            }
+
+            if (directKind != default) return direct;
+            if (inverseKind != default) return new BlockReason(BlockReasonKind.BlockedBy, inverse.List);
+
+            throw new Exception();
+        }
+
         public bool IsMemberOfList(Relationship list, Plc member)
         {
             
@@ -868,6 +898,23 @@ namespace AppViewLite
             }
 
             return false;
+        }
+
+        public List<Relationship> GetSubscribedBlockLists(Plc subscriber)
+        {
+            var lists = new List<Relationship>();
+
+            foreach (var (subscriptionId, singleList) in ListBlocks.GetInRangeUnsorted(new Relationship(subscriber, default), new Relationship(new Plc(subscriber.PlcValue + 1), default)))
+            {
+                if (ListBlockDeletions.ContainsKey(subscriptionId))
+                    continue;
+
+                if (singleList.Count != 1) throw new Exception(); // it's a SingleValue
+
+                lists.Add(lists[0]);
+            }
+
+            return lists;
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

@@ -36,6 +36,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
         public CombinedPersistentMultiDictionary<PostId, byte> Threadgates;
         public CombinedPersistentMultiDictionary<PostId, DateTime> ThreadgateDeletions;
+        public CombinedPersistentMultiDictionary<PostId, byte> Postgates;
+        public CombinedPersistentMultiDictionary<PostId, DateTime> PostgateDeletions;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
@@ -105,6 +107,9 @@ namespace AppViewLite
             Threadgates = Register(new CombinedPersistentMultiDictionary<PostId, byte>(basedir + "/threadgate", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
             ThreadgateDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/threadgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
 
+            Postgates = Register(new CombinedPersistentMultiDictionary<PostId, byte>(basedir + "/postgate", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
+            PostgateDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/postgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+
             ListBlocks = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-block", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
             ListBlockDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-block-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
 
@@ -123,6 +128,8 @@ namespace AppViewLite
             ListDeletions.BeforeFlush += flushMappings;
             Threadgates.BeforeFlush += flushMappings;
             ThreadgateDeletions.BeforeFlush += flushMappings;
+            Postgates.BeforeFlush += flushMappings;
+            PostgateDeletions.BeforeFlush += flushMappings;
             ListBlocks.BeforeFlush += flushMappings;
             ListBlockDeletions.BeforeFlush += flushMappings;
         }
@@ -843,7 +850,7 @@ namespace AppViewLite
 
 
 
-        internal ReadOnlySpan<byte> SerializeThreadGateToBytes(Threadgate threadGate)
+        internal ReadOnlySpan<byte> SerializeThreadgateToBytes(Threadgate threadGate)
         {
             var proto = new BlueskyThreadgate
             {
@@ -855,8 +862,29 @@ namespace AppViewLite
                     return new RelationshipProto { Plc = SerializeDid(x.List.Did.Handler).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
                 }).ToArray()
             };
+            return SerializeProtoToBytes(proto, x => x.Dummy = true);
+        }
+        internal ReadOnlySpan<byte> SerializePostgateToBytes(Postgate postgate)
+        {
+            var proto = new BlueskyPostgate
+            {
+                 DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x))).ToArray(),
+                 DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false
+            };
+            return SerializeProtoToBytes(proto, x => x.Dummy = true);
+        }
+
+        private static ReadOnlySpan<byte> SerializeProtoToBytes<T>(T proto, Action<T> setDummyValue)
+        {
             using var protoMs = new MemoryStream();
             ProtoBuf.Serializer.Serialize(protoMs, proto);
+            if (protoMs.Length == 0)
+            {
+                // Zero-length values are not supported in CombinedPersistentMultiDictionary
+                setDummyValue(proto);
+                ProtoBuf.Serializer.Serialize(protoMs, proto);
+                if (protoMs.Length == 0) throw new Exception();
+            }
             return protoMs.ToArray();
         }
 

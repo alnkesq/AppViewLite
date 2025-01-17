@@ -71,6 +71,10 @@ namespace AppViewLite
                 {
                     relationships.ThreadgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
                 }
+                else if (collection == Postgate.RecordType)
+                {
+                    relationships.PostgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
+                }
                 else if (collection == Listblock.RecordType)
                 {
                     relationships.ListBlockDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
@@ -161,12 +165,20 @@ namespace AppViewLite
                     relationships.ListItems.Add(listId, entry);
                 }
                 else if (record is Threadgate threadGate)
-                { 
+                {
                     var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
                     if (threadGate.Post.Did.Handler != commitAuthor) throw new Exception();
                     if (threadGate.Post.Rkey != rkey.ToString()) throw new Exception();
                     if (threadGate.Post.Collection != Post.RecordType) throw new Exception();
-                    relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadGateToBytes(threadGate));
+                    relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate));
+                }
+                else if (record is Postgate postgate)
+                {
+                    var rkey = GetMessageTid(path, Postgate.RecordType + "/");
+                    if (postgate.Post.Did.Handler != commitAuthor) throw new Exception();
+                    if (postgate.Post.Rkey != rkey.ToString()) throw new Exception();
+                    if (postgate.Post.Collection != Post.RecordType) throw new Exception();
+                    relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate));
                 }
                 else if (record is Listblock listBlock)
                 {

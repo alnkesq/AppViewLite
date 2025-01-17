@@ -22,6 +22,7 @@ using FishyFlip.Tools;
 using FishyFlip.Lexicon.App.Bsky.Graph;
 using AppViewLite.Numerics;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace AppViewLite
 {
@@ -466,11 +467,50 @@ namespace AppViewLite
 
         private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options)
         {
-            
-            var author = !string.IsNullOrEmpty(options.Author) ? await this.ResolveHandleAsync(options.Author) : null;
-            if (author != options.Author)
-                return options with { Author = author };
-            return options;
+            var q = options.Query;
+            string? author = options.Author;
+            DateTime? since = options.Since;
+            DateTime? until = options.Until;
+            int minReposts = options.MinReposts;
+            int minLikes = options.MinLikes;
+
+            StringUtils.ParseQueryModifiers(ref q, (k, v) => 
+            {
+                if (string.IsNullOrEmpty(v)) return false;
+                if (k == "from")
+                    author = v;
+                else if (k == "since")
+                    since = ParseDate(v);
+                else if (k == "until")
+                    until = ParseDate(v);
+                else if (k == "min_reposts" || k == "min_retweets")
+                    minReposts = int.Parse(v);
+                else if (k == "min_likes" || k == "min_faves")
+                    minLikes = int.Parse(v);
+                else
+                    return false;
+
+                return true;
+            });
+
+            if (author != null && author.StartsWith('@'))
+                author = author.Substring(1);
+
+            author = !string.IsNullOrEmpty(author) ? await this.ResolveHandleAsync(author) : null;
+            return options with 
+            {
+                Query = q,
+                Author = author,
+                Since = since,
+                Until = until,
+                MinLikes = minLikes,
+                MinReposts = minReposts,
+            };
+        }
+
+        private DateTime? ParseDate(string v)
+        {
+            return DateTime.ParseExact(v, "yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
         private static bool ContainsExactPhrase(string[] haystack, string[] needle)

@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace AppViewLite
 {
@@ -68,6 +67,48 @@ namespace AppViewLite
             }
             if (!hasDiacritics) return text;
             return sb.ToString();
+        }
+
+        internal static void ParseQueryModifiers(ref string? query, Func<string, string, bool> onModifier)
+        {
+            if (query == null) return;
+            while (true)
+            {
+                var q = query;
+                var matches = Regex.Matches(q, @"\b[a-zA-Z_]+:");
+
+                var found = false;
+                foreach (Match match in matches.Where(x =>
+                {
+                    var r = x.Index;
+                    var quotesBefore = q.AsSpan(0, r).Count('"');
+                    return quotesBefore % 2 == 0;
+                }))
+                {
+
+                    if (match == null) break;
+
+                    var modifierAndRest = q.AsSpan(match.Index);
+                    var space = modifierAndRest.IndexOf(' ');
+                    if (space == -1) space = modifierAndRest.Length;
+
+                    var modifierName = match.ValueSpan[..^1];
+                    var modifierValue = modifierAndRest.Slice(0, space).Slice(match.Length);
+                    if (onModifier(modifierName.ToString(), modifierValue.ToString()))
+                    {
+                        var rest = modifierAndRest.Slice(space);
+                        if (!rest.IsEmpty) rest = rest.Slice(1);
+
+                        query = string.Concat(query.AsSpan(0, match.Index), rest);
+                        found = true;
+                        break;
+                    }
+
+                }
+
+                if (!found) break;
+
+            }
         }
     }
 }

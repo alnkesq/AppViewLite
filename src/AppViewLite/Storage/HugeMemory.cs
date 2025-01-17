@@ -216,7 +216,7 @@ namespace AppViewLite.Storage
             : this(in Unsafe.AsRef<T>(ptr), length)
         {
         }
-        internal HugeReadOnlySpan(in T ptr, long length)
+        public HugeReadOnlySpan(in T ptr, long length)
         {
             this.ptr = ref ptr;
             this.length = length;
@@ -255,6 +255,14 @@ namespace AppViewLite.Storage
                 return MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in ptr), checked((int)length));
             }
         }
+
+        public static implicit operator HugeReadOnlySpan<T>(T[]? array)
+        {
+            if (array == null || array.Length == 0) return default;
+            return new HugeReadOnlySpan<T>(in array[0], array.Length);
+        }
     }
+
+
 }
 

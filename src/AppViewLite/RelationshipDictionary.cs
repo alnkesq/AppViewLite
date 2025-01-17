@@ -139,7 +139,8 @@ namespace AppViewLite
         {
             foreach (var chunk in deletionCounts.GetValuesChunkedLatestFirst(target))
             {
-                return chunk.AsSpan()[^1];
+                var span = chunk.AsSpan();
+                return span[span.Length - 1];
             }
             return 0;
         }

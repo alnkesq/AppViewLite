@@ -61,15 +61,17 @@ namespace AppViewLite.Storage
             return GetEnumerator();
         }
 
-        public ReadOnlySpan<T> AsSpan() => this;
+        public HugeReadOnlySpan<T> AsSpan() => managed != null ? managed : native.Span;
+        public ReadOnlySpan<T> AsSmallSpan() => managed != null ? managed : native.Span.AsSmallSpan;
 
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private ReadOnlySpan<T> AsSpanForDebugger => AsSpan();
+        private ReadOnlySpan<T> AsSpanForDebugger => AsSmallSpan();
 
         public static implicit operator ManagedOrNativeArray<T>(T[]? arr) => new(arr);
         public static implicit operator ManagedOrNativeArray<T>(DangerousHugeReadOnlyMemory<T> arr) => new(arr);
 
-        public static implicit operator ReadOnlySpan<T>(ManagedOrNativeArray<T> arr) => arr.managed != null ? arr.managed : arr.native.Span.AsSmallSpan;
+        //public static implicit operator ReadOnlySpan<T>(ManagedOrNativeArray<T> arr) => arr.AsSmallSpan();
+        public static implicit operator HugeReadOnlySpan<T>(ManagedOrNativeArray<T> arr) => arr.AsSpan();
     }
 }
 

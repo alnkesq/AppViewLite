@@ -452,7 +452,7 @@ namespace AppViewLite
                         var posts = postsCore
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
-                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSpan(), x.Key)))
+                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)))
                             .Where(x => x.Data?.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })

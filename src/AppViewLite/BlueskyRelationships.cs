@@ -7,6 +7,7 @@ using FishyFlip.Models;
 using Ipfs;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using AppViewLite;
 using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using System;
@@ -169,7 +170,7 @@ namespace AppViewLite
         {
             if (PlcToDid.TryGetPreserveOrderSpan(plc, out var r))
             {
-                return Encoding.UTF8.GetString(r);
+                return Encoding.UTF8.GetString(r.AsSmallSpan());
             }
             return null;
         }
@@ -217,7 +218,7 @@ namespace AppViewLite
         {
             if (PlcToBasicInfo.TryGetPreserveOrderSpan(plc, out var arr))
             {
-                var span = arr.AsSpan();
+                var span = arr.AsSmallSpan();
                 var nul = span.IndexOf((byte)0);
                 var displayName = Encoding.UTF8.GetString(span.Slice(0, nul));
                 if (string.IsNullOrEmpty(displayName)) displayName = null;
@@ -473,7 +474,7 @@ namespace AppViewLite
             {
                 var slice = slices[sliceIdx];
                 var index = slice.AsSpan().BinarySearch(maxPost);
-                int trimPosition;
+                long trimPosition;
                 if (index < 0)
                 {
                     var indexOfNextLargest = ~index;
@@ -674,7 +675,7 @@ namespace AppViewLite
             BlueskyPostData? proto = null;
             if (PostData.TryGetPreserveOrderSpan(id, out var postDataCompressed))
             {
-                proto = DeserializePostData(postDataCompressed.AsSpan(), id);
+                proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id);
             }
             else if (FailedPostLookups.ContainsKey(id))
             {

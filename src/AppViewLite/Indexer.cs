@@ -69,7 +69,7 @@ namespace AppViewLite
                 }
                 else if (collection == Threadgate.RecordType)
                 {
-                    relationships.ThreadGateDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    relationships.ThreadgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
                 }
                 else if (collection == Listblock.RecordType)
                 {
@@ -161,8 +161,12 @@ namespace AppViewLite
                     relationships.ListItems.Add(listId, entry);
                 }
                 else if (record is Threadgate threadGate)
-                {
-
+                { 
+                    var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
+                    if (threadGate.Post.Did.Handler != commitAuthor) throw new Exception();
+                    if (threadGate.Post.Rkey != rkey.ToString()) throw new Exception();
+                    if (threadGate.Post.Collection != Post.RecordType) throw new Exception();
+                    relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadGateToBytes(threadGate));
                 }
                 else if (record is Listblock listBlock)
                 {

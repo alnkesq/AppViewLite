@@ -34,7 +34,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
-        public CombinedPersistentMultiDictionary<Relationship, DateTime> ThreadGateDeletions;
+        public CombinedPersistentMultiDictionary<PostId, byte> Threadgates;
+        public CombinedPersistentMultiDictionary<PostId, DateTime> ThreadgateDeletions;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
@@ -101,7 +102,8 @@ namespace AppViewLite
             Lists = Register(new CombinedPersistentMultiDictionary<Relationship, byte>(basedir + "/list", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
             ListDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
 
-            ThreadGateDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/threadgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+            Threadgates = Register(new CombinedPersistentMultiDictionary<PostId, byte>(basedir + "/threadgate", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
+            ThreadgateDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/threadgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
 
             ListBlocks = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-block", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
             ListBlockDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-block-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
@@ -119,7 +121,8 @@ namespace AppViewLite
             ListItemDeletions.BeforeFlush += flushMappings;
             Lists.BeforeFlush += flushMappings;
             ListDeletions.BeforeFlush += flushMappings;
-            ThreadGateDeletions.BeforeFlush += flushMappings;
+            Threadgates.BeforeFlush += flushMappings;
+            ThreadgateDeletions.BeforeFlush += flushMappings;
             ListBlocks.BeforeFlush += flushMappings;
             ListBlockDeletions.BeforeFlush += flushMappings;
         }
@@ -833,6 +836,25 @@ namespace AppViewLite
                 AvatarCid = list.Avatar?.Ref?.Link?.ToArray(),
             };
 
+            using var protoMs = new MemoryStream();
+            ProtoBuf.Serializer.Serialize(protoMs, proto);
+            return protoMs.ToArray();
+        }
+
+
+
+        internal ReadOnlySpan<byte> SerializeThreadGateToBytes(Threadgate threadGate)
+        {
+            var proto = new BlueskyThreadgate
+            {
+                HiddenReplies = threadGate.HiddenReplies?.Select(x => RelationshipProto.FromPostId(GetPostId(x))).ToArray(),
+                AllowlistedOnly = threadGate.Allow != null,
+                AllowFollowing = threadGate.Allow?.Any(x => x is FollowingRule) ?? false,
+                AllowMentioned = threadGate.Allow?.Any(x => x is MentionRule) ?? false,
+                AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x => {
+                    return new RelationshipProto { Plc = SerializeDid(x.List.Did.Handler).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
+                }).ToArray()
+            };
             using var protoMs = new MemoryStream();
             ProtoBuf.Serializer.Serialize(protoMs, proto);
             return protoMs.ToArray();

@@ -221,6 +221,23 @@ namespace AppViewLite.Storage
         public bool TryGetSingleValue(TKey key, out TValue value)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
+#if true
+            foreach (var slice in slices)
+            {
+                var vals = slice.Reader.GetValues(key);
+                if (vals.Length != 0)
+                {
+                    value = vals[0];
+                    return true;
+                }
+            }
+
+            if (queue.TryGetValues(key, out var q))
+            {
+                value = q[0];
+                return true;
+            }
+#else
             var f = GetValuesChunked(key).SingleOrDefault();
 
             if (!f.IsEmpty)
@@ -232,6 +249,7 @@ namespace AppViewLite.Storage
                 }
                 else throw new Exception("Multiple values for key " + key);
             }
+#endif
             value = default;
             return false;
         }

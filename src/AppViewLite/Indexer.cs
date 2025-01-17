@@ -59,10 +59,10 @@ namespace AppViewLite
                 {
                     relationships.PostDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
                 }
-                //else if (collection == "app.bsky.graph.listitem")
-                //{ 
-
-                //}
+                else if (collection == Listitem.RecordType)
+                {
+                    relationships.ListItemDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                }
                 relationships.LogPerformance(sw, "Delete-" + path);
             }
         }
@@ -123,16 +123,32 @@ namespace AppViewLite
                     var proto = relationships.PostRecordToPostData(p, postId);
 
                     byte[]? postBytes = null;
-                    continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.CompressPostDataToBytes(proto), relationships => 
+                    continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.CompressPostDataToBytes(proto), relationships =>
                     {
                         relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
                     });
-                    
+
                     //relationships.StorePostInfo(postId, p);
                 }
                 else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
                 {
                     relationships.StoreProfileBasicInfo(commitPlc, pf);
+                }
+                else if (record is List list)
+                {
+
+                }
+                else if (record is Listitem listItem)
+                {
+                    if (commitAuthor != listItem.List.Did.Handler) throw new Exception();
+                    if (listItem.List.Collection != List.RecordType) throw new Exception();
+                    var listId = new Relationship(commitPlc, Tid.Parse(listItem.List.Rkey));
+                    var entry = new Relationship(relationships.SerializeDid(listItem.Subject.Handler), GetMessageTid(path, Listitem.RecordType + "/"));
+                    relationships.ListItems.Add(listId, entry);
+                }
+                else if (record is Threadgate threadGate)
+                {
+
                 }
                 relationships.LogPerformance(sw, "Create-" + path);
             }

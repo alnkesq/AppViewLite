@@ -30,6 +30,8 @@ namespace AppViewLite
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
+        public CombinedPersistentMultiDictionary<Relationship, Relationship> ListItems;
+        public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> RecursiveReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
@@ -87,8 +89,8 @@ namespace AppViewLite
             PostTextSearch = Register(new CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32>(basedir + "/post-text-approx-time-32") { ItemsToBuffer = DefaultBufferedItems, OnCompactation = x => x.DistinctAssumingOrderedInput() });
             FailedProfileLookups = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/profile-basic-failed"));
             FailedPostLookups = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/post-data-failed"));
-            // using var relListItems = Register(new RelationshipDictionary<Relationship>(basedir + "/list-item"));
-
+            ListItems = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-item") { ItemsToBuffer = DefaultBufferedItems });
+            ListItemDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-item-deletions") { ItemsToBuffer = DefaultBufferedItemsForDeletion });
             Likes.BeforeFlush += flushMappings;
             Reposts.BeforeFlush += flushMappings;
             Follows.BeforeFlush += flushMappings;
@@ -98,6 +100,8 @@ namespace AppViewLite
             Quotes.BeforeFlush += flushMappings;
             PostDeletions.BeforeFlush += flushMappings;
             PlcToBasicInfo.BeforeFlush += flushMappings;
+            ListItems.BeforeFlush += flushMappings;
+            ListItemDeletions.BeforeFlush += flushMappings;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)

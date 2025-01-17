@@ -34,6 +34,13 @@ namespace AppViewLite.Storage
 
         public bool ContainsKey(TKey key) => dict.ContainsKey(key);
 
+        public bool Contains(TKey key, TValue value)
+        {
+            if (TryGetValues(key, out var values))
+                return values.Contains(value);
+            return false;
+        }
+
         public IEnumerator<(TKey Key, IReadOnlyList<TValue> Values)> GetEnumerator()
         {
             return dict.Select(x => (x.Key, (IReadOnlyList<TValue>)x.Value)).GetEnumerator();

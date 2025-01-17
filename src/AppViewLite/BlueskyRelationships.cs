@@ -83,7 +83,7 @@ namespace AppViewLite
             PostDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/post-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
             PlcToBasicInfo = Register(new CombinedPersistentMultiDictionary<Plc, byte>(basedir + "/profile-basic", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = 512 });
             PostData = Register(new CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>(basedir + "/post-data-time-first", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
-            PostTextSearch = Register(new CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32>(basedir + "/post-text-approx-time-32") { ItemsToBuffer = DefaultBufferedItems });
+            PostTextSearch = Register(new CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32>(basedir + "/post-text-approx-time-32") { ItemsToBuffer = DefaultBufferedItems, OnCompactation = x => x.DistinctAssumingOrderedInput() });
             FailedProfileLookups = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/profile-basic-failed"));
             FailedPostLookups = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/post-data-failed"));
             // using var relListItems = Register(new RelationshipDictionary<Relationship>(basedir + "/list-item"));
@@ -276,15 +276,14 @@ namespace AppViewLite
 
             if (addToInverseDictionaries)
             {
-                this.PostTextSearch.AddIfMissing(HashPlcForTextSearch(postId.Author), approxPostDate);
+                AddToSearchIndex(HashPlcForTextSearch(postId.Author), approxPostDate);
 
                 if (proto.Text != null)
                 {
                     var words = StringUtils.GetDistinctWords(proto.Text);
                     foreach (var word in words)
                     {
-                        ulong hash = HashWord(word);
-                        this.PostTextSearch.AddIfMissing(hash, approxPostDate);
+                        AddToSearchIndex(word, approxPostDate);
                     }
                 }
 
@@ -297,8 +296,7 @@ namespace AppViewLite
                             var tag = feature.TagValue;
                             if (!string.IsNullOrEmpty(tag))
                             {
-                                ulong hash = HashWord("#" + tag.ToLowerInvariant());
-                                this.PostTextSearch.AddIfMissing(hash, approxPostDate);
+                                AddToSearchIndex("#" + tag.ToLowerInvariant(), approxPostDate);
                             }
                         }
                     }
@@ -382,7 +380,16 @@ namespace AppViewLite
             return proto;
         }
 
-
+        private void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
+        {
+            ulong hash = HashWord(word);
+            AddToSearchIndex(hash, approxPostDate);
+        }
+        private void AddToSearchIndex(UInt64 hash, ApproximateDateTime32 approxPostDate)
+        {
+            if (this.PostTextSearch.QueuedItems.Contains(hash, approxPostDate)) return;
+            this.PostTextSearch.Add(hash, approxPostDate); // Will be deduped on compactation (AddIfMissing is too expensive)
+        }
 
         private static ulong HashPlcForTextSearch(Plc author)
         {
@@ -758,7 +765,7 @@ namespace AppViewLite
 
             if (BitOperations.IsPow2(approxPopularity) && approxPopularity >= minPopularityForIndex)
             {
-                PostTextSearch.AddIfMissing(HashWord("%" + indexName + "-" + approxPopularity), GetApproxTime32(postId.PostRKey));
+                AddToSearchIndex("%" + indexName + "-" + approxPopularity, GetApproxTime32(postId.PostRKey));
             }
         }
 
@@ -771,7 +778,7 @@ namespace AppViewLite
         
         public void LogPerformance(Stopwatch sw, string operationAndPath)
         {
-            return;
+            
             var slash = operationAndPath.IndexOf('/');
             if (slash != -1)
                 operationAndPath = operationAndPath.Substring(0, slash);

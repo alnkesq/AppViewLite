@@ -119,7 +119,7 @@ namespace AppViewLite.Storage
                 
 
                 if (!avoidNewCompactations)
-                    MaybeCompact();
+                    MaybeStartCompactation();
                 lastFlushed = null;
             }
         }
@@ -127,7 +127,7 @@ namespace AppViewLite.Storage
 
         private DateTime prevSliceDate;
 
-        private void MaybeCompactOnce()
+        private void MaybeStartCompactation()
         {
             if (pendingCompactation != null) throw new InvalidOperationException();
 
@@ -160,7 +160,7 @@ namespace AppViewLite.Storage
 
             if ((a && b) || last.Count >= 6)
             {
-                Compact(slices.Count - last.Count, last.Count);
+                StartCompactation(slices.Count - last.Count, last.Count);
             }
 
             
@@ -169,17 +169,7 @@ namespace AppViewLite.Storage
 
         }
 
-        public void MaybeCompact()
-        {
-            while (true)
-            {
-                var prevSlices = slices.Count;
-                MaybeCompactOnce();
-                if (slices.Count == prevSlices) return;
-            }
-        }
-
-        private void Compact(int groupStart, int groupLength)
+        private void StartCompactation(int groupStart, int groupLength)
         {
             if (groupLength <= 1) return;
             var inputs = slices.Slice(groupStart, groupLength);

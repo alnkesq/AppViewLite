@@ -156,14 +156,16 @@ namespace AppViewLite
 
             if (relationshipIdHashToApproxTarget != null)
             {
-                if (typeof(TTarget) == typeof(PostIdTimeFirst))
-                {
-                    var t = (PostIdTimeFirst)(object)target;
-                    var timeDelta = relationship.RelationshipRKey.Date - t.PostRKey.Date;
-                    if (timeDelta > TimeSpan.Zero && timeDelta < TimeSpan.FromMinutes(40))
-                        return;
-                }
+                //if (typeof(TTarget) == typeof(PostIdTimeFirst))
+                //{
+                //    var t = (PostIdTimeFirst)(object)target;
+                //    var timeDelta = relationship.RelationshipRKey.Date - t.PostRKey.Date;
+                //    if (timeDelta > TimeSpan.Zero && timeDelta < TimeSpan.FromMinutes(40))
+                //        return;
+                //}
                 // TODO: can we avoid saving it if like date and post date are close in time?
+
+
                 var approxTarget = targetToApproxTarget!(target, false);
                 if (approxTarget != null)
                 {

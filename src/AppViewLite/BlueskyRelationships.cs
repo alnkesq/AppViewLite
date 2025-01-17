@@ -30,8 +30,11 @@ namespace AppViewLite
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
-        public CombinedPersistentMultiDictionary<Relationship, Relationship> ListItems;
+        public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
+        public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
+        public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
+        public CombinedPersistentMultiDictionary<Relationship, DateTime> ThreadGateDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> RecursiveReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
@@ -89,8 +92,15 @@ namespace AppViewLite
             PostTextSearch = Register(new CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32>(basedir + "/post-text-approx-time-32") { ItemsToBuffer = DefaultBufferedItems, OnCompactation = x => x.DistinctAssumingOrderedInput() });
             FailedProfileLookups = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/profile-basic-failed"));
             FailedPostLookups = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/post-data-failed"));
-            ListItems = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-item") { ItemsToBuffer = DefaultBufferedItems });
-            ListItemDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-item-deletions") { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+
+            ListItems = Register(new CombinedPersistentMultiDictionary<Relationship, ListEntry>(basedir + "/list-item") { ItemsToBuffer = DefaultBufferedItems });
+            ListItemDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-item-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+
+            Lists = Register(new CombinedPersistentMultiDictionary<Relationship, byte>(basedir + "/list", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
+            ListDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+
+            ThreadGateDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/threadgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+
             Likes.BeforeFlush += flushMappings;
             Reposts.BeforeFlush += flushMappings;
             Follows.BeforeFlush += flushMappings;
@@ -102,6 +112,9 @@ namespace AppViewLite
             PlcToBasicInfo.BeforeFlush += flushMappings;
             ListItems.BeforeFlush += flushMappings;
             ListItemDeletions.BeforeFlush += flushMappings;
+            Lists.BeforeFlush += flushMappings;
+            ListDeletions.BeforeFlush += flushMappings;
+            ThreadGateDeletions.BeforeFlush += flushMappings;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -796,6 +809,28 @@ namespace AppViewLite
                 recordTypeDurations[operationAndPath] = total;
             }
         }
+
+        internal static ReadOnlySpan<byte> SerializeListToBytes(FishyFlip.Lexicon.App.Bsky.Graph.List list)
+        {
+            var proto = new ListData
+            {
+                Description = !string.IsNullOrEmpty(list.Description) ? list.Description : null,
+                DisplayName = list.Name,
+                Purpose = list.Purpose switch 
+                { 
+                    FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Curatelist => ListPurposeEnum.Curation,
+                    FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Modlist => ListPurposeEnum.Moderation,
+                    FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Referencelist => ListPurposeEnum.Reference,
+                    _ => ListPurposeEnum.Unknown,
+                },
+                AvatarCid = list.Avatar?.Ref?.Link?.ToArray(),
+            };
+
+            using var protoMs = new MemoryStream();
+            ProtoBuf.Serializer.Serialize(protoMs, proto);
+            return protoMs.ToArray();
+        }
+
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 
     }

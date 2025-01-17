@@ -63,6 +63,14 @@ namespace AppViewLite
                 {
                     relationships.ListItemDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
                 }
+                else if (collection == List.RecordType)
+                {
+                    relationships.ListDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                }
+                else if (collection == Threadgate.RecordType)
+                {
+                    relationships.ThreadGateDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                }
                 relationships.LogPerformance(sw, "Delete-" + path);
             }
         }
@@ -136,14 +144,14 @@ namespace AppViewLite
                 }
                 else if (record is List list)
                 {
-
+                    relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType + "/")), BlueskyRelationships.SerializeListToBytes(list));
                 }
                 else if (record is Listitem listItem)
                 {
                     if (commitAuthor != listItem.List.Did.Handler) throw new Exception();
                     if (listItem.List.Collection != List.RecordType) throw new Exception();
                     var listId = new Relationship(commitPlc, Tid.Parse(listItem.List.Rkey));
-                    var entry = new Relationship(relationships.SerializeDid(listItem.Subject.Handler), GetMessageTid(path, Listitem.RecordType + "/"));
+                    var entry = new ListEntry(relationships.SerializeDid(listItem.Subject.Handler), GetMessageTid(path, Listitem.RecordType + "/"));
                     relationships.ListItems.Add(listId, entry);
                 }
                 else if (record is Threadgate threadGate)

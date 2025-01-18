@@ -1010,6 +1010,7 @@ namespace AppViewLite
         }
         public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey)
         {
+            if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
             Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
         }

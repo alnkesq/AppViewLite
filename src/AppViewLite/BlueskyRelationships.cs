@@ -50,6 +50,9 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
         public CombinedPersistentMultiDictionary<PostId, DateTime> FailedPostLookups;
+        public CombinedPersistentMultiDictionary<Plc, DateTime> LastSeenNotifications;
+        public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
+        private HashSet<Plc> registerForNotificationsCache = new();
         private List<IDisposable> disposables = new();
         public const int DefaultBufferedItems = 16 * 1024;
         public const int DefaultBufferedItemsForDeletion = 2 * 1024;
@@ -113,6 +116,20 @@ namespace AppViewLite
             ListBlocks = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-block", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
             ListBlockDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-block-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
 
+            Notifications = Register(new CombinedPersistentMultiDictionary<Plc, Notification>(basedir + "/notification") { ItemsToBuffer = DefaultBufferedItems });
+
+            LastSeenNotifications = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/last-seen-notification", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
+            registerForNotificationsCache = new();
+            foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
+            {
+                var span = chunk.AsSpan();
+                var length = span.Length;
+                for (long i = 0; i < length; i++)
+                {
+                    registerForNotificationsCache.Add(span[i]);
+                }
+            }
+
             Likes.BeforeFlush += flushMappings;
             Reposts.BeforeFlush += flushMappings;
             Follows.BeforeFlush += flushMappings;
@@ -132,6 +149,8 @@ namespace AppViewLite
             PostgateDeletions.BeforeFlush += flushMappings;
             ListBlocks.BeforeFlush += flushMappings;
             ListBlockDeletions.BeforeFlush += flushMappings;
+            LastSeenNotifications.BeforeFlush += flushMappings;
+            Notifications.BeforeFlush += flushMappings;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -270,7 +289,8 @@ namespace AppViewLite
         private List<BlueskyPostData> testDataForCompression = new();
         public BlueskyPostData PostRecordToPostData(Post p, PostId postId)
         {
-            var addToInverseDictionaries = postId != default;
+            if (postId == default) throw new Exception();
+
             var proto = new BlueskyPostData
             {
                 Text = string.IsNullOrEmpty(p.Text) ? null : p.Text,
@@ -309,52 +329,51 @@ namespace AppViewLite
                 proto.Facets = null;
 
 
-            if (addToInverseDictionaries)
+  
+            AddToSearchIndex(HashPlcForTextSearch(postId.Author), approxPostDate);
+
+            if (proto.Text != null)
             {
-                AddToSearchIndex(HashPlcForTextSearch(postId.Author), approxPostDate);
-
-                if (proto.Text != null)
+                var words = StringUtils.GetDistinctWords(proto.Text);
+                foreach (var word in words)
                 {
-                    var words = StringUtils.GetDistinctWords(proto.Text);
-                    foreach (var word in words)
-                    {
-                        AddToSearchIndex(word, approxPostDate);
-                    }
+                    AddToSearchIndex(word, approxPostDate);
                 }
+            }
 
-                if (p.Facets != null)
+            if (p.Facets != null)
+            {
+                foreach (var facet in p.Facets)
                 {
-                    foreach (var facet in p.Facets)
+                    foreach (var feature in facet.Features!.OfType<Tag>())
                     {
-                        foreach (var feature in facet.Features!.OfType<Tag>())
+                        var tag = feature.TagValue;
+                        if (!string.IsNullOrEmpty(tag))
                         {
-                            var tag = feature.TagValue;
-                            if (!string.IsNullOrEmpty(tag))
-                            {
-                                AddToSearchIndex("#" + tag.ToLowerInvariant(), approxPostDate);
-                            }
+                            AddToSearchIndex("#" + tag.ToLowerInvariant(), approxPostDate);
                         }
                     }
                 }
-
             }
+
+            
 
             if (p.Reply?.Root is { } root)
             {
-                if (addToInverseDictionaries)
-                    this.RecursiveReplies.Add(this.GetPostId(root), postId);
+                this.RecursiveReplies.Add(this.GetPostId(root), postId);
 
                 var rootPost = this.GetPostId(root);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;
+                AddNotification(rootPost.Author, NotificationKind.RepliedtoYourThread, postId);
             }
             if (p.Reply?.Parent is { } parent)
             {
                 var inReplyTo = this.GetPostId(parent);
                 proto.InReplyToPlc = inReplyTo.Author.PlcValue;
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
-                if (addToInverseDictionaries)
-                    this.DirectReplies.Add(inReplyTo, postId);
+                this.DirectReplies.Add(inReplyTo, postId);
+                AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId);
             }
 
 
@@ -367,8 +386,7 @@ namespace AppViewLite
                     proto.QuotedPlc = quoted.Author.PlcValue;
                     proto.QuotedRKey = quoted.PostRKey.TidValue;
 
-                    if (addToInverseDictionaries)
-                        this.Quotes.Add(quoted, postId);
+                    this.Quotes.Add(quoted, postId);
                     embed = null;
                 }
             }
@@ -381,8 +399,8 @@ namespace AppViewLite
                     proto.QuotedRKey = quoted.PostRKey.TidValue;
 
                     embed = rm.Media;
-                    if (addToInverseDictionaries)
-                        this.Quotes.Add(quoted, postId);
+                    this.Quotes.Add(quoted, postId);
+                    AddNotification(quoted.Author, NotificationKind.QuotedYourPost, postId);
                 }
             }
 
@@ -965,6 +983,81 @@ namespace AppViewLite
             }
 
             return lists;
+        }
+
+        public void RegisterForNotifications(Plc user)
+        {
+            if (IsRegisteredForNotifications(user)) return;
+            LastSeenNotifications.Add(user, DateTime.MinValue);
+            registerForNotificationsCache.Add(user);
+        }
+
+        private bool IsRegisteredForNotifications(Plc user)
+        {
+            return registerForNotificationsCache.Contains(user);
+        }
+        public void AddNotification(PostId destination, NotificationKind kind, Plc actor)
+        {
+            AddNotification(destination.Author, kind, actor, destination.PostRKey);
+        }
+        public void AddNotification(Plc destination, NotificationKind kind, Plc actor)
+        {
+            AddNotification(destination, kind, actor, default);
+        }
+        public void AddNotification(Plc destination, NotificationKind kind, PostId replyId)
+        {
+            AddNotification(destination, kind, replyId.Author, replyId.PostRKey);
+        }
+        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey)
+        {
+            if (!IsRegisteredForNotifications(destination)) return;
+            Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
+        }
+
+
+        public static Notification GetNotificationThresholdForDate(DateTime threshold)
+        {
+            return new Notification(threshold != default ? (ApproximateDateTime32)threshold : default, default, default, default);
+        }
+
+
+
+        public BlueskyNotification? RehydrateNotification(Notification notification, Plc destination)
+        {
+            (PostId post, Plc actor) = notification.Kind switch
+            {
+                NotificationKind.FollowedYou => (default, notification.Actor),
+                NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost => (new PostId(destination, notification.RKey), notification.Actor),
+                NotificationKind.RepliedToYourPost or NotificationKind.RepliedtoYourThread or NotificationKind.QuotedYourPost => (new PostId(notification.Actor, notification.RKey), notification.Actor),
+                _ => default
+            };
+            if (post == default && actor == default) return null;
+
+            return new BlueskyNotification { EventDate = notification.EventDate, Kind = notification.Kind, Post = post != default ? GetPost(post) : null, Profile = actor != default ? GetProfile(actor) : default };
+            
+        }
+
+        public long GetNotificationCount(Plc user)
+        {
+            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return 0;
+
+            long count = 0;
+            foreach (var chunk in Notifications.GetValuesChunked(user, GetNotificationThresholdForDate(threshold)))
+            {
+                count += chunk.Count;
+            }
+            return count;
+        }
+
+        public BlueskyNotification[] GetNotificationsForUser(Plc user)
+        {
+            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return [];
+            return
+                Notifications.GetValuesSortedDescending(user, BlueskyRelationships.GetNotificationThresholdForDate(threshold))
+                .Take(200)
+                .Select(x => RehydrateNotification(x, user))
+                .Where(x => x != null)
+                .ToArray();
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

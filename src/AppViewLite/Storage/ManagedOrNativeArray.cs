@@ -61,6 +61,12 @@ namespace AppViewLite.Storage
             return GetEnumerator();
         }
 
+        public IEnumerable<T> Reverse()
+        {
+            if (managed != null) return managed.Reverse();
+            return native.Reverse();
+        }
+
         public HugeReadOnlySpan<T> AsSpan() => managed != null ? managed : native.Span;
         public ReadOnlySpan<T> AsSmallSpan() => managed != null ? managed : native.Span.AsSmallSpan;
 

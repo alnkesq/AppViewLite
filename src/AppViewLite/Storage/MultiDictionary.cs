@@ -10,6 +10,8 @@ namespace AppViewLite.Storage
         private Dictionary<TKey, List<TValue>> dict = new();
 
         public int GroupCount => dict.Count;
+        
+        public IEnumerable<TKey> Keys => dict.Keys;
 
         public void RemoveAll(TKey key) => dict.Remove(key);
         public void Add(TKey key, TValue value)

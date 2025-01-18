@@ -1,5 +1,13 @@
 @inject AppViewLiteSession Session
 
+@code{
+    private long NotificationCount;
+    protected override void OnInitialized()
+    {
+        NotificationCount = BlueskyEnrichedApis.Instance.GetNotificationCount(Session);
+    }
+}
+
 <nav>
     @if (Session.IsLoggedIn)
     {
@@ -7,14 +15,15 @@
             <img src="@Session.Profile!.AvatarUrl" class="post-author-image">
         </a>
     }
-    <div>
-        <NavLink href="/feed/did:plc:z72i7hdynmk6r22z27h6tvur/whats-hot">
-            Discover
-        </NavLink>
-    </div>
+
     <div>
         <NavLink href="/latest">
             Latest
+        </NavLink>
+    </div>
+    <div>
+        <NavLink href="/feed/did:plc:z72i7hdynmk6r22z27h6tvur/whats-hot">
+            Discover
         </NavLink>
     </div>
     <div>
@@ -25,6 +34,15 @@
 
     @if (Session.IsLoggedIn)
     {
+        <div>
+            <NavLink href="/notifications">
+                Notifications
+                @if (NotificationCount != 0)
+                {
+                    <span class="notification-badge">@NotificationCount</span>
+                }
+            </NavLink>
+        </div>
         <div>
             <NavLink href="@Session.Profile!.BaseUrl">
                 Profile

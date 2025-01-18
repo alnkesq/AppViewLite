@@ -127,6 +127,14 @@ namespace AppViewLite.Storage
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        public IEnumerable<T> Reverse()
+        {
+            for (long i = this.length - 1; i >= 0; i--)
+            {
+                yield return this[i];
+            }
+        }
+
         public ref readonly T this[long index] => ref Unsafe.AsRef(this.ptr[index]);
         public unsafe struct Enumerator : IEnumerator<T>
         {

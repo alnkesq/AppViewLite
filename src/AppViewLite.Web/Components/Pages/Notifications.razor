@@ -1,0 +1,34 @@
+@page "/notifications"
+@inject RequestContext RequestContext
+@inject NavigationManager NavigationManager
+
+
+@code {
+
+
+    private BlueskyNotification[] notifications = [];
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
+        notifications = await BlueskyEnrichedApis.Instance.GetNotificationsAsync(RequestContext);
+    }
+}
+
+<PageTitle>Notifications</PageTitle>
+
+<h1>Notifications</h1>
+
+@foreach (var notification in notifications)
+{
+    <span>@Program.ToHumanDate(notification.EventDate): @notification.Kind</span>
+    if (notification.Post != null)
+    {
+        <PostRow Post="@notification.Post" />
+    }
+
+    else
+    {
+        <ProfileRow Profile="@notification.Profile" />
+    }
+
+}

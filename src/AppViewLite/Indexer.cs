@@ -116,17 +116,21 @@ namespace AppViewLite
                         var postId = relationships.GetPostId(l.Subject);
 
                         relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
+                        relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc);
                         relationships.MaybeIndexPopularPost(postId, "likes", relationships.Likes.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinLikes);
                     }
                 }
                 else if (record is Follow f)
                 {
                     if (HasNumericRKey(path)) return;
-                    relationships.Follows.Add(relationships.SerializeDid(f.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, Follow.RecordType + "/")));
+                    var followed = relationships.SerializeDid(f.Subject.Handler);
+                    relationships.AddNotification(followed, NotificationKind.FollowedYou, commitPlc);
+                    relationships.Follows.Add(followed, new Relationship(commitPlc, GetMessageTid(path, Follow.RecordType + "/")));
                 }
                 else if (record is Repost r)
                 {
                     var postId = relationships.GetPostId(r.Subject);
+                    relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc);
                     relationships.Reposts.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Repost.RecordType + "/")));
                     relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
                 }

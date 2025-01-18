@@ -23,6 +23,7 @@ using FishyFlip.Lexicon.App.Bsky.Graph;
 using AppViewLite.Numerics;
 using System.Diagnostics;
 using System.Globalization;
+using AppViewLite;
 
 namespace AppViewLite
 {
@@ -863,9 +864,28 @@ namespace AppViewLite
             };
         }
 
+        public async Task<BlueskyNotification[]> GetNotificationsAsync(RequestContext ctx)
+        {
+            if (!ctx.IsLoggedIn) return [];
+            var session = ctx.Session;
+            var user = session.LoggedInUser.Value;
+
+            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user));
+            await EnrichAsync(notifications.Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
+            await EnrichAsync(notifications.Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
+            return notifications!;
+        }
+
+        
         internal static string? GetAvatarUrl(string did, string? avatarCid)
         {
             return avatarCid != null ? $"https://cdn.bsky.app/img/avatar_thumbnail/plain/{did}/{avatarCid}@jpeg" : null;
+        }
+
+        public long GetNotificationCount(AppViewLiteSession ctx)
+        {
+            if (!ctx.IsLoggedIn) return 0;
+            return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value));
         }
 
         private readonly static HttpClient DefaultHttpClient = new();

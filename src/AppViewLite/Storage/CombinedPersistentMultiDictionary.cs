@@ -218,6 +218,17 @@ namespace AppViewLite.Storage
 
         }
 
+        public bool TryGetLatestValue(TKey key, out TValue value)
+        {
+            foreach (var item in GetValuesChunkedLatestFirst(key))
+            {
+                value = item[item.Count - 1];
+                return true;
+            }
+            value = default;
+            return false;
+        }
+
         public bool TryGetSingleValue(TKey key, out TValue value)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
@@ -322,6 +333,23 @@ namespace AppViewLite.Storage
             if (chunks.Length == 1) return chunks[0].AsEnumerable();
             var chunksEnumerables = chunks.Select(x => x.AsEnumerable()).ToArray();
             return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x);
+        }
+
+        public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive = null)
+        {
+            var chunks = GetValuesChunked(key, minExclusive).ToArray();
+            if (chunks.Length == 0) return [];
+            if (chunks.Length == 1) return chunks[0].Reverse();
+            var chunksEnumerables = chunks.Select(x => x.Reverse()).ToArray();
+            return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x, new ReverseComparer<TValue>());
+        }
+
+        internal class ReverseComparer<T> : IComparer<T>
+        {
+            public int Compare(T? x, T? y)
+            {
+                return Comparer<T>.Default.Compare(y, x);
+            }
         }
 
         public IEnumerable<TValue> GetValuesUnsorted(TKey key)
@@ -511,6 +539,16 @@ namespace AppViewLite.Storage
             {
                 yield return (q.Key, q.Value);
             }
+        }
+
+        public IEnumerable<ManagedOrNativeArray<TKey>> EnumerateKeyChunks()
+        {
+            foreach (var slice in slices)
+            {
+                yield return (DangerousHugeReadOnlyMemory<TKey>)slice.Reader.Keys;
+            }
+            if (queue.GroupCount != 0)
+                yield return queue.Keys.ToArray();
         }
 
         public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive)

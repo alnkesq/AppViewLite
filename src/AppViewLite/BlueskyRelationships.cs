@@ -11,6 +11,7 @@ using AppViewLite;
 using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -286,6 +287,10 @@ namespace AppViewLite
             return null;
         }
 
+        private readonly static FrozenDictionary<string, LanguageEnum> languageToEnum = Enum.GetValues<LanguageEnum>().ToFrozenDictionary(x => x.ToString().Replace('_', '-'), x => x);
+
+
+
         private List<BlueskyPostData> testDataForCompression = new();
         public BlueskyPostData PostRecordToPostData(Post p, PostId postId)
         {
@@ -301,6 +306,19 @@ namespace AppViewLite
                 RootPostRKey = postId.PostRKey.TidValue,
             };
             var approxPostDate = GetApproxTime32(postId.PostRKey);
+
+            var lang = p.Langs?.FirstOrDefault();
+
+            var langEnum = ParseLanguage(lang);
+            
+            proto.Language = langEnum;
+
+            if (/*langEnum != LanguageEnum.en &&*/ langEnum != LanguageEnum.Unknown)
+                AddToSearchIndex("%lang-" + langEnum.ToString(), approxPostDate);
+            
+
+
+
 
             proto.Facets = (p.Facets ?? []).Select(x =>
             {
@@ -433,6 +451,18 @@ namespace AppViewLite
             return proto;
         }
 
+        public static LanguageEnum ParseLanguage(string? lang)
+        {
+            if (string.IsNullOrEmpty(lang)) return LanguageEnum.Unknown;
+            if (!languageToEnum.TryGetValue(lang, out var langEnum))
+            {
+                var dash = lang.IndexOf('-');
+                if (dash != -1 && languageToEnum.TryGetValue(lang.Substring(0, dash), out langEnum)) { /* empty */ }
+            }
+
+            return langEnum;
+        }
+
         private void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
         {
             ulong hash = HashWord(word);
@@ -454,11 +484,13 @@ namespace AppViewLite
             return System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(word), 4662323635092061535);
         }
 
-        public IEnumerable<ApproximateDateTime32> SearchPosts(string[] searchTerms, ApproximateDateTime32 since, ApproximateDateTime32? until, Plc author)
+        public IEnumerable<ApproximateDateTime32> SearchPosts(string[] searchTerms, ApproximateDateTime32 since, ApproximateDateTime32? until, Plc author, LanguageEnum language)
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
             if (author != default)
                 searchTermsArray = [..searchTermsArray, HashPlcForTextSearch(author)];
+            if (language != LanguageEnum.Unknown /* && language != LanguageEnum.en*/)
+                searchTermsArray = [.. searchTermsArray, HashWord("%lang-" + language)];
             if (searchTermsArray.Length == 0) yield break;
             var words = searchTermsArray
                 .Select(x => PostTextSearch.GetValuesChunked(x).ToList())
@@ -608,6 +640,8 @@ namespace AppViewLite
                 // Same author as previous post. No need to explicitly store the parent author.
                 proto.InReplyToPlc = null;
             }
+
+            if (proto.Language == LanguageEnum.en) proto.Language = null;
         }
         private static void Decompress(BlueskyPostData proto, PostId postId)
         {
@@ -623,6 +657,8 @@ namespace AppViewLite
             proto.PostId = postId;
 
             // Decompression in reverse order, compared to compression.
+
+            proto.Language ??= LanguageEnum.en;
 
             if (proto.InReplyToRKey != null && proto.InReplyToPlc == null)
             {

@@ -14,6 +14,7 @@ namespace AppViewLite.Models
         public DateTime? Since { get; init; }
         public DateTime? Until { get; init; }
         public string? Author { get; init; }
+        public LanguageEnum Language { get; init; }
     }
 }
 

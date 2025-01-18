@@ -33,6 +33,8 @@ namespace AppViewLite.Models
         [ProtoMember(15)] public long? RootPostRKey;
         [ProtoMember(16)] public int? RootPostPlc;
 
+        [ProtoMember(17)] public LanguageEnum? Language;
+
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;
 
 

@@ -426,7 +426,7 @@ namespace AppViewLite
             {
                 
                 return rels
-                    .SearchPosts(coreSearchTerms.ToArray(), options.Since != null ? (ApproximateDateTime32)options.Since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author)
+                    .SearchPosts(coreSearchTerms.ToArray(), options.Since != null ? (ApproximateDateTime32)options.Since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author, options.Language)
                     .DistinctAssumingOrderedInput(skipCheck: true)
                     .SelectMany(approxDate =>
                     {
@@ -461,8 +461,13 @@ namespace AppViewLite
                         var posts = postsCore
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
-                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)))
-                            .Where(x => x.Data?.Text != null && IsMatch(x.Data.Text));
+                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)));
+
+                        if (options.Language != LanguageEnum.Unknown)
+                            posts = posts.Where(x => x.Data!.Language == options.Language);
+
+                        posts = posts
+                            .Where(x => x.Data!.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
                     .Take(limit)

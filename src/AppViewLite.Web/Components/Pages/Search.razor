@@ -12,6 +12,7 @@
     [Parameter][SupplyParameterFromQuery] public required int? MinReposts { get; set; }
     [Parameter][SupplyParameterFromQuery] public required string? Sort { get; set; }
     [Parameter][SupplyParameterFromQuery] public required int? Limit { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required string? Language { get; set; }
     private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
@@ -32,6 +33,7 @@
                 Author = From,
                 MinLikes = MinLikes ?? 0,
                 MinReposts = MinReposts ?? 0,
+                Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
             };
 
         (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext) :  await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext);
@@ -52,6 +54,23 @@
     <div class="search-form-row">
         <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
         <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
+    </div>
+    <div class="search-form-row">
+        <label>
+            <select name="language">
+                @foreach (var lang in Enum.GetNames<LanguageEnum>().Where(x => x != "pt_BR" && x != "pt_PT").Select(x =>
+                {
+                   if (x == "Unknown") return (Code: "all", DisplayName: "All languages");
+                   var code = x.Replace('_', '-');
+                   var displayName = System.Globalization.CultureInfo.GetCultureInfo(code)?.DisplayName ?? code;
+                   return (Code: code, DisplayName: displayName);
+                }).OrderByDescending(x => x.Code == "all").ThenBy(x => x.DisplayName, StringComparer.InvariantCultureIgnoreCase))
+                {
+                    <option value="@lang.Code" selected="@(Language == lang.Code)">@lang.DisplayName</option>
+                }
+            </select>
+        </label>
+        <label></label>
     </div>
     <div class="search-form-row">
         <label>

@@ -13,7 +13,7 @@ namespace AppViewLite
 
         public DateTime LastSeen;
 
-        public string? LoggedInUserString;
+        public string? LoggedInUserString => Profile?.Did;
         public Plc? LoggedInUser;
 
         public bool IsLoggedIn => LoggedInUser != null;

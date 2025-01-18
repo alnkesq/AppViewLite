@@ -59,10 +59,15 @@ namespace AppViewLite.Web
             });
 
             builder.Services.AddHttpContextAccessor();
+
+            var devSession = false ? CreateDevSession() : null;
             
             builder.Services.AddScoped(provider =>
             {
+                if (devSession != null) return devSession;
+
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
+
                 return TryGetSession(httpContext) ?? new();
             });
 
@@ -113,6 +118,17 @@ namespace AppViewLite.Web
             
         }
 
+        private static AppViewLiteSession CreateDevSession()
+        {
+            var testDid = "did:plc:yrzav4kckt5na2uzgx3j3s2r";
+            var testSession = new AppViewLiteSession
+            {
+                LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(testDid)),
+                Profile = BlueskyEnrichedApis.Instance.GetProfileAsync(testDid, EnrichDeadlineToken.Infinite).Result
+            };
+            return testSession;
+        }
+
         public static AppViewLiteSession? TryGetSession(HttpContext httpContext)
         {
             var id = TryGetSessionId(httpContext);
@@ -131,7 +147,6 @@ namespace AppViewLite.Web
             httpContext.Response.Cookies.Append("appviewliteSessionId", id, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
             var session = new AppViewLiteSession();
             session.LastSeen = DateTime.UtcNow;
-            session.LoggedInUserString = did;
             session.LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(did));
             session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, EnrichDeadlineToken.Infinite);
             SessionDictionary[id] = session;

@@ -1,7 +1,12 @@
-
+@inject AppViewLiteSession Session
 
 <nav>
-    
+    @if (Session.IsLoggedIn)
+    {
+        <a href="@Session.Profile!.BaseUrl">
+            <img src="@Session.Profile!.AvatarUrl" class="post-author-image">
+        </a>
+    }
     <div>
         <NavLink href="/feed/did:plc:z72i7hdynmk6r22z27h6tvur/whats-hot">
             Discover
@@ -17,6 +22,28 @@
             Search
         </NavLink>
     </div>
+
+    @if (Session.IsLoggedIn)
+    {
+        <div>
+            <NavLink href="@Session.Profile!.BaseUrl">
+                Profile
+            </NavLink>
+        </div>
+        <div>
+            <NavLink href="/logout" data-enhance-nav="false">
+                Logout
+            </NavLink>
+        </div>
+    }
+    else
+    {
+        <div>
+            <NavLink href="/login">
+                Login
+            </NavLink>
+        </div>
+    }
 
 </nav>
 

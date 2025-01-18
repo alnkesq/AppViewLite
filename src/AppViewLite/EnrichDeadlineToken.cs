@@ -7,6 +7,7 @@ namespace AppViewLite
         {
             return new EnrichDeadlineToken(Task.Delay(1500));
         }
+        public readonly static EnrichDeadlineToken Infinite = default;
     }
 
 }

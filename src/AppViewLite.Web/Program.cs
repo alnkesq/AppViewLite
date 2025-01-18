@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using AppViewLite.Storage;
 using Ipfs;
 using System.Text.Json.Serialization;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Http;
+using System.Collections.Concurrent;
 
 namespace AppViewLite.Web
 {
@@ -41,11 +44,11 @@ namespace AppViewLite.Web
             Relationships = new();
             BlueskyEnrichedApis.Instance = new(Relationships);
             var builder = WebApplication.CreateBuilder(args);
-
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents()
                 .AddInteractiveWebAssemblyComponents();
+
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
@@ -55,6 +58,13 @@ namespace AppViewLite.Web
                 options.AddPolicy("BskyClient", b => b.WithOrigins("http://localhost:19006").AllowAnyHeader().AllowAnyMethod());
             });
 
+            builder.Services.AddHttpContextAccessor();
+            
+            builder.Services.AddScoped(provider =>
+            {
+                var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
+                return TryGetSession(httpContext) ?? new();
+            });
 
             var app = builder.Build();
 
@@ -78,6 +88,8 @@ namespace AppViewLite.Web
 
             app.UseAntiforgery();
 
+            
+
             app.MapStaticAssets();
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode()
@@ -99,6 +111,50 @@ namespace AppViewLite.Web
             });
             app.Run();
             
+        }
+
+        public static AppViewLiteSession? TryGetSession(HttpContext httpContext)
+        {
+            var id = TryGetSessionId(httpContext);
+            if (id != null && SessionDictionary.TryGetValue(id, out var session))
+            {
+                session.LastSeen = DateTime.UtcNow;
+                return session;
+            }
+            return null;
+        }
+
+        public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle)
+        {
+            var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(handle);
+            var id = RandomNumberGenerator.GetHexString(32, lowercase: true);
+            httpContext.Response.Cookies.Append("appviewliteSessionId", id, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
+            var session = new AppViewLiteSession();
+            session.LastSeen = DateTime.UtcNow;
+            session.LoggedInUserString = did;
+            session.LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(did));
+            session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, EnrichDeadlineToken.Infinite);
+            SessionDictionary[id] = session;
+            
+            return session;
+        }
+
+        public static void LogOut(HttpContext httpContext)
+        {
+            var id = TryGetSessionId(httpContext);
+            if (id != null)
+            {
+                SessionDictionary.Remove(id, out _);
+            }
+
+        }
+        public static ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
+
+        private static string? TryGetSessionId(HttpContext httpContext)
+        {
+            if (httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id))
+                return id;
+            return null;
         }
 
         public static async Task<ATUri> ResolveUriAsync(string uri)

@@ -1,0 +1,41 @@
+@page "/login"
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+
+<form method="post" @onsubmit="Submit" @formname="loginForm">
+    <AntiforgeryToken />
+    <div>
+        <label>
+            Handle:
+            <InputText @bind-Value="Model!.Handle" />
+        </label>
+        <br>
+        <b>Note: no password is required, this is only a simulation.</b>
+    </div>
+    <div>
+        <button type="submit">Log in</button>
+    </div>
+</form>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginData? Model { get; set; }
+
+    protected override void OnInitialized() => Model ??= new();
+
+    private async Task Submit()
+    {
+        if (!string.IsNullOrEmpty(Model!.Handle))
+        {
+            await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle);
+            Navigation.NavigateTo("/", true);
+        }
+    }
+
+    public class LoginData
+    {
+        public string? Handle { get; set; } = "alnkq.bsky.social";
+    }
+}
+
+

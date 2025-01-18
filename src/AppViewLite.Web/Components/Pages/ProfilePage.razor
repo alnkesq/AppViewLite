@@ -1,4 +1,5 @@
 @page "/@{did}"
+@inject RequestContext RequestContext
 
 @code {
     [Parameter][SupplyParameterFromQuery] public int? Replies { get; set; }
@@ -32,7 +33,7 @@
             includeLikes: ShowLikes, 
             mediaOnly: ShowMediaOnly, 
             continuation: Continuation,
-            deadline: EnrichDeadlineToken.Create());
+            ctx: RequestContext);
     }
 }
 

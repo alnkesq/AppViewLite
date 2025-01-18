@@ -1,5 +1,5 @@
 @page "/latest"
-@inject AppViewLiteSession Session
+@inject RequestContext RequestContext
 
 
 @code {
@@ -10,7 +10,7 @@
     private string? NextContinuation;
     protected override async Task OnParametersSetAsync()
     {
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
     }
 }
 

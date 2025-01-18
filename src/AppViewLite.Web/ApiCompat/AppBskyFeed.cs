@@ -19,7 +19,7 @@ namespace AppViewLite.Web.ApiCompat
         {
 
             var aturi = await Program.ResolveUriAsync(uri);
-            var thread = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, EnrichDeadlineToken.Create());
+            var thread = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, RequestContext.Create());
 
             var focalPostIndex = thread.ToList().FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
             if (focalPostIndex == -1) throw new Exception();
@@ -42,7 +42,7 @@ namespace AppViewLite.Web.ApiCompat
         public async Task<GetLikesOutput> GetLikes(string uri, string? cursor)
         {
             var aturi = await Program.ResolveUriAsync(uri);
-            var likers = await BlueskyEnrichedApis.Instance.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, EnrichDeadlineToken.Create());
+            var likers = await BlueskyEnrichedApis.Instance.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, RequestContext.Create());
             return new GetLikesOutput
             {
                 Uri = aturi,
@@ -55,7 +55,7 @@ namespace AppViewLite.Web.ApiCompat
         public async Task<GetRepostedByOutput> GetRepostedBy(string uri, string? cursor)
         {
             var aturi = await Program.ResolveUriAsync(uri);
-            var reposters = await BlueskyEnrichedApis.Instance.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, EnrichDeadlineToken.Create());
+            var reposters = await BlueskyEnrichedApis.Instance.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, RequestContext.Create());
             return new GetRepostedByOutput
             {
                 Uri = aturi,
@@ -68,7 +68,7 @@ namespace AppViewLite.Web.ApiCompat
         public async Task<GetQuotesOutput> GetQuotes(string uri, string? cursor)
         {
             var aturi = await Program.ResolveUriAsync(uri);
-            var quotes = await BlueskyEnrichedApis.Instance.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, EnrichDeadlineToken.Create());
+            var quotes = await BlueskyEnrichedApis.Instance.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, RequestContext.Create());
             return new GetQuotesOutput
             {
                 Uri = aturi,
@@ -84,7 +84,7 @@ namespace AppViewLite.Web.ApiCompat
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
             var generator = await BlueskyEnrichedApis.Instance.GetFeedGeneratorAsync(feedDid, feedRKey);
-            var creator = await BlueskyEnrichedApis.Instance.GetProfileAsync(feedDid, EnrichDeadlineToken.Create());
+            var creator = await BlueskyEnrichedApis.Instance.GetProfileAsync(feedDid, RequestContext.Create());
             return new GetFeedGeneratorOutput
             {
                 IsOnline = true,
@@ -99,9 +99,9 @@ namespace AppViewLite.Web.ApiCompat
             var uri = await Program.ResolveUriAsync(feed);
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
-            var deadline = EnrichDeadlineToken.Create();
-            var (posts, displayName, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, deadline);
-            await BlueskyEnrichedApis.Instance.PopulateFullInReplyToAsync(posts, deadline);
+            var ctx = RequestContext.Create();
+            var (posts, displayName, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, ctx);
+            await BlueskyEnrichedApis.Instance.PopulateFullInReplyToAsync(posts, ctx);
             return new GetFeedOutput
             {
                 Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList(),
@@ -115,7 +115,7 @@ namespace AppViewLite.Web.ApiCompat
             if (filter == GetUserPostsFilter.None) filter = GetUserPostsFilter.posts_no_replies;
 
             if (filter == GetUserPostsFilter.posts_and_author_threads) filter = GetUserPostsFilter.posts_no_replies; // TODO: https://github.com/alnkesq/AppViewLite/issues/16
-            var deadline = EnrichDeadlineToken.Create();
+            var ctx = RequestContext.Create();
 
             var (posts, nextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(actor,
                 includePosts: true,
@@ -124,8 +124,8 @@ namespace AppViewLite.Web.ApiCompat
                 includeLikes: false,
                 mediaOnly: filter == GetUserPostsFilter.posts_with_media,
                 cursor,
-                deadline);
-            await BlueskyEnrichedApis.Instance.PopulateFullInReplyToAsync(posts, deadline);
+                ctx);
+            await BlueskyEnrichedApis.Instance.PopulateFullInReplyToAsync(posts, ctx);
 
             return new GetAuthorFeedOutput
             {
@@ -142,8 +142,8 @@ namespace AppViewLite.Web.ApiCompat
                 Query = q,
             };
             var results = 
-                sort == SearchPostsSort.top ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, continuation: cursor, limit: limit, deadline: EnrichDeadlineToken.Create()) :
-                await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, deadline: EnrichDeadlineToken.Create());
+                sort == SearchPostsSort.top ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, continuation: cursor, limit: limit, ctx: RequestContext.Create()) :
+                await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, ctx: RequestContext.Create());
             return new SearchPostsOutput
             {
                  Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),

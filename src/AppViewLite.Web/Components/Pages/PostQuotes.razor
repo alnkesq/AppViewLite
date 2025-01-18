@@ -1,4 +1,5 @@
 @page "/@{did}/{rkey}/quotes"
+@inject RequestContext RequestContext
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -10,7 +11,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostQuotesAsync(Did, RKey, Continuation, default, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostQuotesAsync(Did, RKey, Continuation, default, RequestContext);
     }
 }
 

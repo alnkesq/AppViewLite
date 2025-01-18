@@ -66,7 +66,7 @@ namespace AppViewLite
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, EnrichDeadlineToken deadline, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, CancellationToken ct = default)
         {
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
@@ -76,7 +76,7 @@ namespace AppViewLite
 
             await LookupManyRecordsAsync<Profile>(toLookup, pendingProfileRetrievals, Profile.RecordType, ct,
                 (key, profileRecord) => WithRelationshipsLock(rels => rels.StoreProfileBasicInfo(rels.SerializeDid(key.Did), profileRecord)),
-                key => WithRelationshipsLock(rels => rels.FailedProfileLookups.Add(rels.SerializeDid(key.Did), DateTime.UtcNow)), deadline);
+                key => WithRelationshipsLock(rels => rels.FailedProfileLookups.Add(rels.SerializeDid(key.Did), DateTime.UtcNow)), ctx);
 
 
             WithRelationshipsLock(rels =>
@@ -92,7 +92,7 @@ namespace AppViewLite
             return profiles;
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowingAsync(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
@@ -100,16 +100,16 @@ namespace AppViewLite
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
             });
-            await EnrichAsync(following, deadline);
+            await EnrichAsync(following, ctx);
             return (following, response!.Cursor);
         }
-        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, EnrichDeadlineToken deadline, bool loadQuotes = true, CancellationToken ct = default)
+        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, bool loadQuotes = true, CancellationToken ct = default)
         {
             var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
             toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray());
             await LookupManyRecordsAsync<Post>(toLookup, pendingPostRetrievals, Post.RecordType, ct,
                 (key, postRecord) => WithRelationshipsLock(rels => rels.StorePostInfo(rels.GetPostId(key.Did, key.RKey), postRecord)), 
-                key => WithRelationshipsLock(rels => rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow)), deadline);
+                key => WithRelationshipsLock(rels => rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow)), ctx);
 
 
             WithRelationshipsLock(rels =>
@@ -138,29 +138,36 @@ namespace AppViewLite
                     {
                         post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
                     }
+
+                    if (ctx.IsLoggedIn)
+                    {
+                        var loggedInUser = ctx.LoggedInUser;
+                        post.IsLiked = rels.Likes.HasActor(post.PostId, loggedInUser, out _);
+                        post.IsReposted = rels.Reposts.HasActor(post.PostId, loggedInUser, out _);
+                    }
                 }
             });
 
-            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), deadline);
+            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx);
 
             if (loadQuotes)
             {
                 var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray();
                 if (r.Length != 0)
                 {
-                    await EnrichAsync(r, deadline, loadQuotes: false, ct: ct);
+                    await EnrichAsync(r, ctx, loadQuotes: false, ct: ct);
                 }
             }
             return posts;
         }
 
-        private Task LookupManyRecordsAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, EnrichDeadlineToken deadline) where TValue : ATObject
+        private Task LookupManyRecordsAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, RequestContext ctx) where TValue : ATObject
         {
             //return Task.CompletedTask;
             var date = DateTime.UtcNow;
 
             var failedKeys = new List<RelationshipStr>();
-            if (keys.Count != 0 && (deadline == default || !deadline.DeadlineReached.IsCompleted))
+            if (keys.Count != 0 && (ctx.DeadlineReached == null || !ctx.DeadlineReached.IsCompleted))
             {
 
                 if (pendingRetrievals.Count >= 1000)
@@ -226,7 +233,7 @@ namespace AppViewLite
 
                 var fullTask = Task.WhenAll(allTasksToAwait);
 
-                return deadline != default ? Task.WhenAny(fullTask, deadline.DeadlineReached) : fullTask;
+                return ctx.DeadlineReached != null ? Task.WhenAny(fullTask, ctx.DeadlineReached) : fullTask;
             }
             return Task.CompletedTask;
 
@@ -248,7 +255,7 @@ namespace AppViewLite
 
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, EnrichDeadlineToken deadline = default)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default)
         {
             EnsureLimit(ref limit, 30);
             options = await InitializeSearchOptionsAsync(options);
@@ -303,7 +310,7 @@ namespace AppViewLite
             }
             if (mandatoryPosts != null)
             {
-                await EnrichAsync(mandatoryPosts, deadline);
+                await EnrichAsync(mandatoryPosts, ctx);
                 return (mandatoryPosts, mandatoryNextContinuation?.Serialize());
             }
 
@@ -315,7 +322,7 @@ namespace AppViewLite
                 while (true)
                 {
                     Console.Error.WriteLine("Try top search with minLikes: " + minLikes);
-                    var latest = await SearchLatestPostsAsync(options with { MinLikes = Math.Max(minLikes, options.MinLikes) }, limit: limit * 2, deadline: default, enrichOutput: false, alreadyProcessedPosts: searchSession.AlreadyProcessed);
+                    var latest = await SearchLatestPostsAsync(options with { MinLikes = Math.Max(minLikes, options.MinLikes) }, limit: limit * 2, ctx: default, enrichOutput: false, alreadyProcessedPosts: searchSession.AlreadyProcessed);
                     if (latest.Posts.Length != 0)
                     {
                         foreach (var post in latest.Posts)
@@ -364,15 +371,15 @@ namespace AppViewLite
             }
             if (tryAgainAlreadyProcessed)
             {
-                return await SearchTopPostsAsync(options, limit, continuation, deadline);
+                return await SearchTopPostsAsync(options, limit, continuation, ctx);
             }
 
 
-            await EnrichAsync(result, deadline);
+            await EnrichAsync(result, ctx);
             return (result, hasMorePages ? new TopPostSearchCursor(minLikes, cursor.SearchId, cursor.PageIndex + 1).Serialize() : null);
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, EnrichDeadlineToken deadline = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
         {
             EnsureLimit(ref limit);
             options = await InitializeSearchOptionsAsync(options);
@@ -461,7 +468,7 @@ namespace AppViewLite
                     .ToArray();
             });
             if (enrichOutput)
-                await EnrichAsync(posts, deadline);
+                await EnrichAsync(posts, ctx);
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
         }
 
@@ -523,7 +530,7 @@ namespace AppViewLite
             return false;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, string? continuation, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, string? continuation, RequestContext ctx)
         {
             Record[] postRecords = [];
             if (includePosts)
@@ -587,7 +594,7 @@ namespace AppViewLite
 
             var allPosts = reposts.Concat(posts).Concat(likes).OrderByDescending(x => x.RepostDate ?? x.Date).ToArray();
 
-            await EnrichAsync(allPosts, deadline);
+            await EnrichAsync(allPosts, ctx);
             if (!includeReplies) allPosts = allPosts.Where(x =>  x.IsRootPost || x.RepostDate != null).ToArray();
 
             if (mediaOnly)
@@ -598,14 +605,14 @@ namespace AppViewLite
         }
 
 
-        public async Task<BlueskyPost[]> GetPostThreadAsync(string did, string rkey, EnrichDeadlineToken deadline)
+        public async Task<BlueskyPost[]> GetPostThreadAsync(string did, string rkey, RequestContext ctx)
         {
             var thread = new List<BlueskyPost>();
 
             var focalPost = WithRelationshipsLock(rels => rels.GetPost(did, rkey));
             thread.Add(focalPost);
 
-            await EnrichAsync([focalPost], deadline);
+            await EnrichAsync([focalPost], ctx);
 
             var loadedBefore = 0;
             while (thread[0].IsReply)
@@ -615,7 +622,7 @@ namespace AppViewLite
                 if (prepend.Data == null)
                 {
                     if (loadedBefore++ < 3)
-                        await EnrichAsync([prepend], deadline);
+                        await EnrichAsync([prepend], ctx);
                     else
                         break;
                 }
@@ -643,12 +650,12 @@ namespace AppViewLite
 
             var otherReplies = WithRelationshipsLock(rels => rels.DirectReplies.GetDistinctValuesSorted(focalPostId).Where(x => x.Author != focalPostId.Author).Select(x => rels.GetPost(x)).ToArray());
             thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
-            await EnrichAsync([..opReplies, ..otherReplies], deadline);
+            await EnrichAsync([..opReplies, ..otherReplies], ctx);
             return thread.ToArray();
         }
 
         private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
-        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx)
         {
             var feedGenInfo = await GetFeedGeneratorAsync(did, rkey);
             if (!feedGenInfo.Data.ImplementationDid.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
@@ -663,7 +670,7 @@ namespace AppViewLite
             {
                 return postsJson.feed.Select(x => rels.GetPost(new ATUri(x.post))).ToArray();
             });
-            return (await EnrichAsync(posts, deadline), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
+            return (await EnrichAsync(posts, ctx), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 
 
@@ -692,7 +699,7 @@ namespace AppViewLite
             return result;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)
         {
             var limit = 30;
             var maxPostIdExclusive = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : new PostIdTimeFirst(Tid.FromDateTime(maxDate, 0), default);
@@ -713,18 +720,18 @@ namespace AppViewLite
                     .Take(limit)
                     .ToArray();
             });
-            await EnrichAsync(posts, deadline);
+            await EnrichAsync(posts, ctx);
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetPostLikers(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did + rkey);
-            await EnrichAsync(profiles, deadline);
+            await EnrichAsync(profiles, ctx);
             return (profiles, nextContinuation);
         }
 
@@ -741,37 +748,37 @@ namespace AppViewLite
             posts = posts.OrderByDescending(x => x.Date).ToArray();
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetPostReposts(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did + rkey);
-            await EnrichAsync(profiles, deadline);
+            await EnrichAsync(profiles, ctx);
             return (profiles, nextContinuation);
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var posts = WithRelationshipsLock(rels => rels.GetPostQuotes(did, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1));
             var nextContinuation = SerializeRelationshipContinuationPlcFirst(posts, limit);
             SortByDescendingRelationshipRKey(ref posts);
             //DeterministicShuffle(posts, did + rkey);
-            await EnrichAsync(posts, deadline);
+            await EnrichAsync(posts, ctx);
             return (posts, nextContinuation);
         }
 
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowersAsync(string did, string? continuation, int limit, EnrichDeadlineToken deadline)
+        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did);
-            await EnrichAsync(profiles, deadline);
+            await EnrichAsync(profiles, ctx);
             return (profiles, nextContinuation);
         }
 
@@ -810,19 +817,19 @@ namespace AppViewLite
             return continuation != null ? Models.Relationship.Deserialize(continuation) : default;
         }
 
-        public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, EnrichDeadlineToken deadline)
+        public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, RequestContext ctx)
         {
             var profile = WithRelationshipsLock(rels => rels.GetFullProfile(did));
-            await EnrichAsync([profile.Profile], deadline);
+            await EnrichAsync([profile.Profile], ctx);
             return profile;
         }
-        public async Task<BlueskyProfile> GetProfileAsync(string did, EnrichDeadlineToken deadline)
+        public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)
         {
             var profile = WithRelationshipsLock(rels => rels.GetProfile(rels.SerializeDid(did)));
-            await EnrichAsync([profile], deadline);
+            await EnrichAsync([profile], ctx);
             return profile;
         }
-        public async Task PopulateFullInReplyToAsync(BlueskyPost[] posts, EnrichDeadlineToken deadline)
+        public async Task PopulateFullInReplyToAsync(BlueskyPost[] posts, RequestContext ctx)
         {
             WithRelationshipsLock(rels =>
             {
@@ -843,7 +850,7 @@ namespace AppViewLite
                     }
                 }
             });
-            await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).Where(x => x != null)!, .. posts.Select(x => x.RootFullPost).Where(x => x != null)!], deadline);
+            await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).Where(x => x != null)!, .. posts.Select(x => x.RootFullPost).Where(x => x != null)!], ctx);
         }
 
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey)

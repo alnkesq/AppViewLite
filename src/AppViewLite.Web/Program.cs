@@ -70,6 +70,11 @@ namespace AppViewLite.Web
 
                 return TryGetSession(httpContext) ?? new();
             });
+            builder.Services.AddScoped(provider =>
+            {
+                var session = provider.GetRequiredService<AppViewLiteSession>();
+                return RequestContext.Create(session);
+            });
 
             var app = builder.Build();
 
@@ -124,7 +129,7 @@ namespace AppViewLite.Web
             var testSession = new AppViewLiteSession
             {
                 LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(testDid)),
-                Profile = BlueskyEnrichedApis.Instance.GetProfileAsync(testDid, EnrichDeadlineToken.Infinite).Result
+                Profile = BlueskyEnrichedApis.Instance.GetProfileAsync(testDid, RequestContext.CreateInfinite(null)).Result
             };
             return testSession;
         }
@@ -148,7 +153,7 @@ namespace AppViewLite.Web
             var session = new AppViewLiteSession();
             session.LastSeen = DateTime.UtcNow;
             session.LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(did));
-            session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, EnrichDeadlineToken.Infinite);
+            session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, RequestContext.CreateInfinite(null));
             SessionDictionary[id] = session;
             
             return session;

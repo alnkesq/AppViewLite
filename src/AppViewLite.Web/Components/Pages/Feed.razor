@@ -1,4 +1,5 @@
 @page "/feed/{did}/{rkey}"
+@inject RequestContext RequestContext
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -11,7 +12,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Posts, Info, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, EnrichDeadlineToken.Create());
+        (Posts, Info, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, RequestContext);
     }
 }
 

@@ -1,5 +1,6 @@
 @page "/search"
 @inject NavigationManager Navigation
+@inject RequestContext RequestContext
 
 @code {
     [Parameter][SupplyParameterFromQuery] public required string Q { get; set; }
@@ -33,7 +34,7 @@
                 MinReposts = MinReposts ?? 0,
             };
 
-        (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, EnrichDeadlineToken.Create()) :  await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, EnrichDeadlineToken.Create());
+        (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext) :  await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext);
     }
 }
 

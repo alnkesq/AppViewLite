@@ -92,7 +92,7 @@ namespace AppViewLite
             return profiles;
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
+        public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
@@ -255,7 +255,7 @@ namespace AppViewLite
 
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default)
+        public async Task<PostsAndContinuation> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default)
         {
             EnsureLimit(ref limit, 30);
             options = await InitializeSearchOptionsAsync(options);
@@ -379,7 +379,7 @@ namespace AppViewLite
             return (result, hasMorePages ? new TopPostSearchCursor(minLikes, cursor.SearchId, cursor.PageIndex + 1).Serialize() : null);
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
+        public async Task<PostsAndContinuation> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
         {
             EnsureLimit(ref limit);
             options = await InitializeSearchOptionsAsync(options);
@@ -530,7 +530,7 @@ namespace AppViewLite
             return false;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, string? continuation, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, string? continuation, RequestContext ctx)
         {
             Record[] postRecords = [];
             if (includePosts)
@@ -699,7 +699,7 @@ namespace AppViewLite
             return result;
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)
         {
             var limit = 30;
             var maxPostIdExclusive = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : new PostIdTimeFirst(Tid.FromDateTime(maxDate, 0), default);
@@ -724,7 +724,7 @@ namespace AppViewLite
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
+        public async Task<ProfilesAndContinuation> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetPostLikers(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
@@ -748,7 +748,7 @@ namespace AppViewLite
             posts = posts.OrderByDescending(x => x.Date).ToArray();
         }
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
+        public async Task<ProfilesAndContinuation> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetPostReposts(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
@@ -759,7 +759,7 @@ namespace AppViewLite
             return (profiles, nextContinuation);
         }
 
-        public async Task<(BlueskyPost[] Posts, string? NextContinuation)> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var posts = WithRelationshipsLock(rels => rels.GetPostQuotes(did, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1));
@@ -771,7 +771,7 @@ namespace AppViewLite
         }
 
 
-        public async Task<(BlueskyProfile[] Profiles, string? NextContinuation)> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
+        public async Task<ProfilesAndContinuation> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
             var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));

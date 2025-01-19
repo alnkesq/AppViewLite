@@ -234,9 +234,10 @@ namespace AppViewLite
 
         public string? TryGetDid(Plc plc)
         {
-            if (PlcToDid.TryGetPreserveOrderSpan(plc, out var r))
+            if (PlcToDid.TryGetPreserveOrderSpanAny(plc, out var r))
             {
-                return Encoding.UTF8.GetString(r.AsSmallSpan());
+                var s = Encoding.UTF8.GetString(r.AsSmallSpan());
+                return s;
             }
             return null;
         }
@@ -244,6 +245,8 @@ namespace AppViewLite
         {
             return SerializeDidCore(did, addIfMissing: true);
         }
+
+
 
         public Plc SerializeDidCore(string did, bool addIfMissing)
         {
@@ -282,7 +285,7 @@ namespace AppViewLite
 
         public BlueskyProfileBasicInfo? GetProfileBasicInfo(Plc plc)
         {
-            if (PlcToBasicInfo.TryGetPreserveOrderSpan(plc, out var arr))
+            if (PlcToBasicInfo.TryGetPreserveOrderSpanLatest(plc, out var arr))
             {
                 var span = arr.AsSmallSpan();
                 var nul = span.IndexOf((byte)0);
@@ -775,7 +778,7 @@ namespace AppViewLite
             }
 
             BlueskyPostData? proto = null;
-            if (PostData.TryGetPreserveOrderSpan(id, out var postDataCompressed))
+            if (PostData.TryGetPreserveOrderSpanAny(id, out var postDataCompressed))
             {
                 proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id);
             }

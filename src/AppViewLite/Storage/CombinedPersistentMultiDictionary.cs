@@ -299,7 +299,29 @@ namespace AppViewLite.Storage
         }
 
 
-        public bool TryGetPreserveOrderSpan(TKey key, out ManagedOrNativeArray<TValue> val)
+        public bool TryGetPreserveOrderSpanAny(TKey key, out ManagedOrNativeArray<TValue> val)
+        {
+            if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
+            foreach (var slice in slices)
+            {
+                var v = slice.Reader.GetValues(key);
+                if (v.Length != 0)
+                {
+                    val = v;
+                    return true;
+                }
+
+            }
+
+            if (queue.TryGetValues(key, out var q))
+            {
+                val = q.ToArray();
+                return true;
+            }
+            val = default;
+            return false;
+        }
+        public bool TryGetPreserveOrderSpanLatest(TKey key, out ManagedOrNativeArray<TValue> val)
         {
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (queue.TryGetValues(key, out var extra))

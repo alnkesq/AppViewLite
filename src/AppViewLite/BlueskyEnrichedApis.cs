@@ -893,6 +893,15 @@ namespace AppViewLite
             return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value));
         }
 
+        public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+            var posts = WithRelationshipsLock(rels => rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-4), limit).ToArray());
+            posts = posts.Take(50).ToArray();
+            await EnrichAsync(posts, ctx);
+            return new PostsAndContinuation(posts, null);
+        }
+
         private readonly static HttpClient DefaultHttpClient = new();
     }
 }

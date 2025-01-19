@@ -344,14 +344,6 @@ namespace AppViewLite.Storage
             return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x, new ReverseComparer<TValue>());
         }
 
-        internal class ReverseComparer<T> : IComparer<T>
-        {
-            public int Compare(T? x, T? y)
-            {
-                return Comparer<T>.Default.Compare(y, x);
-            }
-        }
-
         public IEnumerable<TValue> GetValuesUnsorted(TKey key)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder)

@@ -125,14 +125,22 @@ namespace AppViewLite
                     if (HasNumericRKey(path)) return;
                     var followed = relationships.SerializeDid(f.Subject.Handler);
                     relationships.AddNotification(followed, NotificationKind.FollowedYou, commitPlc);
-                    relationships.Follows.Add(followed, new Relationship(commitPlc, GetMessageTid(path, Follow.RecordType + "/")));
+                    var rkey = GetMessageTid(path, Follow.RecordType + "/");
+                    relationships.Follows.Add(followed, new Relationship(commitPlc, rkey));
+                    if (relationships.IsRegisteredForNotifications(commitPlc))
+                    {
+                        relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
+                    }
+
                 }
                 else if (record is Repost r)
                 {
                     var postId = relationships.GetPostId(r.Subject);
+                    var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
                     relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc);
-                    relationships.Reposts.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Repost.RecordType + "/")));
+                    relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));
                     relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
+                    relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
                 }
                 else if (record is Block b)
                 {
@@ -142,7 +150,7 @@ namespace AppViewLite
                 else if (record is Post p)
                 {
                     var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
-                    var proto = relationships.PostRecordToPostData(p, postId);
+                    var proto = relationships.StorePostInfoExceptData(p, postId);
 
                     byte[]? postBytes = null;
                     continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.CompressPostDataToBytes(proto), relationships =>
@@ -330,17 +338,40 @@ namespace AppViewLite
         }
         public async Task ImportCarAsync(string did, CancellationToken ct = default)
         {
-            var proto = new ATProtocolBuilder().WithInstanceUrl(new Uri("https://bsky.network")).Build();
+            using var at = CreateAtProto();
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
-            var result = (await proto.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct)).HandleResult();
+            var result = (await at.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct)).HandleResult();
             importer.LogStats();
             foreach (var record in importer.EnumerateRecords())
             {
                 OnRecordCreated(record.Did, record.Path, record.Record);
             }
             importer.Log("Done.");
+        }
+
+        private static ATProtocol CreateAtProto()
+        {
+            return new ATProtocolBuilder().WithInstanceUrl(new Uri("https://bsky.network")).Build();
+        }
+
+        public async Task IndexUserCollectionAsync(string did, string recordType, CancellationToken ct = default)
+        {
+            using var at = CreateAtProto();
+
+            string? cursor = null;
+            while (true)
+            {
+                var page = (await at.Repo.ListRecordsAsync(new ATDid(did), recordType, 100, cursor, cancellationToken: ct)).HandleResult();
+                cursor = page.Cursor;
+                foreach (var item in page.Records)
+                {
+                    OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
+                }
+                if (cursor == null) break;
+            }
+            
         }
     }
 }

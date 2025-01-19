@@ -28,7 +28,7 @@
         if (!string.IsNullOrEmpty(Model!.Handle))
         {
             await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle);
-            Navigation.NavigateTo("/", true);
+            Navigation.NavigateTo("/following", true);
         }
     }
 

@@ -60,15 +60,13 @@ namespace AppViewLite.Web
 
             builder.Services.AddHttpContextAccessor();
 
-            var devSession = false ? CreateDevSession() : null;
+            var devSession = CreateDevSession();
             
             builder.Services.AddScoped(provider =>
             {
-                if (devSession != null) return devSession;
-
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
 
-                return TryGetSession(httpContext) ?? new();
+                return TryGetSession(httpContext) ?? devSession ?? new();
             });
             builder.Services.AddScoped(provider =>
             {
@@ -123,8 +121,9 @@ namespace AppViewLite.Web
             
         }
 
-        private static AppViewLiteSession CreateDevSession()
+        private static AppViewLiteSession? CreateDevSession()
         {
+            return null;
             var testDid = "did:plc:yrzav4kckt5na2uzgx3j3s2r";
             var testSession = new AppViewLiteSession
             {
@@ -152,8 +151,24 @@ namespace AppViewLite.Web
             httpContext.Response.Cookies.Append("appviewliteSessionId", id, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
             var session = new AppViewLiteSession();
             session.LastSeen = DateTime.UtcNow;
-            session.LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(did));
+            long haveFollowees = 0;
+            BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => 
+            {
+                var plc = rels.SerializeDid(did);
+                session.LoggedInUser = plc;
+                rels.RegisterForNotifications(session.LoggedInUser.Value);
+                haveFollowees = rels.RegisteredUserToFollowees.GetValueCount(plc);
+            });
+
             session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, RequestContext.CreateInfinite(null));
+
+            if (haveFollowees == 0)
+            {
+                var deadline = Task.Delay(5000);
+                var load = new Indexer(Relationships).IndexUserCollectionAsync(did, FishyFlip.Lexicon.App.Bsky.Graph.Follow.RecordType);
+                await Task.WhenAny(deadline, load);
+            }
+
             SessionDictionary[id] = session;
             
             return session;

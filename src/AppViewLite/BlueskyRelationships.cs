@@ -53,6 +53,10 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<PostId, DateTime> FailedPostLookups;
         public CombinedPersistentMultiDictionary<Plc, DateTime> LastSeenNotifications;
         public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
+        public CombinedPersistentMultiDictionary<Plc, ListEntry> RegisteredUserToFollowees;
+        public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
+        public CombinedPersistentMultiDictionary<Plc, RecentRepost> UserToRecentReposts;
+
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<IDisposable> disposables = new();
         public const int DefaultBufferedItems = 16 * 1024;
@@ -119,6 +123,11 @@ namespace AppViewLite
 
             Notifications = Register(new CombinedPersistentMultiDictionary<Plc, Notification>(basedir + "/notification") { ItemsToBuffer = DefaultBufferedItems });
 
+            RegisteredUserToFollowees = Register(new CombinedPersistentMultiDictionary<Plc, ListEntry>(basedir + "/registered-user-to-followees") { ItemsToBuffer = DefaultBufferedItems });
+
+            UserToRecentPosts = Register(new CombinedPersistentMultiDictionary<Plc, RecentPost>(basedir + "/user-to-recent-posts") { ItemsToBuffer = DefaultBufferedItems });
+            UserToRecentReposts = Register(new CombinedPersistentMultiDictionary<Plc, RecentRepost>(basedir + "/user-to-recent-reposts") { ItemsToBuffer = DefaultBufferedItems });
+
             LastSeenNotifications = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/last-seen-notification", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
@@ -152,6 +161,9 @@ namespace AppViewLite
             ListBlockDeletions.BeforeFlush += flushMappings;
             LastSeenNotifications.BeforeFlush += flushMappings;
             Notifications.BeforeFlush += flushMappings;
+            RegisteredUserToFollowees.BeforeFlush += flushMappings;
+            UserToRecentPosts.BeforeFlush += flushMappings;
+            UserToRecentReposts.BeforeFlush += flushMappings;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -292,7 +304,7 @@ namespace AppViewLite
 
 
         private List<BlueskyPostData> testDataForCompression = new();
-        public BlueskyPostData PostRecordToPostData(Post p, PostId postId)
+        public BlueskyPostData StorePostInfoExceptData(Post p, PostId postId)
         {
             if (postId == default) throw new Exception();
 
@@ -448,6 +460,8 @@ namespace AppViewLite
                 proto.EmbedRecordUri = rec.Record!.Uri!.ToString();
             }
 
+            UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, new Plc(proto.InReplyToPlc.GetValueOrDefault())));
+
             return proto;
         }
 
@@ -588,7 +602,7 @@ namespace AppViewLite
         {
             // PERF: This method performs the slow brotli compression while holding the lock. Avoid if possible.
 
-            var proto = PostRecordToPostData(p, postId);
+            var proto = StorePostInfoExceptData(p, postId);
             this.PostData.AddRange(postId, CompressPostDataToBytes(proto));
         }
 
@@ -1028,7 +1042,7 @@ namespace AppViewLite
             registerForNotificationsCache.Add(user);
         }
 
-        private bool IsRegisteredForNotifications(Plc user)
+        public bool IsRegisteredForNotifications(Plc user)
         {
             return registerForNotificationsCache.Contains(user);
         }
@@ -1095,6 +1109,52 @@ namespace AppViewLite
                 .Select(x => RehydrateNotification(x, user))
                 .Where(x => x != null)
                 .ToArray();
+        }
+
+        internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDate)
+        {
+            return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDate, default)).Select(x => (new PostId(author, x.RKey), x.InReplyTo));
+        }
+        internal IEnumerable<RecentRepost> EnumerateRecentReposts(Plc author, Tid minDate)
+        {
+            return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDate, default));
+        }
+
+        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate, int limit)
+        {
+            var thresholdDate = minDate != default ? Tid.FromDateTime(minDate, 0) : default;
+
+            
+            var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).Select(x => x.Member).ToArray();
+            var followsHashSet = follows.ToHashSet();
+
+            var usersRecentPosts =
+                follows
+                .Select(author =>
+                {
+                    return this
+                        .EnumerateRecentPosts(author, thresholdDate)
+                        .Take(50)
+                        .Where(x => x.InReplyTo == default || followsHashSet.Contains(x.InReplyTo))
+                        .Select(x => GetPost(x.PostId))
+                        .Where(x => x.Data != null && (x.IsRootPost || followsHashSet.Contains(x.Data.RootPostId.Author)));
+                });
+            var usersRecentReposts =
+                follows
+                .Select(reposter =>
+                {
+                    BlueskyProfile? reposterProfile = null;
+                    return this
+                        .EnumerateRecentReposts(reposter, thresholdDate)
+                        .Select(x =>
+                        {
+                            var post = GetPost(x.PostId);
+                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter));
+                            post.RepostDate = x.RepostRKey.Date;
+                            return post;
+                        });
+                });
+            return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value, 0) : x.PostId.PostRKey, new ReverseComparer<Tid>());
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

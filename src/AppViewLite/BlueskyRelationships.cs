@@ -1120,7 +1120,7 @@ namespace AppViewLite
             return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDate, default));
         }
 
-        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate, int limit)
+        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate)
         {
             var thresholdDate = minDate != default ? Tid.FromDateTime(minDate, 0) : default;
 
@@ -1134,7 +1134,7 @@ namespace AppViewLite
                 {
                     return this
                         .EnumerateRecentPosts(author, thresholdDate)
-                        .Take(50)
+                        .Take(100)
                         .Where(x => x.InReplyTo == default || followsHashSet.Contains(x.InReplyTo))
                         .Select(x => GetPost(x.PostId))
                         .Where(x => x.Data != null && (x.IsRootPost || followsHashSet.Contains(x.Data.RootPostId.Author)));
@@ -1155,6 +1155,34 @@ namespace AppViewLite
                         });
                 });
             return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value, 0) : x.PostId.PostRKey, new ReverseComparer<Tid>());
+        }
+
+        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId> alreadyReturned)
+        {
+
+            foreach (var post in posts)
+            {
+                var postId = post.PostId;
+                if (!alreadyReturned.Add(postId)) continue;
+                if (post.Data?.Deleted == true) continue;
+                if (post.IsReply && !post.IsRepost)
+                {
+                    var parentId = post.InReplyToPostId!.Value;
+                    if (alreadyReturned.Add(parentId))
+                    {
+                        var rootId = post.RootPostId;
+                        if (rootId != postId && rootId != parentId)
+                        {
+                            if (alreadyReturned.Add(rootId))
+                            {
+                                yield return GetPost(rootId);
+                            }
+                        }
+                        yield return GetPost(parentId);
+                    }
+                }
+                yield return GetPost(postId);
+            }
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

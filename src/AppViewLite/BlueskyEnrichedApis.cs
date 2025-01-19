@@ -143,8 +143,8 @@ namespace AppViewLite
                     if (ctx.IsLoggedIn)
                     {
                         var loggedInUser = ctx.LoggedInUser;
-                        post.IsLiked = rels.Likes.HasActor(post.PostId, loggedInUser, out _);
-                        post.IsReposted = rels.Reposts.HasActor(post.PostId, loggedInUser, out _);
+                        post.IsLikedBySelf = rels.Likes.HasActor(post.PostId, loggedInUser, out _);
+                        post.IsRepostedBySelf = rels.Reposts.HasActor(post.PostId, loggedInUser, out _);
                     }
                 }
             });
@@ -896,8 +896,13 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
-            var posts = WithRelationshipsLock(rels => rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-4), limit).ToArray());
-            posts = posts.Take(50).ToArray();
+            var alreadyReturned = new HashSet<PostId>();
+            var posts = WithRelationshipsLock(rels =>
+            {
+                var posts = rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-4));
+                var normalized = rels.EnumerateFeedWithNormalization(posts, alreadyReturned);
+                return normalized.Take(limit).ToArray();
+            });
             await EnrichAsync(posts, ctx);
             return new PostsAndContinuation(posts, null);
         }

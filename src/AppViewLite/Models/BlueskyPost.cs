@@ -34,9 +34,11 @@ namespace AppViewLite.Models
         public bool IsRootPost => !IsReply;
 
         public PostId? InReplyToPostId => Data?.InReplyToPostId;
+        public PostId RootPostId => Data!.RootPostId;
 
-        public bool IsLiked;
-        public bool IsReposted;
+        public bool IsLikedBySelf;
+        public bool IsRepostedBySelf;
+        public bool IsRepost => RepostDate != null;
     }
 }
 

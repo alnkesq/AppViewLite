@@ -17,10 +17,18 @@
     <Routes />
     <script src="_framework/blazor.web.js"></script>
     <script>
+        function onNavigation(){
+            var focalPost = document.querySelector('.post-focal');
+            if(focalPost) focalPost.scrollIntoView();
+            else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        }
+       
+    
         // https://github.com/dotnet/aspnetcore/issues/51338#issuecomment-1766578689
         Blazor.addEventListener('enhancedload', () => {
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            onNavigation();
         });
+        onNavigation();
     </script>
 </body>
 

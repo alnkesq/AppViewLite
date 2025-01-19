@@ -28,9 +28,19 @@
 }
 
 <ul class="post-list">
-    @foreach (var post in Posts)
+    @for (int i = 0; i < Posts.Length; i++)
     {
-        <PostRow Post="post" ShowInReplyTo="@ShowInReplyTo" IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" />
+        var post = Posts[i];
+        var prev = i != 0 ? Posts[i - 1] : null;
+        var next = i != Posts.Length - 1 ? Posts[i + 1] : null;
+        var postId = post.PostId;
+        <PostRow 
+            Post="post" 
+            ShowInReplyTo="@(ShowInReplyTo && prev?.RootPostId != post.RootPostId)" 
+            ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
+            IsLastOfGroup="@(next?.Data?.InReplyToPostId != postId && next?.Data?.RootPostId != postId)"
+            IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
+        />
 
     }
 </ul>

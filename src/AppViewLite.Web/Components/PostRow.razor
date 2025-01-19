@@ -10,9 +10,23 @@
     public bool ShowInReplyTo { get; set; } = true;
 
     [Parameter]
+    public bool IsLastOfGroup { get; set; }
+
+    [Parameter]
+    public bool ShowRestOfThreadLink { get; set; }
+
+    [Parameter]
     public bool IsFocalPost { get; set; }
 }
-<li class="post @(IsFocalPost ? "post-focal" : null)">
+
+
+
+@if (ShowRestOfThreadLink)
+{
+    <a class="post-rest-of-thread" href="@Post.BaseUrl">View full thread</a>
+}
+
+<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)">
     @if (Post.RepostedBy != null)
     {
         <div class="post-reposted-by">Reposted by <a href="@Post.RepostedBy.BaseUrl">@Post.RepostedBy.DisplayNameOrFallback</a></div>
@@ -70,13 +84,13 @@
         {
             <div><a href="@link" target="_blank" rel="noreferrer">@link</a></div>
         }
-    
+
     }
 
     @if (Post.Data?.Media != null)
     {
         <div class="post-image-list">
-        
+
             @foreach (var image in Post.Data.Media)
             {
                 <a href="@Program.GetImageFullUrl(Post.Author.Did, image.Cid)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
@@ -92,7 +106,7 @@
         <ul class="post-quoted">
             <PostRow Post="Post.QuotedPost" LinkTextToThread="true" />
         </ul>
-        
+
     }
 
     <div class="post-status-bar">        
@@ -104,3 +118,8 @@
 
     </div>
 </li>
+
+@if (IsLastOfGroup)
+{
+    <div class="post-group-separator"></div>    
+}

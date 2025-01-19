@@ -1,9 +1,11 @@
 @page "/"
+@inject RequestContext RequestContext
 @inject NavigationManager Navigation
 
 @code {
     protected override void OnInitialized()
     {
-        Navigation.NavigateTo("/feed/did:plc:z72i7hdynmk6r22z27h6tvur/whats-hot");
+        if (RequestContext.IsLoggedIn) Navigation.NavigateTo("/following");
+        else Navigation.NavigateTo("/feed/did:plc:z72i7hdynmk6r22z27h6tvur/whats-hot");
     }
 }

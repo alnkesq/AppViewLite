@@ -16,44 +16,55 @@ ul {
 }
 
 .post-list {
-    margin: 0 auto;
-    padding-left: 60px;
+    margin: 20px auto;
 }
-    .post-list > .post {
-        margin-bottom: 20px;
-    }
 
     .post-list > .post.post-last-of-group {
         margin-bottom: 40px;
     }
+.post-thread-line, .post-thread-continuation-line {
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    margin-left: 24px;
+}
+
+.post-thread-line {
+    border-left: 2px solid gray;
+    top: 50px;
+}
+
+.post-thread-continuation-line {
+    border-left: 2px dashed gray;
+}
 
 .post-group-separator {
-    position: absolute;
-    margin-left: -65px;
-    margin-top: -17px;
+    margin-top: -20px;
     border-bottom: 1px solid rgb(212, 219, 226);
-    width: 695px;
+    width: 100%;
+    position: absolute;
 }
 
 .post-rest-of-thread {
     color: rgb(16, 131, 254);
     text-decoration: none;
     display: block;
+    margin-bottom: 10px;
 }
 
 
 .post {
-    margin-top: 10px;
-    margin-bottom: 10px;
+    position: relative;
 }
 
-.post.post-focal {
-    margin-top: 50px;
-    margin-bottom: 50px;
+.post-focal {
+    padding-bottom: 10px;
 }
-    .post-focal > .post-body {
-        font-size: 16pt;
-    }
+
+
+.post-focal > .post-body {
+    font-size: 16pt;
+}
 
 .profile-row {
     margin-bottom: 10px;
@@ -68,7 +79,6 @@ ul {
 
 .post-author-image-link {
     position: absolute;
-    margin-left: -62px;
 }
 
 .post-author-image, .profile-image-small {
@@ -142,6 +152,21 @@ ul {
     overflow-wrap: break-word;
     display: block;
 }
+
+.post-indented {
+    margin-left: 60px;
+}
+
+.post-background-link {
+    position: absolute;
+    display: block;
+    width:100%;
+    height: 100%;
+}
+.post-quoted .post-indented {
+    margin-left: 30px;
+}
+
 .post-body-link-to-thread {
     text-decoration: none;
     color: inherit;
@@ -149,7 +174,7 @@ ul {
     outline: none;
 }
 .post-status-bar {
-    background-color: #f4f4f4;
+    /*background-color: #f4f4f4;*/
     padding: 5px;
     filter: grayscale() opacity(0.5);
 }
@@ -168,16 +193,23 @@ ul {
 .post-quoted {
     border: 1px solid rgb(212, 219, 226);
     border-radius: 5px;
-    margin-left: 30px;
     margin-top: 5px;
     margin-bottom: 5px;
-    padding-left: 10px;
+    padding-top: 5px;
 }
+    .post-quoted .post-author-image-link {
+        margin-left: 6px;
+        margin-top: 3px;
+    }
+    .post-quoted .post-author-image {
+        width: 16px;
+        height: 16px;
+    }
 
-.tabbed-lists-header {
-    margin-top: 20px;
-    margin-bottom: 25px;
-}
+    .tabbed-lists-header {
+        margin-top: 20px;
+        margin-bottom: 25px;
+    }
     .tabbed-lists-header a {
         color: black;
         text-decoration: none;

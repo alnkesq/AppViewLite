@@ -4,7 +4,7 @@
     public required BlueskyPost Post { get; set; }
 
     [Parameter]
-    public bool LinkTextToThread { get; set; }
+    public bool IsQuote { get; set; }
 
     [Parameter]
     public bool ShowInReplyTo { get; set; } = true;
@@ -17,27 +17,41 @@
 
     [Parameter]
     public bool IsFocalPost { get; set; }
+
+    [Parameter]
+    public bool ShowThreadLine { get; set; }
+
 }
 
 
 
-@if (ShowRestOfThreadLink)
-{
-    <a class="post-rest-of-thread" href="@Post.BaseUrl">View full thread</a>
-}
 
 <li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)">
-    @if (Post.RepostedBy != null)
+    <a href="@Post.BaseUrl" class="post-background-link"></a>
+
+    @if (ShowRestOfThreadLink)
     {
-        <div class="post-reposted-by">Reposted by <a href="@Post.RepostedBy.BaseUrl">@Post.RepostedBy.DisplayNameOrFallback</a></div>
+        <div class="post-thread-continuation-line"></div>
+        <a class="post-rest-of-thread post-indented" href="@Post.BaseUrl">View full thread</a>
     }
 
-    @if (!LinkTextToThread){
-        <a href="@Post.Author.BaseUrl" class="post-author-image-link">
-            <img src="@Post.Author.AvatarUrl" class="post-author-image">
-        </a>
+    @if (ShowThreadLine && !IsLastOfGroup)
+    {
+        <div class="post-thread-line"></div>
     }
-    <div class="post-meta">
+
+
+    @if (Post.RepostedBy != null)
+    {
+        <div class="post-reposted-by post-indented">Reposted by <a href="@Post.RepostedBy.BaseUrl">@Post.RepostedBy.DisplayNameOrFallback</a></div>
+    }
+
+
+    <a href="@Post.Author.BaseUrl" class="post-author-image-link">
+        <img src="@Post.Author.AvatarUrl" class="post-author-image">
+    </a>
+
+    <div class="post-meta post-indented">
         <a class="post-author" href="@Post.Author.BaseUrl">
             @Post.Author.DisplayNameOrFallback
         </a> ·
@@ -47,16 +61,16 @@
 
     @if (ShowInReplyTo && Post.InReplyToUser != null)
     {
-        <div class="post-in-reply-to">Replying to <a href="@Post.InReplyToUser.BaseUrl">@Post.InReplyToUser.DisplayNameOrFallback</a></div>
+        <div class="post-in-reply-to post-indented">Replying to <a href="@Post.InReplyToUser.BaseUrl">@Post.InReplyToUser.DisplayNameOrFallback</a></div>
     }
 
     @if (Post.Data == null || Post.Data.Error != null)
     {
 
-        <div class="post-error">[@(Post.Data?.Error ?? "Reached post retrieval limit for page load, consider refreshing")]</div>
+        <div class="post-error post-indented">[@(Post.Data?.Error ?? "Reached post retrieval limit for page load, consider refreshing")]</div>
     }
-    <div class="post-body">
-        @if (true || LinkTextToThread)
+    <div class="post-body post-indented">
+        @if (true || IsQuote)
         {
             <a href="@Post.BaseUrl" class="post-body-link-to-thread">
                 @Post.Data?.Text
@@ -71,25 +85,25 @@
 
     @if (Post.Data?.EmbedRecordUri != null)
     {
-        <div>@Post.Data.EmbedRecordUri</div>    
+        <div class="post-link-list post-indented">@Post.Data.EmbedRecordUri</div>
 
     }
     @if (Post.Data?.ExternalUrl != null)
     {
-        <div><a href="@Post.Data.ExternalUrl" target="_blank" rel="noreferrer">@(Post.Data.ExternalTitle ?? Post.Data.ExternalUrl)</a></div>
+        <div class="post-link-list post-indented"><a href="@Post.Data.ExternalUrl" target="_blank" rel="noreferrer">@(Post.Data.ExternalTitle ?? Post.Data.ExternalUrl)</a></div>
     }
     @if (Post.Data?.ExternalLinks != null)
     {
         @foreach (var link in Post.Data.ExternalLinks)
         {
-            <div><a href="@link" target="_blank" rel="noreferrer">@link</a></div>
+            <div class="post-link-list post-indented"><a href="@link" target="_blank" rel="noreferrer">@link</a></div>
         }
 
     }
 
     @if (Post.Data?.Media != null)
     {
-        <div class="post-image-list">
+        <div class="post-image-list post-indented">
 
             @foreach (var image in Post.Data.Media)
             {
@@ -103,17 +117,29 @@
 
     @if (Post.QuotedPost != null)
     {
-        <ul class="post-quoted">
-            <PostRow Post="Post.QuotedPost" LinkTextToThread="true" />
+        <ul class="post-quoted post-indented">
+            <PostRow Post="Post.QuotedPost" IsQuote="true" />
         </ul>
 
     }
 
-    <div class="post-status-bar">        
-        <a href="@Post.BaseUrl" title="Show replies">@Post.ReplyCount 💬</a>
-        <a href="@Post.BaseUrl/quotes" title="Show quotes">@Post.QuoteCount 💭</a>
-        <a href="@Post.BaseUrl/reposts" title="Show reposts">@Post.RepostCount 🔁</a>
-        <a href="@Post.BaseUrl/likes" title="Show likes">@Post.LikeCount ♥</a>
+    <div class="post-status-bar post-indented">
+        @if(Post.ReplyCount != 0){
+            <a href="@Post.BaseUrl" title="Show replies">@Post.ReplyCount 💬</a>
+        }
+        @if (Post.QuoteCount != 0)
+        {
+            <a href="@Post.BaseUrl/quotes" title="Show quotes">@Post.QuoteCount 💭</a>
+        }
+        @if (Post.RepostCount != 0)
+        {
+            <a href="@Post.BaseUrl/reposts" title="Show reposts">@Post.RepostCount 🔁</a>
+        }
+        @if (Post.LikeCount != 0)
+        {
+            <a href="@Post.BaseUrl/likes" title="Show likes">@Post.LikeCount ♥</a>
+        }
+
         <a class="bsky-link" target="_blank" href="@Post.BlueskyUrl" title="View on bsky.app"><img src="/assets/bluesky.png"></a>
 
     </div>

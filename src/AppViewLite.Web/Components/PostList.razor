@@ -35,8 +35,15 @@
         var next = i != Posts.Length - 1 ? Posts[i + 1] : null;
         var postId = post.PostId;
         <PostRow 
-            Post="post" 
-            ShowInReplyTo="@((ShowInReplyTo && (prev?.RootPostId != post.RootPostId || prev.PostId.Author != postId.Author)) || (prev == null && post.IsReply))" 
+            Post="post"
+            ShowThreadLine="@(
+                (prev?.PostId == post.InReplyToPostId) ||
+                (prev?.PostId == post.RootPostId && post.IsReply) || 
+                (postId == next?.RootPostId) ||
+                (postId == next?.InReplyToPostId))"
+            ShowInReplyTo="@(
+                (ShowInReplyTo && (prev?.RootPostId != post.RootPostId && prev?.PostId.Author != postId.Author)) || 
+                (prev == null && post.IsReply))" 
             ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
             IsLastOfGroup="@(next?.Data?.InReplyToPostId != postId && next?.Data?.RootPostId != postId)"
             IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 

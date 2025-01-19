@@ -36,7 +36,7 @@
         var postId = post.PostId;
         <PostRow 
             Post="post" 
-            ShowInReplyTo="@(ShowInReplyTo && prev?.RootPostId != post.RootPostId)" 
+            ShowInReplyTo="@((ShowInReplyTo && (prev?.RootPostId != post.RootPostId || prev.PostId.Author != postId.Author)) || (prev == null && post.IsReply))" 
             ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
             IsLastOfGroup="@(next?.Data?.InReplyToPostId != postId && next?.Data?.RootPostId != postId)"
             IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 

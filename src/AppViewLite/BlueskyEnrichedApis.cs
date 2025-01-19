@@ -621,10 +621,12 @@ namespace AppViewLite
             await EnrichAsync([focalPost], ctx);
 
             var loadedBefore = 0;
+            var before = 0;
             while (thread[0].IsReply)
             {
                 var p = thread[0];
                 var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value));
+                if (before++ >= 10) break;
                 if (prepend.Data == null)
                 {
                     if (loadedBefore++ < 3)

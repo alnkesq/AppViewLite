@@ -107,9 +107,18 @@
 
             @foreach (var image in Post.Data.Media)
             {
-                <a href="@Program.GetImageFullUrl(Post.Author.Did, image.Cid)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
-                    <img src="@Program.GetImageThumbnailUrl(Post.Author.Did, image.Cid)" class="post-image">
-                </a>
+                @if (image.IsVideo)
+                {
+                    <a href="@Post.BlueskyUrl" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
+                        View video on bsky.app
+                    </a>
+                }
+                else
+                {
+                    <a href="@Program.GetImageFullUrl(Post.Author.Did, image.Cid)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
+                        <img src="@Program.GetImageThumbnailUrl(Post.Author.Did, image.Cid)" class="post-image">
+                    </a>
+                }
             }
         </div>
     }

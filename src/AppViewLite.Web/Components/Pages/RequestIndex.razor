@@ -45,7 +45,7 @@
         {
             var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Model.Handle);
 
-            var task = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Model.Kind, startIfNotRunning: true);
+            var task = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Model.Kind, ignoreIfRecentlyRan: TimeSpan.FromHours(3));
             await Task.WhenAny(task, Task.Delay(1500));
             Navigation.NavigateTo("/index-progress/" + Uri.EscapeDataString(did) + "/" + Model.Kind, true);
         }

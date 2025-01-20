@@ -924,7 +924,7 @@ namespace AppViewLite
         
 
 
-        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, bool startIfNotRunning)
+        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, bool startIfNotRunning = true, TimeSpan ignoreIfRecentlyRan = default, CancellationToken ct = default)
         {
 
             Plc plc = default;
@@ -932,9 +932,12 @@ namespace AppViewLite
             WithRelationshipsLock(rels =>
             {
                 plc = rels.SerializeDid(did);
-                previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => x.StartDate);
+                previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
             });
-            if (previousImport != null && (DateTime.UtcNow - previousImport.StartDate).TotalHours < 3)
+            if (!startIfNotRunning)
+                return previousImport;
+
+            if (previousImport != null && (ignoreIfRecentlyRan != default && (DateTime.UtcNow - previousImport.StartDate) < ignoreIfRecentlyRan))
                 return previousImport;
 
             Task<RepositoryImportEntry>? r;
@@ -944,23 +947,35 @@ namespace AppViewLite
                 if (!carImports.TryGetValue(key, out r))
                 {
                     if (!startIfNotRunning) return null;
-                    r = ImportCarIncrementalCoreAsync(did, kind, plc, default);
+                    r = ImportCarIncrementalCoreAsync(did, kind, plc, previousImport != null && previousImport.LastRevOrTid != 0 ? new Tid(previousImport.LastRevOrTid) : default, ct);
                     carImports[key] = r;
                 }
             }
             return await r;
         }
 
-        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since)
+        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct)
         {
             await Task.Yield();
             var startDate = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
 
             var indexer = new Indexer(relationshipsUnlocked);
+            Tid lastTid;
+            Exception? exception = null;
+
             if (kind == RepositoryImportKind.Full)
             {
-                await indexer.ImportCarAsync(did, since);
+                try
+                {
+                    await indexer.ImportCarAsync(did, since, ct);
+                    lastTid = default; // TODO: How do we obtain the last rev from the CAR?
+                }
+                catch (Exception ex)
+                {
+                    exception = ex;
+                    lastTid = default;
+                }
             }
             else 
             {
@@ -975,22 +990,43 @@ namespace AppViewLite
                     RepositoryImportKind.BlocklistSubscriptions => Listblock.RecordType,
                     _ => throw new Exception("Unknown collection kind.")
                 };
-                await indexer.IndexUserCollectionAsync(did, recordType);
+                (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ct);
             }
 
-            var lastRev = default(Tid); // TODO: How do we obtain the last rev from the CAR?
             var summary = new RepositoryImportEntry
             {
                 DurationMillis = (long)sw.Elapsed.TotalMilliseconds,
                 Kind = kind,
                 Plc = plc,
                 StartDate = startDate,
+                LastRevOrTid = lastTid.TidValue,
+                Error = exception != null ? GetErrorDetails(exception) : null,
+                
             };
             WithRelationshipsLock(rels =>
             {
                 rels.CarImports.AddRange(new RepositoryImportKey(plc, startDate), BlueskyRelationships.SerializeProto(summary));
             });
             return summary;
+        }
+
+        private static string GetErrorDetails(Exception exception)
+        {
+            while (true)
+            {
+                if (exception is ATNetworkErrorException at) 
+                {
+                    return at.AtError.Detail?.Error ?? at.AtError.StatusCode.ToString();
+                }
+                if (exception.InnerException != null)
+                {
+                    exception = exception.InnerException;
+                }
+                else
+                {
+                    return exception.Message;
+                }
+            }
         }
 
         public string GetCarImportStatus(string did, RepositoryImportKind kind)
@@ -1000,7 +1036,9 @@ namespace AppViewLite
             {
                 var r = task.Result;
                 if (r == null) return "Not running.";
-                return $"Completed. Kind: {r.Kind}, Start date: {r.StartDate}, Duration: {(r.DurationMillis / 1000.0).ToString("0.0")} seconds.";
+                var durationSeconds = (r.DurationMillis / 1000.0).ToString("0.0");
+                if (r.Error != null) return $"Error: {r.Error}, Duration: {durationSeconds} seconds.";
+                return $"Completed. Start date: {r.StartDate}, Duration: {durationSeconds} seconds.";
             }
             else if (task.IsFaulted)
                 return $"Failed: {task.Exception.Message}";

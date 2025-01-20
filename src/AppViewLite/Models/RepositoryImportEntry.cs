@@ -12,6 +12,8 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public RepositoryImportKind Kind;
         [ProtoMember(2)] public long DurationMillis;
+        [ProtoMember(3)] public long LastRevOrTid;
+        [ProtoMember(4)] public string? Error;
 
         public DateTime StartDate;
         public Plc Plc;

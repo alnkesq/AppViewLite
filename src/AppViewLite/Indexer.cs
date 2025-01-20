@@ -363,20 +363,32 @@ namespace AppViewLite
             return new ATProtocolBuilder().WithInstanceUrl(new Uri("https://bsky.network")).Build();
         }
 
-        public async Task IndexUserCollectionAsync(string did, string recordType, CancellationToken ct = default)
+        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, CancellationToken ct = default)
         {
             using var at = CreateAtProto();
 
-            string? cursor = null;
-            while (true)
+            string? cursor = since != default ? since.ToString() : null;
+            Tid lastTid = since;
+            try
             {
-                var page = (await at.Repo.ListRecordsAsync(new ATDid(did), recordType, 100, cursor, cancellationToken: ct)).HandleResult();
-                cursor = page.Cursor;
-                foreach (var item in page.Records)
+                while (true)
                 {
-                    OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
+                    var page = (await at.Repo.ListRecordsAsync(new ATDid(did), recordType, 100, cursor, reverse: true, cancellationToken: ct)).HandleResult();
+                    cursor = page!.Cursor;
+                    foreach (var item in page.Records)
+                    {
+                        OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
+                        if (Tid.TryParse(item.Uri.Rkey, out var tid))
+                            lastTid = tid;
+                    }
+
+                    if (cursor == null) break;
                 }
-                if (cursor == null) break;
+                return (lastTid, null);
+            }
+            catch (Exception ex)
+            {
+                return (lastTid, ex);
             }
             
         }

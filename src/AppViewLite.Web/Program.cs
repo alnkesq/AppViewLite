@@ -162,10 +162,10 @@ namespace AppViewLite.Web
 
             session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, RequestContext.CreateInfinite(null));
 
-            if (haveFollowees == 0)
+            if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
-                var load = new Indexer(Relationships).IndexUserCollectionAsync(did, FishyFlip.Lexicon.App.Bsky.Graph.Follow.RecordType);
+                var load = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90 ));
                 await Task.WhenAny(deadline, load);
             }
 

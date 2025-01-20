@@ -1,10 +1,14 @@
 @inject AppViewLiteSession Session
+@inject NavigationManager Navigation
 
 @code{
     private long NotificationCount;
+    private string LoginUrl;
     protected override void OnInitialized()
     {
         NotificationCount = BlueskyEnrichedApis.Instance.GetNotificationCount(Session);
+        var url = Navigation.ToAbsoluteUri(Navigation.Uri);
+        LoginUrl = url.AbsolutePath == "/login" ? "/login" : "/login?return=" + Uri.EscapeDataString(url.PathAndQuery);
     }
 }
 
@@ -63,7 +67,7 @@
     else
     {
         <div>
-            <NavLink href="/login">
+            <NavLink href="@LoginUrl">
                 Login
             </NavLink>
         </div>

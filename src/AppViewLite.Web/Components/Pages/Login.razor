@@ -21,6 +21,8 @@
     [SupplyParameterFromForm]
     private LoginData? Model { get; set; }
 
+    [Parameter] [SupplyParameterFromQuery] public string Return { get; set; }
+
     protected override void OnInitialized() => Model ??= new();
 
     private async Task Submit()
@@ -28,7 +30,7 @@
         if (!string.IsNullOrEmpty(Model!.Handle))
         {
             await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle);
-            Navigation.NavigateTo("/following", true);
+            Navigation.NavigateTo(Return ?? "/following", true);
         }
     }
 

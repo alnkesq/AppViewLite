@@ -279,11 +279,16 @@ namespace AppViewLite
         public async Task ListenBlueskyFirehoseAsync()
         {
 
-            // NOTE! For some reason (perhaps CBOR deserialization) Firehose blob CIDs are not deserialized as bafkrei, but something much shorter...
-            // On the other hand, getRecord and JetStream work properly.
-
             var firehose = new FishyFlip.ATWebSocketProtocolBuilder().Build();
-
+            firehose.OnConnectionUpdated += async (_, e) =>
+            {
+                if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                {
+                    Console.Error.WriteLine("CONNECTION DROPPED! Reconnecting soon...");
+                    await Task.Delay(5000);
+                    await firehose.StartSubscribeReposAsync();
+                }
+            };
             firehose.OnSubscribedRepoMessage += (s, e) =>
             {
                 try

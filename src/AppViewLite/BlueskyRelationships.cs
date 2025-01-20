@@ -343,7 +343,7 @@ namespace AppViewLite
                 var facet = new FacetData
                 {
                     Start = ((int)x.Index!.ByteStart!),
-                    Length = (int)(x.Index.ByteEnd!.Value - x.Index.ByteStart.Value),
+                    Length = (int)(x.Index.ByteEnd! - x.Index.ByteStart),
                 };
 
                 if (feature is Mention m)

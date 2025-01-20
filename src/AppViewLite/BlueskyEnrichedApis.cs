@@ -100,7 +100,7 @@ namespace AppViewLite
             var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
             var following = WithRelationshipsLock(rels =>
             {
-                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
+                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler), ctx)).ToArray();
             });
             await EnrichAsync(following, ctx);
             return (following, response!.Cursor);
@@ -793,7 +793,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
-            var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1, ctx));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did);

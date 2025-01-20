@@ -71,10 +71,16 @@ ul {
 .profile-row {
     margin-bottom: 10px;
 }
-    .profile-row a {
+.profile-row-name {
         color: black;
         text-decoration: none;
-    }
+}
+.profile-row .profile-follow-relationship {
+    position: absolute;
+    right: 0px;
+    margin-top: 5px;
+}
+
 .profile-image-small {
     vertical-align: middle;
 }
@@ -289,7 +295,8 @@ ul {
 
 .profile-page-blocked .profile-image-large,
 .profile-page-blocked .profile-follow-links,
-.profile-page-blocked .post-list {
+.profile-page-blocked .post-list,
+.profile-row-blocked .profile-row-name {
     filter: blur(5px)
 }
 

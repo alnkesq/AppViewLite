@@ -3,9 +3,14 @@
     [Parameter]
     public required BlueskyProfile Profile { get; set; }
 }
-<li class="profile-row">
-    <a href="@Profile.BaseUrl">
+<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)">
+    <a href="@Profile.BaseUrl" class="profile-row-name">
         <img src="@Profile.AvatarUrl" class="profile-image-small">
         @Profile.DisplayNameOrFallback
     </a>
+    @if (Profile.BlockReason != default)
+    {
+        <span class="profile-follow-relationship">@Profile.BlockReason.ToDisplayString()</span>
+    }
+
 </li>

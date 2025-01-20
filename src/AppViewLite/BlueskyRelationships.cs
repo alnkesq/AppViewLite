@@ -823,15 +823,19 @@ namespace AppViewLite
         public BlueskyProfile GetProfile(Plc plc, RequestContext? ctx = null, Tid? relationshipRKey = null)
         {
             var basic = GetProfileBasicInfo(plc);
-            var blockReason = ctx?.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
             return new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,
                 Did = TryGetDid(plc),
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
-                BlockReason = blockReason,
+                BlockReason = GetBlockReason(plc, ctx)
             };
+        }
+
+        private BlockReason GetBlockReason(Plc plc, RequestContext? ctx)
+        {
+            return ctx?.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
         }
 
         public PostId GetPostId(string did, string rkey)

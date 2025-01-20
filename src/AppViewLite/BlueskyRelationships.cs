@@ -1045,7 +1045,7 @@ namespace AppViewLite
         {
             var lists = new List<Relationship>();
 
-            foreach (var (subscriptionId, singleList) in ListBlocks.GetInRangeUnsorted(new Relationship(subscriber, default), new Relationship(new Plc(subscriber.PlcValue + 1), default)))
+            foreach (var (subscriptionId, singleList) in ListBlocks.GetInRangeUnsorted(new Relationship(subscriber, default), new Relationship(subscriber.GetNext(), default)))
             {
                 if (ListBlockDeletions.ContainsKey(subscriptionId))
                     continue;

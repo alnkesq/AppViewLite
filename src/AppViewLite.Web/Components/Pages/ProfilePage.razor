@@ -24,7 +24,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Profile = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetFullProfile(Did));
+        Profile = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetFullProfile(Did, RequestContext));
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
             Did, 
             includePosts: !ShowLikes, 
@@ -43,6 +43,11 @@
 {
     <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
     <h1>@Profile.Profile.DisplayNameOrFallback</h1>
+
+    @if (Profile.FollowsYou || Profile.YouAreFollowing)
+    {
+        <span class="profile-follow-relationship">@(Profile.FollowsYou && Profile.YouAreFollowing ? "Mutuals" : (Profile.FollowsYou ? "Follows you" : "Following"))</span>
+    }
 
     <div>
         <a href="@Profile.Profile.BaseUrl/following">Following</a> ·

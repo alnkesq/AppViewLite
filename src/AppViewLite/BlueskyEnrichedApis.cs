@@ -827,7 +827,7 @@ namespace AppViewLite
 
         public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, RequestContext ctx)
         {
-            var profile = WithRelationshipsLock(rels => rels.GetFullProfile(did));
+            var profile = WithRelationshipsLock(rels => rels.GetFullProfile(did, ctx));
             await EnrichAsync([profile.Profile], ctx);
             return profile;
         }

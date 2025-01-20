@@ -832,13 +832,15 @@ namespace AppViewLite
             return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
-        public BlueskyFullProfile GetFullProfile(string did)
+        public BlueskyFullProfile GetFullProfile(string did, RequestContext ctx)
         {
             var plc = SerializeDid(did);
             return new BlueskyFullProfile
             {
                 Profile = GetProfile(plc),
                 Followers = Follows.GetActorCount(plc),
+                FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, plc, out _),
+                YouAreFollowing = ctx.IsLoggedIn && Follows.HasActor(plc, ctx.LoggedInUser, out _),
             };
         }
 

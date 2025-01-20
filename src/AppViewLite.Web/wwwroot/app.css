@@ -100,6 +100,14 @@ ul {
     margin-top: 10px;
 }
 
+.profile-follow-relationship {
+    background-color: #F1F3F5;
+    padding: 4px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+    display: inline-block;
+}
+
 .post-meta a, .post-status-bar a {
     text-decoration: none;
     color: black;

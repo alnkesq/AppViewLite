@@ -3,11 +3,11 @@
 @inject NavigationManager Navigation
 
 @code {
-    [Parameter] public required BlueskyPost[] Posts { get; set; }
-    [Parameter] public bool ShowInReplyTo { get; set; } = true;
-    [Parameter] public string? FocalPostDid { get; set; }
-    [Parameter] public string? FocalPostRKey { get; set; }
-    [Parameter] public string? NextContinuation { get; set; }
+        [Parameter] public required BlueskyPost[] Posts { get; set; }
+        [Parameter] public bool ShowInReplyTo { get; set; } = true;
+        [Parameter] public string? FocalPostDid { get; set; }
+        [Parameter] public string? FocalPostRKey { get; set; }
+        [Parameter] public string? NextContinuation { get; set; }
     private string? continuationUrl;
 
     protected override void OnParametersSet()
@@ -23,6 +23,12 @@
         {
             continuationUrl = null;
         }
+    }
+
+    static bool IsLastOfGroup(BlueskyPost post, BlueskyPost? next)
+    {
+        if (next == null) return true;
+        return next?.Data?.InReplyToPostId != post.PostId && next?.Data?.RootPostId != post.PostId;
     }
 
 }
@@ -43,9 +49,9 @@
                 (postId == next?.InReplyToPostId))"
             ShowInReplyTo="@(
                 (ShowInReplyTo && (prev?.RootPostId != post.RootPostId && prev?.PostId.Author != postId.Author)) || 
-                (prev == null && post.IsReply))" 
+                ((prev == null || IsLastOfGroup(prev, post)) && post.IsReply))" 
+            IsLastOfGroup="@IsLastOfGroup(post, next)"
             ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
-            IsLastOfGroup="@(next?.Data?.InReplyToPostId != postId && next?.Data?.RootPostId != postId)"
             IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
         />
 

@@ -37,6 +37,7 @@ ul {
 
 .post-thread-continuation-line {
     border-left: 2px dashed gray;
+    height: 50px;
 }
 
 .post-group-separator {

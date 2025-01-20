@@ -713,13 +713,13 @@ namespace AppViewLite
         }
 
 
-        public BlueskyProfile[] GetPostLikers(string profile, string rkey, Relationship continuation, int limit, RequestContext? ctx = null)
+        public BlueskyProfile[] GetPostLikers(string profile, string rkey, Relationship continuation, int limit)
         {
-            return Likes.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, ctx, x.RelationshipRKey)).ToArray();
+            return Likes.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
-        public BlueskyProfile[] GetPostReposts(string profile, string rkey, Relationship continuation, int limit, RequestContext? ctx = null)
+        public BlueskyProfile[] GetPostReposts(string profile, string rkey, Relationship continuation, int limit)
         {
-            return Reposts.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, ctx, x.RelationshipRKey)).ToArray();
+            return Reposts.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
         public BlueskyPost[] GetPostQuotes(string profile, string rkey, PostId continuation, int limit)
         {
@@ -820,7 +820,7 @@ namespace AppViewLite
         }
 
 
-        public BlueskyProfile GetProfile(Plc plc, RequestContext? ctx = null, Tid? relationshipRKey = null)
+        public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null)
         {
             var basic = GetProfileBasicInfo(plc);
             return new BlueskyProfile()
@@ -829,11 +829,10 @@ namespace AppViewLite
                 Did = TryGetDid(plc),
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
-                BlockReason = GetBlockReason(plc, ctx)
             };
         }
 
-        private BlockReason GetBlockReason(Plc plc, RequestContext? ctx)
+        public BlockReason GetBlockReason(Plc plc, RequestContext? ctx)
         {
             return ctx?.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
         }
@@ -848,9 +847,9 @@ namespace AppViewLite
             return GetPostId(uri.Did!.ToString(), uri.Rkey);
         }
 
-        public BlueskyProfile[] GetFollowers(string did, Relationship continuation, int limit, RequestContext? ctx = null)
+        public BlueskyProfile[] GetFollowers(string did, Relationship continuation, int limit)
         {
-            return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, ctx, x.RelationshipRKey)).ToArray();
+            return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
         public BlueskyFullProfile GetFullProfile(string did, RequestContext ctx)
@@ -858,7 +857,7 @@ namespace AppViewLite
             var plc = SerializeDid(did);
             return new BlueskyFullProfile
             {
-                Profile = GetProfile(plc, ctx),
+                Profile = GetProfile(plc),
                 Followers = Follows.GetActorCount(plc),
                 FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, plc, out _),
                 YouAreFollowing = ctx.IsLoggedIn && Follows.HasActor(plc, ctx.LoggedInUser, out _),

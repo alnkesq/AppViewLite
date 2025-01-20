@@ -70,6 +70,13 @@ namespace AppViewLite
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, CancellationToken ct = default)
         {
+            WithRelationshipsLock(rels =>
+            {
+                foreach (var profile in profiles)
+                {
+                    profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
+                }
+            });
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
 
@@ -86,7 +93,7 @@ namespace AppViewLite
                 foreach (var profile in profiles)
                 {
                     if (profile.BasicData == null)
-                        profile.BasicData = rels.GetProfileBasicInfo(rels.SerializeDid(profile.Did));
+                        profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
                 }
             });
 
@@ -100,7 +107,7 @@ namespace AppViewLite
             var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
             var following = WithRelationshipsLock(rels =>
             {
-                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler), ctx)).ToArray();
+                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
             });
             await EnrichAsync(following, ctx);
             return (following, response!.Cursor);
@@ -793,7 +800,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
-            var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1, ctx));
+            var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did);

@@ -6,6 +6,7 @@ namespace AppViewLite.Models
     {
         public string Did;
         public int PlcId;
+        public Plc Plc => new Plc(PlcId);
 
         public string? DisplayName => BasicData?.DisplayName;
         public string DisplayNameOrFallback => DisplayName ?? Did ?? PlcId.ToString();

@@ -433,6 +433,8 @@ namespace AppViewLite
                     {
                         var startPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate, 0), default);
                         var endPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate.AddTicks(1), 0), default);
+
+                        // TODO: these are not sorted
                         var postsCore = rels.PostData.GetInRangeUnsorted(startPostId, endPostId)
                             .Where(x =>
                             {
@@ -450,6 +452,8 @@ namespace AppViewLite
                                 }
                                 return true;
                             });
+                        // TODO: dedupe them
+                        
                         if (options.MinLikes > 0)
                         {
                             postsCore = postsCore.Where(x => rels.Likes.HasAtLeastActorCount(x.Key, options.MinLikes));
@@ -471,12 +475,18 @@ namespace AppViewLite
                             .Where(x => x.Data!.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
-                    .Take(limit)
+                    .Select(x => 
+                    {
+                        x.InReplyToUser = x.IsReply ? rels.GetProfile(x.InReplyToPostId.Value.Author) : null;
+                        return x;
+                    })
+                    .DistinctBy(x => x.PostId)
+                    .Take(limit + 1)
                     .ToArray();
             });
             if (enrichOutput)
                 await EnrichAsync(posts, ctx);
-            return (posts, posts.LastOrDefault()?.PostId.Serialize());
+            return (posts, posts.Length > limit ? posts.LastOrDefault()?.PostId.Serialize() : null);
         }
 
         private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options)

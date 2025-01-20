@@ -56,6 +56,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, ListEntry> RegisteredUserToFollowees;
         public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
         public CombinedPersistentMultiDictionary<Plc, RecentRepost> UserToRecentReposts;
+        public CombinedPersistentMultiDictionary<RepositoryImportKey, byte> CarImports;
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<IDisposable> disposables = new();
@@ -127,6 +128,8 @@ namespace AppViewLite
 
             UserToRecentPosts = Register(new CombinedPersistentMultiDictionary<Plc, RecentPost>(basedir + "/user-to-recent-posts") { ItemsToBuffer = DefaultBufferedItems });
             UserToRecentReposts = Register(new CombinedPersistentMultiDictionary<Plc, RecentRepost>(basedir + "/user-to-recent-reposts") { ItemsToBuffer = DefaultBufferedItems });
+
+            CarImports = Register(new CombinedPersistentMultiDictionary<RepositoryImportKey, byte>(basedir + "/car-import-proto", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
 
             LastSeenNotifications = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/last-seen-notification", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
             registerForNotificationsCache = new();
@@ -800,6 +803,21 @@ namespace AppViewLite
             return proto;
         }
 
+        public static T DeserializeProto<T>(ReadOnlySpan<byte> bytes)
+        {
+            using var ms = new MemoryStream(bytes.Length);
+            ms.Write(bytes);
+            ms.Seek(0, SeekOrigin.Begin);
+            return ProtoBuf.Serializer.Deserialize<T>(ms);
+        }
+
+        public static byte[] SerializeProto<T>(T proto)
+        {
+            using var ms = new MemoryStream();
+            ProtoBuf.Serializer.Serialize(ms, proto);
+            if (ms.Length == 0) throw new NotSupportedException();
+            return ms.ToArray();
+        }
 
         public BlueskyProfile GetProfile(Plc plc)
         {
@@ -1186,9 +1204,25 @@ namespace AppViewLite
                         yield return GetPost(parentId);
                     }
                 }
-                yield return GetPost(postId);
+                yield return post;
             }
         }
+
+        internal RepositoryImportEntry[] GetRepositoryImports(Plc plc)
+        {
+            return
+                CarImports.GetInRangeUnsorted(new RepositoryImportKey(plc, default), new RepositoryImportKey(plc.GetNext(), default))
+                .Select(x =>
+                {
+                    var p = DeserializeProto<RepositoryImportEntry>(x.Values.AsSmallSpan());
+                    p.StartDate = x.Key.ImportDate;
+                    p.Plc = plc;
+                    return p;
+                })
+                .ToArray();
+
+        }
+
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 

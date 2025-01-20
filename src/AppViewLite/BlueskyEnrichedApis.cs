@@ -44,6 +44,7 @@ namespace AppViewLite
 
         public async Task<string> ResolveHandleAsync(string handle)
         {
+            if (handle.StartsWith('@')) handle = handle.Substring(1);
             if (handle.StartsWith("did:", StringComparison.Ordinal)) return handle;
             var resolved = (await protoAppView.ResolveHandleAsync(new ATHandle(handle))).HandleResult();
             return resolved!.Did!.ToString();
@@ -909,6 +910,95 @@ namespace AppViewLite
             return new PostsAndContinuation(posts, null);
         }
 
+
+        
+
+
+        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, bool startIfNotRunning)
+        {
+
+            Plc plc = default;
+            RepositoryImportEntry? previousImport = null;
+            WithRelationshipsLock(rels =>
+            {
+                plc = rels.SerializeDid(did);
+                previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => x.StartDate);
+            });
+            if (previousImport != null && (DateTime.UtcNow - previousImport.StartDate).TotalHours < 3)
+                return previousImport;
+
+            Task<RepositoryImportEntry>? r;
+            lock (carImports)
+            {
+                var key = (plc, kind);
+                if (!carImports.TryGetValue(key, out r))
+                {
+                    if (!startIfNotRunning) return null;
+                    r = ImportCarIncrementalCoreAsync(did, kind, plc, default);
+                    carImports[key] = r;
+                }
+            }
+            return await r;
+        }
+
+        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since)
+        {
+            await Task.Yield();
+            var startDate = DateTime.UtcNow;
+            var sw = Stopwatch.StartNew();
+
+            var indexer = new Indexer(relationshipsUnlocked);
+            if (kind == RepositoryImportKind.Full)
+            {
+                await indexer.ImportCarAsync(did, since);
+            }
+            else 
+            {
+                var recordType = kind switch {
+                    RepositoryImportKind.Posts => Post.RecordType,
+                    RepositoryImportKind.Likes => Like.RecordType,
+                    RepositoryImportKind.Reposts => Repost.RecordType,
+                    RepositoryImportKind.Follows => Follow.RecordType,
+                    RepositoryImportKind.Blocks => Block.RecordType,
+                    RepositoryImportKind.ListMetadata => List.RecordType,
+                    RepositoryImportKind.ListEntries => Listitem.RecordType,
+                    RepositoryImportKind.BlocklistSubscriptions => Listblock.RecordType,
+                    _ => throw new Exception("Unknown collection kind.")
+                };
+                await indexer.IndexUserCollectionAsync(did, recordType);
+            }
+
+            var lastRev = default(Tid); // TODO: How do we obtain the last rev from the CAR?
+            var summary = new RepositoryImportEntry
+            {
+                DurationMillis = (long)sw.Elapsed.TotalMilliseconds,
+                Kind = kind,
+                Plc = plc,
+                StartDate = startDate,
+            };
+            WithRelationshipsLock(rels =>
+            {
+                rels.CarImports.AddRange(new RepositoryImportKey(plc, startDate), BlueskyRelationships.SerializeProto(summary));
+            });
+            return summary;
+        }
+
+        public string GetCarImportStatus(string did, RepositoryImportKind kind)
+        {
+            var task = ImportCarIncrementalAsync(did, kind, startIfNotRunning: false);
+            if (task.IsCompletedSuccessfully)
+            {
+                var r = task.Result;
+                if (r == null) return "Not running.";
+                return $"Completed. Kind: {r.Kind}, Start date: {r.StartDate}, Duration: {(r.DurationMillis / 1000.0).ToString("0.0")} seconds.";
+            }
+            else if (task.IsFaulted)
+                return $"Failed: {task.Exception.Message}";
+            else
+                return "Running...";
+        }
+
+        private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         private readonly static HttpClient DefaultHttpClient = new();
     }
 }

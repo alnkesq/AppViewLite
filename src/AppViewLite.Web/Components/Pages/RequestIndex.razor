@@ -1,0 +1,61 @@
+@page "/request-index"
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Request repository reindexing</PageTitle>
+<h1>Request repository reindexing</h1>
+<form method="post" @onsubmit="Submit" @formname="requestIndexForm">
+    <AntiforgeryToken />
+    <div>
+        <label>
+            Handle:
+            <InputText @bind-Value="Model!.Handle" />
+        </label>
+        <br>
+    </div>
+    <div>
+        <InputRadioGroup @bind-Value="@Model.Kind">
+            Type:
+            <br />
+            @foreach (var kind in Enum.GetValues<RepositoryImportKind>().Where(x => x != RepositoryImportKind.None))
+            {
+                <label>
+                    <InputRadio Value="@kind" />
+                    @kind
+                    @(kind == RepositoryImportKind.Full ? " (faster)" : null)
+                </label>
+                <br>
+            }
+        </InputRadioGroup>
+    </div>
+    <div>
+        <button type="submit">Request index</button>
+    </div>
+</form>
+
+@code {
+    [SupplyParameterFromForm]
+    private RequestIndexData? Model { get; set; }
+
+    protected override void OnInitialized() => Model ??= new();
+
+    private async Task Submit()
+    {
+        if (!string.IsNullOrEmpty(Model!.Handle))
+        {
+            var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Model.Handle);
+
+            var task = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Model.Kind, startIfNotRunning: true);
+            await Task.WhenAny(task, Task.Delay(1500));
+            Navigation.NavigateTo("/index-progress/" + Uri.EscapeDataString(did) + "/" + Model.Kind, true);
+        }
+    }
+
+    public class RequestIndexData
+    {
+        public string? Handle { get; set; }
+        public RepositoryImportKind Kind { get; set; } = RepositoryImportKind.Full;
+    }
+}
+
+

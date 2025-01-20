@@ -341,17 +341,19 @@ namespace AppViewLite
             }
             importer.Log("Done.");
         }
-        public async Task ImportCarAsync(string did, CancellationToken ct = default)
+        public async Task ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
         {
             using var at = CreateAtProto();
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
-            var result = (await at.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, cancellationToken: ct)).HandleResult();
+            var result = (await at.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, since: since != default ? since.ToString() : null, cancellationToken: ct)).HandleResult();
             importer.LogStats();
+            
             foreach (var record in importer.EnumerateRecords())
-            {
+            { 
                 OnRecordCreated(record.Did, record.Path, record.Record);
+                
             }
             importer.Log("Done.");
         }

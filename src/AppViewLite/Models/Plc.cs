@@ -8,6 +8,8 @@ namespace AppViewLite.Models
         {
             return PlcValue.CompareTo(other.PlcValue);
         }
+
+        public Plc GetNext() => new Plc(PlcValue + 1);
     }
 }
 

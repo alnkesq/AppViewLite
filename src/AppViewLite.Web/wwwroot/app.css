@@ -32,6 +32,7 @@ ul {
 .post-thread-line {
     border-left: 2px solid gray;
     top: 50px;
+    pointer-events: none;
 }
 
 .post-thread-continuation-line {
@@ -155,6 +156,7 @@ ul {
 
 .post-indented {
     margin-left: 60px;
+    position: relative; /* otherwise z-index doesn't work */
 }
 
 .post-background-link {

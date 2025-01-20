@@ -17,6 +17,7 @@ namespace AppViewLite.Models
         public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, AvatarCid);
 
         public Tid? RelationshipRKey;
+        public BlockReason BlockReason;
     }
 }
 

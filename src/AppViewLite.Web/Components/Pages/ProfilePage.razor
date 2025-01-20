@@ -15,7 +15,7 @@
     public bool ShowLikes => (Likes ?? 0) != 0;
     public bool ShowReplies => !ShowLikes && (Replies ?? (ShowMediaOnly ? 1 : 0)) != 0;
     public bool ShowReposts => !ShowLikes && (Reposts ?? (ShowReplies || ShowMediaOnly ? 0 : 1)) != 0;
-    
+
 
     // [Parameter] public string? DidUnprefixed { get; set; }
     // public string? Did => DidUnprefixed != null ? "did:" + DidUnprefixed : null;
@@ -26,12 +26,12 @@
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
         Profile = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetFullProfile(Did, RequestContext));
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
-            Did, 
-            includePosts: !ShowLikes, 
-            includeReplies: ShowReplies, 
-            includeReposts: ShowReposts, 
-            includeLikes: ShowLikes, 
-            mediaOnly: ShowMediaOnly, 
+            Did,
+            includePosts: !ShowLikes,
+            includeReplies: ShowReplies,
+            includeReposts: ShowReposts,
+            includeLikes: ShowLikes,
+            mediaOnly: ShowMediaOnly,
             continuation: Continuation,
             ctx: RequestContext);
     }
@@ -39,29 +39,31 @@
 
 <PageTitle>@Profile?.Profile.DisplayNameOrFallback</PageTitle>
 
-@if(Profile != null)
+
+@if (Profile != null)
 {
-    <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
-    <h1>@Profile.Profile.DisplayNameOrFallback</h1>
+    <div class="@(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
+        <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
+        <h1>@Profile.Profile.DisplayNameOrFallback</h1>
 
-    @if (Profile.FollowsYou || Profile.YouAreFollowing)
-    {
-        <span class="profile-follow-relationship">@(Profile.FollowsYou && Profile.YouAreFollowing ? "Mutuals" : (Profile.FollowsYou ? "Follows you" : "Following"))</span>
-    }
+        @if (Profile.Profile.BlockReason != default || Profile.FollowsYou || Profile.YouAreFollowing)
+        {
+            <span class="profile-follow-relationship">@(Profile.Profile.BlockReason.ToDisplayString() ?? (Profile.FollowsYou && Profile.YouAreFollowing ? "Mutuals" : (Profile.FollowsYou ? "Follows you" : "Following")))</span>
+        }
 
-    <div>
-        <a href="@Profile.Profile.BaseUrl/following">Following</a> ·
-        <a href="@Profile.Profile.BaseUrl/followers">Followers</a>
-    </div>
+        <div class="profile-follow-links">
+            <a href="@Profile.Profile.BaseUrl/following">Following</a> ·
+            <a href="@Profile.Profile.BaseUrl/followers">Followers</a>
+        </div>
 
-    <div class="tabbed-lists-header">
+        <div class="tabbed-lists-header">
 
-        <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
-        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
-        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
-        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
-        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
-@*         <a href="@Profile.Profile.BaseUrl" class="@(!ShowMediaOnly && !ShowReplies && ShowReposts ? "selected" : null)">Posts</a>
+            <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
+            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
+            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
+            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+            @*         <a href="@Profile.Profile.BaseUrl" class="@(!ShowMediaOnly && !ShowReplies && ShowReposts ? "selected" : null)">Posts</a>
         <a href="@Profile.Profile.BaseUrl?replies=1" class="@(!ShowMediaOnly && ShowReplies && !ShowReposts ? "selected" : null)">Replies</a>
         <a href="@Profile.Profile.BaseUrl?media=1" class="@(ShowMediaOnly && ShowReplies && !ShowReposts ? "selected" : null)">Media</a>
         <a href="@Profile.Profile.BaseUrl?replies=0&reposts=0" class="@(!ShowMediaOnly && !ShowLikes && !ShowReplies && !ShowReposts ? "selected" : null)">Original posts</a>
@@ -69,7 +71,7 @@
 
  *@
 
-        @*      @if (ShowReposts)
+            @*      @if (ShowReposts)
         {
             <a href="@Profile.Profile.BaseUrl">Posts</a>
             <a href="@Profile.Profile.BaseUrl?replies=1">Replies</a>
@@ -81,9 +83,10 @@
             <a href="@Profile.Profile.BaseUrl?reposts=0&replies=1">Replies</a>
             <a href="@Profile.Profile.BaseUrl?@(ShowReplies ? "replies=1&" : null)reposts=1">Show reposts</a>
         }  *@
-        <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a>
-        <a class="search-link" href="/search?from=@Did" title="Search"><img src="/assets/search.png"></a>
+            <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a>
+            <a class="search-link" href="/search?from=@Did" title="Search"><img src="/assets/search.png"></a>
+        </div>
+        <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
     </div>
-    <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
 }
 

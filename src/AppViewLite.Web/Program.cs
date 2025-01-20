@@ -61,7 +61,7 @@ namespace AppViewLite.Web
             builder.Services.AddHttpContextAccessor();
 
             var devSession = CreateDevSession();
-            
+
             builder.Services.AddScoped(provider =>
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
@@ -113,6 +113,7 @@ namespace AppViewLite.Web
 
             _ = Task.Run(async () =>
             {
+                
                 await Task.Delay(1000);
                 app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
                 await indexer.ListenJetStreamFirehoseAsync();
@@ -165,8 +166,11 @@ namespace AppViewLite.Web
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
-                var load = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90 ));
-                await Task.WhenAny(deadline, load);
+                var loadFollows = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
+                _ = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
+                _ = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
+                // TODO: fetch entries of subscribed blocklists
+                await Task.WhenAny(deadline, loadFollows);
             }
 
             SessionDictionary[id] = session;

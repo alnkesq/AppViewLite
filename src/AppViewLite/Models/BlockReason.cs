@@ -6,7 +6,35 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    public record struct BlockReason(BlockReasonKind Kind, Relationship List);
+    public record struct BlockReason(BlockReasonKind Kind, Relationship List)
+    {
+
+        public string? ToDisplayString()
+        {
+            if (this == default) return null;
+            if (List != default)
+            {
+                return Kind switch
+                {
+                    BlockReasonKind.BlockedBy => "You are blocked, because of a blocklist you're in.",
+                    BlockReasonKind.Blocks => "You are subscribed to a blocklist that includes this user.",
+                    BlockReasonKind.MutualBlock => "You block each other.",
+                    _ => throw new Exception()
+                };
+            }
+            else
+            {
+                return Kind switch
+                {
+                    BlockReasonKind.BlockedBy => "You are blocked.",
+                    BlockReasonKind.Blocks => "You block this user.",
+                    BlockReasonKind.MutualBlock => "You block each other.",
+                    _ => throw new Exception()
+                };
+
+            }
+        }
+    }
 
     [Flags]
     public enum BlockReasonKind

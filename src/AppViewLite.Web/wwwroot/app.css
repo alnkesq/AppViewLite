@@ -135,12 +135,26 @@ ul {
     font-size: 10pt;
 }
 
+.post-reposted-by-icon {
+    position: absolute;
+    margin-left: -18px;
+    margin-top: 2px;
+}
+
+
 .post-in-reply-to {
     margin-left: 30px;
     margin-top: 5px;
     margin-bottom: 10px;
     color: gray;
     font-size: 10pt;
+}
+.post-in-reply-to > span {
+    padding-left: 15px;
+}
+.post-in-reply-to-icon {
+    position: absolute;
+    margin-top: 4px;
 }
 
 

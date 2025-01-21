@@ -12,7 +12,7 @@
     protected override async Task OnParametersSetAsync()
     {
         if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingFeedAsync(Continuation, default, RequestContext);
+        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingFeedAsync(Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 

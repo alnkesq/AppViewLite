@@ -77,26 +77,45 @@ namespace AppViewLite
                     profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
                 }
             });
+            
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
 
             toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
             if (toLookup.Length == 0) return profiles;
 
-            await LookupManyRecordsAsync<Profile>(toLookup, pendingProfileRetrievals, Profile.RecordType, ct,
-                (key, profileRecord) => WithRelationshipsLock(rels => rels.StoreProfileBasicInfo(rels.SerializeDid(key.Did), profileRecord)),
-                key => WithRelationshipsLock(rels => rels.FailedProfileLookups.Add(rels.SerializeDid(key.Did), DateTime.UtcNow)), ctx);
+            var plcToProfile = profiles.ToLookup(x => x.Plc);
 
-
-            WithRelationshipsLock(rels =>
+            void OnRecordReceived(BlueskyRelationships rels, Plc plc)
             {
-                foreach (var profile in profiles)
+                foreach (var profile in plcToProfile[plc])
                 {
                     if (profile.BasicData == null)
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
                 }
-            });
+            }
 
+            var task = LookupManyRecordsWithinShortDeadlineAsync<Profile>(toLookup, pendingProfileRetrievals, Profile.RecordType, ct,
+                (key, profileRecord) =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var plc = rels.SerializeDid(key.Did);
+                        rels.StoreProfileBasicInfo(plc, profileRecord);
+                        OnRecordReceived(rels, plc);
+                    });
+                },
+                key =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var plc = rels.SerializeDid(key.Did);
+                        rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
+                        OnRecordReceived(rels, plc);
+                    });
+                }, ctx);
+
+            await task;
 
             return profiles;
         }
@@ -114,40 +133,10 @@ namespace AppViewLite
         }
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, bool loadQuotes = true, CancellationToken ct = default)
         {
-            var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
-            toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray());
-            await LookupManyRecordsAsync<Post>(toLookup, pendingPostRetrievals, Post.RecordType, ct,
-                (key, postRecord) => WithRelationshipsLock(rels => rels.StorePostInfo(rels.GetPostId(key.Did, key.RKey), postRecord)), 
-                key => WithRelationshipsLock(rels => rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow)), ctx);
-
-
             WithRelationshipsLock(rels =>
             {
                 foreach (var post in posts)
                 {
-                    if (post.Data == null)
-                    {
-                        (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey));
-                    }
-
-                    if (loadQuotes && post.Data?.QuotedPlc != null)
-                    {
-                        post.QuotedPost = rels.GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
-                    }
-
-                }
-
-            });
-
-            WithRelationshipsLock(rels =>
-            {
-                foreach (var post in posts)
-                {
-                    if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
-                    {
-                        post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
-                    }
-
                     if (ctx.IsLoggedIn)
                     {
                         var loggedInUser = ctx.LoggedInUser;
@@ -157,7 +146,70 @@ namespace AppViewLite
                 }
             });
 
-            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx);
+
+            var postIdToPost = posts.ToLookup(x => x.PostId);
+
+            var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
+            toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray());
+
+
+
+            WithRelationshipsLock(rels =>
+            {
+                foreach (var post in posts.Where(x => x.Data != null))
+                {
+                    OnRecordReceived(rels, post.PostId);
+                }
+            });
+
+     
+
+            void OnRecordReceived(BlueskyRelationships rels, PostId postId)
+            {
+                foreach (var post in postIdToPost[postId])
+                {
+                    if (post.Data == null)
+                    {
+                        (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey));
+                    }
+
+                    if (loadQuotes && post.Data?.QuotedPlc != null && post.QuotedPost == null)
+                    {
+                        post.QuotedPost = rels.GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
+                    }
+
+                    if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
+                    {
+                        post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
+                    }
+
+                }
+            }
+
+
+            var task = LookupManyRecordsWithinShortDeadlineAsync<Post>(toLookup, pendingPostRetrievals, Post.RecordType, ct,
+                (key, postRecord) =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var postId = rels.GetPostId(key.Did, key.RKey);
+                        rels.StorePostInfo(postId, postRecord);
+                        OnRecordReceived(rels, postId);
+                    });
+                },
+                key =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var postId = rels.GetPostId(key.Did, key.RKey);
+                        rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow);
+                        OnRecordReceived(rels, postId);
+                    });
+                }, ctx);
+
+
+
+            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx, ct);
 
             if (loadQuotes)
             {
@@ -170,39 +222,27 @@ namespace AppViewLite
             return posts;
         }
 
-        private Task LookupManyRecordsAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, RequestContext ctx) where TValue : ATObject
+        private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, RequestContext ctx) where TValue : ATObject
         {
-            //return Task.CompletedTask;
-            var date = DateTime.UtcNow;
 
-            var failedKeys = new List<RelationshipStr>();
-            if (keys.Count != 0 && (ctx.DeadlineReached == null || !ctx.DeadlineReached.IsCompleted))
+            if (keys.Count != 0 && (ctx.LongDeadline == null || !ctx.LongDeadline.IsCompleted))
             {
-
-                if (pendingRetrievals.Count >= 1000)
-                {
-                    foreach (var item in pendingRetrievals)
-                    { 
-                        if ((date - item.Value.DateStarted).TotalMinutes > 1)
-                            pendingRetrievals.TryRemove(item.Key, out _);
-                    }
-                }
-                
+                CleanupOldRetrievals(pendingRetrievals);
 
                 var keysToLookup = new List<RelationshipStr>();
                 var allTasksToAwait = new List<Task>();
                 foreach (var key in keys)
                 {
                     if (pendingRetrievals.TryGetValue(key, out var task))
+                    {
+                        task.Task.GetAwaiter().OnCompleted(ctx.TriggerStateChange);
                         allTasksToAwait.Add(task.Task);
-                    else if (keysToLookup.Count + 1 < 50)
+                    }
+                    else if (keysToLookup.Count + 1 < 100)
                         keysToLookup.Add(key);
                 }
 
-                Console.Error.WriteLine($"Looking up {keysToLookup.Count} keys for {collection} ({allTasksToAwait.Count} already running)");
-                using var semaphore = new SemaphoreSlim(5);
-
-                allTasksToAwait.AddRange(keysToLookup.Select(key => 
+                allTasksToAwait.AddRange(keysToLookup.Select(key =>
                 {
                     async Task RunAsync()
                     {
@@ -217,11 +257,13 @@ namespace AppViewLite
                                 var obj = (TValue)response.Value!;
                                 onItemSuccess(key, obj);
                                 Console.Error.WriteLine("     > Completed: " + key);
+                                ctx.TriggerStateChange();
                             }
                             else
                             {
                                 onItemFailure(key);
                                 Console.Error.WriteLine("     > Failure: " + key);
+                                ctx.TriggerStateChange();
                             }
 
                         }
@@ -231,21 +273,36 @@ namespace AppViewLite
                             Console.Error.WriteLine("     > Exception: " + key);
                         }
 
-                        
+
                     }
 
                     var task = RunAsync();
-                    pendingRetrievals[key] = (task, date);
+                    pendingRetrievals[key] = (task, DateTime.UtcNow);
                     return task;
                 }));
 
 
                 var fullTask = Task.WhenAll(allTasksToAwait);
 
-                return ctx.DeadlineReached != null ? Task.WhenAny(fullTask, ctx.DeadlineReached) : fullTask;
+                fullTask = ctx.LongDeadline != null ? Task.WhenAny(fullTask, ctx.LongDeadline) : fullTask;
+                fullTask = ctx.ShortDeadline != null ? Task.WhenAny(fullTask, ctx.ShortDeadline) : fullTask;
+                return fullTask;
             }
             return Task.CompletedTask;
 
+        }
+
+        private static void CleanupOldRetrievals(ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals)
+        {
+            if (pendingRetrievals.Count >= 10000)
+            {
+                var now = DateTime.UtcNow;
+                foreach (var item in pendingRetrievals)
+                {
+                    if ((now - item.Value.DateStarted).TotalMinutes > 1)
+                        pendingRetrievals.TryRemove(item.Key, out _);
+                }
+            }
         }
 
         private static ATIdentifier GetAtId(string did)

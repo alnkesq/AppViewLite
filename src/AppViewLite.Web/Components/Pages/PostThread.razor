@@ -10,7 +10,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Posts = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(Did, RKey, RequestContext);
+        Posts = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(Did, RKey, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 

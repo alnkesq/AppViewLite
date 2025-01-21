@@ -310,4 +310,9 @@ ul {
         content: "An error has occurred."
     }
 
+#components-reconnect-modal {
+    pointer-events: none;
+    /*opacity: 0.1;*/
+    visibility: hidden;
 
+}

@@ -1,3 +1,4 @@
+@inject IHttpContextAccessor Context
 <!DOCTYPE html>
 <html lang="en">
 
@@ -10,11 +11,11 @@
     <link rel="stylesheet" href="@Assets["AppViewLite.Web.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveAuto" />
 </head>
 
 <body>
-    <Routes />
+    <Routes  @rendermode="@(Context.HttpContext!.Request.Path.ToString() is "/login" or "/logout"  ? new InteractiveWebAssemblyRenderMode() : new InteractiveServerRenderMode(prerender: false))"  /> 
     <script src="_framework/blazor.web.js"></script>
     <script>
         function onNavigation(){
@@ -29,6 +30,23 @@
             onNavigation();
         });
         onNavigation();
+        document.addEventListener('click', event => {
+            var href = null;            
+            var t = event.target;
+            while(t) {
+                if(t.tagName == 'A') {
+                    href = new URL(t.href);
+                    break;
+                }
+                t = t.parentNode;
+            }
+            if(document.querySelector('#components-reconnect-modal') || ((href.pathname == '/login'|| href.pathname == '/logout') && href.host == window.location.host)) {
+                window.location = href;
+            }
+            
+        }, true);
+
+
     </script>
 </body>
 

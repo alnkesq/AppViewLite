@@ -23,8 +23,9 @@
     private BlueskyPost[] Posts = [];
     protected override async Task OnParametersSetAsync()
     {
+        var r = RequestContext.OnStateChanged(StateHasChanged);
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, RequestContext);
+        Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, r);
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
             Did,
             includePosts: !ShowLikes,
@@ -33,7 +34,7 @@
             includeLikes: ShowLikes,
             mediaOnly: ShowMediaOnly,
             continuation: Continuation,
-            ctx: RequestContext);
+            ctx: r);
     }
 }
 

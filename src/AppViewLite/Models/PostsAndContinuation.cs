@@ -11,6 +11,11 @@ namespace AppViewLite.Models
         {
             return new PostsAndContinuation(value.Posts, value.NextContinuation);
         }
+
+        public PostsAndContinuation()
+            : this([], null)
+        {
+        }
     }
 }
 

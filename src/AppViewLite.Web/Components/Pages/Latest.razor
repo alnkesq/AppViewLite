@@ -1,16 +1,14 @@
 @page "/firehose"
 @inject RequestContext RequestContext
 
-
 @code {
 
 
-    private BlueskyPost[] Posts = [];
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
-    private string? NextContinuation;
+    private PostsAndContinuation Posts = new();
     protected override async Task OnParametersSetAsync()
     {
-        (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
+        Posts = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 
@@ -18,4 +16,4 @@
 
 <h1>Firehose posts</h1>
 
-<PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+<PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" />

@@ -1054,7 +1054,7 @@ namespace AppViewLite
 
                 if (singleList.Count != 1) throw new Exception(); // it's a SingleValue
 
-                lists.Add(lists[0]);
+                lists.Add(singleList[0]);
             }
 
             return lists;

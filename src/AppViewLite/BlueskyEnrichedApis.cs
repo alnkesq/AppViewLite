@@ -127,13 +127,13 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
             var following = WithRelationshipsLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
             });
             await EnrichAsync(following, ctx);
-            return (following, response!.Cursor);
+            return (following, response.Records.Count > limit ? response!.Cursor : null);
         }
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, bool loadQuotes = true, CancellationToken ct = default)
         {

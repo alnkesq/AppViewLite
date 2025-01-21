@@ -208,6 +208,8 @@ namespace AppViewLite.Storage
                             File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
                         }
                     }
+
+                    // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
                     slices.Insert(groupStart, new SliceInfo(mergedDate, mergedCount, new(mergedPrefix, behavior)));
                 });

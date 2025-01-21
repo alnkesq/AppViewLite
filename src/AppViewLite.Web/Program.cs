@@ -61,13 +61,11 @@ namespace AppViewLite.Web
 
             builder.Services.AddHttpContextAccessor();
 
-            var devSession = CreateDevSession();
-
             builder.Services.AddScoped(provider =>
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
 
-                return TryGetSession(httpContext) ?? devSession ?? new();
+                return TryGetSession(httpContext) ?? new();
             });
             builder.Services.AddScoped(provider =>
             {
@@ -114,25 +112,12 @@ namespace AppViewLite.Web
 
             _ = Task.Run(async () =>
             {
-                
                 await Task.Delay(1000);
                 app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
                 await indexer.ListenJetStreamFirehoseAsync();
             });
             app.Run();
             
-        }
-
-        private static AppViewLiteSession? CreateDevSession()
-        {
-            return null;
-            var testDid = "did:plc:yrzav4kckt5na2uzgx3j3s2r";
-            var testSession = new AppViewLiteSession
-            {
-                LoggedInUser = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(testDid)),
-                Profile = BlueskyEnrichedApis.Instance.GetProfileAsync(testDid, RequestContext.CreateInfinite(null)).Result
-            };
-            return testSession;
         }
 
         public static AppViewLiteSession? TryGetSession(HttpContext httpContext)

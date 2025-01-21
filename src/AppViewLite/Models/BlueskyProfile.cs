@@ -19,6 +19,7 @@ namespace AppViewLite.Models
 
         public Tid? RelationshipRKey;
         public BlockReason BlockReason;
+        public bool IsYou;
     }
 }
 

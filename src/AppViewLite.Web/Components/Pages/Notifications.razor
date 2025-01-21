@@ -6,11 +6,11 @@
 @code {
 
 
-    private BlueskyNotification[] notifications = [];
+    private List<CoalescedNotification> notifications = [];
     protected override async Task OnParametersSetAsync()
     {
         if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
-        notifications = await BlueskyEnrichedApis.Instance.GetNotificationsAsync(RequestContext.OnStateChanged(StateHasChanged));
+        notifications = await BlueskyEnrichedApis.Instance.GetCoalescedNotificationsAsync(RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 
@@ -18,17 +18,7 @@
 
 <h1>Notifications</h1>
 
-@foreach (var notification in notifications.Where(x => !x.Hidden))
+@foreach (var notification in notifications)
 {
-    <span>@Program.ToHumanDate(notification.EventDate): @notification.Kind</span>
-    if (notification.Post != null)
-    {
-        <PostRow Post="@notification.Post" />
-    }
-
-    else
-    {
-        <ProfileRow Profile="@notification.Profile" />
-    }
-
+    <NotificationRow Notification="@notification" />
 }

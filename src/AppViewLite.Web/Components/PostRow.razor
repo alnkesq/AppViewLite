@@ -32,7 +32,7 @@
     @if (ShowRestOfThreadLink)
     {
         <div class="post-thread-continuation-line"></div>
-        <a class="post-rest-of-thread post-indented" href="@Post.BaseUrl">View full thread</a>
+        <a class="post-rest-of-thread post-indented blue-link" href="@Post.BaseUrl">View full thread</a>
     }
 
     @if (ShowThreadLine && !IsLastOfGroup)
@@ -43,7 +43,7 @@
 
     @if (Post.RepostedBy != null)
     {
-        <div class="post-reposted-by post-indented">Reposted by <a href="@Post.RepostedBy.BaseUrl">@Post.RepostedBy.DisplayNameOrFallback</a></div>
+        <div class="post-reposted-by post-indented">Reposted by <InlineProfileLink Profile="@Post.RepostedBy" /></div>
     }
 
 
@@ -52,7 +52,7 @@
     </a>
 
     <div class="post-meta post-indented">
-        <a class="post-author" href="@Post.Author.BaseUrl">
+        <a class="post-author underline-on-hover" href="@Post.Author.BaseUrl">
             @Post.Author.DisplayNameOrFallback
         </a> ·
         <a class="post-date" href="@Post.BaseUrl" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
@@ -61,7 +61,7 @@
 
     @if (ShowInReplyTo && Post.InReplyToUser != null)
     {
-        <div class="post-in-reply-to post-indented">Replying to <a href="@Post.InReplyToUser.BaseUrl">@Post.InReplyToUser.DisplayNameOrFallback</a></div>
+        <div class="post-in-reply-to post-indented">Replying to <InlineProfileLink Profile="@Post.InReplyToUser" /></div>
     }
 
     @if (Post.Data == null || Post.Data.Error != null)
@@ -90,13 +90,13 @@
     }
     @if (Post.Data?.ExternalUrl != null)
     {
-        <div class="post-link-list post-indented"><a href="@Post.Data.ExternalUrl" target="_blank" rel="noreferrer">@(Post.Data.ExternalTitle ?? Post.Data.ExternalUrl)</a></div>
+        <div class="post-link-list post-indented"><a href="@Post.Data.ExternalUrl" target="_blank" rel="noreferrer" class="blue-link">@(Post.Data.ExternalTitle ?? Post.Data.ExternalUrl)</a></div>
     }
     @if (Post.Data?.ExternalLinks != null)
     {
         @foreach (var link in Post.Data.ExternalLinks)
         {
-            <div class="post-link-list post-indented"><a href="@link" target="_blank" rel="noreferrer">@link</a></div>
+            <div class="post-link-list post-indented"><a href="@link" target="_blank" rel="noreferrer" class="blue-link">@link</a></div>
         }
 
     }

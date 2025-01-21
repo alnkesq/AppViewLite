@@ -77,6 +77,7 @@ namespace AppViewLite
             {
                 foreach (var profile in profiles)
                 {
+                    profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
                     profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
                 }
             });
@@ -959,6 +960,40 @@ namespace AppViewLite
             await EnrichAsync(notifications.Where(x => !x.Hidden).Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
             await EnrichAsync(notifications.Where(x => !x.Hidden).Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
             return notifications!;
+        }
+
+        public async Task<List<CoalescedNotification>> GetCoalescedNotificationsAsync(RequestContext ctx)
+        {
+            var rawNotifications = await GetNotificationsAsync(ctx);
+            if (rawNotifications.Length == 0) return [];
+            var coalescedList = new List<CoalescedNotification>();
+
+            foreach (var raw in rawNotifications)
+            {
+                if (raw.Hidden) continue;
+                var key = (PostId: raw.Post?.PostId ?? default, raw.Kind);
+
+                var c = coalescedList.TakeWhile(x => (x.LatestDate - raw.EventDate).TotalHours < 3).FirstOrDefault(x => (x.PostId, x.Kind) == key);
+                if (c == null)
+                {
+                    c = new CoalescedNotification
+                    {
+                        PostId = key.PostId,
+                        Kind = key.Kind,
+                        LatestDate = raw.EventDate,
+                        Post = raw.Post,
+                    };
+                    coalescedList.Add(c);
+                }
+
+                if (raw.Profile != null)
+                {
+                    c.Profiles ??= [];
+                    c.Profiles.Add(raw.Profile);
+                }
+            }
+            return coalescedList;
+
         }
 
         

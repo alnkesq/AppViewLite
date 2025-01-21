@@ -3,6 +3,17 @@ html, body {
     margin: 0;
 }
 
+a {
+    text-decoration: none;
+    color: black;
+}
+
+.underline-on-hover:hover, .blue-link:hover {
+    text-decoration: underline;
+}
+.blue-link {
+    color: rgb(16, 131, 254);
+}
 
 body {
     max-width: 1000px;
@@ -10,8 +21,11 @@ body {
 
 }
 
-ul {
+li {
     list-style: none;
+}
+
+ul {
     padding-left: 0px;
 }
 
@@ -48,8 +62,6 @@ ul {
 }
 
 .post-rest-of-thread {
-    color: rgb(16, 131, 254);
-    text-decoration: none;
     display: block;
     margin-bottom: 10px;
 }
@@ -71,10 +83,7 @@ ul {
 .profile-row {
     margin-bottom: 10px;
 }
-.profile-row-name {
-        color: black;
-        text-decoration: none;
-}
+
 .profile-row .profile-follow-relationship {
     position: absolute;
     right: 0px;
@@ -115,11 +124,6 @@ ul {
     display: inline-block;
 }
 
-.post-meta a, .post-status-bar a {
-    text-decoration: none;
-    color: black;
-}
-
 .post-date {
     color: #777 !important; 
 }
@@ -140,10 +144,6 @@ ul {
 }
 
 
-.post-reposted-by a, .post-in-reply-to a {
-    color: black;
-    text-decoration: none;
-}
 .post-error {
     color: gray;
     font-style: italic;
@@ -169,26 +169,29 @@ ul {
     display: block;
 }
 
-.post-indented {
+.post-indented, .notification-indented {
     margin-left: 60px;
     position: relative; /* otherwise z-index doesn't work */
 }
 
-.post-background-link {
+.post-background-link, .notification-background-link {
     position: absolute;
     display: block;
     width:100%;
     height: 100%;
+}
+.notification-background-link {
+    top: 0px;
 }
 .post-quoted .post-indented {
     margin-left: 30px;
 }
 
 .post-body-link-to-thread {
-    text-decoration: none;
     color: inherit;
     display: block;
     outline: none;
+    text-decoration: none !important;
 }
 .post-status-bar {
     /*background-color: #f4f4f4;*/
@@ -228,8 +231,6 @@ ul {
         margin-bottom: 25px;
     }
     .tabbed-lists-header a {
-        color: black;
-        text-decoration: none;
         font-size: 14pt;
         font-weight: bold;
         padding: 10px 20px;
@@ -248,8 +249,6 @@ ul {
         text-align: center;
         padding: 20px;
         margin-bottom: 30px;
-        text-decoration: none;
-        color: black;
         background-color: #eee;
     }
 
@@ -298,6 +297,87 @@ ul {
 .profile-page-blocked .post-list,
 .profile-row-blocked .profile-row-name {
     filter: blur(5px)
+}
+
+
+.notification {
+    padding-top: 13px;
+    padding-bottom: 13px;
+    border-bottom: 1px solid rgb(212, 219, 226);
+    position: relative;
+    display: block;
+}
+
+.notification-meta {
+    color: black;
+}
+
+.notification summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+details[open] .summary-when-closed {
+    display: none;
+}
+
+details:not([open]) .summary-when-open {
+    display: none;
+}
+
+.notification .inline-profile-link {
+    color: black;
+    font-weight: bold;
+}
+
+.notification-profile-summary img {
+    width: 35px;
+    height: 35px;
+}
+
+.notification-profile-summaries-overflow {
+    margin-left: 5px;
+    color: rgb(66, 87, 108);
+    font-size: 14pt;
+}
+.notification-profile-summaries-overflow svg {
+    margin-top: 5px;
+    position: absolute;
+}
+.summary-when-open .notification-profile-summaries-overflow svg {
+    margin-left: 20px;
+}
+
+.notification-profile-entry {
+    display: block;
+    font-weight: bold;
+    text-decoration: none !important;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+    .notification-profile-entry img {
+        width: 35px;
+        height: 35px;
+    }
+
+    .notification-post-text, .notification-date {
+        color: rgb(66, 87, 108);
+        pointer-events: none;
+    }
+
+.notification-single-profile {
+    pointer-events: none;
+}
+    .notification-single-profile .inline-profile-link,
+    .notification-single-profile .notification-profile-summary {
+        pointer-events: all;
+    }
+
+.notification-kind-icon {
+    position: absolute;
+    pointer-events: none;
+    margin-top: 5px;
+    margin-left: 20px;
 }
 
 .blazor-error-boundary {

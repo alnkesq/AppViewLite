@@ -1,0 +1,13 @@
+@code {
+    [Parameter] public BlueskyProfile Profile { get; set; }
+}
+
+@if (Profile.IsYou)
+{
+    <text>you</text>
+}
+else
+{
+    <a href="@Profile.BaseUrl" class="inline-profile-link underline-on-hover">@Profile.DisplayNameOrFallback</a>
+}
+

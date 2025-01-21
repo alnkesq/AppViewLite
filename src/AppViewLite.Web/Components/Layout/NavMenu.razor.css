@@ -25,7 +25,7 @@ nav ::deep a {
         display: block;
 
         /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
+        height: 0;
         overflow-y: auto;
     }
 }

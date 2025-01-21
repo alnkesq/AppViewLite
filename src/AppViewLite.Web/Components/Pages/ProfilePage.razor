@@ -44,15 +44,15 @@
 @if (Profile != null)
 {
     <div class="@(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
-        <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
-        <h1>@Profile.Profile.DisplayNameOrFallback</h1>
+        <img src="@Profile.Profile.AvatarUrl" class="profile-image-large main-padding" />
+        <h1 class="main-padding">@Profile.Profile.DisplayNameOrFallback</h1>
 
         @if (Profile.Profile.BlockReason != default || Profile.FollowsYou || Profile.YouAreFollowing)
         {
-            <span class="profile-follow-relationship">@(Profile.Profile.BlockReason.ToDisplayString() ?? (Profile.FollowsYou && Profile.YouAreFollowing ? "Mutuals" : (Profile.FollowsYou ? "Follows you" : "Following")))</span>
+            <span class="profile-follow-relationship main-padding">@(Profile.Profile.BlockReason.ToDisplayString() ?? (Profile.FollowsYou && Profile.YouAreFollowing ? "Mutuals" : (Profile.FollowsYou ? "Follows you" : "Following")))</span>
         }
 
-        <div class="profile-follow-links">
+        <div class="profile-follow-links main-padding">
             <a href="@Profile.Profile.BaseUrl/following" class="underline-on-hover">Following</a> ·
             <a href="@Profile.Profile.BaseUrl/followers" class="underline-on-hover">Followers</a>
         </div>

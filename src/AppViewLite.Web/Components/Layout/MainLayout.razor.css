@@ -39,10 +39,12 @@ main {
     }
 
     .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
+        height: 0;
+        position: fixed;
         top: 0;
+    }
+    .sidebar, .sidebar-placeholder {
+        width: 250px;
     }
 
     .top-row {

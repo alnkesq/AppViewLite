@@ -3,10 +3,32 @@ html, body {
     margin: 0;
 }
 
+body {
+    overflow-y: scroll;
+}
 a {
     text-decoration: none;
     color: black;
 }
+
+main {
+    border-left: 1px solid;
+    border-right: 1px solid;
+    border-color: rgb(212, 219, 226);
+    min-height: 100vh;
+}
+
+h1 {
+    margin-left: 20px;
+}
+
+.main-padding {
+    margin-left: 20px;
+}
+
+/*html, body, .page, main {
+    height: 100% !important;
+}*/
 
 .underline-on-hover:hover, .blue-link:hover {
     text-decoration: underline;
@@ -31,6 +53,7 @@ ul {
 
 .post-list {
     margin: 20px auto;
+    position: relative;
 }
 
     .post-list > .post.post-last-of-group {
@@ -40,7 +63,7 @@ ul {
     position: absolute;
     bottom: 0;
     top: 0;
-    margin-left: 24px;
+    margin-left: 38px;
 }
 
 .post-thread-line {
@@ -82,6 +105,7 @@ ul {
 
 .profile-row {
     margin-bottom: 10px;
+    padding-left: 20px;
 }
 
 .profile-row .profile-follow-relationship {
@@ -96,11 +120,12 @@ ul {
 
 .post-author-image-link {
     position: absolute;
+    margin-left: 16px;
 }
 
 .post-author-image, .profile-image-small {
-    width: 48px;
-    height: 48px;
+    width: 42px;
+    height: 42px;
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: 24px;
@@ -200,10 +225,11 @@ ul {
     word-break: break-word;
     overflow-wrap: break-word;
     display: block;
+    padding-right: 8px;
 }
 
 .post-indented, .notification-indented {
-    margin-left: 60px;
+    margin-left: 70px;
     position: relative; /* otherwise z-index doesn't work */
 }
 
@@ -248,6 +274,7 @@ ul {
     border-radius: 5px;
     margin-top: 5px;
     margin-bottom: 5px;
+    margin-right: 20px;
     padding-top: 5px;
 }
     .post-quoted .post-author-image-link {
@@ -277,6 +304,7 @@ ul {
 .pagination-button {
 }
     .pagination-button a {
+        box-sizing: border-box;
         width: 100%;
         display: block;
         text-align: center;

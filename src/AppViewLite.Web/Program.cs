@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Concurrent;
+using AppViewLite.Models;
 
 namespace AppViewLite.Web
 {
@@ -136,12 +137,46 @@ namespace AppViewLite.Web
 
         public static AppViewLiteSession? TryGetSession(HttpContext httpContext)
         {
-            var id = TryGetSessionId(httpContext);
-            if (id != null && SessionDictionary.TryGetValue(id, out var session))
+            var now = DateTime.UtcNow;
+            var sessionId = TryGetSessionId(httpContext, out var unverifiedDid);
+            if (sessionId != null)
             {
-                session.LastSeen = DateTime.UtcNow;
+                if (!SessionDictionary.TryGetValue(sessionId, out var session))
+                {
+                    AppViewLiteProfileProto? profile = null;
+                    AppViewLiteSessionProto? sessionProto = null;
+                    Plc plc = default;
+                    string? did = null;
+                    BlueskyProfile? bskyProfile = null;
+
+                    BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+                    {
+                        var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
+                        var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
+                        sessionProto = unverifiedProfile!.Sessions?.FirstOrDefault(x => x.SessionToken == sessionId);
+                        if (sessionProto != null)
+                        {
+                            profile = unverifiedProfile;
+                            plc = unverifiedPlc;
+                            did = unverifiedDid;
+                            bskyProfile = rels.GetProfile(plc);
+                        }
+                    });
+                    if (profile == null) return null;
+                    session = new AppViewLiteSession
+                    {
+                        LoggedInUser = plc,
+                        LastSeen = now,
+                        Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
+                    };
+                    _ = OnSessionCreatedOrRestoredAsync(did!, plc, session);
+                    SessionDictionary[sessionId] = session;
+                }
+
+                session.LastSeen = now;
                 return session;
             }
+
             return null;
         }
 
@@ -149,18 +184,39 @@ namespace AppViewLite.Web
         {
             var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(handle);
             var id = RandomNumberGenerator.GetHexString(32, lowercase: true);
-            httpContext.Response.Cookies.Append("appviewliteSessionId", id, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
+            httpContext.Response.Cookies.Append("appviewliteSessionId", id + "=" + did, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
+            var now = DateTime.UtcNow;
             var session = new AppViewLiteSession();
-            session.LastSeen = DateTime.UtcNow;
-            long haveFollowees = 0;
+            session.LastSeen = now;
+
+            Plc plc = default;
             BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => 
             {
-                var plc = rels.SerializeDid(did);
+                plc = rels.SerializeDid(did);
                 session.LoggedInUser = plc;
                 rels.RegisterForNotifications(session.LoggedInUser.Value);
-                haveFollowees = rels.RegisteredUserToFollowees.GetValueCount(plc);
+                var profile = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
+                profile!.Sessions ??= new();
+                profile.Sessions.Add(new AppViewLiteSessionProto
+                {
+                    LastSeen = now,
+                    SessionToken = id
+                });
+                rels.StoreAppViewLiteProfile(plc, profile);
             });
 
+            await OnSessionCreatedOrRestoredAsync(did, plc, session);
+
+            SessionDictionary[id] = session;
+            
+            return session;
+        }
+
+        private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session)
+        {
+
+
+            var haveFollowees = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc));
             session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, RequestContext.CreateInfinite(null));
 
             if (haveFollowees < 100)
@@ -173,26 +229,41 @@ namespace AppViewLite.Web
                 await Task.WhenAny(deadline, loadFollows);
             }
 
-            SessionDictionary[id] = session;
-            
-            return session;
         }
 
         public static void LogOut(HttpContext httpContext)
         {
-            var id = TryGetSessionId(httpContext);
+            var id = TryGetSessionId(httpContext, out var unverifiedDid);
             if (id != null)
             {
                 SessionDictionary.Remove(id, out _);
+
+                BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+                {
+                    var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
+                    var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
+                    var session = unverifiedProfile?.Sessions?.FirstOrDefault(x => x.SessionToken == id);
+                    if (session != null)
+                    {
+                        // now verified.
+                        unverifiedProfile!.Sessions.Remove(session);
+                        rels.StoreAppViewLiteProfile(unverifiedPlc, unverifiedProfile); 
+                    }
+                });
             }
 
         }
         public static ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
 
-        private static string? TryGetSessionId(HttpContext httpContext)
+        private static string? TryGetSessionId(HttpContext httpContext, out string? unverifiedDid)
         {
             if (httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id))
-                return id;
+            {
+                var r = id.Split('=');
+                unverifiedDid = r[1];
+                return r[0];
+            }
+            unverifiedDid = null;
             return null;
         }
 

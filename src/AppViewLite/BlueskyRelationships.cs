@@ -57,6 +57,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
         public CombinedPersistentMultiDictionary<Plc, RecentRepost> UserToRecentReposts;
         public CombinedPersistentMultiDictionary<RepositoryImportKey, byte> CarImports;
+        public CombinedPersistentMultiDictionary<Plc, byte> AppViewLiteProfiles;
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<IDisposable> disposables = new();
@@ -76,6 +77,7 @@ namespace AppViewLite
             ProtoBuf.Serializer.PrepareSerializer<ListData>();
             ProtoBuf.Serializer.PrepareSerializer<BlueskyThreadgate>();
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostgate>();
+            ProtoBuf.Serializer.PrepareSerializer<AppViewLiteProfileProto>();
             this.BaseDirectory = basedir;
             Directory.CreateDirectory(basedir);
             T Register<T>(T r) where T : IDisposable
@@ -136,6 +138,8 @@ namespace AppViewLite
             CarImports = Register(new CombinedPersistentMultiDictionary<RepositoryImportKey, byte>(basedir + "/car-import-proto", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
 
             LastSeenNotifications = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/last-seen-notification", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
+
+            AppViewLiteProfiles = Register(new CombinedPersistentMultiDictionary<Plc, byte>(basedir + "/appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {
@@ -171,6 +175,7 @@ namespace AppViewLite
             RegisteredUserToFollowees.BeforeFlush += flushMappings;
             UserToRecentPosts.BeforeFlush += flushMappings;
             UserToRecentReposts.BeforeFlush += flushMappings;
+            AppViewLiteProfiles.BeforeFlush += flushMappings;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -244,6 +249,7 @@ namespace AppViewLite
             if (PlcToDid.TryGetPreserveOrderSpanAny(plc, out var r))
             {
                 var s = Encoding.UTF8.GetString(r.AsSmallSpan());
+              //  if (SerializeDid(s) != plc) throw new Exception("Did serialization did not roundtrip for " + plc + "/" + s);
                 return s;
             }
             return null;
@@ -815,13 +821,6 @@ namespace AppViewLite
             return ProtoBuf.Serializer.Deserialize<T>(ms);
         }
 
-        public static byte[] SerializeProto<T>(T proto)
-        {
-            using var ms = new MemoryStream();
-            ProtoBuf.Serializer.Serialize(ms, proto);
-            if (ms.Length == 0) throw new NotSupportedException();
-            return ms.ToArray();
-        }
 
 
         public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null)
@@ -959,7 +958,7 @@ namespace AppViewLite
                     return new RelationshipProto { Plc = SerializeDid(x.List.Did.Handler).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
                 }).ToArray()
             };
-            return SerializeProtoToBytes(proto, x => x.Dummy = true);
+            return SerializeProto(proto, x => x.Dummy = true);
         }
         internal ReadOnlySpan<byte> SerializePostgateToBytes(Postgate postgate)
         {
@@ -968,16 +967,17 @@ namespace AppViewLite
                  DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x))).ToArray(),
                  DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false
             };
-            return SerializeProtoToBytes(proto, x => x.Dummy = true);
+            return SerializeProto(proto, x => x.Dummy = true);
         }
 
-        private static ReadOnlySpan<byte> SerializeProtoToBytes<T>(T proto, Action<T> setDummyValue)
+        public static ReadOnlySpan<byte> SerializeProto<T>(T proto, Action<T>? setDummyValue = null)
         {
             using var protoMs = new MemoryStream();
             ProtoBuf.Serializer.Serialize(protoMs, proto);
             if (protoMs.Length == 0)
             {
                 // Zero-length values are not supported in CombinedPersistentMultiDictionary
+                if (setDummyValue == null) throw new Exception("Cannot serialize zero-length-serializing protos unless setDummyValue is provided.");
                 setDummyValue(proto);
                 ProtoBuf.Serializer.Serialize(protoMs, proto);
                 if (protoMs.Length == 0) throw new Exception();
@@ -1229,6 +1229,19 @@ namespace AppViewLite
 
         }
 
+        public AppViewLiteProfileProto? TryGetAppViewLiteProfile(Plc plc)
+        {
+            if (AppViewLiteProfiles.TryGetPreserveOrderSpanLatest(plc, out var appviewProfileBytes))
+            {
+                return BlueskyRelationships.DeserializeProto<AppViewLiteProfileProto>(appviewProfileBytes.AsSmallSpan());
+            }
+            return null;
+        }
+
+        public void StoreAppViewLiteProfile(Plc plc, AppViewLiteProfileProto profile)
+        {
+            AppViewLiteProfiles.AddRange(plc, SerializeProto(profile));
+        }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 

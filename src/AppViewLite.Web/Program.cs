@@ -138,7 +138,7 @@ namespace AppViewLite.Web
                     {
                         var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
                         var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                        sessionProto = unverifiedProfile!.Sessions?.FirstOrDefault(x => x.SessionToken == sessionId);
+                        sessionProto = unverifiedProfile?.Sessions?.FirstOrDefault(x => x.SessionToken == sessionId);
                         if (sessionProto != null)
                         {
                             profile = unverifiedProfile;

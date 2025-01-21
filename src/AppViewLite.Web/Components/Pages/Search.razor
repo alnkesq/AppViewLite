@@ -41,7 +41,8 @@
     }
 }
 
-<PageTitle>Search: @Q</PageTitle>
+<PageTitle>@(string.IsNullOrEmpty(Q) ? "Search" : Q + " - Search")</PageTitle>
+<h1>Search</h1>
 
 <form action="/search" method="get" class="search-form">
     <div class="search-form-row">

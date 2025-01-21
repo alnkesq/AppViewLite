@@ -8,7 +8,7 @@
     var profileCount = Notification.Profiles?.Count ?? 0;
     var embedFullPost = Notification.Kind is NotificationKind.MentionedYou or NotificationKind.QuotedYourPost or NotificationKind.RepliedtoYourThread or NotificationKind.RepliedToYourPost;
 }
-<div class="notification">
+<div class="notification" @key="@(Notification.LatestDate.Ticks + Notification.Kind.ToString())">
     <a class="notification-background-link" href="@(Notification.Post?.BaseUrl ?? Notification.Profiles?.FirstOrDefault()?.BaseUrl)"></a>
     @if (!embedFullPost)
     {

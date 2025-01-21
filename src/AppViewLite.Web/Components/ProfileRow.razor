@@ -3,7 +3,7 @@
     [Parameter]
     public required BlueskyProfile Profile { get; set; }
 }
-<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)">
+<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did">
     <a href="@Profile.BaseUrl" class="profile-row-name">
         <img src="@Profile.AvatarUrl" class="profile-image-small">
         @Profile.DisplayNameOrFallback

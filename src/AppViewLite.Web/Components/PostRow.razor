@@ -26,7 +26,7 @@
 
 
 
-<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)">
+<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)" @key="@(Post.RKey + "/" + Post.Did)">
     <a href="@Post.BaseUrl" class="post-background-link"></a>
 
     @if (ShowRestOfThreadLink)

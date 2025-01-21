@@ -1083,6 +1083,7 @@ namespace AppViewLite
         {
             if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
+            if (UsersHaveBlockRelationship(destination, actor) != default) return;
             Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
         }
 
@@ -1105,7 +1106,16 @@ namespace AppViewLite
             };
             if (post == default && actor == default) return null;
 
-            return new BlueskyNotification { EventDate = notification.EventDate, Kind = notification.Kind, Post = post != default ? GetPost(post) : null, Profile = actor != default ? GetProfile(actor) : default };
+            
+            return new BlueskyNotification 
+            { 
+                EventDate = notification.EventDate,
+                Kind = notification.Kind, 
+                Post = post != default ? GetPost(post) : null, Profile = actor != default ? GetProfile(actor) : default,
+                Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
+            };
+
+            
             
         }
 

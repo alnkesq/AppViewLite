@@ -13,6 +13,7 @@ namespace AppViewLite.Models
         public BlueskyPost? Post;
         public BlueskyProfile? Profile;
         public string DisplayText;
+        public bool Hidden;
     }
 }
 

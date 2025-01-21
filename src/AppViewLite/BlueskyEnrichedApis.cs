@@ -953,11 +953,11 @@ namespace AppViewLite
         {
             if (!ctx.IsLoggedIn) return [];
             var session = ctx.Session;
-            var user = session.LoggedInUser.Value;
+            var user = session.LoggedInUser!.Value;
 
             var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user));
-            await EnrichAsync(notifications.Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
-            await EnrichAsync(notifications.Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
+            await EnrichAsync(notifications.Where(x => !x.Hidden).Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
+            await EnrichAsync(notifications.Where(x => !x.Hidden).Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
             return notifications!;
         }
 

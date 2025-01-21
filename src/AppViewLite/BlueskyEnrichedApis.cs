@@ -813,7 +813,7 @@ namespace AppViewLite
 
         public async Task<ProfilesAndContinuation> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 50);
             var profiles = WithRelationshipsLock(rels => rels.GetPostLikers(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
@@ -837,7 +837,7 @@ namespace AppViewLite
 
         public async Task<ProfilesAndContinuation> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 50);
             var profiles = WithRelationshipsLock(rels => rels.GetPostReposts(did, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);

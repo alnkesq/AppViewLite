@@ -148,9 +148,28 @@ ul {
     color: gray;
     font-style: italic;
 }
+
+.post-image-link {
+    vertical-align: top;
+}
+
 .post-image {
     width: 100%;
+    max-height: 780px;
+    object-fit: cover;
 }
+
+.post-image-list-compact {
+    line-height: 0px;
+}
+
+    .post-image-list-compact .post-image {
+        width: calc(50% - 2px);
+        margin: 1px;
+        max-height: 390px;
+        object-fit: cover;
+    }
+
 .bsky-link {
     filter: grayscale() opacity(0.7);
 }

@@ -20,7 +20,7 @@ namespace AppViewLite.Storage
         PreserveOrder,
     }
     
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>
+    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable, IFlushable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>
     {
         private readonly string DirectoryPath;
         private readonly PersistentDictionaryBehavior behavior;
@@ -69,7 +69,7 @@ namespace AppViewLite.Storage
         
         public void Dispose() // Dispose() must also be called while holding the lock.
         {
-            Flush(avoidNewCompactations: true);
+            Flush(disposing: true);
             if (pendingCompactation != null) throw new Exception();
 
             foreach (var slice in slices)
@@ -79,14 +79,24 @@ namespace AppViewLite.Storage
         }
 
         public long GroupCount => slices.Sum(x => x.Count) + queue.GroupCount;
-
-        public void Flush(bool avoidNewCompactations = false)
+        private int onBeforeFlushNotificationInProgress;
+        public void Flush(bool disposing)
         {
+            if (onBeforeFlushNotificationInProgress != 0) return;
+
             MaybeCommitPendingCompactation(forceWait: true);
 
             if (queue.GroupCount != 0)
             {
-                BeforeFlush?.Invoke(this, EventArgs.Empty);
+                try
+                {
+                    onBeforeFlushNotificationInProgress++;
+                    BeforeFlush?.Invoke(this, EventArgs.Empty);
+                }
+                finally
+                {
+                    onBeforeFlushNotificationInProgress--;
+                }
 
                 var date = DateTime.UtcNow;
 
@@ -116,9 +126,9 @@ namespace AppViewLite.Storage
                 }
                 queue.Clear();
                 slices.Add(new(date, groupCount, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
-                
+                Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {groupCount} rows");
 
-                if (!avoidNewCompactations)
+                if (!disposing)
                     MaybeStartCompactation();
                 lastFlushed = null;
             }
@@ -463,16 +473,16 @@ namespace AppViewLite.Storage
         }
 
 
-        public TimeSpan MaximumInMemoryBufferDuration { get; set; } = TimeSpan.FromMinutes(5);
+        public TimeSpan? MaximumInMemoryBufferDuration { get; set; }
 
         private void MaybeFlush()
         {
             MaybeCommitPendingCompactation();
             if (pendingCompactation != null) return;
             
-            if (queue.GroupCount >= ItemsToBuffer || (lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
+            if (queue.GroupCount >= ItemsToBuffer || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
-                Flush();
+                Flush(false);
             }
             lastFlushed ??= Stopwatch.StartNew();
         }

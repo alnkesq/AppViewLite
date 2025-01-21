@@ -82,6 +82,7 @@ namespace AppViewLite
                 //else Console.Error.WriteLine("Deletion of unknown object type: " + collection);
 
                 relationships.LogPerformance(sw, "Delete-" + path);
+                relationships.MaybeGlobalFlush();
             }
         }
 
@@ -202,6 +203,7 @@ namespace AppViewLite
                 }
                 //else Console.Error.WriteLine("Creation of unknown object type: " + path);
                 relationships.LogPerformance(sw, "Create-" + path);
+                relationships.MaybeGlobalFlush();
             }
 
             if (continueOutsideLock != null)

@@ -26,6 +26,7 @@ namespace AppViewLite
 {
     public class BlueskyRelationships : IDisposable
     {
+        private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
         public CombinedPersistentMultiDictionary<DuckDbUuid, Plc> DidHashToUserId;
         public RelationshipDictionary<PostIdTimeFirst> Likes;
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
@@ -60,9 +61,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, byte> AppViewLiteProfiles;
 
         private HashSet<Plc> registerForNotificationsCache = new();
-        private List<IDisposable> disposables = new();
+        private List<IFlushable> disposables = new();
         public const int DefaultBufferedItems = 16 * 1024;
-        public const int DefaultBufferedItemsForDeletion = 2 * 1024;
 
         public BlueskyRelationships()
             : this(Environment.GetEnvironmentVariable("APPVIEWLITE_DIRECTORY") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"))
@@ -70,6 +70,7 @@ namespace AppViewLite
         }
 
         public string BaseDirectory { get; }
+        private IDisposable lockFile;
         public BlueskyRelationships(string basedir)
         {
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
@@ -80,66 +81,76 @@ namespace AppViewLite
             ProtoBuf.Serializer.PrepareSerializer<AppViewLiteProfileProto>();
             this.BaseDirectory = basedir;
             Directory.CreateDirectory(basedir);
-            T Register<T>(T r) where T : IDisposable
+            T Register<T>(T r) where T : IFlushable
             {
                 disposables.Add(r);
                 return r;
             }
-            Register(new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose));
+            CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
+            {
+                return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(basedir + "/" + name, behavior) { ItemsToBuffer = DefaultBufferedItems, OnCompactation = onCompactation });
+            }
+            RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
+            {
+                return Register(new RelationshipDictionary<TTarget>(basedir + "/" + name, targetToApproxTarget));
+            }
 
-            DidHashToUserId = new CombinedPersistentMultiDictionary<DuckDbUuid, Plc>(basedir + "/did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
-            PlcToDid = Register(new CombinedPersistentMultiDictionary<Plc, byte>(basedir + "/plc-to-did", PersistentDictionaryBehavior.PreserveOrder));
+
+            lockFile = new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);
+
+            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
+            PlcToDid = RegisterDictionary<Plc, byte>("plc-to-did", PersistentDictionaryBehavior.PreserveOrder);
 
 
             EventHandler flushMappings = (s, e) =>
             {
-                PlcToDid.Flush();
-                DidHashToUserId.Flush();
+                PlcToDid.Flush(false);
+                DidHashToUserId.Flush(false);
             };
 
 
 
-            Likes = Register(new RelationshipDictionary<PostIdTimeFirst>(basedir + "/post-like-time-first", GetApproxTime24));
-            Reposts = Register(new RelationshipDictionary<PostIdTimeFirst>(basedir + "/post-repost-time-first", GetApproxTime24));
-            Follows = Register(new RelationshipDictionary<Plc>(basedir + "/follow", GetApproxPlc24));
-            Blocks = Register(new RelationshipDictionary<Plc>(basedir + "/block", GetApproxPlc24));
-            DirectReplies = Register(new CombinedPersistentMultiDictionary<PostId, PostId>(basedir + "/post-reply-direct") { ItemsToBuffer = DefaultBufferedItems });
-            RecursiveReplies = Register(new CombinedPersistentMultiDictionary<PostId, PostId>(basedir + "/post-reply-recursive") { ItemsToBuffer = DefaultBufferedItems });
-            Quotes = Register(new CombinedPersistentMultiDictionary<PostId, PostId>(basedir + "/post-quote") { ItemsToBuffer = DefaultBufferedItems });
-            PostDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/post-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
-            PlcToBasicInfo = Register(new CombinedPersistentMultiDictionary<Plc, byte>(basedir + "/profile-basic", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = 512 });
-            PostData = Register(new CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>(basedir + "/post-data-time-first", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
-            PostTextSearch = Register(new CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32>(basedir + "/post-text-approx-time-32") { ItemsToBuffer = DefaultBufferedItems, OnCompactation = x => x.DistinctAssumingOrderedInput() });
-            FailedProfileLookups = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/profile-basic-failed"));
-            FailedPostLookups = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/post-data-failed"));
+            Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24);
+            Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24);
+            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24);
+            Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24);
+            DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct") ;
+            RecursiveReplies = RegisterDictionary<PostId, PostId>("post-reply-recursive") ;
+            Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
+            PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
+            PlcToBasicInfo = RegisterDictionary<Plc, byte>("profile-basic", PersistentDictionaryBehavior.PreserveOrder);
+            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first", PersistentDictionaryBehavior.PreserveOrder) ;
+            PostTextSearch = RegisterDictionary<ulong, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
+            FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
+            FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
 
-            ListItems = Register(new CombinedPersistentMultiDictionary<Relationship, ListEntry>(basedir + "/list-item") { ItemsToBuffer = DefaultBufferedItems });
-            ListItemDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-item-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item") ;
+            ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Lists = Register(new CombinedPersistentMultiDictionary<Relationship, byte>(basedir + "/list", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
-            ListDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+            Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder) ;
+            ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Threadgates = Register(new CombinedPersistentMultiDictionary<PostId, byte>(basedir + "/threadgate", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
-            ThreadgateDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/threadgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+            Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder) ;
+            ThreadgateDeletions = RegisterDictionary<PostId, DateTime>("threadgate-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Postgates = Register(new CombinedPersistentMultiDictionary<PostId, byte>(basedir + "/postgate", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
-            PostgateDeletions = Register(new CombinedPersistentMultiDictionary<PostId, DateTime>(basedir + "/postgate-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+            Postgates = RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder) ;
+            PostgateDeletions = RegisterDictionary<PostId, DateTime>("postgate-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            ListBlocks = Register(new CombinedPersistentMultiDictionary<Relationship, Relationship>(basedir + "/list-block", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
-            ListBlockDeletions = Register(new CombinedPersistentMultiDictionary<Relationship, DateTime>(basedir + "/list-block-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItemsForDeletion });
+            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue) ;
+            ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Notifications = Register(new CombinedPersistentMultiDictionary<Plc, Notification>(basedir + "/notification") { ItemsToBuffer = DefaultBufferedItems });
+            Notifications = RegisterDictionary<Plc, Notification>("notification") ;
 
-            RegisteredUserToFollowees = Register(new CombinedPersistentMultiDictionary<Plc, ListEntry>(basedir + "/registered-user-to-followees") { ItemsToBuffer = DefaultBufferedItems });
+            RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees") ;
 
-            UserToRecentPosts = Register(new CombinedPersistentMultiDictionary<Plc, RecentPost>(basedir + "/user-to-recent-posts") { ItemsToBuffer = DefaultBufferedItems });
-            UserToRecentReposts = Register(new CombinedPersistentMultiDictionary<Plc, RecentRepost>(basedir + "/user-to-recent-reposts") { ItemsToBuffer = DefaultBufferedItems });
+            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts") ;
+            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts") ;
 
-            CarImports = Register(new CombinedPersistentMultiDictionary<RepositoryImportKey, byte>(basedir + "/car-import-proto", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
+            CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto", PersistentDictionaryBehavior.PreserveOrder) ;
 
-            LastSeenNotifications = Register(new CombinedPersistentMultiDictionary<Plc, DateTime>(basedir + "/last-seen-notification", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = DefaultBufferedItems });
+            LastSeenNotifications = RegisterDictionary<Plc, DateTime>("last-seen-notification", PersistentDictionaryBehavior.SingleValue) ;
 
-            AppViewLiteProfiles = Register(new CombinedPersistentMultiDictionary<Plc, byte>(basedir + "/appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder) { ItemsToBuffer = DefaultBufferedItems });
+            AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder) ;
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {
@@ -151,31 +162,11 @@ namespace AppViewLite
                 }
             }
 
-            Likes.BeforeFlush += flushMappings;
-            Reposts.BeforeFlush += flushMappings;
-            Follows.BeforeFlush += flushMappings;
-            Blocks.BeforeFlush += flushMappings;
-            DirectReplies.BeforeFlush += flushMappings;
-            RecursiveReplies.BeforeFlush += flushMappings;
-            Quotes.BeforeFlush += flushMappings;
-            PostDeletions.BeforeFlush += flushMappings;
-            PlcToBasicInfo.BeforeFlush += flushMappings;
-            ListItems.BeforeFlush += flushMappings;
-            ListItemDeletions.BeforeFlush += flushMappings;
-            Lists.BeforeFlush += flushMappings;
-            ListDeletions.BeforeFlush += flushMappings;
-            Threadgates.BeforeFlush += flushMappings;
-            ThreadgateDeletions.BeforeFlush += flushMappings;
-            Postgates.BeforeFlush += flushMappings;
-            PostgateDeletions.BeforeFlush += flushMappings;
-            ListBlocks.BeforeFlush += flushMappings;
-            ListBlockDeletions.BeforeFlush += flushMappings;
-            LastSeenNotifications.BeforeFlush += flushMappings;
-            Notifications.BeforeFlush += flushMappings;
-            RegisteredUserToFollowees.BeforeFlush += flushMappings;
-            UserToRecentPosts.BeforeFlush += flushMappings;
-            UserToRecentReposts.BeforeFlush += flushMappings;
-            AppViewLiteProfiles.BeforeFlush += flushMappings;
+            foreach (var item in disposables)
+            {
+                item.BeforeFlush += flushMappings;
+            }
+
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -230,8 +221,9 @@ namespace AppViewLite
                 {
                     d.Dispose();
                 }
-
+                lockFile.Dispose();
                 _disposed = true;
+                
             }
 
             lock (recordTypeDurations)
@@ -1241,6 +1233,20 @@ namespace AppViewLite
         public void StoreAppViewLiteProfile(Plc plc, AppViewLiteProfileProto profile)
         {
             AppViewLiteProfiles.AddRange(plc, SerializeProto(profile));
+        }
+
+        internal void MaybeGlobalFlush()
+        {
+            if (lastGlobalFlush.Elapsed.TotalMinutes >= 5)
+            {
+                Console.Error.WriteLine("====== START OF GLOBAL PERIODIC FLUSH ======");
+                foreach (var table in disposables)
+                {
+                    table.Flush(false);
+                }
+                lastGlobalFlush.Restart();
+                Console.Error.WriteLine("====== END OF GLOBAL PERIODIC FLUSH ======");
+            }
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

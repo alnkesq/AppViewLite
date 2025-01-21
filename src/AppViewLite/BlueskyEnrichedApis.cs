@@ -54,7 +54,9 @@ namespace AppViewLite
             BlueskyRelationships.VerifyNotEnumerable<T>();
             lock (relationshipsUnlocked)
             {
-                return func(relationshipsUnlocked);
+                var result = func(relationshipsUnlocked);
+                relationshipsUnlocked.MaybeGlobalFlush();
+                return result;
             }
         }
         public void WithRelationshipsLock(Action<BlueskyRelationships> func)
@@ -62,6 +64,7 @@ namespace AppViewLite
             lock (relationshipsUnlocked)
             {
                 func(relationshipsUnlocked);
+                relationshipsUnlocked.MaybeGlobalFlush();
             }
         }
 

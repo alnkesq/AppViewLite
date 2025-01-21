@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
-    public class RelationshipDictionary<TTarget> : IDisposable where TTarget : unmanaged, IComparable<TTarget>
+    public class RelationshipDictionary<TTarget> : IDisposable, IFlushable where TTarget : unmanaged, IComparable<TTarget>
     {
 
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
@@ -22,15 +22,16 @@ namespace AppViewLite
         public RelationshipDictionary(string pathPrefix, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             this.creations = new CombinedPersistentMultiDictionary<TTarget, Relationship>(pathPrefix) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems};
-            this.deletions = new CombinedPersistentMultiDictionary<Relationship, DateTime>(pathPrefix + "-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItemsForDeletion };
+            this.deletions = new CombinedPersistentMultiDictionary<Relationship, DateTime>(pathPrefix + "-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
             this.deletionCounts = new CombinedPersistentMultiDictionary<TTarget, int>(pathPrefix + "-deletion-counts", PersistentDictionaryBehavior.SortedValues)
             {
+                ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems,
                 OnCompactation = z => new[] { z.Max() }
             };
             this.targetToApproxTarget = targetToApproxTarget;
             if (targetToApproxTarget != null)
             {
-                this.relationshipIdHashToApproxTarget = new(pathPrefix + "-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
+                this.relationshipIdHashToApproxTarget = new(pathPrefix + "-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
                 this.relationshipIdHashToApproxTarget.BeforeFlush += OnBeforeFlush;
             }
             this.creations.BeforeFlush += OnBeforeFlush;
@@ -267,12 +268,12 @@ namespace AppViewLite
             return new RelationshipHash((uint)likeHash, (ushort)(likeHash >> 32));
         }
 
-        public void Flush()
+        public void Flush(bool disposing)
         {
-            creations.Flush();
-            deletions.Flush();
-            deletionCounts.Flush();
-            relationshipIdHashToApproxTarget?.Flush();
+            creations.Flush(disposing);
+            deletions.Flush(disposing);
+            deletionCounts.Flush(disposing);
+            relationshipIdHashToApproxTarget?.Flush(disposing);
         }
 
         public long GetApproximateActorCount(TTarget key)

@@ -8,11 +8,14 @@
     </div>
 
     <main>
-
+        <button class="sidebar-button" onclick="document.body.classList.add('sidebar-open')">
+            <svg fill="none" width="24" viewBox="0 0 24 24" height="24" style="color: rgb(84, 110, 138); pointer-events: none;"><path fill="hsl(211, 24%, 43.6%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 6a1 1 0 0 1 1-1h18a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 6a1 1 0 0 1 1-1h18a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 6a1 1 0 0 1 1-1h18a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z"></path></svg>
+        </button>
         
-            @Body
+        @Body
         
     </main>
+    <div class="background-shadow" onpointerdown="document.body.classList.remove('sidebar-open')"></div>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>

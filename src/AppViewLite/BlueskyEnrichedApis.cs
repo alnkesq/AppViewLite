@@ -103,7 +103,7 @@ namespace AppViewLite
 
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 50);
             var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit, cursor: continuation)).HandleResult();
             var following = WithRelationshipsLock(rels =>
             {
@@ -390,7 +390,7 @@ namespace AppViewLite
 
         public async Task<PostsAndContinuation> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 30);
             options = await InitializeSearchOptionsAsync(options);
             var until = options.Until;
             var query = options.Query;
@@ -787,7 +787,7 @@ namespace AppViewLite
 
         public async Task<PostsAndContinuation> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 30);
             var posts = WithRelationshipsLock(rels => rels.GetPostQuotes(did, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1));
             var nextContinuation = SerializeRelationshipContinuationPlcFirst(posts, limit);
             SortByDescendingRelationshipRKey(ref posts);
@@ -799,7 +799,7 @@ namespace AppViewLite
 
         public async Task<ProfilesAndContinuation> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 50);
             var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);

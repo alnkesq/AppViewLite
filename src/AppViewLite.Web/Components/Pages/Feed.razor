@@ -11,7 +11,8 @@
     private BlueskyFeedGenerator? Info;
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did);
+        Info = await BlueskyEnrichedApis.Instance.GetFeedGeneratorAsync(Did, RKey);
         (Posts, Info, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, RequestContext.OnStateChanged(StateHasChanged));
     }
 }

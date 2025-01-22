@@ -14,7 +14,7 @@ namespace AppViewLite.Models
         [ProtoMember(4)] public int? InReplyToPlc;
         [ProtoMember(5)] public long? InReplyToRKey;
 
-        [ProtoMember(6)] public string[]? ExternalLinks;
+        // [ProtoMember(6)] public string[]? ExternalLinks;
         [ProtoMember(7)] public BlueskyMediaData[]? Media;
 
         [ProtoIgnore] public string? Error;
@@ -45,7 +45,6 @@ namespace AppViewLite.Models
         {
             return
                 QuotedRKey == null && // Called when the proto is in a compressed state (no need to check QuotedPlc)
-                ExternalLinks == null &&
                 Media == null &&
                 ExternalUrl == null &&
                 EmbedRecordUri == null &&

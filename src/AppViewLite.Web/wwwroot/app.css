@@ -580,3 +580,45 @@ details:not([open]) .summary-when-open {
     visibility: hidden;
 
 }
+
+.post-external-preview {
+    border: 1px solid rgb(212, 219, 226);
+    border-radius: 12px;
+    display: block;
+    margin-right: 16px;
+    overflow: hidden;
+}
+
+
+.post-external-preview-metadata {
+    padding: 10px;
+}
+
+.post-external-preview-image {
+    width: 100%;
+}
+
+.post-external-preview-title {
+    margin: 0;
+    font-size: 15px;
+}
+.post-external-preview-summary {
+    font-size: 13.125px;
+}
+.post-external-preview-domain {
+    color: rgb(66, 87, 108);
+    font-size: 11.25px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(212, 219, 226);
+}
+
+    .post-external-preview-domain svg {
+        position: absolute;
+        margin-top: 2px;
+    }
+    .post-external-preview-domain span {
+        position: relative;
+        margin-left: 18px;
+    }
+

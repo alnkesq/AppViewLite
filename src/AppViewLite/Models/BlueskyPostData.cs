@@ -35,6 +35,11 @@ namespace AppViewLite.Models
 
         [ProtoMember(17)] public LanguageEnum? Language;
 
+        [ProtoMember(18)] public byte[]? ExternalTitleBpe;
+        [ProtoMember(19)] public byte[]? ExternalDescriptionBpe;
+
+
+
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;
 
 

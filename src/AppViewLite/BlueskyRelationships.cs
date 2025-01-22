@@ -638,11 +638,20 @@ namespace AppViewLite
             return dest.ToArray();
         }
 
-        private static void Compress(BlueskyPostData proto)
+        internal static void Compress(BlueskyPostData proto)
         {
             lock (textCompressorUnlocked)
             {
                 textCompressorUnlocked.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+                textCompressorUnlocked.CompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
+                textCompressorUnlocked.CompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
+                if (proto.Media != null)
+                {
+                    foreach (var media in proto.Media)
+                    {
+                        textCompressorUnlocked.CompressInPlace(ref media.AltText, ref media.AltTextBpe);
+                    }
+                }
             }
 
             PostId postId = proto.PostId;
@@ -676,7 +685,16 @@ namespace AppViewLite
             {
                 lock (textCompressorUnlocked)
                 {
-                    proto.Text = textCompressorUnlocked.Decompress(proto.TextBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.Text, ref proto.TextBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
+                    if (proto.Media != null)
+                    {
+                        foreach (var media in proto.Media)
+                        {
+                            textCompressorUnlocked.DecompressInPlace(ref media.AltText, ref media.AltTextBpe);
+                        }
+                    }
                 }
                 proto.TextBpe = null;
             }

@@ -119,7 +119,7 @@ namespace AppViewLite
             Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
             PlcToBasicInfo = RegisterDictionary<Plc, byte>("profile-basic", PersistentDictionaryBehavior.PreserveOrder);
-            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first", PersistentDictionaryBehavior.PreserveOrder) ;
+            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
             PostTextSearch = RegisterDictionary<ulong, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
@@ -619,12 +619,17 @@ namespace AppViewLite
             // var (a, b, c) = (proto.PostId, proto.InReplyToPostId, proto.RootPostId);
             Compress(proto);
 
-
+            
             using var protoMs = new MemoryStream();
+
             ProtoBuf.Serializer.Serialize(protoMs, proto);
             protoMs.Seek(0, SeekOrigin.Begin);
 
             using var dest = new System.IO.MemoryStream();
+            dest.WriteByte((byte)PostDataEncoding.BrotliProto);
+
+
+
             using (var compressed = new System.IO.Compression.BrotliStream(dest, System.IO.Compression.CompressionLevel.SmallestSize))
             {
                 protoMs.CopyTo(compressed);
@@ -796,13 +801,21 @@ namespace AppViewLite
 
         internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId)
         {
-            using var ms = new MemoryStream(postDataCompressed.Length);
-            ms.Write(postDataCompressed);
-            ms.Seek(0, SeekOrigin.Begin);
-            using var decompress = new BrotliStream(ms, CompressionMode.Decompress);
-            var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(decompress);
-            Decompress(proto, postId);
-            return proto;
+            var encoding = (PostDataEncoding)postDataCompressed[0];
+            postDataCompressed = postDataCompressed.Slice(1);
+
+            if (encoding == PostDataEncoding.BrotliProto)
+            {
+                using var ms = new MemoryStream(postDataCompressed.Length);
+                ms.Write(postDataCompressed);
+                ms.Seek(0, SeekOrigin.Begin);
+                using var decompress = new BrotliStream(ms, CompressionMode.Decompress);
+                var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(decompress);
+                Decompress(proto, postId);
+                return proto;
+            }
+            else
+                throw new ArgumentException();
         }
 
         public static T DeserializeProto<T>(ReadOnlySpan<byte> bytes)

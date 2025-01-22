@@ -37,6 +37,7 @@ namespace AppViewLite.Models
 
         [ProtoMember(18)] public byte[]? ExternalTitleBpe;
         [ProtoMember(19)] public byte[]? ExternalDescriptionBpe;
+        [ProtoMember(20)] public byte[]? ExternalUrlBpe;
 
 
 

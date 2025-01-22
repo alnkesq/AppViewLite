@@ -647,3 +647,10 @@ details:not([open]) .summary-when-open {
     margin-left: 20px;
     font-size: 13.125px;
 }
+
+.feed-author-link {
+    position: absolute;
+    right: 10px;
+    top: 40px;
+    font-size: 10pt;
+}

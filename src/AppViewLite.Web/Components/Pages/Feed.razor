@@ -7,6 +7,7 @@
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
 
+    private BlueskyProfile? FeedAuthor;
     private BlueskyPost[] Posts = [];
     private BlueskyFeedGenerator? Info;
     protected override async Task OnParametersSetAsync()
@@ -14,11 +15,18 @@
         Did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did);
         Info = await BlueskyEnrichedApis.Instance.GetFeedGeneratorAsync(Did, RKey);
         (Posts, Info, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFeedAsync(Did, RKey, Continuation, RequestContext.OnStateChanged(StateHasChanged));
+        FeedAuthor = await BlueskyEnrichedApis.Instance.GetProfileAsync(Did, RequestContext);
     }
 }
 
 <PageTitle>@Info?.DisplayName</PageTitle>
 
 <h1>@Info?.DisplayName</h1>
+@if (FeedAuthor != null)
+{
+    <div class="feed-author-link">
+        Feed provided by <a href="@FeedAuthor.BaseUrl" class="inline-profile-link blue-link">@FeedAuthor.DisplayNameOrFallback</a>
+    </div>
+}
 
 <PostList Posts="@Posts" NextContinuation="@NextContinuation" />

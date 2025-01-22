@@ -1,15 +1,18 @@
-
+@inject RequestContext RequestContext
 @code {
     [Parameter] required public string Did { get; set; }
-    [Parameter] required public string Kind { get; set; }
 
     private string ProfileBaseUrl => "/@" + Did;
 }
 
 <a href="@ProfileBaseUrl" class="underline-on-hover main-padding">Back to profile</a>
 <div class="tabbed-lists-header">
-    
+
     <NavLink href="@(ProfileBaseUrl + "/following")">Following</NavLink>
     <NavLink href="@(ProfileBaseUrl + "/followers")">Followers</NavLink>
+    @if (RequestContext.IsLoggedIn)
+    {
+        <NavLink href="@(ProfileBaseUrl + "/known-followers")">Followers you follow</NavLink>
+    }
 </div>
 

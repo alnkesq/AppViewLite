@@ -1002,7 +1002,7 @@ namespace AppViewLite
             return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
-        public BlueskyFullProfile GetFullProfile(string did, RequestContext ctx)
+        public BlueskyFullProfile GetFullProfile(string did, RequestContext ctx, int followersYouFollowToLoad)
         {
             var plc = SerializeDid(did);
             return new BlueskyFullProfile
@@ -1011,7 +1011,31 @@ namespace AppViewLite
                 Followers = Follows.GetActorCount(plc),
                 FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, plc, out _),
                 YouAreFollowing = ctx.IsLoggedIn && Follows.HasActor(plc, ctx.LoggedInUser, out _),
+                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x) : new BlueskyProfile { PlcId = x.PlcValue } ).ToList() : null,
             };
+        }
+
+        public ProfilesAndContinuation GetFollowersYouFollow(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            if (!ctx.IsLoggedIn) return new ProfilesAndContinuation();
+            var offset = continuation != null ? int.Parse(continuation) : 0;
+            var plc = SerializeDid(did);
+            var everything = GetFollowersYouFollow(plc, ctx.LoggedInUser);
+            var r = everything.AsEnumerable();
+            if (continuation != null) r = r.Skip(int.Parse(continuation));
+            r = r.Take(limit);
+            var page = r.Select(x => GetProfile(x)).ToArray();
+            var end = offset + page.Length;
+            return new ProfilesAndContinuation(page, end < everything.Length ? end.ToString() : null);
+        }
+
+        private Plc[]? GetFollowersYouFollow(Plc plc, Plc loggedInUser)
+        {
+            if (plc == loggedInUser) return null;
+            var myFollowees = RegisteredUserToFollowees.GetValuesSorted(loggedInUser).Select(x => x.Member).DistinctAssumingOrderedInput();
+            var followers = Follows.GetRelationshipsSorted(plc, default).Select(x => x.Actor).DistinctAssumingOrderedInput();
+
+            return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x, followers, x => x).Where(x => x.Left != default && x.Right != default).Select(x => x.Key).ToArray();
         }
 
         internal void EnsureNotDisposed()

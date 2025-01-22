@@ -1,16 +1,16 @@
-@page "/@{did}/following"
+@page "/@{did}/known-followers"
 @inject RequestContext RequestContext
 
 @code {
     [Parameter] public required string Did { get; set; }
-    private BlueskyProfile[] Following = [];
+    private BlueskyProfile[] FollowersYouFollow = [];
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
 
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Following, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingAsync(Did, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        (FollowersYouFollow, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowersYouFollowAsync(Did, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 
@@ -18,5 +18,5 @@
 
 <ProfileGraphHeader Did="@Did" />
 
-<ProfileList Profiles="Following" NextContinuation="@NextContinuation" />
+<ProfileList Profiles="FollowersYouFollow" NextContinuation="@NextContinuation" />
 

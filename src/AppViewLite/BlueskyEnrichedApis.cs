@@ -135,6 +135,14 @@ namespace AppViewLite
             await EnrichAsync(following, ctx);
             return (following, response.Records.Count > limit ? response!.Cursor : null);
         }
+        public async Task<ProfilesAndContinuation> GetFollowersYouFollowAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 50);
+            var r = WithRelationshipsLock(rels => rels.GetFollowersYouFollow(did, continuation, limit, ctx));
+            await EnrichAsync(r.Profiles, ctx);
+            return r;
+        }
+
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, bool loadQuotes = true, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
@@ -904,10 +912,10 @@ namespace AppViewLite
             return continuation != null ? Models.Relationship.Deserialize(continuation) : default;
         }
 
-        public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, RequestContext ctx)
+        public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, RequestContext ctx, int followersYouFollowToLoad)
         {
-            var profile = WithRelationshipsLock(rels => rels.GetFullProfile(did, ctx));
-            await EnrichAsync([profile.Profile], ctx);
+            var profile = WithRelationshipsLock(rels => rels.GetFullProfile(did, ctx, followersYouFollowToLoad));
+            await EnrichAsync([profile.Profile, ..profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
             return profile;
         }
         public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)

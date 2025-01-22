@@ -9,8 +9,26 @@ using System.Text.RegularExpressions;
 
 namespace AppViewLite
 {
-    internal static class StringUtils
+    public static class StringUtils
     {
+        public static string AndJoin(string[] items)
+        {
+            if (items.Length == 0) return string.Empty;
+            if (items.Length == 1) return items[0];
+
+            var sb = new StringBuilder();
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i != 0)
+                {
+                    if (i == items.Length - 1) sb.Append(", and ");
+                    else sb.Append(", ");
+                }
+                sb.Append(items[i]);
+            }
+            return sb.ToString();
+        }
+
         [SkipLocalsInit]
         public static DuckDbUuid HashUnicodeToUuid(ReadOnlySpan<char> b)
         {

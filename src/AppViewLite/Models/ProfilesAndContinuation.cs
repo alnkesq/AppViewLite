@@ -11,6 +11,11 @@ namespace AppViewLite.Models
         {
             return new ProfilesAndContinuation(value.Profiles, value.NextContinuation);
         }
+
+        public ProfilesAndContinuation()
+            : this([], null)
+        { 
+        }
     }
 }
 

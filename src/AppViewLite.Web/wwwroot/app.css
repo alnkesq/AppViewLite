@@ -628,3 +628,22 @@ details:not([open]) .summary-when-open {
         margin-left: 18px;
     }
 
+
+.profile-followers-you-follow {
+    margin-top: 10px;
+    display: block;
+}
+.profile-followers-you-follow-avatar {
+    width: 13px;
+    display: inline-block;
+    position: relative;
+}
+.profile-followers-you-follow-avatar img {
+    width: 30px;
+    height: 30px;
+    border-color: white;
+}
+.profile-followers-you-follow-text {
+    margin-left: 20px;
+    font-size: 13.125px;
+}

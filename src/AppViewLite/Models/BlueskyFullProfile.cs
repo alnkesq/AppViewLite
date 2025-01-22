@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace AppViewLite.Models
 {
     public class BlueskyFullProfile
@@ -7,6 +9,7 @@ namespace AppViewLite.Models
         public long Followers;
         public bool FollowsYou;
         public bool YouAreFollowing;
+        public List<BlueskyProfile>? FollowedByPeopleYouFollow;
     }
 }
 

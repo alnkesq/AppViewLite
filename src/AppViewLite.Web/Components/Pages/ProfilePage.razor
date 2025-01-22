@@ -21,11 +21,13 @@
     // public string? Did => DidUnprefixed != null ? "did:" + DidUnprefixed : null;
     private BlueskyFullProfile? Profile;
     private BlueskyPost[] Posts = [];
+    const int MaxFollowersYouFollowNames = 3; // A, B and C    *or*   A, B and 2 others
+    const int MaxFollowersYouFollowAvatars = 3;
     protected override async Task OnParametersSetAsync()
     {
         var r = RequestContext.OnStateChanged(StateHasChanged);
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, r);
+        Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, r, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
             Did,
             includePosts: !ShowLikes,
@@ -57,6 +59,28 @@
             <a href="@Profile.Profile.BaseUrl/followers" class="underline-on-hover">Followers</a>
         </div>
 
+        @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0)
+        {
+            var knownFollowerCount = Profile.FollowedByPeopleYouFollow.Count;
+            <a class="profile-followers-you-follow main-padding" href="@Profile.Profile.BaseUrl/known-followers">
+                <span class="profile-followers-you-follow-avatars">
+                    @foreach (var user in Profile.FollowedByPeopleYouFollow.Take(MaxFollowersYouFollowAvatars).Index())
+                    {
+                        <div class="profile-followers-you-follow-avatar" style="z-index: @(-user.Index);">
+                            <img src="@user.Item.AvatarUrl" class="profile-image-small">
+                        </div>
+                    }
+                </span>
+                <span class="profile-followers-you-follow-text">
+                    Followed by @(
+                        knownFollowerCount <= MaxFollowersYouFollowNames 
+                            ? StringUtils.AndJoin(Profile.FollowedByPeopleYouFollow.Select(x => x.DisplayNameOrFallback).ToArray())
+                            : (StringUtils.AndJoin(Profile.FollowedByPeopleYouFollow.Take(MaxFollowersYouFollowNames - 1).Select(x => x.DisplayNameOrFallback).ToArray()) + " and " + (knownFollowerCount - (MaxFollowersYouFollowNames - 1)) + " others")
+                    )
+                </span>
+            </a>
+        }
+        
         <div class="tabbed-lists-header">
 
             <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
@@ -64,26 +88,7 @@
             <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
             <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
             <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
-            @*         <a href="@Profile.Profile.BaseUrl" class="@(!ShowMediaOnly && !ShowReplies && ShowReposts ? "selected" : null)">Posts</a>
-        <a href="@Profile.Profile.BaseUrl?replies=1" class="@(!ShowMediaOnly && ShowReplies && !ShowReposts ? "selected" : null)">Replies</a>
-        <a href="@Profile.Profile.BaseUrl?media=1" class="@(ShowMediaOnly && ShowReplies && !ShowReposts ? "selected" : null)">Media</a>
-        <a href="@Profile.Profile.BaseUrl?replies=0&reposts=0" class="@(!ShowMediaOnly && !ShowLikes && !ShowReplies && !ShowReposts ? "selected" : null)">Original posts</a>
-        <a href="@Profile.Profile.BaseUrl?likes=1" class="@(!ShowMediaOnly && ShowLikes ? "selected" : null)">Likes</a>
 
- *@
-
-            @*      @if (ShowReposts)
-        {
-            <a href="@Profile.Profile.BaseUrl">Posts</a>
-            <a href="@Profile.Profile.BaseUrl?replies=1">Replies</a>
-            <a href="@Profile.Profile.BaseUrl?@(ShowReplies ? "replies=1&" : null)reposts=0">Hide reposts</a>
-        }
-        else
-        {
-            <a href="@Profile.Profile.BaseUrl?reposts=0">Posts</a>
-            <a href="@Profile.Profile.BaseUrl?reposts=0&replies=1">Replies</a>
-            <a href="@Profile.Profile.BaseUrl?@(ShowReplies ? "replies=1&" : null)reposts=1">Show reposts</a>
-        }  *@
             <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a>
             <a class="search-link" href="/search?from=@Did" title="Search"><img src="/assets/search.png"></a>
         </div>

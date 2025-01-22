@@ -1045,7 +1045,15 @@ namespace AppViewLite
                 previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
             });
             if (!startIfNotRunning)
+            {
+                Task<RepositoryImportEntry> running;
+                lock (carImports)
+                {
+                    carImports.TryGetValue((plc, kind), out running);
+                }
+                if (running != null) return await running;
                 return previousImport;
+            }
 
             if (previousImport != null && (ignoreIfRecentlyRan != default && (DateTime.UtcNow - previousImport.StartDate) < ignoreIfRecentlyRan))
                 return previousImport;
@@ -1078,8 +1086,7 @@ namespace AppViewLite
             {
                 try
                 {
-                    await indexer.ImportCarAsync(did, since, ct);
-                    lastTid = default; // TODO: How do we obtain the last rev from the CAR?
+                    lastTid = await indexer.ImportCarAsync(did, since, ct);
                 }
                 catch (Exception ex)
                 {

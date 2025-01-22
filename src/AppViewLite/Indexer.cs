@@ -323,14 +323,14 @@ namespace AppViewLite
 
 
 
-        public async Task ImportCarAsync(string did, string carPath)
+        public async Task<Tid> ImportCarAsync(string did, string carPath)
         {
             using var stream = File.Open(carPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            await ImportCarAsync(did, stream);
+            return await ImportCarAsync(did, stream);
         }
 
         
-        public async Task ImportCarAsync(string did, Stream stream)
+        public async Task<Tid> ImportCarAsync(string did, Stream stream)
         {
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
@@ -342,8 +342,9 @@ namespace AppViewLite
                 OnRecordCreated(record.Did, record.Path, record.Record);
             }
             importer.Log("Done.");
+            return importer.LargestSeenRev;
         }
-        public async Task ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
+        public async Task<Tid> ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
         {
             using var at = CreateAtProto();
             var importer = new CarImporter(did);
@@ -357,7 +358,9 @@ namespace AppViewLite
                 OnRecordCreated(record.Did, record.Path, record.Record);
                 
             }
+            
             importer.Log("Done.");
+            return importer.LargestSeenRev;
         }
 
         private static ATProtocol CreateAtProto()

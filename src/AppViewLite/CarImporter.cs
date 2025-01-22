@@ -3,6 +3,7 @@ using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Tools;
 using Ipfs;
 using PeterO.Cbor;
+using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,6 +33,8 @@ namespace AppViewLite
         {
             Console.Error.WriteLine(logPrefix + v);
         }
+
+        public Tid LargestSeenRev;
 
         public void OnCarDecoded(CarProgressStatusEvent p)
         {
@@ -63,6 +66,10 @@ namespace AppViewLite
             }
             else if (blockObj["sig"] is not null)
             {
+                var rev = blockObj["rev"].AsString();
+                var parsedRev = Tid.Parse(rev);
+                if (parsedRev.TidValue > LargestSeenRev.TidValue)
+                    LargestSeenRev = parsedRev;
             }
             else
             {

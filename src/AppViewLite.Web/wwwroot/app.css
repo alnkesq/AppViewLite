@@ -589,13 +589,19 @@ details:not([open]) .summary-when-open {
     overflow: hidden;
 }
 
+.post-external-gif {
+    display: block;
+    margin-right: 20px;
+}
+    .post-external-gif img {
+        width: 100%;
+    }
+.post-external-preview-image {
+    width: 100%;
+}
 
 .post-external-preview-metadata {
     padding: 10px;
-}
-
-.post-external-preview-image {
-    width: 100%;
 }
 
 .post-external-preview-title {

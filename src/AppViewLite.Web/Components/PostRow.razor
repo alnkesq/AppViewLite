@@ -93,12 +93,20 @@
     }
     @if (Post.Data?.ExternalUrl != null)
     {
-        <a class="post-external-preview post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
-            @if (Post.Data.ExternalThumbCid != null)
-            {
-                <img class="post-external-preview-image" src="@Program.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid)" />
-            }
-            <div class="post-external-preview-metadata">
+        @if (Post.Data.ExternalUrl.StartsWith("https://media.tenor.com/"))
+        {
+            <div class="post-external-gif post-indented">
+                <img src="@Post.Data.ExternalUrl" rel="noreferrer" title="@Post.Data.ExternalTitle">
+            </div>
+        }
+        else
+        {
+            <a class="post-external-preview post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
+                @if (Post.Data.ExternalThumbCid != null)
+                {
+                    <img class="post-external-preview-image" src="@Program.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid)" />
+                }
+                <div class="post-external-preview-metadata">
                 <h2 class="post-external-preview-title">@Post.Data.ExternalTitle</h2>
                 <div class="post-external-preview-summary">@Post.Data.ExternalDescription</div>
                 <div class="post-external-preview-domain">
@@ -107,6 +115,7 @@
                 </div>
             </div>
         </a>
+        }
     }
 
     @if (Post.Data?.Media != null)

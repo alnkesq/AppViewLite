@@ -1,0 +1,106 @@
+@using System.Text.RegularExpressions
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public FacetData?[] Facets { get; set; }
+
+    private List<(string Text, string? Link)> Parts;
+
+    private void AddPart(ReadOnlySpan<byte> utf8, string? link)
+    {
+        Parts.Add((System.Text.Encoding.UTF8.GetString(utf8), link));
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrEmpty(Text))
+        {
+            Parts = [];
+            return;
+        }
+
+
+        if (Facets == null && !Text.Contains('#'))
+        {
+            Parts = [(Text, null)];
+            return;
+        }
+
+        var textBytes = System.Text.Encoding.UTF8.GetBytes(Text);
+        Parts = [];
+        var facets = Facets ?? [];
+        if (textBytes.Contains((byte)'#'))
+        {
+
+            var hashtags = new List<FacetData>();
+            foreach (Match m in Regex.Matches(Text, @"#\w+"))
+            {
+                if (m.Index != 0 && !char.IsWhiteSpace(Text[m.Index - 1])) continue;
+                var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(Text.AsSpan(0, m.Index));
+                var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(m.ValueSpan);
+                var hashtag = new FacetData { Start = startUtf8, Length = lengthUtf8, Link = "/search?q=" + Uri.EscapeDataString(m.Value) };
+                if (facets.Any(x => !x.IsDisjoint(hashtag))) continue; // inside a URL
+                hashtags.Add(hashtag);
+            }
+            facets = facets.Concat(hashtags).ToArray();
+        }
+        facets = facets.OrderBy(x => x.Start).ToArray();
+
+        var processedText = 0;
+        for (int i = 0; i < facets.Length; i++)
+        {
+            var facet = facets[i];
+            if(facet.Start < processedText || facet.End > textBytes.Length) continue;
+
+            var textBetween = textBytes.AsSpan(processedText, facet.Start - processedText);
+            if (textBetween.Length != 0)
+                AddPart(textBetween, null);
+
+            var link = facet.Did != null ? "/@" + facet.Did : facet.Link;
+            if (link.StartsWith("https://bsky.app/"))
+            {
+                var url = new Uri(link);
+                var segments = url.AbsolutePath.Split('/').Where(x => x.Length != 0).ToArray();
+                if (segments.Length >= 2 && segments[0] == "profile")
+                {
+                    var profileBaseUrl = link = "/@" + segments[1];
+                    if (segments.Length == 4)
+                    {
+                        var collection = segments[2];
+                        var rkey = segments[3];
+                        if (collection == "post")
+                        {
+                            link = profileBaseUrl + "/" + rkey;
+                        }
+                    }
+                    else if (segments.Length == 2)
+                    {
+                        link = profileBaseUrl;
+                    }
+
+
+                }
+            }
+            AddPart(textBytes.AsSpan(facet.Start, facet.Length), link);
+            processedText = facet.End;
+        }
+
+        var rest = textBytes.AsSpan(processedText);
+        if (rest.Length != 0)
+            AddPart(rest, null);
+
+
+    }
+}
+
+@foreach (var part in Parts)
+{
+    if (part.Link != null)
+    {
+        <a href="@part.Link" target="@(part.Link[0] != '/' ? "_blank" : null)" class="blue-link" rel="noreferrer nofollow">@part.Text</a>
+    }
+    else
+    {
+        @part.Text
+    }
+}
+

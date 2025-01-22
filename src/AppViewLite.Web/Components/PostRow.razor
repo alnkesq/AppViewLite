@@ -78,16 +78,11 @@
         <div class="post-error post-indented">[@(Post.Data?.Error ?? "Reached post retrieval limit for page load, consider refreshing")]</div>
     }
     <div class="post-body post-indented">
-        @if (true || IsQuote)
-        {
-            <a href="@Post.BaseUrl" class="post-body-link-to-thread">
-                @Post.Data?.Text
-            </a>
-        }
-        else
-        {
-            @Post.Data?.Text
-        }
+
+        <a href="@Post.BaseUrl" class="post-body-link-to-thread">
+            <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
+        </a>
+        
 
     </div>
 

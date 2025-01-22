@@ -142,6 +142,7 @@ main {
 
 h1 {
     margin-left: 20px;
+    word-wrap: anywhere;
 }
 
 .main-padding {
@@ -189,13 +190,13 @@ ul {
 }
 
 .post-thread-line {
-    border-left: 2px solid gray;
+    border-left: 2px solid #D4DBE2;
     top: 50px;
     pointer-events: none;
 }
 
 .post-thread-continuation-line {
-    border-left: 2px dashed gray;
+    border-left: 2px dotted #D4DBE2;
     height: 50px;
 }
 
@@ -449,9 +450,9 @@ ul {
 }
 
 .notification-badge {
-    background-color: red;
-    min-width: 22px;
-    height: 22px;
+    background-color: rgb(0, 133, 255);
+    min-width: 16px;
+    height: 16px;
     border-radius: 100px;
     font-size: 9pt !important;
     font-weight: bold;

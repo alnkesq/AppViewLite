@@ -154,7 +154,7 @@ namespace AppViewLite
                     var proto = relationships.StorePostInfoExceptData(p, postId);
 
                     byte[]? postBytes = null;
-                    continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.CompressPostDataToBytes(proto), relationships =>
+                    continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto), relationships =>
                     {
                         relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
                     });

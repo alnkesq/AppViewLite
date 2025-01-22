@@ -39,6 +39,20 @@ namespace AppViewLite.Models
         [ProtoMember(19)] public byte[]? ExternalDescriptionBpe;
         [ProtoMember(20)] public byte[]? ExternalUrlBpe;
 
+        // UPDATE IsSlimCandidate if you add fields!
+
+        public bool IsSlimCandidate() 
+        {
+            return
+                QuotedRKey == null && // Called when the proto is in a compressed state (no need to check QuotedPlc)
+                ExternalLinks == null &&
+                Media == null &&
+                ExternalUrl == null &&
+                EmbedRecordUri == null &&
+                Facets == null &&
+                TextBpe != null &&
+                (Language == null || (short)Language <= byte.MaxValue);
+        }
 
 
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;

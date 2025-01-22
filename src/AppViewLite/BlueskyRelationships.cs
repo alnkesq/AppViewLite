@@ -15,7 +15,6 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.IO.Hashing;
 using System.Linq;
 using System.Numerics;
@@ -611,31 +610,102 @@ namespace AppViewLite
             // PERF: This method performs the slow brotli compression while holding the lock. Avoid if possible.
 
             var proto = StorePostInfoExceptData(p, postId);
-            this.PostData.AddRange(postId, CompressPostDataToBytes(proto));
+            this.PostData.AddRange(postId, SerializePostData(proto));
         }
 
-        internal static byte[] CompressPostDataToBytes(BlueskyPostData proto)
+        internal static byte[] SerializePostData(BlueskyPostData proto)
         {
             // var (a, b, c) = (proto.PostId, proto.InReplyToPostId, proto.RootPostId);
             Compress(proto);
 
-            
+            var slim = TryCompressSlim(proto);
+            if (slim != null)
+            {
+                //var roundtrip = DeserializePostData(slim, proto.PostId);
+                //Compress(roundtrip);
+                //if (!SimpleJoin.AreProtosEqual(proto, roundtrip))
+                //    throw new Exception();
+                return slim;
+            }
+
             using var protoMs = new MemoryStream();
+            protoMs.WriteByte((byte)PostDataEncoding.Proto);
 
             ProtoBuf.Serializer.Serialize(protoMs, proto);
             protoMs.Seek(0, SeekOrigin.Begin);
+            return protoMs.ToArray(); 
+            
 
-            using var dest = new System.IO.MemoryStream();
+            // Brotli rarely improves things now that opengraph and alt-text are also TikToken-compressed.
+#if false
+            var uncompressedLength = protoMs.Length;
             dest.WriteByte((byte)PostDataEncoding.BrotliProto);
-
-
 
             using (var compressed = new System.IO.Compression.BrotliStream(dest, System.IO.Compression.CompressionLevel.SmallestSize))
             {
                 protoMs.CopyTo(compressed);
             }
+            var compressedBytes = dest.ToArray();
+            var ratio = (double)compressedBytes.Length / uncompressedLength;
+            Console.WriteLine(ratio.ToString("0.00"));
+            if (ratio > 1.2)
+            {
+                
+            }
+            else if (ratio < 0.8)
+            { 
+            
+            }
+            //     Console.WriteLine(uncompressedLength + " -> " + compressedBytes.Length);
 
-            return dest.ToArray();
+            return compressedBytes;
+#endif
+        }
+
+        private static byte[]? TryCompressSlim(BlueskyPostData proto)
+        {
+            if (!proto.IsSlimCandidate()) return null;
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+            bw.Write((byte)0); // reserve space
+
+            var encoding = PostDataEncoding.BpeOnly;
+            
+
+            if (proto.Language != null)
+            {
+                encoding |= PostDataEncoding.Language;
+                bw.Write(checked((byte)(proto!.Language.Value)));
+            }
+
+            if (proto.InReplyToRKey != null)
+            {
+                encoding |= PostDataEncoding.InReplyToRKey;
+                bw.Write(proto.InReplyToRKey.Value);
+                if (proto.InReplyToPlc != null)
+                {
+                    encoding |= PostDataEncoding.InReplyToPlc;
+                    bw.Write(proto.InReplyToPlc.Value);
+                }
+            }
+
+            if (proto.RootPostRKey != null)
+            {
+                encoding |= PostDataEncoding.RootPostRKey;
+                bw.Write(proto.RootPostRKey.Value);
+                if (proto.RootPostPlc != null)
+                {
+                    encoding |= PostDataEncoding.RootPostPlc;
+                    bw.Write(proto.RootPostPlc.Value);
+                }
+            }
+
+            bw.Write(proto.TextBpe!);
+
+            bw.Flush();
+            var arr = ms.ToArray();
+            arr[0] = (byte)encoding;
+            return arr;
         }
 
         internal static void Compress(BlueskyPostData proto)
@@ -836,18 +906,58 @@ namespace AppViewLite
             var encoding = (PostDataEncoding)postDataCompressed[0];
             postDataCompressed = postDataCompressed.Slice(1);
 
-            if (encoding == PostDataEncoding.BrotliProto)
+            using var ms = new MemoryStream(postDataCompressed.Length);
+            ms.Write(postDataCompressed);
+            ms.Seek(0, SeekOrigin.Begin);
+
+            if (encoding == PostDataEncoding.Proto)
             {
-                using var ms = new MemoryStream(postDataCompressed.Length);
-                ms.Write(postDataCompressed);
-                ms.Seek(0, SeekOrigin.Begin);
-                using var decompress = new BrotliStream(ms, CompressionMode.Decompress);
-                var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(decompress);
+
+                var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(ms);
                 Decompress(proto, postId);
                 return proto;
             }
+            //if (encoding == PostDataEncoding.BrotliProto)
+            //{
+
+            //    using var decompress = new BrotliStream(ms, CompressionMode.Decompress);
+            //    var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(decompress);
+            //    Decompress(proto, postId);
+            //    return proto;
+            //}
             else
-                throw new ArgumentException();
+            {
+                var proto = new BlueskyPostData();
+                
+                using var br = new BinaryReader(ms);
+                if ((encoding & PostDataEncoding.Language) != 0)
+                {
+                    proto.Language = (LanguageEnum)br.ReadByte();
+                }
+
+                if ((encoding & PostDataEncoding.InReplyToRKey) != 0)
+                {
+                    proto.InReplyToRKey = br.ReadInt64();
+                    if ((encoding & PostDataEncoding.InReplyToPlc) != 0)
+                    {
+                        proto.InReplyToPlc = br.ReadInt32();
+                    }
+                }
+
+                if ((encoding & PostDataEncoding.RootPostRKey) != 0)
+                {
+                    proto.RootPostRKey = br.ReadInt64();
+                    if ((encoding & PostDataEncoding.RootPostPlc) != 0)
+                    {
+                        proto.RootPostPlc = br.ReadInt32();
+                    }
+                }
+                var bpeLength = ms.Length - ms.Position;
+                proto.TextBpe = br.ReadBytes((int)bpeLength);
+                
+                Decompress(proto, postId);
+                return proto;
+            }
         }
 
         public static T DeserializeProto<T>(ReadOnlySpan<byte> bytes)

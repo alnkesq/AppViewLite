@@ -34,13 +34,13 @@
             var href = null;            
             var t = event.target;
             while(t) {
-                if(t.tagName == 'A') {
+                if(t.tagName == 'A' && t.href) {
                     href = new URL(t.href);
                     break;
                 }
                 t = t.parentNode;
             }
-            if(document.querySelector('#components-reconnect-modal') || ((href.pathname == '/login'|| href.pathname == '/logout') && href.host == window.location.host)) {
+            if(href && (document.querySelector('#components-reconnect-modal') || ((href.pathname == '/login'|| href.pathname == '/logout') && href.host == window.location.host))) {
                 window.location = href;
             }
             

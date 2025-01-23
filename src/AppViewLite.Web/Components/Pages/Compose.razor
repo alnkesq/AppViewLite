@@ -1,0 +1,43 @@
+@page "/compose"
+@inject RequestContext RequestContext
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+<PageTitle>New post</PageTitle>
+<h1>New post</h1>
+<form method="post" @onsubmit="Submit" @formname="composeForm" class="main-padding compose-form">
+    <AntiforgeryToken />
+    <div>
+         <InputTextArea @bind-Value="Model!.Text" class="compose-textarea" />
+    </div>
+    <br>
+    <div>
+        <button type="submit">Post</button>
+    </div>
+</form>
+
+@code {
+    [SupplyParameterFromForm]
+    private ComposePostData? Model { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/login", true);
+        Model ??= new();
+    }
+
+    private async Task Submit()
+    {
+        if (!string.IsNullOrEmpty(Model!.Text))
+        {
+            var url = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text, RequestContext);
+            Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + url.Rkey, true);
+        }
+    }
+
+    public class ComposePostData
+    {
+        public string? Text { get; set; }
+    }
+}
+
+

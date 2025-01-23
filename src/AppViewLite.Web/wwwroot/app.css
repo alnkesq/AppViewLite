@@ -60,6 +60,7 @@ main {
 
 .sidebar-button {
     display: none;
+    padding: 0;
 }
 
 
@@ -442,6 +443,10 @@ ul {
     text-align: center;
 }
 
+    .search-form input[type=submit] {
+        padding: 3px 4px;
+    }
+
 .search-form label {
     font-size: 9pt;
     width: 200px;
@@ -653,4 +658,20 @@ details:not([open]) .summary-when-open {
     right: 10px;
     top: 40px;
     font-size: 10pt;
+}
+
+.compose-form {
+    margin-right: 20px;
+}
+.compose-textarea {
+    width: 100%;
+    height: 100px;
+    box-sizing: border-box;
+}
+
+button, input[type=submit] {
+    padding: 10px 20px;
+    background-color: rgb(0, 133, 255);
+    border: 0px;
+    color: white;
 }

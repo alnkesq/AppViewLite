@@ -7,7 +7,7 @@ It includes:
 * A simple web UI for viewing the indexed data (`AppViewLite.Web`)
 * An XRPC interface that allows you to reuse the official TypeScript [client](https://github.com/bluesky-social/social-app/) implementation
 
-<img src="https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/screenshot-bsky.jpg" alt="Screenshot of the bsky.app profile on AppViewLite" width="600">
+<img src="https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/appviewlite.png" alt="Screenshot of the bsky.app profile on AppViewLite" width="600">
 
 Indexing the firehose (posts, likes, reposts, follows, blocks) takes about 2.2 GB of disk space per day. By contrast, the raw data from the firehose (without inverse indexes) is reported to be around 200 GB per day.
 
@@ -21,10 +21,11 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 
 - [X] Profile pages (posts, replies, media, following, followers)
 - [X] Reverse relationships (post likers/reposts/quotes)
-- [X] Custom feeds
-- [X] Handle deletions
+- [X] Compose posts and like/repost
 - [X] Full text search (including date and author filtering)
-- [ ] [Login support or reuse existing UI](/../../issues/1)
+- [X] Timeline
+- [X] Custom feeds
+- [X] Notifications
 - [ ] [Honor blocks and labels](/../../issues/7)
 - [ ] [Show handles instead of DIDs](/../../issues/6)
 - [ ] [CID verification](/../../issues/5)

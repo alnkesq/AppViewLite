@@ -1,15 +1,11 @@
-using AppViewLite.Web.Components;
-using AppViewLite;
-using FishyFlip;
 using FishyFlip.Models;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
-using AppViewLite.Storage;
 using Ipfs;
-using System.Text.Json.Serialization;
-using System.Security.Cryptography;
-using Microsoft.AspNetCore.Http;
-using System.Collections.Concurrent;
+using PeterO.Cbor;
+using AppViewLite.Web.Components;
 using AppViewLite.Models;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 
 namespace AppViewLite.Web
 {
@@ -65,7 +61,7 @@ namespace AppViewLite.Web
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
 
-                return TryGetSession(httpContext) ?? new();
+                return TryGetSession(httpContext) ?? new() { IsReadOnlySimulation = true };
             });
             builder.Services.AddScoped(provider =>
             {
@@ -148,8 +144,10 @@ namespace AppViewLite.Web
                         }
                     });
                     if (profile == null) return null;
+
                     session = new AppViewLiteSession
                     {
+                        IsReadOnlySimulation = sessionProto.IsReadOnlySimulation,
                         LoggedInUser = plc,
                         LastSeen = now,
                         Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
@@ -159,20 +157,32 @@ namespace AppViewLite.Web
                 }
 
                 session.LastSeen = now;
+
                 return session;
             }
 
             return null;
         }
 
-        public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle)
+        public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle, string password)
         {
+            if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException();
+
+            var isReadOnly = password == "readonly";
+
             var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(handle);
+            var atSession = isReadOnly ? null : await BlueskyEnrichedApis.Instance.LoginToPdsAsync(did, password);
+
+
+
             var id = RandomNumberGenerator.GetHexString(32, lowercase: true);
             httpContext.Response.Cookies.Append("appviewliteSessionId", id + "=" + did, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
             var now = DateTime.UtcNow;
-            var session = new AppViewLiteSession();
-            session.LastSeen = now;
+            var session = new AppViewLiteSession
+            {
+                LastSeen = now,
+                IsReadOnlySimulation = isReadOnly
+            };
 
             Plc plc = default;
             BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => 
@@ -180,14 +190,22 @@ namespace AppViewLite.Web
                 plc = rels.SerializeDid(did);
                 session.LoggedInUser = plc;
                 rels.RegisterForNotifications(session.LoggedInUser.Value);
-                var profile = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
-                profile!.Sessions ??= new();
-                profile.Sessions.Add(new AppViewLiteSessionProto
+                var protobuf = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
+                protobuf!.Sessions ??= new();
+
+                if (!isReadOnly)
+                {
+                    protobuf.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession));
+                    session.PdsSession = atSession;
+                }
+
+                protobuf.Sessions.Add(new AppViewLiteSessionProto
                 {
                     LastSeen = now,
-                    SessionToken = id
+                    SessionToken = id,
+                    IsReadOnlySimulation = isReadOnly,
                 });
-                rels.StoreAppViewLiteProfile(plc, profile);
+                rels.StoreAppViewLiteProfile(plc, protobuf);
             });
 
             await OnSessionCreatedOrRestoredAsync(did, plc, session);
@@ -203,7 +221,7 @@ namespace AppViewLite.Web
 
             var haveFollowees = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc));
             session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, RequestContext.CreateInfinite(null));
-
+            
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
@@ -221,7 +239,7 @@ namespace AppViewLite.Web
             var id = TryGetSessionId(httpContext, out var unverifiedDid);
             if (id != null)
             {
-                SessionDictionary.Remove(id, out _);
+                SessionDictionary.Remove(id, out var unverifiedAppViewLiteSession);
 
                 BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
                 {
@@ -231,7 +249,10 @@ namespace AppViewLite.Web
                     if (session != null)
                     {
                         // now verified.
-                        unverifiedProfile!.Sessions.Remove(session);
+                        if (unverifiedAppViewLiteSession != null)
+                            unverifiedAppViewLiteSession.PdsSession = null;
+                        unverifiedProfile.PdsSessionCbor = null;
+                        unverifiedProfile!.Sessions.Clear();
                         rels.StoreAppViewLiteProfile(unverifiedPlc, unverifiedProfile); 
                     }
                 });

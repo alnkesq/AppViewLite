@@ -8,14 +8,20 @@
     <AntiforgeryToken />
     <div>
         <label>
-            Handle:
-            <InputText @bind-Value="Model!.Handle" />
+            Handle:<br>
+            <InputText @bind-Value="Model!.Handle" tabindex="1" />
         </label>
-        <br>
-        <b>Note: no password is required, this is only a simulation.</b>
     </div>
+    <br>
     <div>
-        <button type="submit">Log in</button>
+        <label>
+            Password (or <a href="https://bsky.app/settings/app-passwords" target="_blank" class="blue-link" tabindex="4">app-specific</a> password):<br>
+            <InputText @bind-Value="Model!.Password" type="password" tabindex="2" />
+        </label>
+    </div>
+    <br>
+    <div>
+        <button type="submit" tabindex="3">Log in</button>
     </div>
 </form>
 
@@ -35,7 +41,7 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle))
         {
-            await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle);
+            await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle, Model.Password);
             Navigation.NavigateTo(Return ?? "/following", true);
         }
     }
@@ -43,6 +49,7 @@
     public class LoginData
     {
         public string? Handle { get; set; }
+        public string? Password { get; set; }
     }
 }
 

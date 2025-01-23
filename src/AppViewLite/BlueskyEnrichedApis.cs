@@ -24,6 +24,7 @@ using AppViewLite.Numerics;
 using System.Diagnostics;
 using System.Globalization;
 using AppViewLite;
+using PeterO.Cbor;
 
 namespace AppViewLite
 {
@@ -1162,6 +1163,85 @@ namespace AppViewLite
             else
                 return "Running...";
         }
+
+        public async Task<ATUri> CreateRecordAsync(ATObject record, RequestContext ctx)
+        {
+            return await PerformPdsActionAsync(async session => (await session.CreateRecordAsync(new ATDid(session.Session.Did.Handler), record.Type, record)).HandleResult()!.Uri, ctx);
+        }
+
+        private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
+        {
+            var session = ctx.Session;
+            var sessionProtocol = await GetSessionProtocolAsync(ctx);
+            if (sessionProtocol.AuthSession!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)
+            {
+                try
+                {
+                    return await func(sessionProtocol);
+                }
+                catch (ATNetworkErrorException ex) when (ex.AtError.Detail?.Error == "ExpiredToken")
+                {
+                    // continue
+                }
+            }
+
+            var authSession = await sessionProtocol.RefreshAuthSessionAsync();
+
+            WithRelationshipsLock(rels =>
+            {
+                var proto = rels.TryGetAppViewLiteProfile(session.LoggedInUser.Value);
+                proto.PdsSessionCbor = SerializeAuthSession(authSession);
+                ctx.Session.PdsSession = authSession.Session;
+                rels.StoreAppViewLiteProfile(ctx.LoggedInUser, proto);
+            });
+            
+            sessionProtocol = await GetSessionProtocolAsync(ctx);
+            return await func(sessionProtocol);
+        }
+
+        public static byte[] SerializeAuthSession(AuthSession? authSession)
+        {
+            return CBORObject.FromJSONString(authSession.ToString()).EncodeToBytes();
+        }
+
+        public async Task<ATProtocol> GetSessionProtocolAsync(RequestContext ctx)
+        {
+            if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
+            var pdsSession = ctx.Session.PdsSession;
+            var sessionProtocol = new ATProtocolBuilder().Build();
+            await sessionProtocol.AuthenticateWithPasswordSessionAsync(new AuthSession(pdsSession));
+            return sessionProtocol;
+
+        }
+
+        public async Task<Session> LoginToPdsAsync(string did, string password)
+        {
+            var sessionProtocol = new ATProtocolBuilder().Build();
+            var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
+            return session;
+        }
+
+        public async Task<ATUri> CreatePostLikeAsync(string did, string rkey, RequestContext ctx)
+        {
+            return await CreateLikeAsync(did, Post.RecordType, rkey, ctx);
+        }
+        public async Task<ATUri> CreateLikeAsync(string did, string collection, string rkey, RequestContext ctx)
+        {
+            var cid = await GetCidAsync(did, collection, rkey);
+            return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + collection + "/" + rkey), cid) }, ctx);
+        }
+
+        public async Task<ATUri> CreatePostAsync(string text, RequestContext ctx)
+        {
+            return await CreateRecordAsync(new Post { Text = text }, ctx);
+        }
+
+        internal async Task<string> GetCidAsync(string did, string collection, string rkey)
+        {
+            return (await proto.Repo.GetRecordAsync(new ATDid(did), collection, rkey)).HandleResult()!.Cid!;
+        }
+
+
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         private readonly static HttpClient DefaultHttpClient = new();

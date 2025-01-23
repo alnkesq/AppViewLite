@@ -9,6 +9,7 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public DateTime FirstLogin;
         [ProtoMember(2)] public List<AppViewLiteSessionProto> Sessions;
+        [ProtoMember(3)] public byte[] PdsSessionCbor;
     }
 
     [ProtoContract]
@@ -16,6 +17,7 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public string SessionToken;
         [ProtoMember(2)] public DateTime LastSeen;
+        [ProtoMember(3)] public bool IsReadOnlySimulation;
 
     }
 }

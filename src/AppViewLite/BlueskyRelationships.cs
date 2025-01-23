@@ -1260,12 +1260,14 @@ namespace AppViewLite
         }
         public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey)
         {
+            if (SuppressNotificationGeneration != 0) return;
             if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
             if (UsersHaveBlockRelationship(destination, actor) != default) return;
             Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
         }
 
+        public int SuppressNotificationGeneration;
 
         public static Notification GetNotificationThresholdForDate(DateTime threshold)
         {

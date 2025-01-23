@@ -26,7 +26,14 @@
 
     public void NavigateToPost()
     {
-        NavigationManager.NavigateTo(Post.BaseUrl);
+        if (RequestContext.IsLoggedIn)
+        {
+            NavigationManager.NavigateTo($"/compose?replyDid={Post.Did}&replyRkey={Post.RKey}");
+        }
+        else
+        {
+            NavigationManager.NavigateTo(Post.BaseUrl);
+        }
     }
 
     private bool IsBusy;

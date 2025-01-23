@@ -54,16 +54,21 @@ else
 @if (ReplyToPost != null)
 {
     <PostRow Post="ReplyToPost"/>
+    <br>
 }
 
 <form method="post" @onsubmit="Submit" @formname="composeForm" class="main-padding compose-form">
     <AntiforgeryToken />
     <div>
-        <InputTextArea @bind-Value="Model!.Text" class="compose-textarea" />
+        <InputTextArea @bind-Value="Model!.Text" class="compose-textarea" placeholder="@(IsReply ? "Write your reply" : "What's up?")" autofocus />
     </div>
     <br>
     <div>
         <button type="submit">@(IsReply ? "Reply" : "Post")</button>
+        @if (ReplyToPost != null)
+        {
+            <a href="@ReplyToPost?.BaseUrl" class="compose-cancel-button">Cancel</a>
+        }
     </div>
 </form>
 

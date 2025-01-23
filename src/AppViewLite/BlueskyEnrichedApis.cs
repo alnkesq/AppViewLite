@@ -748,7 +748,7 @@ namespace AppViewLite
 
             var otherReplies = WithRelationshipsLock(rels => rels.DirectReplies.GetDistinctValuesSorted(focalPostId).Where(x => x.Author != focalPostId.Author).Select(x => rels.GetPost(x)).ToArray());
             thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
-            await EnrichAsync([..opReplies, ..otherReplies], ctx);
+            await EnrichAsync(thread.ToArray(), ctx);
             return thread.ToArray();
         }
 

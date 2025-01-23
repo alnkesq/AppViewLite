@@ -1029,9 +1029,8 @@ namespace AppViewLite
             return new ProfilesAndContinuation(page, end < everything.Length ? end.ToString() : null);
         }
 
-        private Plc[]? GetFollowersYouFollow(Plc plc, Plc loggedInUser)
+        private Plc[] GetFollowersYouFollow(Plc plc, Plc loggedInUser)
         {
-            if (plc == loggedInUser) return null;
             var myFollowees = RegisteredUserToFollowees.GetValuesSorted(loggedInUser).Select(x => x.Member).DistinctAssumingOrderedInput();
             var followers = Follows.GetRelationshipsSorted(plc, default).Select(x => x.Actor).DistinctAssumingOrderedInput();
 

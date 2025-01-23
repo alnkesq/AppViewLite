@@ -57,9 +57,14 @@
         <div class="profile-follow-links main-padding">
             <a href="@Profile.Profile.BaseUrl/following" class="underline-on-hover">Following</a> ·
             <a href="@Profile.Profile.BaseUrl/followers" class="underline-on-hover">Followers</a>
+            @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == Profile.Profile.Plc)
+            {
+                <text> ·</text>
+                <a href = "@Profile.Profile.BaseUrl/known-followers" class="underline-on-hover">Mutuals</a>
+            }
         </div>
 
-        @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0)
+        @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0 && RequestContext.LoggedInUser != Profile.Profile.Plc)
         {
             var knownFollowerCount = Profile.FollowedByPeopleYouFollow.Count;
             <a class="profile-followers-you-follow main-padding" href="@Profile.Profile.BaseUrl/known-followers">

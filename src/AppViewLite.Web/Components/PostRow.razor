@@ -230,7 +230,7 @@
 
     @if (IsFocalPost)
     {
-        <div class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</div>
+        <a href="@Post.BlueskyUrl" title="View on bsky.app" target="_blank" class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</a>
         @if (Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0)
         {
             <div class="post-focal-stats post-indented">

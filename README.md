@@ -15,7 +15,7 @@ If you try to access a post or profile that hasn't been indexed (because it was 
 
 This AppView runs independently of the main bsky.app appview, except for CDN image delivery and handle resolution. Other than that, it only needs a relay.
 
-**Tip**: You can browse to `http://localhost:PORT/https://bsky.app/...` to easily convert a bsky.app URL into an AppViewLite one.
+**Tip**: You can browse to `http://localhost:PORT/profile/...` to easily convert a bsky.app URL into an AppViewLite one.
 
 ## Implementation status
 
@@ -30,6 +30,13 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 - [ ] [Show handles instead of DIDs](/../../issues/6)
 - [ ] [CID verification](/../../issues/5)
 - [ ] [Backfill historical data](/../../issues/8)
+
+## Building and running
+- Install [.NET 9](https://dotnet.microsoft.com/en-us/download)
+- `cd src/AppViewLite.Web`
+- `dotnet run -c Release`
+
+Optionally, you can set `APPVIEWLITE_DIRECTORY` to specify where the data should be stored.
 
 ## Storage mechanism
 Each "table" is a set of memory-mapped columnar storage files that associates one key, to one or many values.

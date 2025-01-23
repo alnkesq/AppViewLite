@@ -385,6 +385,44 @@ ul {
         margin-right: 30px;
     }
 
+.post-action-bar {
+}
+
+.post-action-bar-spacer {
+    width: 140px;
+    display: inline-block;
+}
+
+.post-action-bar-button {
+    background: none;
+    border-radius: 50px;
+    padding: 5px 8px;
+}
+.post-action-bar-button {
+    background: none;
+    border-radius: 50px;
+    padding: 5px 8px;
+    color: #6F869F;
+    cursor: pointer;
+}
+    .post-action-bar-button svg {
+        vertical-align: middle;
+        margin-right: 5px;
+        position: relative;
+        margin-top: -3px;
+
+    }
+    .post-action-bar-button:hover {
+        background: #F1F3F5;
+    }
+.post-action-bar-button-repost.post-action-bar-button-checked {
+    color: rgb(19, 195, 113);
+}
+.post-action-bar-button-like.post-action-bar-button-checked {
+    color: #EC4899;
+}
+
+
 .post-author {
     font-weight: bold;
 }

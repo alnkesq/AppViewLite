@@ -1,4 +1,5 @@
 using FishyFlip.Models;
+using AppViewLite.Numerics;
 using System;
 
 namespace AppViewLite.Models
@@ -36,8 +37,8 @@ namespace AppViewLite.Models
         public PostId? InReplyToPostId => Data?.InReplyToPostId;
         public PostId RootPostId => Data?.RootPostId ?? this.PostId;
 
-        public bool IsLikedBySelf;
-        public bool IsRepostedBySelf;
+        public Tid? IsLikedBySelf;
+        public Tid? IsRepostedBySelf;
         public bool IsRepost => RepostDate != null;
     }
 }

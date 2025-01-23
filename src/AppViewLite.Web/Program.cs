@@ -148,6 +148,7 @@ namespace AppViewLite.Web
                     session = new AppViewLiteSession
                     {
                         IsReadOnlySimulation = sessionProto.IsReadOnlySimulation,
+                        PdsSession = sessionProto.IsReadOnlySimulation ? null : BlueskyEnrichedApis.DeserializeAuthSession(profile.PdsSessionCbor).Session,
                         LoggedInUser = plc,
                         LastSeen = now,
                         Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.

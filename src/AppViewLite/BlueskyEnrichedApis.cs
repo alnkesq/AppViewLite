@@ -153,8 +153,10 @@ namespace AppViewLite
                     if (ctx.IsLoggedIn)
                     {
                         var loggedInUser = ctx.LoggedInUser;
-                        post.IsLikedBySelf = rels.Likes.HasActor(post.PostId, loggedInUser, out _);
-                        post.IsRepostedBySelf = rels.Reposts.HasActor(post.PostId, loggedInUser, out _);
+                        if (rels.Likes.HasActor(post.PostId, loggedInUser, out var likeTid))
+                            post.IsLikedBySelf = likeTid.RelationshipRKey;
+                        if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
+                            post.IsRepostedBySelf = repostTid.RelationshipRKey;
                     }
                 }
             });
@@ -1164,9 +1166,9 @@ namespace AppViewLite
                 return "Running...";
         }
 
-        public async Task<ATUri> CreateRecordAsync(ATObject record, RequestContext ctx)
+        public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx)
         {
-            return await PerformPdsActionAsync(async session => (await session.CreateRecordAsync(new ATDid(session.Session.Did.Handler), record.Type, record)).HandleResult()!.Uri, ctx);
+            return await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
         }
 
         private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
@@ -1203,6 +1205,10 @@ namespace AppViewLite
         {
             return CBORObject.FromJSONString(authSession.ToString()).EncodeToBytes();
         }
+        public static AuthSession DeserializeAuthSession(byte[] bytes)
+        {
+            return AuthSession.FromString(CBORObject.DecodeFromBytes(bytes).ToJSONString());
+        }
 
         public async Task<ATProtocol> GetSessionProtocolAsync(RequestContext ctx)
         {
@@ -1221,21 +1227,39 @@ namespace AppViewLite
             return session;
         }
 
-        public async Task<ATUri> CreatePostLikeAsync(string did, string rkey, RequestContext ctx)
+        public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RequestContext ctx)
         {
-            return await CreateLikeAsync(did, Post.RecordType, rkey, ctx);
+            var cid = await GetCidAsync(did, Post.RecordType, rkey);
+            return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
         }
-        public async Task<ATUri> CreateLikeAsync(string did, string collection, string rkey, RequestContext ctx)
+        public async Task<Tid> CreateRepostAsync(string did, Tid rkey, RequestContext ctx)
         {
-            var cid = await GetCidAsync(did, collection, rkey);
-            return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + collection + "/" + rkey), cid) }, ctx);
+            var cid = await GetCidAsync(did, Post.RecordType, rkey);
+            return await CreateRecordAsync(new Repost { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
         }
 
-        public async Task<ATUri> CreatePostAsync(string text, RequestContext ctx)
+        public async Task DeletePostLikeAsync(Tid likeRKey, RequestContext ctx)
+        {
+            await DeleteRecordAsync(Like.RecordType, likeRKey, ctx);
+        }
+        public async Task DeleteRepostAsync(Tid repostRKey, RequestContext ctx)
+        {
+            await DeleteRecordAsync(Repost.RecordType, repostRKey, ctx);
+        }
+        public async Task DeleteRecordAsync(string collection, Tid rkey, RequestContext ctx)
+        {
+            await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session.Did, collection, rkey.ToString()), ctx);
+        }
+
+        public async Task<Tid> CreatePostAsync(string text, RequestContext ctx)
         {
             return await CreateRecordAsync(new Post { Text = text }, ctx);
         }
 
+        internal Task<string> GetCidAsync(string did, string collection, Tid rkey)
+        {
+            return GetCidAsync(did, collection, rkey.ToString()!);
+        }
         internal async Task<string> GetCidAsync(string did, string collection, string rkey)
         {
             return (await proto.Repo.GetRecordAsync(new ATDid(did), collection, rkey)).HandleResult()!.Cid!;

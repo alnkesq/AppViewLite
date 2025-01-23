@@ -29,8 +29,8 @@
     {
         if (!string.IsNullOrEmpty(Model!.Text))
         {
-            var url = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text, RequestContext);
-            Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + url.Rkey, true);
+            var rkey = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text, RequestContext);
+            Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + rkey, true);
         }
     }
 

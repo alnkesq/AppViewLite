@@ -357,7 +357,7 @@ ul {
     position: relative; /* otherwise z-index doesn't work */
 }
 
-.post-focal .post-indented {
+.post-focal > .post-indented {
     margin-left: 20px;
 }
 
@@ -393,9 +393,7 @@ ul {
     margin-top: 10px;
 }
 
-.post-focal .post-action-bar {
-    margin-top: 0;
-}
+
 
 .post-action-bar-spacer {
     width: 140px;
@@ -745,15 +743,20 @@ button, input[type=submit] {
         padding: 10px 0;
     }
 
-.post-focal .post-meta {
+.post-focal > .post-meta {
     margin-bottom: 20px;
     padding-top: 8px;
     padding-left: 48px;
 }
+.post-focal > .post-action-bar {
+    margin-top: 0;
+}
+
 .post-focal-date {
     border-top: 1px solid #D4DBE2;
     padding: 10px 0;
     margin-top: 15px;
+    display: block;
 }
 .post-focal-stats {
     border-top: 1px solid #D4DBE2;
@@ -762,7 +765,7 @@ button, input[type=submit] {
 .post-focal-stats a {
     margin-right: 20px;
 }
-.post-focal .post-action-bar {
+.post-focal > .post-action-bar {
     border-top: 1px solid #D4DBE2;
     border-bottom: 1px solid #D4DBE2;
     padding: 7px 0;

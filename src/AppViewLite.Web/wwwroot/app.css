@@ -357,6 +357,10 @@ ul {
     position: relative; /* otherwise z-index doesn't work */
 }
 
+.post-focal .post-indented {
+    margin-left: 20px;
+}
+
 .post-background-link, .notification-background-link {
     position: absolute;
     display: block;
@@ -734,4 +738,44 @@ button, input[type=submit] {
         display: block;
         text-align: center;
         padding: 10px 0;
+    }
+
+.post-focal .post-meta {
+    margin-bottom: 20px;
+    padding-top: 8px;
+    padding-left: 48px;
+}
+.post-focal-date {
+    border-top: 1px solid #D4DBE2;
+    padding: 10px 0;
+    margin-top: 15px;
+}
+.post-focal-stats {
+    border-top: 1px solid #D4DBE2;
+    padding: 10px 0;
+}
+.post-focal-stats a {
+    margin-right: 20px;
+}
+.post-focal .post-action-bar {
+    border-top: 1px solid #D4DBE2;
+    border-bottom: 1px solid #D4DBE2;
+    padding: 7px 0;
+}
+.post-focal-compose-reply-container {
+    border-bottom: 1px solid #D4DBE2;
+}
+.post-focal-compose-reply {
+    display: block;
+    padding: 10px 10px;
+    border-radius: 10px;
+    margin: 5px;
+    color: rgb(66, 87, 108);
+}
+    .post-focal-compose-reply:hover {
+        background-color: #F1F3F5;
+    }
+    .post-focal-compose-reply .profile-image-small {
+        width: 24px;
+        height: 24px;
     }

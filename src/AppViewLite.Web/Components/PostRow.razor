@@ -96,7 +96,7 @@
         <a class="post-rest-of-thread post-indented blue-link" href="@Post.BaseUrl">View full thread</a>
     }
 
-    @if (ShowThreadLine && !IsLastOfGroup)
+    @if (ShowThreadLine && !IsLastOfGroup && !IsFocalPost)
     {
         <div class="post-thread-line"></div>
     }
@@ -118,8 +118,12 @@
     <div class="post-meta post-indented">
         <a class="post-author underline-on-hover" href="@Post.Author.BaseUrl">
             @Post.Author.DisplayNameOrFallback
-        </a> ·
-        <a class="post-date" href="@Post.BaseUrl" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
+        </a>
+        @if(!this.IsFocalPost)
+        {
+            <text>·</text>
+            <a class="post-date" href="@Post.BaseUrl" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
+        }
     </div>
 
 
@@ -140,9 +144,16 @@
     }
     <div class="post-body post-indented">
 
-        <a href="@Post.BaseUrl" class="post-body-link-to-thread">
+        @if (IsFocalPost)
+        {
             <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
-        </a>
+        }
+        else
+        {
+            <a href="@Post.BaseUrl" class="post-body-link-to-thread">
+                <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
+            </a>
+        }
 
 
     </div>
@@ -210,26 +221,28 @@
 
     }
 
-    @*     <div class="post-status-bar post-indented">
-        @if(Post.ReplyCount != 0){
-            <a href="@Post.BaseUrl" title="Show replies">@Post.ReplyCount 💬</a>
-        }
-        @if (Post.QuoteCount != 0)
+    @if (IsFocalPost)
+    {
+        <div class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</div>
+        @if (Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0)
         {
-            <a href="@Post.BaseUrl/quotes" title="Show quotes">@Post.QuoteCount 💭</a>
+            <div class="post-focal-stats post-indented">
+                @if (Post.RepostCount != 0)
+                {
+                    <a href="@Post.BaseUrl/reposts"><b>@Post.RepostCount</b> @(@Post.RepostCount == 1 ? "repost" : "reposts")</a>
+                }
+                @if (Post.QuoteCount != 0)
+                {
+                    <a href="@Post.BaseUrl/quotes"><b>@Post.QuoteCount</b> @(@Post.QuoteCount == 1 ? "quote" : "quotes")</a>
+                }
+                @if (Post.LikeCount != 0)
+                {
+                    <a href="@Post.BaseUrl/likes"><b>@Post.LikeCount</b> @(@Post.LikeCount == 1 ? "like" : "likes")</a>
+                }
+            </div>
         }
-        @if (Post.RepostCount != 0)
-        {
-            <a href="@Post.BaseUrl/reposts" title="Show reposts">@Post.RepostCount 🔁</a>
-        }
-        @if (Post.LikeCount != 0)
-        {
-            <a href="@Post.BaseUrl/likes" title="Show likes">@Post.LikeCount ♥</a>
-        }
+    }
 
-        <a class="bsky-link" target="_blank" href="@Post.BlueskyUrl" title="View on bsky.app"><img src="/assets/bluesky.png"></a>
-
-    </div> *@
 
     <div class="post-action-bar post-indented">
         <div class="post-action-bar-spacer">
@@ -266,6 +279,16 @@
             </button>
         </div>
     </div>
+
+    @if (IsFocalPost && RequestContext.IsLoggedIn)
+    {
+        <div class="post-focal-compose-reply-container post-indented">
+            <a href="/compose?replyDid=@(Post.Did)&replyRkey=@(Post.RKey)" class="post-focal-compose-reply">
+                <img src="@RequestContext.Session.Profile!.AvatarUrl" class="profile-image-small">
+                Write your reply
+            </a>
+        </div>
+    }
 </li>
 
 @if (IsLastOfGroup)

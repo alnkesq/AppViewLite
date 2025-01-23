@@ -1251,9 +1251,21 @@ namespace AppViewLite
             await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session.Did, collection, rkey.ToString()), ctx);
         }
 
-        public async Task<Tid> CreatePostAsync(string text, RequestContext ctx)
+        public async Task<Tid> CreatePostAsync(string text, PostIdString? inReplyTo, RequestContext ctx)
         {
-            return await CreateRecordAsync(new Post { Text = text }, ctx);
+            ReplyRefDef? replyRefDef = null;
+            if (inReplyTo != null) 
+            {
+                var inReplyToRecordInfo = (await proto.Repo.GetRecordAsync(new ATDid(inReplyTo.Did), Post.RecordType, inReplyTo.RKey)).HandleResult();
+                var inReplyToRecord = (Post)inReplyToRecordInfo!.Value;
+                var inReplyToStrongRef = new StrongRef(inReplyToRecordInfo.Uri, inReplyToRecordInfo.Cid);
+                replyRefDef = new ReplyRefDef
+                {
+                    Parent = inReplyToStrongRef,
+                    Root = inReplyToRecord.Reply?.Root ?? inReplyToStrongRef,
+                };
+            }
+            return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef }, ctx);
         }
 
         internal Task<string> GetCidAsync(string did, string collection, Tid rkey)
@@ -1265,6 +1277,12 @@ namespace AppViewLite
             return (await proto.Repo.GetRecordAsync(new ATDid(did), collection, rkey)).HandleResult()!.Cid!;
         }
 
+        public async Task<BlueskyPost> GetPostAsync(string did, string rkey, RequestContext ctx)
+        {
+            var post = WithRelationshipsLock(rels => rels.GetPost(did, rkey));
+            await EnrichAsync([post], ctx);
+            return post;
+        }
 
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();

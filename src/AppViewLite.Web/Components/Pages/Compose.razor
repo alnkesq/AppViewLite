@@ -2,20 +2,13 @@
 @inject RequestContext RequestContext
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
-<PageTitle>New post</PageTitle>
-<h1>New post</h1>
-<form method="post" @onsubmit="Submit" @formname="composeForm" class="main-padding compose-form">
-    <AntiforgeryToken />
-    <div>
-         <InputTextArea @bind-Value="Model!.Text" class="compose-textarea" />
-    </div>
-    <br>
-    <div>
-        <button type="submit">Post</button>
-    </div>
-</form>
 
 @code {
+    [SupplyParameterFromQuery] [Parameter] public string? ReplyDid { get; set; }
+    [SupplyParameterFromQuery] [Parameter] public string? ReplyRkey { get; set; }
+
+    public bool IsReply => ReplyRkey != null && ReplyDid != null;
+
     [SupplyParameterFromForm]
     private ComposePostData? Model { get; set; }
 
@@ -25,11 +18,18 @@
         Model ??= new();
     }
 
+    private BlueskyPost? ReplyToPost;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ReplyToPost = IsReply ? await BlueskyEnrichedApis.Instance.GetPostAsync(ReplyDid!, ReplyRkey!, RequestContext) : null;
+    }
+
     private async Task Submit()
     {
-        if (!string.IsNullOrEmpty(Model!.Text))
+        if (!string.IsNullOrWhiteSpace(Model!.Text))
         {
-            var rkey = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text, RequestContext);
+            var rkey = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text, IsReply ? new PostIdString(ReplyDid!, ReplyRkey!) : null, RequestContext);
             Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + rkey, true);
         }
     }
@@ -40,4 +40,30 @@
     }
 }
 
+@if (IsReply)
+{
+    <PageTitle>Reply</PageTitle>
+    <br>
+}
+else
+{
+    <PageTitle>New post</PageTitle>
+    <h1>New post</h1>
+}
+
+@if (ReplyToPost != null)
+{
+    <PostRow Post="ReplyToPost"/>
+}
+
+<form method="post" @onsubmit="Submit" @formname="composeForm" class="main-padding compose-form">
+    <AntiforgeryToken />
+    <div>
+        <InputTextArea @bind-Value="Model!.Text" class="compose-textarea" />
+    </div>
+    <br>
+    <div>
+        <button type="submit">@(IsReply ? "Reply" : "Post")</button>
+    </div>
+</form>
 

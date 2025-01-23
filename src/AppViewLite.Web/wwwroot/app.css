@@ -390,6 +390,11 @@ ul {
     }
 
 .post-action-bar {
+    margin-top: 10px;
+}
+
+.post-focal .post-action-bar {
+    margin-top: 0;
 }
 
 .post-action-bar-spacer {
@@ -779,3 +784,7 @@ button, input[type=submit] {
         width: 24px;
         height: 24px;
     }
+
+.compose-cancel-button {
+    margin-left: 20px;
+}

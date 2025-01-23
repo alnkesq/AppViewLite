@@ -674,4 +674,26 @@ button, input[type=submit] {
     background-color: rgb(0, 133, 255);
     border: 0px;
     color: white;
+    border-radius: 5px;
+    cursor: pointer;
 }
+
+.sidebar-item-small {
+    font-size: 12pt;
+}
+.sidebar-item-post {
+    background-color: rgb(0, 133, 255);
+    border: 0px;
+    border-radius: 50px;
+    width: 140px;
+    font-size: 13pt;
+    margin-top: 20px !important;
+    margin-bottom: 40px !important;
+}
+    .sidebar-item-post a {
+        color: white;
+        width: 100%;
+        display: block;
+        text-align: center;
+        padding: 10px 0;
+    }

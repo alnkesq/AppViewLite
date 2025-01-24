@@ -29,6 +29,37 @@ namespace AppViewLite
             return sb.ToString();
         }
 
+        public static string FormatEngagementCount(long value)
+        {
+            if (value < 1_000)
+            {
+                // 1..999
+                return value.ToString();
+            }
+            else if (value < 1_000_000)
+            {
+                // 1.0K..9.9K
+                // 19K..999K
+                return FormatTwoSignificantDigits(value / 1_000.0) + "K";
+            }
+            else
+            {
+                // 1.0M..9.9M
+                // 10M..1234567M
+                return FormatTwoSignificantDigits(value / 1_000_000.0) + "M";
+            }
+
+            
+        }
+
+        private static string FormatTwoSignificantDigits(double displayValue)
+        {
+            var r = (Math.Floor(displayValue * 10) / 10).ToString("0.0");
+            if(r.Length > 3)
+                r = Math.Floor(displayValue).ToString("0");
+            return r;
+        }
+
         [SkipLocalsInit]
         public static DuckDbUuid HashUnicodeToUuid(ReadOnlySpan<char> b)
         {

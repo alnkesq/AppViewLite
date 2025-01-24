@@ -4,6 +4,7 @@ using PeterO.Cbor;
 using AppViewLite.Web.Components;
 using AppViewLite.Models;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
@@ -134,7 +135,7 @@ namespace AppViewLite.Web
                     {
                         var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
                         var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                        sessionProto = unverifiedProfile?.Sessions?.FirstOrDefault(x => x.SessionToken == sessionId);
+                        sessionProto = TryGetAppViewLiteSession(unverifiedProfile, sessionId);
                         if (sessionProto != null)
                         {
                             profile = unverifiedProfile;
@@ -163,6 +164,11 @@ namespace AppViewLite.Web
             }
 
             return null;
+        }
+
+        private static AppViewLiteSessionProto? TryGetAppViewLiteSession(AppViewLiteProfileProto? unverifiedProfile, string sessionId)
+        {
+            return unverifiedProfile?.Sessions?.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
         }
 
         public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle, string password)
@@ -246,7 +252,7 @@ namespace AppViewLite.Web
                 {
                     var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
                     var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                    var session = unverifiedProfile?.Sessions?.FirstOrDefault(x => x.SessionToken == id);
+                    var session = TryGetAppViewLiteSession(unverifiedProfile, id);
                     if (session != null)
                     {
                         // now verified.

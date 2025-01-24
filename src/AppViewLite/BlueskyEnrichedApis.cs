@@ -1026,16 +1026,17 @@ namespace AppViewLite
 
         public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
-            EnsureLimit(ref limit);
+            EnsureLimit(ref limit, 50);
+            Tid? maxTid = continuation != null ? Tid.Parse(continuation) : null;
             var alreadyReturned = new HashSet<PostId>();
             var posts = WithRelationshipsLock(rels =>
             {
-                var posts = rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-4));
+                var posts = rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-7), maxTid);
                 var normalized = rels.EnumerateFeedWithNormalization(posts, alreadyReturned);
                 return normalized.Take(limit).ToArray();
             });
             await EnrichAsync(posts, ctx);
-            return new PostsAndContinuation(posts, null);
+            return new PostsAndContinuation(posts, posts.Length != 0 ? posts[^1].PostId.PostRKey.ToString() : null);
         }
 
 

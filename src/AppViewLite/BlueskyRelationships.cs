@@ -1320,16 +1320,16 @@ namespace AppViewLite
                 .ToArray();
         }
 
-        internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDate)
+        internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDate, Tid? maxDate)
         {
-            return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDate, default)).Select(x => (new PostId(author, x.RKey), x.InReplyTo));
+            return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDate, default), maxDate != null ? new RecentPost(maxDate.Value, default) : null).Select(x => (new PostId(author, x.RKey), x.InReplyTo));
         }
-        internal IEnumerable<RecentRepost> EnumerateRecentReposts(Plc author, Tid minDate)
+        internal IEnumerable<RecentRepost> EnumerateRecentReposts(Plc author, Tid minDate, Tid? maxDate)
         {
-            return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDate, default));
+            return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDate, default), maxDate != null ? new RecentRepost(maxDate.Value, default) : null);
         }
 
-        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate)
+        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate, Tid? maxTid)
         {
             var thresholdDate = minDate != default ? Tid.FromDateTime(minDate, 0) : default;
 
@@ -1342,8 +1342,7 @@ namespace AppViewLite
                 .Select(author =>
                 {
                     return this
-                        .EnumerateRecentPosts(author, thresholdDate)
-                        .Take(100)
+                        .EnumerateRecentPosts(author, thresholdDate, maxTid)
                         .Where(x => x.InReplyTo == default || followsHashSet.Contains(x.InReplyTo))
                         .Select(x => GetPost(x.PostId))
                         .Where(x => x.Data != null && (x.IsRootPost || followsHashSet.Contains(x.Data.RootPostId.Author)));
@@ -1354,7 +1353,7 @@ namespace AppViewLite
                 {
                     BlueskyProfile? reposterProfile = null;
                     return this
-                        .EnumerateRecentReposts(reposter, thresholdDate)
+                        .EnumerateRecentReposts(reposter, thresholdDate, maxTid)
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId);

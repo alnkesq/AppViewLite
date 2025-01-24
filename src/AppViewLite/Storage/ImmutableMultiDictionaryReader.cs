@@ -71,22 +71,44 @@ namespace AppViewLite.Storage
         }
 
         public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key) => GetValues(GetIndex(key));
-        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key, TValue? minExclusive) => GetValues(GetIndex(key), minExclusive);
-        public DangerousHugeReadOnlyMemory<TValue> GetValues(long index, TValue? minExclusive)
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key, TValue? minExclusive, TValue? maxExclusive) => GetValues(GetIndex(key), minExclusive, maxExclusive);
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(long index, TValue? minExclusive, TValue? maxExclusive = null)
         {
             var vals = GetValues(index);
-            if (vals.Length == 0 || minExclusive == null) return vals;
+            if (vals.Length == 0) return vals;
 
-            var z = vals.Span.BinarySearch(minExclusive.Value);
-            if (z >= 0)
+
+            if (minExclusive != null)
             {
-                return vals.Slice(z + 1);
+                var z = vals.Span.BinarySearch(minExclusive.Value);
+                if (z >= 0)
+                {
+                    vals = vals.Slice(z + 1);
+                }
+                else
+                {
+                    z = ~z;
+                    vals = vals.Slice(z);
+                }
+                if (vals.Length == 0) return vals;
             }
-            else
+
+            if (maxExclusive != null)
             {
-                z = ~z;
-                return vals.Slice(z);
+                var z = vals.Span.BinarySearch(maxExclusive.Value);
+                if (z >= 0)
+                {
+                    vals = vals.Slice(0, z);
+                }
+                else
+                {
+                    z = ~z;
+                    vals = vals.Slice(0, z);
+                }
             }
+
+
+            return vals;
         }
         public DangerousHugeReadOnlyMemory<TValue> GetValues(long index)
         {

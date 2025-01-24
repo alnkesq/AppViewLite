@@ -277,7 +277,7 @@ namespace AppViewLite.Storage
             return false;
         }
 
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null)
+        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             ManagedOrNativeArray<TValue> extraArr = default;
@@ -285,14 +285,25 @@ namespace AppViewLite.Storage
             {
                 if (minExclusive != null)
                 {
-                    extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).Order().ToArray();
+                    if (maxExclusive != null)
+                    {
+                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0 && x.CompareTo(maxExclusive.Value) < 0).Order().ToArray();
+                    }
+                    else
+                    {
+                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).Order().ToArray();
+                    }
+                }
+                else if (maxExclusive != null)
+                {
+                    extraArr = extra.Where(x => x.CompareTo(maxExclusive.Value) < 0).Order().ToArray();
                 }
                 else
                 {
                     extraArr = extra.Order().ToArray();
                 }
             }
-            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
+            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);
             return z;
@@ -369,9 +380,9 @@ namespace AppViewLite.Storage
             return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x);
         }
 
-        public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive = null)
+        public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive, TValue? maxExclusive)
         {
-            var chunks = GetValuesChunked(key, minExclusive).ToArray();
+            var chunks = GetValuesChunked(key, minExclusive, maxExclusive).ToArray();
             if (chunks.Length == 0) return [];
             if (chunks.Length == 1) return chunks[0].Reverse();
             var chunksEnumerables = chunks.Select(x => x.Reverse()).ToArray();

@@ -867,7 +867,7 @@ button, input[type=submit] {
 }
 
 
-.post-action-bar-logged-out {
+.post-action-bar-disabled {
     pointer-events: none;
     opacity: 0.5;
 }

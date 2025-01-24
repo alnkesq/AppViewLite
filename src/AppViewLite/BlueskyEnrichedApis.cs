@@ -35,6 +35,7 @@ namespace AppViewLite
         internal ATProtocol protoAppView;
         private BlueskyRelationships relationshipsUnlocked;
 
+        public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
         public BlueskyEnrichedApis(BlueskyRelationships relationships)
         {

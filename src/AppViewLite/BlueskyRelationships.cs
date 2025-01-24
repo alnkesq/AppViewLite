@@ -11,6 +11,7 @@ using AppViewLite;
 using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -471,6 +472,8 @@ namespace AppViewLite
 
             UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, new Plc(proto.InReplyToPlc.GetValueOrDefault())));
 
+            if (proto.QuotedRKey != null)
+                NotifyPostStatsChange(postId);
             return proto;
         }
 
@@ -1443,7 +1446,29 @@ namespace AppViewLite
             lastGlobalFlush.Restart();
         }
 
+        private ConcurrentDictionary<PostId, Action<PostStatsNotification>> PostNotificationHandlers = new();
+
+        internal void NotifyPostStatsChange(PostId postId)
+        {
+            if (PostNotificationHandlers.TryGetValue(postId, out var handler))
+            {
+                handler(new PostStatsNotification(Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)));
             }
+        }
+
+        public void RegisterForPostStatsNotificationThreadSafe(PostId postId, Action<PostStatsNotification>? handler)
+        {
+            if (handler == null) return;
+            PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Combine(prev, handler));
+        }
+        public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, Action<PostStatsNotification>? handler)
+        {
+            if (handler == null) return;
+            if (!PostNotificationHandlers.TryRemove(new(postId, handler))) 
+            {
+                PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Remove(prev, handler));
+            }
+
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

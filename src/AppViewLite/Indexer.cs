@@ -122,6 +122,7 @@ namespace AppViewLite
                             relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc);
                             relationships.MaybeIndexPopularPost(postId, "likes", relationships.Likes.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinLikes);
+                            relationships.NotifyPostStatsChange(postId);
                         }
                     }
                     else if (record is Follow f)
@@ -145,6 +146,7 @@ namespace AppViewLite
                         relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));
                         relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
                         relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
+                        relationships.NotifyPostStatsChange(postId);
                     }
                     else if (record is Block b)
                     {

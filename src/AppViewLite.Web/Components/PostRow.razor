@@ -1,6 +1,7 @@
 @using AppViewLite.Numerics
 @inject NavigationManager NavigationManager
 @inject RequestContext RequestContext
+@implements IDisposable
 
 @code {
     [Parameter]
@@ -26,6 +27,20 @@
 
     private AsyncStateToggler IsLiked;
     private AsyncStateToggler IsReposted;
+
+    private PostId previousPostId;
+    private Action<PostStatsNotification>? PostStatsNotificationHandler;
+
+
+    private void UnregisterNotifications()
+    {
+        BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UnregisterForPostStatsNotificationThreadSafe(Post.PostId, PostStatsNotificationHandler);
+        PostStatsNotificationHandler = null;
+    }
+    public void Dispose()
+    {
+        UnregisterNotifications();
+    }
     protected override void OnParametersSet()
     {
         if (previousPostId != default && previousPostId != Post.PostId)
@@ -47,6 +62,21 @@
             rkey => BlueskyEnrichedApis.Instance.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
 
+        if (PostStatsNotificationHandler == null)
+        {
+            PostStatsNotificationHandler = (h) =>
+            {
+               InvokeAsync(() =>
+               {
+                   IsLiked.ActorCount = h.LikeCount;
+                   IsReposted.ActorCount = h.RepostCount;
+                   Post.ReplyCount = h.ReplyCount;
+                   Post.QuoteCount = h.QuoteCount;
+                   StateHasChanged();
+               });
+            };
+            BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.RegisterForPostStatsNotificationThreadSafe(Post.PostId, PostStatsNotificationHandler);
+        }
     }
 
     public void NavigateToPost()

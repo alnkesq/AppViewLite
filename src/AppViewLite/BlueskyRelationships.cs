@@ -1429,12 +1429,20 @@ namespace AppViewLite
             if (lastGlobalFlush.Elapsed.TotalMinutes >= 5)
             {
                 Console.Error.WriteLine("====== START OF GLOBAL PERIODIC FLUSH ======");
-                foreach (var table in disposables)
-                {
-                    table.Flush(false);
-                }
-                lastGlobalFlush.Restart();
+                GlobalFlush();
                 Console.Error.WriteLine("====== END OF GLOBAL PERIODIC FLUSH ======");
+            }
+        }
+
+        private void GlobalFlush()
+        {
+            foreach (var table in disposables)
+            {
+                table.Flush(false);
+            }
+            lastGlobalFlush.Restart();
+        }
+
             }
         }
 

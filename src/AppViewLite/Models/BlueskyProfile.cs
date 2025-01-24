@@ -20,6 +20,9 @@ namespace AppViewLite.Models
         public Tid? RelationshipRKey;
         public BlockReason BlockReason;
         public bool IsYou;
+
+        public Tid? IsFollowedBySelf;
+        public bool FollowsYou;
     }
 }
 

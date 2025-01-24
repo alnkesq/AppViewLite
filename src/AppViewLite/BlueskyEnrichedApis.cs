@@ -69,6 +69,8 @@ namespace AppViewLite
             }
         }
 
+        
+
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
 
@@ -78,8 +80,11 @@ namespace AppViewLite
             {
                 foreach (var profile in profiles)
                 {
+                    if (ctx.IsLoggedIn && rels.Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
+                        profile.IsFollowedBySelf = followRel.RelationshipRKey;
                     profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
                     profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
+                    profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
                 }
             });
             
@@ -1226,7 +1231,14 @@ namespace AppViewLite
             var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
             return session;
         }
-
+        public async Task<Tid> CreateFollowAsync(string did, RequestContext ctx)
+        {
+            return await CreateRecordAsync(new Follow { Subject = new ATDid(did) }, ctx);
+        }
+        public async Task DeleteFollowAsync(Tid rkey, RequestContext ctx)
+        {
+            await DeleteRecordAsync(Follow.RecordType, rkey, ctx);
+        }
         public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RequestContext ctx)
         {
             var cid = await GetCidAsync(did, Post.RecordType, rkey);

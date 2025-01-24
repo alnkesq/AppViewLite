@@ -1009,8 +1009,6 @@ namespace AppViewLite
             {
                 Profile = GetProfile(plc),
                 Followers = Follows.GetActorCount(plc),
-                FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, plc, out _),
-                YouAreFollowing = ctx.IsLoggedIn && Follows.HasActor(plc, ctx.LoggedInUser, out _),
                 FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x) : new BlueskyProfile { PlcId = x.PlcValue } ).ToList() : null,
             };
         }

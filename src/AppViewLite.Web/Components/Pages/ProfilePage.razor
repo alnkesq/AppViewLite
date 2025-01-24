@@ -45,13 +45,18 @@
 
 @if (Profile != null)
 {
-    <div class="@(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
+    <div class="profile-page @(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
         <img src="@Profile.Profile.AvatarUrl" class="profile-image-large main-padding" />
         <h1 class="main-padding">@Profile.Profile.DisplayNameOrFallback</h1>
 
-        @if (Profile.Profile.BlockReason != default || Profile.FollowsYou || Profile.YouAreFollowing)
+        @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
         {
-            <span class="profile-follow-relationship main-padding">@(Profile.Profile.BlockReason.ToDisplayString() ?? (Profile.FollowsYou && Profile.YouAreFollowing ? "Mutuals" : (Profile.FollowsYou ? "Follows you" : "Following")))</span>
+            <FollowButton Profile="@Profile.Profile" />
+        }
+
+        @if (Profile.Profile.BlockReason != default || Profile.Profile.FollowsYou || Profile.Profile.IsFollowedBySelf != null)
+        {
+            <span class="profile-follow-relationship main-padding">@(Profile.Profile.BlockReason.ToDisplayString() ?? (Profile.Profile.FollowsYou && Profile.Profile.IsFollowedBySelf != null ? "Mutuals" : (Profile.Profile.FollowsYou ? "Follows you" : "Following")))</span>
         }
 
         <div class="profile-follow-links main-padding">

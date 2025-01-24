@@ -372,6 +372,7 @@ ul {
 }
 .post-quoted .post-indented {
     margin-left: 30px;
+    padding-bottom: 10px;
 }
 
 .post-body-link-to-thread {
@@ -746,7 +747,7 @@ button, input[type=submit] {
 .post-focal > .post-meta {
     margin-bottom: 20px;
     padding-top: 8px;
-    padding-left: 48px;
+    margin-left: 70px;
 }
 .post-focal > .post-action-bar {
     margin-top: 0;
@@ -790,4 +791,30 @@ button, input[type=submit] {
 
 .compose-cancel-button {
     margin-left: 20px;
+}
+
+.post-focal .follow-button {
+    position: absolute;
+    right: 20px;
+    z-index: 6;
+}
+
+.follow-button {
+    background-color: rgb(37, 51, 66);
+    border-radius: 50px;
+}
+
+.follow-button-unfollow {
+    background-color: #F1F3F5;
+    color: #42576C;
+}
+.profile-page .follow-button {
+    position: absolute;
+    right: 20px;
+    top: 200px;
+}
+
+.profile-row .follow-button {
+    position: absolute;
+    right: 20px;
 }

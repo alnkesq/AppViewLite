@@ -1,7 +1,9 @@
+@inject RequestContext RequestContext
 
 @code {
     [Parameter]
     public required BlueskyProfile Profile { get; set; }
+
 }
 <li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did">
     <a href="@Profile.BaseUrl" class="profile-row-name">
@@ -12,5 +14,8 @@
     {
         <span class="profile-follow-relationship">@Profile.BlockReason.ToDisplayString()</span>
     }
-
+    @if (RequestContext.IsLoggedIn && Profile.Plc != RequestContext.LoggedInUser)
+    {
+        <FollowButton Profile="@Profile" />
+    }
 </li>

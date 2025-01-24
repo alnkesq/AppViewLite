@@ -1315,7 +1315,7 @@ namespace AppViewLite
         {
             if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return [];
             return
-                Notifications.GetValuesSortedDescending(user, BlueskyRelationships.GetNotificationThresholdForDate(threshold))
+                Notifications.GetValuesSortedDescending(user, BlueskyRelationships.GetNotificationThresholdForDate(threshold), default)
                 .Take(200)
                 .Select(x => RehydrateNotification(x, user))
                 .Where(x => x != null)

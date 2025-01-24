@@ -166,6 +166,8 @@ namespace AppViewLite
                 item.BeforeFlush += flushMappings;
             }
 
+            CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
+
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)

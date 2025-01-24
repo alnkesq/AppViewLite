@@ -1456,19 +1456,32 @@ namespace AppViewLite
             }
         }
 
+        //private Dictionary<PostId, int> notifDebug = new();
+
         public void RegisterForPostStatsNotificationThreadSafe(PostId postId, Action<PostStatsNotification>? handler)
         {
             if (handler == null) return;
-            PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Combine(prev, handler));
+            //lock (notifDebug)
+            {
+                //notifDebug.Increment(postId);
+                PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Combine(prev, handler));
+            }
         }
         public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, Action<PostStatsNotification>? handler)
         {
             if (handler == null) return;
-            if (!PostNotificationHandlers.TryRemove(new(postId, handler))) 
+            //lock (notifDebug)
             {
-                PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Remove(prev, handler));
-            }
+                //if (!PostNotificationHandlers.ContainsKey(postId)) throw new Exception();
+                //if (notifDebug[postId] == 0) throw new Exception();
+                //notifDebug.Increment(postId, -1);
 
+                if (!PostNotificationHandlers.TryRemove(new(postId, handler)))
+                {
+                    PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Remove(prev, handler));
+                }
+                //if (notifDebug[postId] == 0 && PostNotificationHandlers.ContainsKey(postId)) throw new Exception();
+            }
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

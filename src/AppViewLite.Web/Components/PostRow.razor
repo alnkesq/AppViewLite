@@ -28,14 +28,15 @@
     private AsyncStateToggler IsLiked;
     private AsyncStateToggler IsReposted;
 
-    private PostId previousPostId;
+    private PostId notificationsRegisteredForPostId;
     private Action<PostStatsNotification>? PostStatsNotificationHandler;
 
 
     private void UnregisterNotifications()
     {
-        BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UnregisterForPostStatsNotificationThreadSafe(Post.PostId, PostStatsNotificationHandler);
+        BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UnregisterForPostStatsNotificationThreadSafe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
         PostStatsNotificationHandler = null;
+        notificationsRegisteredForPostId = default;
     }
     public void Dispose()
     {
@@ -55,11 +56,11 @@
 
     protected override void OnParametersSet()
     {
-        if (previousPostId != default && previousPostId != Post.PostId)
+        if (notificationsRegisteredForPostId != default && notificationsRegisteredForPostId != Post.PostId)
         {
             UnregisterNotifications();    
         }
-        previousPostId = Post.PostId;
+        notificationsRegisteredForPostId = Post.PostId;
         IsLiked = new AsyncStateToggler(
             Post.LikeCount, 
             Post.IsLikedBySelf, 

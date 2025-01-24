@@ -640,6 +640,10 @@ details:not([open]) .summary-when-open {
     overflow: hidden;
 }
 
+.post-quoted .post-external-preview {
+    margin-bottom: 20px;
+}
+
 .post-external-gif {
     display: block;
     margin-right: 20px;
@@ -817,4 +821,46 @@ button, input[type=submit] {
 .profile-row .follow-button {
     position: absolute;
     right: 20px;
+}
+
+.post-repost-menu {
+    position: absolute;
+    z-index: 7;
+    margin-top: 30px;
+    margin-left: -37px;
+}
+.menu {
+    border-radius: 4px;
+    border: 1px solid #D4DBE2;
+    box-shadow: 0px 0px 5px 5px rgba(0, 0, 0, 0.1);
+    background: white;
+    width: 150px;
+}
+.menu-item {
+    padding: 10px 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 2px;
+    color: rgb(37, 51, 66);
+    background: none;
+    display: block;
+    text-align: left;
+    width: calc(100% - 4px);
+}
+    .menu-item:hover {
+        background: #F1F3F5;
+    }
+
+
+.compose-quoted-post {
+    margin-left: 50px;
+    margin-top: 20px;
+
+}
+
+
+.post-action-bar-logged-out {
+    pointer-events: none;
+    opacity: 0.5;
 }

@@ -5,9 +5,12 @@
 
 @code {
     [SupplyParameterFromQuery] [Parameter] public string? ReplyDid { get; set; }
-    [SupplyParameterFromQuery] [Parameter] public string? ReplyRkey { get; set; }
+    [SupplyParameterFromQuery][Parameter] public string? ReplyRkey { get; set; }
+    [SupplyParameterFromQuery][Parameter] public string? QuoteDid { get; set; }
+    [SupplyParameterFromQuery][Parameter] public string? QuoteRkey { get; set; }
 
     public bool IsReply => ReplyRkey != null && ReplyDid != null;
+    public bool IsQuote => QuoteRkey != null && QuoteDid != null;
 
     [SupplyParameterFromForm]
     private ComposePostData? Model { get; set; }
@@ -19,17 +22,22 @@
     }
 
     private BlueskyPost? ReplyToPost;
+    private BlueskyPost? QuotedPost;
 
     protected override async Task OnParametersSetAsync()
     {
         ReplyToPost = IsReply ? await BlueskyEnrichedApis.Instance.GetPostAsync(ReplyDid!, ReplyRkey!, RequestContext) : null;
+        QuotedPost = IsQuote ? await BlueskyEnrichedApis.Instance.GetPostAsync(QuoteDid!, QuoteRkey!, RequestContext) : null;
     }
 
     private async Task Submit()
     {
         if (!string.IsNullOrWhiteSpace(Model!.Text))
         {
-            var rkey = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text, IsReply ? new PostIdString(ReplyDid!, ReplyRkey!) : null, RequestContext);
+            var rkey = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text,
+                inReplyTo: IsReply ? new PostIdString(ReplyDid!, ReplyRkey!) : null, 
+                quotedPost: IsQuote ? new PostIdString(QuoteDid!, QuoteRkey!) : null,
+                RequestContext);
             Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + rkey, true);
         }
     }
@@ -72,3 +80,11 @@ else
     </div>
 </form>
 
+@if (QuotedPost != null)
+{
+    <ul class="post-quoted compose-quoted-post">
+        <PostRow Post="QuotedPost" IsQuote="true" />
+    </ul>
+        
+
+}

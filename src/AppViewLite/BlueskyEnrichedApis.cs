@@ -25,6 +25,7 @@ using System.Diagnostics;
 using System.Globalization;
 using AppViewLite;
 using PeterO.Cbor;
+using FishyFlip.Lexicon.App.Bsky.Embed;
 
 namespace AppViewLite
 {
@@ -1265,21 +1266,34 @@ namespace AppViewLite
             await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session.Did, collection, rkey.ToString()), ctx);
         }
 
-        public async Task<Tid> CreatePostAsync(string text, PostIdString? inReplyTo, RequestContext ctx)
+        public async Task<Tid> CreatePostAsync(string text, PostIdString? inReplyTo, PostIdString? quotedPost, RequestContext ctx)
         {
             ReplyRefDef? replyRefDef = null;
-            if (inReplyTo != null) 
+            if (inReplyTo != null)
             {
-                var inReplyToRecordInfo = (await proto.Repo.GetRecordAsync(new ATDid(inReplyTo.Did), Post.RecordType, inReplyTo.RKey)).HandleResult();
-                var inReplyToRecord = (Post)inReplyToRecordInfo!.Value;
-                var inReplyToStrongRef = new StrongRef(inReplyToRecordInfo.Uri, inReplyToRecordInfo.Cid);
+                var inReplyToRef = await GetPostStrongRefAsync(inReplyTo);
                 replyRefDef = new ReplyRefDef
                 {
-                    Parent = inReplyToStrongRef,
-                    Root = inReplyToRecord.Reply?.Root ?? inReplyToStrongRef,
+                    Parent = inReplyToRef.StrongRef,
+                    Root = inReplyToRef.Record.Reply?.Root ?? inReplyToRef.StrongRef,
                 };
             }
-            return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef }, ctx);
+            ATObject? embed = null;
+            if (quotedPost != null)
+            {
+                embed = new EmbedRecord
+                {
+                    Record = (await GetPostStrongRefAsync(quotedPost)).StrongRef,
+                };
+            }
+            return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef, Embed = embed }, ctx);
+        }
+
+        private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post)
+        {
+            var info = (await proto.Repo.GetRecordAsync(new ATDid(post.Did), Post.RecordType, post.RKey)).HandleResult();
+            return (new StrongRef(info.Uri, info.Cid), (Post)info.Value);
+            
         }
 
         internal Task<string> GetCidAsync(string did, string collection, Tid rkey)

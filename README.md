@@ -21,7 +21,7 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 
 - [X] Profile pages (posts, replies, media, following, followers)
 - [X] Reverse relationships (post likers/reposts/quotes)
-- [X] Compose posts and like/repost
+- [X] Create and delete posts/quotes/replies/likes/reposts/follows
 - [X] Full text search (including date and author filtering)
 - [X] Timeline
 - [X] Custom feeds

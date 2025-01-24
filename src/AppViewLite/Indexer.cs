@@ -41,7 +41,8 @@ namespace AppViewLite
                 var rel = new Relationship(relationships.SerializeDid(commitAuthor), tid);
                 if (collection == Like.RecordType)
                 {
-                    relationships.Likes.Delete(rel, deletionDate);
+                    var target = relationships.Likes.Delete(rel, deletionDate);
+                    if (target != null) relationships.NotifyPostStatsChange(target.Value);
                 }
                 else if (collection == Follow.RecordType)
                 {
@@ -53,7 +54,8 @@ namespace AppViewLite
                 }
                 else if (collection == Repost.RecordType)
                 {
-                    relationships.Reposts.Delete(rel, deletionDate);
+                    var target = relationships.Reposts.Delete(rel, deletionDate);
+                    if (target != null) relationships.NotifyPostStatsChange(target.Value);
                 }
                 else if (collection == Post.RecordType)
                 {

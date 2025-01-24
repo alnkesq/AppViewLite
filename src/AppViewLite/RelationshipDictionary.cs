@@ -114,7 +114,7 @@ namespace AppViewLite
             relationshipIdHashToApproxTarget?.Dispose();
         }
 
-        public void Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
+        public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
         {
             if (!deletions.ContainsKey(rel))
             {
@@ -131,7 +131,7 @@ namespace AppViewLite
                     deletionCounts.Add(target.Value, prevDeletionCount + 1);
                 }
             }
-
+            return target;
         }
 
 

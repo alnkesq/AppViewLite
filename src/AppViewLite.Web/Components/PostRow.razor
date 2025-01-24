@@ -32,6 +32,7 @@
     private Action<PostStatsNotification>? PostStatsNotificationHandler;
 
     private bool RepostMenuVisible;
+    private bool PostMenuVisible;
 
     private void UnregisterNotifications()
     {
@@ -102,6 +103,26 @@
         }
     }
 
+
+    public async Task DeletePostAsync()
+    {
+        if (Post.Author.Plc != RequestContext.LoggedInUser) throw new Exception();
+        PostMenuVisible = false;
+        string? navigateTo = "/";
+        if (Post.InReplyToPostId != null)
+        {
+            var inReplyToDid = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.TryGetDid(Post.InReplyToPostId.Value.Author));
+            navigateTo = "/@" + inReplyToDid + "/" + Post.InReplyToPostId.Value.PostRKey;
+        }
+        await BlueskyEnrichedApis.Instance.DeletePostAsync(Post.PostId.PostRKey, RequestContext);
+        NavigationManager.NavigateTo(navigateTo);
+    }
+
+    public void ViewOnBluesky()
+    {
+        PostMenuVisible = false;
+        NavigationManager.NavigateTo(Post.BlueskyUrl);
+    }
     public void NavigateToWriteReply()
     {
         if (RequestContext.IsLoggedIn)
@@ -130,6 +151,13 @@
     {
         if (!RequestContext.IsLoggedIn) return;
         RepostMenuVisible = !RepostMenuVisible;
+        PostMenuVisible = false;
+    }
+
+    public void TogglePostMenu()
+    {
+        PostMenuVisible = !PostMenuVisible;
+        RepostMenuVisible = false;
     }
 
     public void ToggleRepostAndCloseMenu()
@@ -300,7 +328,7 @@
 
     @if (IsFocalPost)
     {
-        <a href="@Post.BlueskyUrl" title="View on bsky.app" target="_blank" class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</a>
+        <div class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</div>
         @if (Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0)
         {
             <div class="post-focal-stats post-indented">
@@ -361,6 +389,22 @@
                         <svg fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159); pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M16.734 5.091c-1.238-.276-2.708.047-4.022 1.38a1 1 0 0 1-1.424 0C9.974 5.137 8.504 4.814 7.266 5.09c-1.263.282-2.379 1.206-2.92 2.556C3.33 10.18 4.252 14.84 12 19.348c7.747-4.508 8.67-9.168 7.654-11.7-.541-1.351-1.657-2.275-2.92-2.557Zm4.777 1.812c1.604 4-.494 9.69-9.022 14.47a1 1 0 0 1-.978 0C2.983 16.592.885 10.902 2.49 6.902c.779-1.942 2.414-3.334 4.342-3.764 1.697-.378 3.552.003 5.169 1.286 1.617-1.283 3.472-1.664 5.17-1.286 1.927.43 3.562 1.822 4.34 3.764Z"></path></svg>
                     }
                     @(IsLiked.ActorCount != 0 ? @StringUtils.FormatEngagementCount(IsLiked.ActorCount) : null)
+                </button>
+            </div>
+
+            <div class="post-action-bar-spacer">
+                @if (PostMenuVisible)
+                {
+                    <div class="post-post-menu menu">
+                        @if (Post.Author.Plc == RequestContext.LoggedInUser)
+                        {
+                            <button class="menu-item" @onclick="DeletePostAsync">Delete</button>
+                        }
+                        <button class="menu-item" @onclick="ViewOnBluesky">View on Bluesky</button>
+                    </div>
+                }
+                <button @onclick="TogglePostMenu" class="post-action-bar-button">
+                    <svg fill="none" viewBox="0 0 24 24" width="20" height="20" style="pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm16 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm-6-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path></svg>
                 </button>
             </div>
         </div>

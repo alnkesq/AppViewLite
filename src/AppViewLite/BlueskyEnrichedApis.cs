@@ -1257,6 +1257,10 @@ namespace AppViewLite
         {
             await DeleteRecordAsync(Like.RecordType, likeRKey, ctx);
         }
+        public async Task DeletePostAsync(Tid postRkey, RequestContext ctx)
+        {
+            await DeleteRecordAsync(Post.RecordType, postRkey, ctx);
+        }
         public async Task DeleteRepostAsync(Tid repostRKey, RequestContext ctx)
         {
             await DeleteRecordAsync(Repost.RecordType, repostRKey, ctx);

@@ -27,10 +27,11 @@ namespace AppViewLite
         }
 
 
-        public void OnRecordDeleted(string commitAuthor, string path)
+        public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
         {
             lock (relationships)
             {
+                if (ignoreIfDisposing && relationships.IsDisposed) return;
                 var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
                 var slash = path!.IndexOf('/');
@@ -101,13 +102,14 @@ namespace AppViewLite
         }
 
 
-        private void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false)
+        private void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false)
         {
         
 
             ContinueOutsideLock? continueOutsideLock = null;
             lock (relationships)
             {
+                if (ignoreIfDisposing && relationships.IsDisposed) return;
                 try
                 {
                     if (!generateNotifications) relationships.SuppressNotificationGeneration++;
@@ -238,11 +240,11 @@ namespace AppViewLite
         {
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
             {
-                OnRecordCreated(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, e.Record.Commit.Record!, generateNotifications: true);
+                OnRecordCreated(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, e.Record.Commit.Record!, generateNotifications: true, ignoreIfDisposing: true);
             }
             if (e.Record.Commit?.Operation == ATWebSocketCommitType.Delete)
             {
-                OnRecordDeleted(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey);
+                OnRecordDeleted(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, ignoreIfDisposing: true);
             }
         }
 
@@ -327,10 +329,10 @@ namespace AppViewLite
 
             foreach (var del in (message.Commit?.Ops ?? []).Where(x => x.Action == "delete"))
             {
-                OnRecordDeleted(commitAuthor, del.Path);
+                OnRecordDeleted(commitAuthor, del.Path, ignoreIfDisposing: true);
             }
 
-            OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record, generateNotifications: true);
+            OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record, generateNotifications: true, ignoreIfDisposing: true);
         }
 
 

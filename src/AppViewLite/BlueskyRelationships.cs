@@ -215,6 +215,7 @@ namespace AppViewLite
             return (UInt24)(((uint)plc.PlcValue) >> 8);
         }
 
+        public bool IsDisposed => _disposed;
         public void Dispose()
         {
             lock (this)

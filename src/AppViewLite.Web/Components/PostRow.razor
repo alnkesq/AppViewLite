@@ -39,8 +39,20 @@
     }
     public void Dispose()
     {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+    public void Dispose(bool disposing)
+    {
+        if(!disposing && PostStatsNotificationHandler != null)
+        {
+        
+        
+        }
         UnregisterNotifications();
     }
+    
+
     protected override void OnParametersSet()
     {
         if (previousPostId != default && previousPostId != Post.PostId)
@@ -64,17 +76,26 @@
 
         if (PostStatsNotificationHandler == null)
         {
-            PostStatsNotificationHandler = (h) =>
+            static Action<PostStatsNotification> CreateLambda(WeakReference<PostRow> weakref, PostId postId)
             {
-               InvokeAsync(() =>
-               {
-                   IsLiked.ActorCount = h.LikeCount;
-                   IsReposted.ActorCount = h.RepostCount;
-                   Post.ReplyCount = h.ReplyCount;
-                   Post.QuoteCount = h.QuoteCount;
-                   StateHasChanged();
-               });
-            };
+                return h =>
+                {
+                    if (weakref.TryGetTarget(out var page))
+                    {
+                        page.InvokeAsync(() =>
+                        {
+                            if (page.Post.PostId != postId) return;
+                            page.IsLiked.ActorCount = h.LikeCount;
+                            page.IsReposted.ActorCount = h.RepostCount;
+                            page.Post.ReplyCount = h.ReplyCount;
+                            page.Post.QuoteCount = h.QuoteCount;
+                            page.StateHasChanged();
+                        });
+                    }
+                };
+
+            }
+            PostStatsNotificationHandler = CreateLambda(new WeakReference<PostRow>(this), this.Post.PostId);
             BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.RegisterForPostStatsNotificationThreadSafe(Post.PostId, PostStatsNotificationHandler);
         }
     }

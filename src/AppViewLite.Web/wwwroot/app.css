@@ -935,3 +935,7 @@ button, input[type=submit] {
   textarea {
     resize: none;
   }
+
+  .display-none {
+    display: none;
+  }

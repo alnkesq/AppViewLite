@@ -337,23 +337,16 @@
     @if (IsFocalPost)
     {
         <div class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</div>
-        @if (Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0)
-        {
-            <div class="post-focal-stats post-indented">
-                @if (IsReposted.ActorCount != 0)
-                {
-                    <a href="@Post.BaseUrl/reposts"><b class="post-stats-reposts-formatted">@StringUtils.FormatEngagementCount(@IsReposted.ActorCount)</b> @(@IsReposted.ActorCount == 1 ? "repost" : "reposts")</a>
-                }
-                @if (Post.QuoteCount != 0)
-                {
-                    <a href="@Post.BaseUrl/quotes"><b class="post-stats-quotes-formatted">@StringUtils.FormatEngagementCount(Post.QuoteCount)</b> @(@Post.QuoteCount == 1 ? "quote" : "quotes")</a>
-                }
-                @if (IsLiked.ActorCount != 0)
-                {
-                    <a href="@Post.BaseUrl/likes"><b class="post-stats-likes-formatted">@StringUtils.FormatEngagementCount(@IsLiked.ActorCount)</b> @(@IsLiked.ActorCount == 1 ? "like" : "likes")</a>
-                }
-            </div>
-        }
+
+        <div class="post-focal-stats post-indented @(Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0 ? null : "display-none")">
+
+            <a href="@Post.BaseUrl/reposts" class="post-stats-reposts-formatted @(IsReposted.ActorCount != 0 ? null : "display-none")"><b>@StringUtils.FormatEngagementCount(@IsReposted.ActorCount)</b> @(@IsReposted.ActorCount == 1 ? "repost" : "reposts")</a>
+
+            <a href="@Post.BaseUrl/quotes" class="post-stats-quotes-formatted @(Post.QuoteCount != 0 ? null : "display-none")"><b>@StringUtils.FormatEngagementCount(Post.QuoteCount)</b> @(@Post.QuoteCount == 1 ? "quote" : "quotes")</a>
+
+            <a href="@Post.BaseUrl/likes" class="post-stats-likes-formatted @(IsLiked.ActorCount != 0 ? null : "display-none")"><b>@StringUtils.FormatEngagementCount(@IsLiked.ActorCount)</b> @(@IsLiked.ActorCount == 1 ? "like" : "likes")</a>
+        </div>
+        
     }
 
     @if (!IsQuote)

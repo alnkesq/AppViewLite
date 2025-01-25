@@ -264,24 +264,34 @@ class ActionStateToggler {
     }
 }
 
+function setPostStats(postElement, actorCount, kind, singular, plural) { 
+    var stats = postElement.querySelector('.post-stats-' + kind + '-formatted');
+    if (!stats) return;
+    stats.classList.toggle('display-none', !actorCount);
+    var b = stats.firstElementChild;
+    var text = stats.lastChild;
+    b.textContent = formatEngagementCount(actorCount);
+    text.replaceWith(document.createTextNode(' ' + (actorCount == 1 ? singular : plural)));
+    var allStats = postElement.querySelector('.post-focal-stats');
+    allStats.classList.toggle('display-none', [...allStats.children].every(x => x.classList.contains('display-none')));
+}
+function setActionStats(postElement, actorCount, kind) { 
+    postElement.querySelector('.post-action-bar-button-' + kind + ' span').textContent = actorCount ? formatEngagementCount(actorCount) : '';
+}
 
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
         postElement.likeToggler ??= new ActionStateToggler(+postElement.dataset.likecount, +postElement.dataset.likerkey, async () => 'aaaaa', async (rkey) => { }, (count, have) => { 
-            var statsLikes = postElement.querySelector('.post-stats-likes-formatted');
-            if(statsLikes)
-                statsLikes.textContent = formatEngagementCount(count);
-            postElement.querySelector('.post-action-bar-button-like span').textContent = formatEngagementCount(count);
+            setPostStats(postElement, count, 'likes', 'like', 'likes');
+            setActionStats(postElement, count, 'like');
             postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
         });
         postElement.likeToggler.toggleIfNotBusyAsync();
     },
     toggleRepost: async function (did, rkey, postElement) { 
         postElement.repostToggler ??= new ActionStateToggler(+postElement.dataset.repostcount, +postElement.dataset.repostrkey, async () => 'aaaaa', async (rkey) => { }, (count, have) => { 
-            var statsReposts = postElement.querySelector('.post-stats-reposts-formatted');
-            if(statsReposts)
-                statsReposts.textContent = formatEngagementCount(count);
-            postElement.querySelector('.post-action-bar-button-repost span').textContent = formatEngagementCount(count + +postElement.dataset.quotecount);
+            setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
+            setActionStats(postElement, count + +postElement.dataset.quotecount, 'repost');
             postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
             postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
         });

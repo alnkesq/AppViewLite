@@ -339,7 +339,12 @@ var postActions = {
 
 var userActions = {
     toggleFollow: async function (profiledid, followrkey, followsyou, postElement) { 
-        postElement.followToggler ??= new ActionStateToggler(0, followrkey != '-' ? followrkey : null, async () => 'aaaaa', async (rkey) => { }, (count, have) => { 
+        postElement.followToggler ??= new ActionStateToggler(
+            0,
+            followrkey,
+            async () => (await httpPost('CreateFollow', { did: profiledid })).rkey,
+            async (rkey) => (await httpPost('DeleteFollow', { rkey })),
+            (count, have) => { 
             var btn = postElement;
             btn.textContent = have ? 'Unfollow' : +followsyou ? 'Follow back' : 'Follow';
             btn.classList.toggle('follow-button-unfollow', have);

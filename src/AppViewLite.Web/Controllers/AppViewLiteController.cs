@@ -40,6 +40,14 @@ namespace AppViewLite.Web
                 rkey = (await BlueskyEnrichedApis.Instance.CreateRepostAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
             };
         }
+        [HttpPost(nameof(CreateFollow))]
+        public async Task<object> CreateFollow([FromBody] DidOnly did)
+        {
+            return new
+            {
+                rkey = (await BlueskyEnrichedApis.Instance.CreateFollowAsync(did.Did, ctx)).ToString()
+            };
+        }
         [HttpPost(nameof(DeleteRepost))]
         public async Task DeleteRepost([FromBody] RKeyOnly rkey)
         {
@@ -50,9 +58,15 @@ namespace AppViewLite.Web
         {
             await BlueskyEnrichedApis.Instance.DeletePostAsync(Tid.Parse(rkey.Rkey), ctx);
         }
+        [HttpPost(nameof(DeleteFollow))]
+        public async Task DeleteFollow([FromBody] RKeyOnly rkey)
+        {
+            await BlueskyEnrichedApis.Instance.DeleteFollowAsync(Tid.Parse(rkey.Rkey), ctx);
+        }
     }
 
     public record DidAndRKey(string Did, string Rkey);
     public record RKeyOnly(string Rkey);
+    public record DidOnly(string Did);
 }
 

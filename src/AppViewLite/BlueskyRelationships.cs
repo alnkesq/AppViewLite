@@ -890,20 +890,31 @@ namespace AppViewLite
 
         internal BlueskyPostData? TryGetPostData(PostId id)
         {
-            if (PostDeletions.ContainsKey(id))
-            {
-                return new BlueskyPostData { Deleted = true, Error = "This post was deleted." };
-            }
-
+            var isDeleted = PostDeletions.ContainsKey(id);
+            
             BlueskyPostData? proto = null;
             if (PostData.TryGetPreserveOrderSpanAny(id, out var postDataCompressed))
             {
                 proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id);
             }
-            else if (FailedPostLookups.ContainsKey(id))
+            else if (!isDeleted && FailedPostLookups.ContainsKey(id))
             {
                 proto = new BlueskyPostData { Error = "This post could not be retrieved." };
             }
+
+            if (isDeleted)
+            {
+                return new BlueskyPostData 
+                { 
+                    Deleted = true, 
+                    Error = "This post was deleted.", 
+                    RootPostPlc = proto?.RootPostPlc,
+                    RootPostRKey = proto?.RootPostRKey,
+                    InReplyToPlc = proto?.InReplyToPlc,
+                    InReplyToRKey = proto?.InReplyToRKey,
+                };
+            }
+
             return proto;
         }
 

@@ -15,6 +15,7 @@ namespace AppViewLite.Web
         protected static BlueskyRelationships Relationships;
 
         public static bool AllowPublicReadOnlyFakeLogin = false;
+        public static bool ListenToFirehose = true;
 
         public static string ToFullHumanDate(DateTime date)
         {
@@ -108,12 +109,15 @@ namespace AppViewLite.Web
                 endpoints.MapControllers();
             });
 
-            _ = Task.Run(async () =>
+            if (ListenToFirehose)
             {
-                await Task.Delay(1000);
-                app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
-                await indexer.ListenJetStreamFirehoseAsync();
-            });
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000);
+                    app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
+                    await indexer.ListenJetStreamFirehoseAsync();
+                });
+            }
             app.Run();
             
         }

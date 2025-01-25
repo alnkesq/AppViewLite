@@ -524,11 +524,6 @@ namespace AppViewLite
                         var postsCore = rels.PostData.GetInRangeUnsorted(startPostId, endPostId)
                             .Where(x =>
                             {
-                                if (alreadyProcessedPosts != null)
-                                {
-                                    if (!alreadyProcessedPosts.TryAdd(x.Key, new CachedSearchResult(null, -1))) // Will be overwritten later with actual post, if it matches
-                                        return false;
-                                }
                                 var date = x.Key.PostRKey.Date;
                                 if (date < options.Since) return false;
                                 if (until != null && date >= until) return false;
@@ -550,6 +545,15 @@ namespace AppViewLite
                         }
 
                         var posts = postsCore
+                            .Where(x => 
+                            {
+                                if (alreadyProcessedPosts != null)
+                                {
+                                    if (!alreadyProcessedPosts.TryAdd(x.Key, new CachedSearchResult(null, -1))) // Will be overwritten later with actual post, if it matches
+                                        return false;
+                                }
+                                return true;
+                            })
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
                             .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)));

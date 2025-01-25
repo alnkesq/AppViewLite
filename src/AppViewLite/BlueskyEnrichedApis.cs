@@ -346,7 +346,7 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default)
         {
             EnsureLimit(ref limit, 30);
-            options = await InitializeSearchOptionsAsync(options);
+            options = await InitializeSearchOptionsAsync(options, ctx);
 
             var cursor = continuation != null ? TopPostSearchCursor.Deserialize(continuation) : new TopPostSearchCursor(65536, Guid.NewGuid(), 0);
             var minLikes = cursor.MinLikes;
@@ -410,7 +410,7 @@ namespace AppViewLite
                 while (true)
                 {
                     Console.Error.WriteLine("Try top search with minLikes: " + minLikes);
-                    var latest = await SearchLatestPostsAsync(options with { MinLikes = Math.Max(minLikes, options.MinLikes) }, limit: limit * 2, ctx: default, enrichOutput: false, alreadyProcessedPosts: searchSession.AlreadyProcessed);
+                    var latest = await SearchLatestPostsAsync(options with { MinLikes = Math.Max(minLikes, options.MinLikes) }, limit: limit * 2, ctx: ctx, enrichOutput: false, alreadyProcessedPosts: searchSession.AlreadyProcessed);
                     if (latest.Posts.Length != 0)
                     {
                         foreach (var post in latest.Posts)
@@ -470,7 +470,7 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
         {
             EnsureLimit(ref limit, 30);
-            options = await InitializeSearchOptionsAsync(options);
+            options = await InitializeSearchOptionsAsync(options, ctx);
             var until = options.Until;
             var query = options.Query;
             var author = options.Author != null ? WithRelationshipsLock(rels => rels.SerializeDid(options.Author)) : default;
@@ -575,7 +575,7 @@ namespace AppViewLite
             return (posts, posts.Length > limit ? posts.LastOrDefault()?.PostId.Serialize() : null);
         }
 
-        private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options)
+        private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options, RequestContext ctx)
         {
             var q = options.Query;
             string? author = options.Author;
@@ -602,6 +602,9 @@ namespace AppViewLite
 
                 return true;
             });
+
+            if (author == "me" && ctx.Session.IsLoggedIn)
+                author = ctx.Session?.Did;
 
             if (author != null && author.StartsWith('@'))
                 author = author.Substring(1);

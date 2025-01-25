@@ -18,7 +18,10 @@
             Password (or <a href="https://bsky.app/settings/app-passwords" target="_blank" class="blue-link" tabindex="4">app-specific</a> password):<br>
             <InputText @bind-Value="Model!.Password" type="password" tabindex="2" />
         </label>
-        <div><i>Use 'readonly' for a simulated login.<br>You won't be able to perform write actions to your repository.</i></div>
+        @if (Program.AllowPublicReadOnlyFakeLogin)
+        {
+            <div><i>Use 'readonly' for a simulated login.<br>You won't be able to perform write actions to your repository.</i></div>
+        }
     </div>
     <br>
     <div>

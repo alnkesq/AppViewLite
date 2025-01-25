@@ -14,6 +14,7 @@ namespace AppViewLite.Web
     {
         protected static BlueskyRelationships Relationships;
 
+        public static bool AllowPublicReadOnlyFakeLogin = false;
 
         public static string ToFullHumanDate(DateTime date)
         {
@@ -175,7 +176,7 @@ namespace AppViewLite.Web
         {
             if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException();
 
-            var isReadOnly = password == "readonly";
+            var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
 
             var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(handle);
             var atSession = isReadOnly ? null : await BlueskyEnrichedApis.Instance.LoginToPdsAsync(did, password);

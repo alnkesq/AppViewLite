@@ -1,5 +1,27 @@
 var hasBlazor = !!window.Blazor;
 
+
+var liveUpdatesPostIds = new Set();
+
+var liveUpdatesConnectionFuture = (async () => {
+
+
+    var connection = new signalR.HubConnectionBuilder().withUrl("/api/live-updates").build();
+    connection.on('PostEngagementChanged', (stats, ownRelationship) => {
+        console.log('PostEngagementChanged: ');
+        for (const postElement of document.querySelectorAll('.post[data-postrkey="' + stats.rKey + '"][data-postdid="' + stats.did + '"]')) {
+            var likeToggler = getOrCreateLikeToggler(stats.did, stats.rKey, postElement);
+            likeToggler.applyLiveUpdate(stats.likeCount, ownRelationship?.likeRkey);
+
+            var repostToggler = getOrCreateRepostToggler(stats.did, stats.rKey, postElement);
+            repostToggler.applyLiveUpdate(stats.repostCount, ownRelationship?.repostRkey);
+        }
+    })
+    await connection.start();
+    return connection;
+})();
+
+
 function applyPageFocus() {
     var focalPost = document.querySelector('.post-focal');
     if (focalPost) focalPost.scrollIntoView();
@@ -65,6 +87,7 @@ async function applyPage(href, preferRefresh, scrollToTop) {
     if (scrollToTop) { 
         applyPageFocus();
     }
+    updateLiveSubscriptions();
 
 }
 
@@ -144,6 +167,8 @@ if (!hasBlazor) {
         var newPagination = temp.querySelector('.pagination-button');
         if (!newPagination || !anyChildren) paginationButton.remove();
         else paginationButton.replaceWith(newPagination);
+
+        if (anyChildren) updateLiveSubscriptions();
     });
 
     document.addEventListener('click', e => {
@@ -208,6 +233,8 @@ if (!hasBlazor) {
         }
         */
     });
+
+    updateLiveSubscriptions();
 }
 
 function getAncestorData(target, name) { 
@@ -231,6 +258,16 @@ class ActionStateToggler {
         this.busy = false;
         this.haveRelationship = !!rkey;
         this.notifyChange = notifyChange;
+    }
+
+    applyLiveUpdate(actorCount, rkey) { 
+        this.actorCount = actorCount;
+        if (rkey) { // null means leave unchanged
+            if (!rkey || rkey == '-') rkey = null;
+            this.haveRelationship = !!rkey;
+        }
+        this.rkey = rkey;
+        this.notifyChange(this.actorCount, this.haveRelationship);
     }
 
     raiseChangeNotification(){ 
@@ -294,33 +331,40 @@ function setActionStats(postElement, actorCount, kind) {
     postElement.querySelector('.post-action-bar-button-' + kind + ' span').textContent = actorCount ? formatEngagementCount(actorCount) : '';
 }
 
+
+function getOrCreateLikeToggler(did, rkey, postElement) { 
+    return postElement.likeToggler ??= new ActionStateToggler(
+        +postElement.dataset.likecount,
+        postElement.dataset.likerkey,
+        async () => (await httpPost('CreatePostLike', { did, rkey })).rkey,
+        async (rkey) => (await httpPost('DeletePostLike', { rkey })),
+        (count, have) => { 
+            setPostStats(postElement, count, 'likes', 'like', 'likes');
+            setActionStats(postElement, count, 'like');
+            postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
+        });
+}
+
+function getOrCreateRepostToggler(did, rkey, postElement) { 
+    return postElement.repostToggler ??= new ActionStateToggler(
+        +postElement.dataset.repostcount,
+        postElement.dataset.repostrkey,
+        async () => (await httpPost('CreateRepost', { did, rkey })).rkey,
+        async (rkey) => (await httpPost('DeleteRepost', { rkey })),
+        (count, have) => { 
+            setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
+            setActionStats(postElement, count + +postElement.dataset.quotecount, 'repost');
+            postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
+            postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
+        });
+}
+
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
-        postElement.likeToggler ??= new ActionStateToggler(
-            +postElement.dataset.likecount,
-            postElement.dataset.likerkey,
-            async () => (await httpPost('CreatePostLike', { did, rkey })).rkey,
-            async (rkey) => (await httpPost('DeletePostLike', { rkey })),
-            (count, have) => { 
-                setPostStats(postElement, count, 'likes', 'like', 'likes');
-                setActionStats(postElement, count, 'like');
-                postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
-            });
-        postElement.likeToggler.toggleIfNotBusyAsync();
+        getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
     },
     toggleRepost: async function (did, rkey, postElement) { 
-        postElement.repostToggler ??= new ActionStateToggler(
-            +postElement.dataset.repostcount,
-            postElement.dataset.repostrkey,
-            async () => (await httpPost('CreateRepost', { did, rkey })).rkey,
-            async (rkey) => (await httpPost('DeleteRepost', { rkey })),
-            (count, have) => { 
-                setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
-                setActionStats(postElement, count + +postElement.dataset.quotecount, 'repost');
-                postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
-                postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
-            });
-        postElement.repostToggler.toggleIfNotBusyAsync();
+        getOrCreateRepostToggler(did, rkey, postElement).toggleIfNotBusyAsync();
     },
     composeReply: async function (did, rkey) { 
         fastNavigateTo(`/compose?replyDid=${did}&replyRkey=${rkey}`)
@@ -333,6 +377,8 @@ var postActions = {
     },
     deletePost: async function (did, rkey, node) { 
         await httpPost('DeletePost', { rkey });
+        var nextSeparator = node.nextElementSibling;
+        if (nextSeparator?.classList.contains('post-group-separator')) nextSeparator.remove();
         node.remove();
     },
 }
@@ -383,3 +429,18 @@ function formatEngagementCount(value)
 
     
 }
+
+
+
+async function updateLiveSubscriptions() {
+    var visiblePosts = [...document.querySelectorAll('.post')].map(x => x.dataset.postdid + '/' + x.dataset.postrkey);
+    var visiblePostsSet = new Set(visiblePosts);
+    var toSubscribe = visiblePosts.filter(x => !liveUpdatesPostIds.has(x));
+    var toUnsubscribe = [...liveUpdatesPostIds].filter(x => !visiblePostsSet.has(x));
+    liveUpdatesPostIds = visiblePostsSet;
+    if (!toSubscribe.length && !toUnsubscribe.length) return;
+    
+    await (await liveUpdatesConnectionFuture).invoke('SubscribeUnsubscribePosts', toSubscribe, toUnsubscribe);
+}
+
+

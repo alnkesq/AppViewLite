@@ -17,6 +17,7 @@
 <body>
     <Routes  @rendermode="@(true || Context.HttpContext!.Request.Path.ToString() is "/login" or "/logout"  ? new InteractiveWebAssemblyRenderMode() : new InteractiveServerRenderMode(prerender: false))"  /> 
     @* <script src="_framework/blazor.web.js"></script> *@
+    <script src="/lib/microsoft/signalr/dist/browser/signalr.js"></script>
     <script src="/app.js"></script>
 </body>
 

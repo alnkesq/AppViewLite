@@ -39,11 +39,12 @@ namespace AppViewLite
                 var rkey = path.Substring(slash + 1);
                 var deletionDate = DateTime.UtcNow;
                 if (!Tid.TryParse(rkey, out var tid)) return;
-                var rel = new Relationship(relationships.SerializeDid(commitAuthor), tid);
+                var commitPlc = relationships.SerializeDid(commitAuthor);
+                var rel = new Relationship(commitPlc, tid);
                 if (collection == Like.RecordType)
                 {
                     var target = relationships.Likes.Delete(rel, deletionDate);
-                    if (target != null) relationships.NotifyPostStatsChange(target.Value);
+                    if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
                 }
                 else if (collection == Follow.RecordType)
                 {
@@ -56,7 +57,7 @@ namespace AppViewLite
                 else if (collection == Repost.RecordType)
                 {
                     var target = relationships.Reposts.Delete(rel, deletionDate);
-                    if (target != null) relationships.NotifyPostStatsChange(target.Value);
+                    if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
                 }
                 else if (collection == Post.RecordType)
                 {
@@ -126,7 +127,7 @@ namespace AppViewLite
                             relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc);
                             relationships.MaybeIndexPopularPost(postId, "likes", relationships.Likes.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinLikes);
-                            relationships.NotifyPostStatsChange(postId);
+                            relationships.NotifyPostStatsChange(postId, commitPlc);
                         }
                     }
                     else if (record is Follow f)
@@ -150,7 +151,7 @@ namespace AppViewLite
                         relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));
                         relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
                         relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
-                        relationships.NotifyPostStatsChange(postId);
+                        relationships.NotifyPostStatsChange(postId, commitPlc);
                     }
                     else if (record is Block b)
                     {

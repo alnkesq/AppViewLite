@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    public record struct PostStatsNotification(long LikeCount, long RepostCount, long QuoteCount, long ReplyCount)
+    public record struct PostStatsNotification(PostId PostId, string Did, string RKey, long LikeCount, long RepostCount, long QuoteCount, long ReplyCount)
     {
     }
 }

@@ -1,5 +1,7 @@
 using FishyFlip.Models;
 using Ipfs;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.SignalR;
 using PeterO.Cbor;
 using AppViewLite.Web.Components;
 using AppViewLite.Models;
@@ -71,6 +73,7 @@ namespace AppViewLite.Web
                 var session = provider.GetRequiredService<AppViewLiteSession>();
                 return RequestContext.Create(session);
             });
+            builder.Services.AddSignalR();
 
             var app = builder.Build();
 
@@ -104,10 +107,9 @@ namespace AppViewLite.Web
             app.UseRouting();
             app.UseCors();
             app.UseAntiforgery();
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
+
+            app.MapHub<AppViewLiteHub>("/api/live-updates");
+            app.MapControllers();
 
             if (ListenToFirehose)
             {
@@ -118,10 +120,12 @@ namespace AppViewLite.Web
                     await indexer.ListenJetStreamFirehoseAsync();
                 });
             }
+            AppViewLiteHubContext = app.Services.GetRequiredService<IHubContext<AppViewLiteHub>>();
             app.Run();
             
         }
 
+        internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext;
         public static AppViewLiteSession? TryGetSession(HttpContext httpContext)
         {
             var now = DateTime.UtcNow;

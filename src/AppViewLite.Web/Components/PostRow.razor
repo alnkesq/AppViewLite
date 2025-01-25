@@ -29,7 +29,7 @@
     private AsyncStateToggler IsReposted;
 
     private PostId notificationsRegisteredForPostId;
-    private Action<PostStatsNotification>? PostStatsNotificationHandler;
+    private LiveNotificationDelegate? PostStatsNotificationHandler;
 
     private bool RepostMenuVisible;
     private bool PostMenuVisible;
@@ -79,9 +79,9 @@
 
         if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
         {
-            static Action<PostStatsNotification> CreateLambda(WeakReference<PostRow> weakref, PostId postId)
+            static LiveNotificationDelegate CreateLambda(WeakReference<PostRow> weakref, PostId postId)
             {
-                return h =>
+                return (h, commitPlc) =>
                 {
                     if (weakref.TryGetTarget(out var page))
                     {

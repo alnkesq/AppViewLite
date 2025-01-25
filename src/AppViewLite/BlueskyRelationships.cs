@@ -474,7 +474,7 @@ namespace AppViewLite
             UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, new Plc(proto.InReplyToPlc.GetValueOrDefault())));
 
             if (proto.QuotedRKey != null)
-                NotifyPostStatsChange(postId);
+                NotifyPostStatsChange(postId, postId.Author);
             return proto;
         }
 
@@ -1447,28 +1447,28 @@ namespace AppViewLite
             lastGlobalFlush.Restart();
         }
 
-        private ConcurrentDictionary<PostId, Action<PostStatsNotification>> PostNotificationHandlers = new();
+        private ConcurrentDictionary<PostId, LiveNotificationDelegate> PostNotificationHandlers = new();
 
-        internal void NotifyPostStatsChange(PostId postId)
+        internal void NotifyPostStatsChange(PostId postId, Plc commitPlc)
         {
             if (PostNotificationHandlers.TryGetValue(postId, out var handler))
             {
-                handler(new PostStatsNotification(Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)));
+                handler(new PostStatsNotification(postId, TryGetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc);
             }
         }
 
         //private Dictionary<PostId, int> notifDebug = new();
 
-        public void RegisterForPostStatsNotificationThreadSafe(PostId postId, Action<PostStatsNotification>? handler)
+        public void RegisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
         {
             if (handler == null) return;
             //lock (notifDebug)
             {
                 //notifDebug.Increment(postId);
-                PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Combine(prev, handler));
+                PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (LiveNotificationDelegate)Delegate.Combine(prev, handler));
             }
         }
-        public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, Action<PostStatsNotification>? handler)
+        public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
         {
             if (handler == null) return;
             //lock (notifDebug)
@@ -1479,7 +1479,7 @@ namespace AppViewLite
 
                 if (!PostNotificationHandlers.TryRemove(new(postId, handler)))
                 {
-                    PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (Action<PostStatsNotification>)Delegate.Remove(prev, handler));
+                    PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (LiveNotificationDelegate)Delegate.Remove(prev, handler));
                 }
                 //if (notifDebug[postId] == 0 && PostNotificationHandlers.ContainsKey(postId)) throw new Exception();
             }
@@ -1488,5 +1488,7 @@ namespace AppViewLite
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 
     }
+
+    public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);
 }
 

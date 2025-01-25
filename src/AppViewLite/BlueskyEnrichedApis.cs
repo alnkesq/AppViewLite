@@ -708,55 +708,71 @@ namespace AppViewLite
         }
 
 
-        public async Task<BlueskyPost[]> GetPostThreadAsync(string did, string rkey, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetPostThreadAsync(string did, string rkey, int limit, string? continuation, RequestContext ctx)
         {
+            EnsureLimit(ref limit, 100);
             var thread = new List<BlueskyPost>();
 
             var focalPost = WithRelationshipsLock(rels => rels.GetPost(did, rkey));
-            thread.Add(focalPost);
-
-            await EnrichAsync([focalPost], ctx);
-
-            var loadedBefore = 0;
-            var before = 0;
-            while (thread[0].IsReply)
-            {
-                var p = thread[0];
-                var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value));
-                if (before++ >= 10) break;
-                if (prepend.Data == null)
-                {
-                    if (loadedBefore++ < 3)
-                        await EnrichAsync([prepend], ctx);
-                    else
-                        break;
-                }
-                thread.Insert(0, prepend);
-                
-            }
             var focalPostId = new PostId(new Plc(focalPost.Author.PlcId), Tid.Parse(focalPost.RKey));
-            var opReplies = new List<BlueskyPost>();
-            WithRelationshipsLock(rels =>
-            {
-                void AddOpExhaustiveReplies(PostId p)
-                {
-                    var children = rels.DirectReplies.GetDistinctValuesSorted(p).Where(x => x.Author == focalPostId.Author).OrderBy(x => x.PostRKey).ToArray();
-                    
-                    foreach (var child in children)
-                    {
-                        AddOpExhaustiveReplies(child);
-                        opReplies.Add(rels.GetPost(child));
-                    }
-                }
-                AddOpExhaustiveReplies(focalPostId);
-            });
-            thread.AddRange(opReplies.OrderBy(x => x.Date));
-            
 
-            var otherReplies = WithRelationshipsLock(rels => rels.DirectReplies.GetDistinctValuesSorted(focalPostId).Where(x => x.Author != focalPostId.Author).Select(x => rels.GetPost(x)).ToArray());
+            if (continuation == null) 
+            {
+                thread.Add(focalPost);
+
+                await EnrichAsync([focalPost], ctx);
+
+                var loadedBefore = 0;
+                var before = 0;
+                while (thread[0].IsReply)
+                {
+                    var p = thread[0];
+                    var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value));
+                    if (before++ >= 20) break;
+                    if (prepend.Data == null)
+                    {
+                        if (loadedBefore++ < 3)
+                            await EnrichAsync([prepend], ctx);
+                        else
+                            break;
+                    }
+                    thread.Insert(0, prepend);
+
+                }
+                var opReplies = new List<BlueskyPost>();
+                WithRelationshipsLock(rels =>
+                {
+                    void AddOpExhaustiveReplies(PostId p)
+                    {
+                        var children = rels.DirectReplies.GetDistinctValuesSorted(p).Where(x => x.Author == focalPostId.Author).OrderBy(x => x.PostRKey).ToArray();
+
+                        foreach (var child in children)
+                        {
+                            AddOpExhaustiveReplies(child);
+                            opReplies.Add(rels.GetPost(child));
+                        }
+                    }
+                    AddOpExhaustiveReplies(focalPostId);
+                });
+                thread.AddRange(opReplies.OrderBy(x => x.Date));
+            }
+
+
+            var wantMore = Math.Max(1, limit - thread.Count) + 1;
+
+            PostId? parsedContinuation = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : null;
+            var otherReplies = WithRelationshipsLock(rels => rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x)).ToArray());
+
+            string? nextContinuation = null;
+            if (otherReplies.Length == wantMore)
+            {
+                nextContinuation = otherReplies[^1].PostId.Serialize();
+                otherReplies = otherReplies.AsSpan(0, otherReplies.Length - 1).ToArray();
+            }
+
             thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
             await EnrichAsync(thread.ToArray(), ctx);
-            return thread.ToArray();
+            return new(thread.ToArray(), nextContinuation);
         }
 
         private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();

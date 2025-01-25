@@ -4,17 +4,18 @@
 @code {
     [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
+    [SupplyParameterFromQuery] [Parameter] public string? Continuation { get; set; }
 
-    private BlueskyPost[] Posts = [];
+    private PostsAndContinuation Posts = new();
 
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Posts = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(Did, RKey, RequestContext.OnStateChanged(StateHasChanged));
+        Posts = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 
 <PageTitle>Post</PageTitle>
 
-<PostList Posts="@Posts" ShowInReplyTo="false" FocalPostDid="@Did" FocalPostRKey="@RKey" />
+<PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" ShowInReplyTo="false" FocalPostDid="@Did" FocalPostRKey="@RKey" />
 

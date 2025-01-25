@@ -19,7 +19,7 @@ namespace AppViewLite.Web.ApiCompat
         {
 
             var aturi = await Program.ResolveUriAsync(uri);
-            var thread = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, RequestContext.Create());
+            var thread = (await BlueskyEnrichedApis.Instance.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, default, null, RequestContext.Create())).Posts;
 
             var focalPostIndex = thread.ToList().FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
             if (focalPostIndex == -1) throw new Exception();

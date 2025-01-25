@@ -2,7 +2,7 @@ var hasBlazor = !!window.Blazor;
 
 
 var liveUpdatesPostIds = new Set();
-var notificationCount = parseInt(document.querySelector('.notification-badge').textContent);
+var notificationCount = parseInt(document.querySelector('.notification-badge')?.textContent ?? 0);
 var pageTitleWithoutCounter = document.title;
 
 function updatePageTitle() { 

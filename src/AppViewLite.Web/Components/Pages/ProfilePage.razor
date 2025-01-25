@@ -100,7 +100,7 @@
             <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
 
             <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a>
-            <a class="search-link" href="/search?from=@Did" title="Search"><img src="/assets/search.png"></a>
+            <a class="search-link" href="/search?q= from:@Did" title="Search"><img src="/assets/search.png"></a>
         </div>
         <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
     </div>

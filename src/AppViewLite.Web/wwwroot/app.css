@@ -65,7 +65,7 @@ main {
 
 
 
-@media (max-width: 640px) {
+@media (max-width: 793px) {
     .page {
         flex-direction: row;
     }
@@ -103,6 +103,9 @@ main {
         cursor: pointer;
     }
 
+    .tabbed-lists-header{
+        width: 100vw;
+    }
 }
 
 
@@ -392,12 +395,13 @@ ul {
 
 .post-action-bar {
     margin-top: 10px;
+    display: flex;
 }
 
 
 
 .post-action-bar-spacer {
-    width: 24%;
+    width: 25%;
     display: inline-block;
 }
 
@@ -459,6 +463,9 @@ ul {
     .tabbed-lists-header {
         margin-top: 20px;
         margin-bottom: 25px;
+        white-space: nowrap;
+        overflow: hidden;
+        display: flex;
     }
     .tabbed-lists-header a {
         font-size: 14pt;
@@ -469,6 +476,8 @@ ul {
         .tabbed-lists-header a.active {
             border-bottom: 5px solid black;
         }
+
+
 
 
 .pagination-button {

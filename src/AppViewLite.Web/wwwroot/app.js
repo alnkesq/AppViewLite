@@ -5,11 +5,13 @@ var liveUpdatesPostIds = new Set();
 var notificationCount = parseInt(document.querySelector('.notification-badge')?.textContent ?? 0);
 var pageTitleWithoutCounter = document.title;
 
-function updatePageTitle() { 
+function updatePageTitle() {
     document.title = notificationCount ? '(' + notificationCount + ') ' + pageTitleWithoutCounter : pageTitleWithoutCounter;
     var badge = document.querySelector('.notification-badge');
-    badge.textContent = notificationCount;
-    badge.classList.toggle('display-none', notificationCount == 0);
+    if (badge) {
+        badge.textContent = notificationCount;
+        badge.classList.toggle('display-none', notificationCount == 0);
+    }
 }
 
 var liveUpdatesConnectionFuture = (async () => {

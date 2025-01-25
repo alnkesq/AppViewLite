@@ -43,7 +43,7 @@ namespace AppViewLite.Web
         {
             var httpContext = this.Context.GetHttpContext();
             var ctx = Program.TryGetSession(httpContext);
-            var userPlc = ctx.IsLoggedIn ? ctx.LoggedInUser : default;
+            var userPlc = ctx != null && ctx.IsLoggedIn ? ctx.LoggedInUser : default;
             var connectionId = Context.ConnectionId;
             if (!connectionIdToCallback.TryAdd(connectionId, new ConnectionContext 
             { 
@@ -72,14 +72,15 @@ namespace AppViewLite.Web
 
         public override Task OnDisconnectedAsync(Exception? exception)
         {
-
+            var dangerousRels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
             if (connectionIdToCallback.TryRemove(this.Context.ConnectionId, out var context))
             {
                 foreach (var postId in context.PostIds)
                 {
-                    BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UnregisterForPostStatsNotificationThreadSafe(postId, context.Callback);
+                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, context.Callback);
                 }
             }
+
             return Task.CompletedTask;
         }
 

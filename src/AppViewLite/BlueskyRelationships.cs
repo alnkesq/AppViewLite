@@ -1447,42 +1447,22 @@ namespace AppViewLite
             lastGlobalFlush.Restart();
         }
 
-        private ConcurrentDictionary<PostId, LiveNotificationDelegate> PostNotificationHandlers = new();
+        private SubscriptionDictionary<PostId, LiveNotificationDelegate> PostNotificationHandlers = new();
 
         internal void NotifyPostStatsChange(PostId postId, Plc commitPlc)
         {
-            if (PostNotificationHandlers.TryGetValue(postId, out var handler))
-            {
-                handler(new PostStatsNotification(postId, TryGetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc);
-            }
+            PostNotificationHandlers.MaybeNotify(postId, (handler) => handler(new PostStatsNotification(postId, TryGetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc));
         }
 
         //private Dictionary<PostId, int> notifDebug = new();
 
         public void RegisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
         {
-            if (handler == null) return;
-            //lock (notifDebug)
-            {
-                //notifDebug.Increment(postId);
-                PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (LiveNotificationDelegate)Delegate.Combine(prev, handler));
-            }
+            PostNotificationHandlers.Subscribe(postId, handler);
         }
         public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
         {
-            if (handler == null) return;
-            //lock (notifDebug)
-            {
-                //if (!PostNotificationHandlers.ContainsKey(postId)) throw new Exception();
-                //if (notifDebug[postId] == 0) throw new Exception();
-                //notifDebug.Increment(postId, -1);
-
-                if (!PostNotificationHandlers.TryRemove(new(postId, handler)))
-                {
-                    PostNotificationHandlers.AddOrUpdate(postId, handler, (_, prev) => (LiveNotificationDelegate)Delegate.Remove(prev, handler));
-                }
-                //if (notifDebug[postId] == 0 && PostNotificationHandlers.ContainsKey(postId)) throw new Exception();
-            }
+            PostNotificationHandlers.Unsubscribe(postId, handler);
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

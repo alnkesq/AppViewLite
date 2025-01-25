@@ -188,7 +188,7 @@ if (!hasBlazor) {
         var newList = temp.querySelector('.main-paginated-list');
         var anyChildren = false;
         if (newList) {
-            for (const child of newList.childNodes) {
+            for (const child of [...newList.childNodes]) {
                 child.remove();
                 if (child instanceof Element) anyChildren = true;
                 oldList.appendChild(child);

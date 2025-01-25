@@ -13,7 +13,7 @@
             StateHasChanged);
     }
 }
-<button @onclick="IsFollowed.ToggleIfNotBusyAsync" class="follow-button @(IsFollowed.HaveRelationship ? "follow-button-unfollow" : null)">
+<button @onclick="IsFollowed.ToggleIfNotBusyAsync" class="follow-button @(IsFollowed.HaveRelationship ? "follow-button-unfollow" : null)" actionkind="toggleFollow" data-profiledid="@Profile.Did" data-followrkey="@(IsFollowed.RKey ?? "-")" data-followsyou="@(Profile.FollowsYou ? 1 : 0)">
     @if (IsFollowed.HaveRelationship)
     {
         <text>Unfollow</text>

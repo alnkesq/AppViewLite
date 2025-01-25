@@ -472,6 +472,7 @@ ul {
 
 
 .pagination-button {
+    position: relative;
 }
     .pagination-button a {
         box-sizing: border-box;
@@ -861,6 +862,10 @@ button, input[type=submit] {
     box-shadow: 0px 0px 5px 5px rgba(0, 0, 0, 0.1);
     background: white;
     width: 150px;
+    display: none;
+}
+.menu.menu-visible {
+    display: block;
 }
 .menu-item {
     padding: 10px 10px;
@@ -890,3 +895,43 @@ button, input[type=submit] {
     pointer-events: none;
     opacity: 0.5;
 }
+
+.spinner {
+    animation: rotate 0.75s linear infinite;
+    width: 20px;
+    height: 20px;
+    margin: 0 auto;
+    position: relative;
+    margin-top: -90px;
+    top: 5px;
+}
+
+.pagination-button.spinner-visible {
+    background: none;
+}
+.pagination-button.spinner-visible a{
+    visibility: hidden;
+}
+@keyframes rotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  
+  .post-action-bar-button-checked .if-have-not-relationship{
+    display: none;
+  }
+  .if-have-relationship{
+    display: none;
+  }
+  .post-action-bar-button-checked .if-have-relationship{
+    display: inline;
+  }
+
+  textarea {
+    resize: none;
+  }

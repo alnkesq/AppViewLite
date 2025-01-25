@@ -15,39 +15,9 @@
 </head>
 
 <body>
-    <Routes  @rendermode="@(Context.HttpContext!.Request.Path.ToString() is "/login" or "/logout"  ? new InteractiveWebAssemblyRenderMode() : new InteractiveServerRenderMode(prerender: false))"  /> 
-    <script src="_framework/blazor.web.js"></script>
-    <script>
-        function onNavigation(){
-            var focalPost = document.querySelector('.post-focal');
-            if(focalPost) focalPost.scrollIntoView();
-            else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        }
-       
-    
-        // https://github.com/dotnet/aspnetcore/issues/51338#issuecomment-1766578689
-        Blazor.addEventListener('enhancedload', () => {
-            onNavigation();
-        });
-        onNavigation();
-        document.addEventListener('click', event => {
-            var href = null;            
-            var t = event.target;
-            while(t) {
-                if(t.tagName == 'A' && t.href) {
-                    href = new URL(t.href);
-                    break;
-                }
-                t = t.parentNode;
-            }
-            if(href && (document.querySelector('#components-reconnect-modal') || ((href.pathname == '/login'|| href.pathname == '/logout') && href.host == window.location.host))) {
-                window.location = href;
-            }
-            
-        }, true);
-
-
-    </script>
+    <Routes  @rendermode="@(true || Context.HttpContext!.Request.Path.ToString() is "/login" or "/logout"  ? new InteractiveWebAssemblyRenderMode() : new InteractiveServerRenderMode(prerender: false))"  /> 
+    @* <script src="_framework/blazor.web.js"></script> *@
+    <script src="/app.js"></script>
 </body>
 
 </html>

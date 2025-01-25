@@ -13,6 +13,7 @@ namespace AppViewLite.Web
         private Func<Task<Tid>> addRelationship;
         private Func<Tid, Task> deleteRelationship;
         private Action notifyChange;
+        public string? RKey => rkey?.ToString();
 
         public AsyncStateToggler(long actorCount, Tid? rkey, Func<Task<Tid>> addRelationship, Func<Tid, Task> deleteRelationship, Action notifyChange)
         {

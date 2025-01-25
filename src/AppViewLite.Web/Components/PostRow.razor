@@ -77,7 +77,7 @@
             rkey => BlueskyEnrichedApis.Instance.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
 
-        if (PostStatsNotificationHandler == null)
+        if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
         {
             static Action<PostStatsNotification> CreateLambda(WeakReference<PostRow> weakref, PostId postId)
             {
@@ -187,7 +187,15 @@
 
 
 
-<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)" @key="@(Post.RKey + "/" + Post.Did)">
+<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)" 
+    @key="@(Post.RKey + "/" + Post.Did)" 
+    data-postdid="@Post.Did" data-postrkey="@Post.RKey"
+    data-likecount="@Post.LikeCount"
+    data-likerkey="@Post.IsLikedBySelf?.ToString()"
+    data-repostcount="@Post.RepostCount"
+    data-quotecount="@Post.QuoteCount"
+    data-repostrkey="@Post.IsRepostedBySelf?.ToString()"
+>
     <a href="@Post.BaseUrl" class="post-background-link"></a>
 
     @if (ShowRestOfThreadLink)
@@ -334,15 +342,15 @@
             <div class="post-focal-stats post-indented">
                 @if (IsReposted.ActorCount != 0)
                 {
-                    <a href="@Post.BaseUrl/reposts"><b>@StringUtils.FormatEngagementCount(@IsReposted.ActorCount)</b> @(@IsReposted.ActorCount == 1 ? "repost" : "reposts")</a>
+                    <a href="@Post.BaseUrl/reposts"><b class="post-stats-reposts-formatted">@StringUtils.FormatEngagementCount(@IsReposted.ActorCount)</b> @(@IsReposted.ActorCount == 1 ? "repost" : "reposts")</a>
                 }
                 @if (Post.QuoteCount != 0)
                 {
-                    <a href="@Post.BaseUrl/quotes"><b>@StringUtils.FormatEngagementCount(Post.QuoteCount)</b> @(@Post.QuoteCount == 1 ? "quote" : "quotes")</a>
+                    <a href="@Post.BaseUrl/quotes"><b class="post-stats-quotes-formatted">@StringUtils.FormatEngagementCount(Post.QuoteCount)</b> @(@Post.QuoteCount == 1 ? "quote" : "quotes")</a>
                 }
                 @if (IsLiked.ActorCount != 0)
                 {
-                    <a href="@Post.BaseUrl/likes"><b>@StringUtils.FormatEngagementCount(@IsLiked.ActorCount)</b> @(@IsLiked.ActorCount == 1 ? "like" : "likes")</a>
+                    <a href="@Post.BaseUrl/likes"><b class="post-stats-likes-formatted">@StringUtils.FormatEngagementCount(@IsLiked.ActorCount)</b> @(@IsLiked.ActorCount == 1 ? "like" : "likes")</a>
                 }
             </div>
         }
@@ -352,57 +360,46 @@
     {
         <div class="post-action-bar post-indented">
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
-                <button @onclick="NavigateToWriteReply" class="post-action-bar-button post-action-bar-button-comment">
+                <button actionkind="composeReply" @onclick="NavigateToWriteReply" class="post-action-bar-button post-action-bar-button-comment">
                     <svg fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159); pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2.002 6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H12.28l-4.762 2.858A1 1 0 0 1 6.002 21v-2h-1a3 3 0 0 1-3-3V6Zm3-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h2a1 1 0 0 1 1 1v1.234l3.486-2.092a1 1 0 0 1 .514-.142h7a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-14Z"></path></svg>
                     @(Post.ReplyCount != 0 ? @StringUtils.FormatEngagementCount(Post.ReplyCount) : null)
                 </button>
             </div>
 
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
-                @if (RepostMenuVisible)
-                {
-                    <div class="post-repost-menu menu">
-                        <button class="menu-item" @onclick="ToggleRepostAndCloseMenu">@(IsReposted.HaveRelationship ? "Undo repost" : "Repost")</button>
-                        <button class="menu-item" @onclick="NavigateToQuotePost">Quote post</button>
-                    </div>
-                }
+                
+                <div class="post-repost-menu menu @(RepostMenuVisible ? "menu-visible" : null)">
+                    <button actionkind="toggleRepost" class="menu-item post-toggle-repost-menu-item" @onclick="ToggleRepostAndCloseMenu">@(IsReposted.HaveRelationship ? "Undo repost" : "Repost")</button>
+                    <button actionkind="composeQuote" class="menu-item" @onclick="NavigateToQuotePost">Quote post</button>
+                </div>
                 <button @onclick="ToggleRepostMenu" class="post-action-bar-button post-action-bar-button-repost @(IsReposted.HaveRelationship ? "post-action-bar-button-checked" : null)">
-                    @if (IsReposted.HaveRelationship)
-                    {
-                        <svg fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(19, 195, 113);"><path fill="hsl(152, 82%, 42%)" fill-rule="evenodd" clip-rule="evenodd" d="M17.957 2.293a1 1 0 1 0-1.414 1.414L17.836 5H6a3 3 0 0 0-3 3v3a1 1 0 1 0 2 0V8a1 1 0 0 1 1-1h11.836l-1.293 1.293a1 1 0 0 0 1.414 1.414l2.47-2.47a1.75 1.75 0 0 0 0-2.474l-2.47-2.47ZM20 12a1 1 0 0 1 1 1v3a3 3 0 0 1-3 3H6.164l1.293 1.293a1 1 0 1 1-1.414 1.414l-2.47-2.47a1.75 1.75 0 0 1 0-2.474l2.47-2.47a1 1 0 0 1 1.414 1.414L6.164 17H18a1 1 0 0 0 1-1v-3a1 1 0 0 1 1-1Z"></path></svg>
-                    }
-                    else
-                    {
-                        <svg fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159);"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M17.957 2.293a1 1 0 1 0-1.414 1.414L17.836 5H6a3 3 0 0 0-3 3v3a1 1 0 1 0 2 0V8a1 1 0 0 1 1-1h11.836l-1.293 1.293a1 1 0 0 0 1.414 1.414l2.47-2.47a1.75 1.75 0 0 0 0-2.474l-2.47-2.47ZM20 12a1 1 0 0 1 1 1v3a3 3 0 0 1-3 3H6.164l1.293 1.293a1 1 0 1 1-1.414 1.414l-2.47-2.47a1.75 1.75 0 0 1 0-2.474l2.47-2.47a1 1 0 0 1 1.414 1.414L6.164 17H18a1 1 0 0 0 1-1v-3a1 1 0 0 1 1-1Z"></path></svg>
-                    }
-                    @((IsReposted.ActorCount != 0 || Post.QuoteCount != 0) ? @StringUtils.FormatEngagementCount(IsReposted.ActorCount + Post.QuoteCount) : null)
+                    <svg class="if-have-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(19, 195, 113);"><path fill="hsl(152, 82%, 42%)" fill-rule="evenodd" clip-rule="evenodd" d="M17.957 2.293a1 1 0 1 0-1.414 1.414L17.836 5H6a3 3 0 0 0-3 3v3a1 1 0 1 0 2 0V8a1 1 0 0 1 1-1h11.836l-1.293 1.293a1 1 0 0 0 1.414 1.414l2.47-2.47a1.75 1.75 0 0 0 0-2.474l-2.47-2.47ZM20 12a1 1 0 0 1 1 1v3a3 3 0 0 1-3 3H6.164l1.293 1.293a1 1 0 1 1-1.414 1.414l-2.47-2.47a1.75 1.75 0 0 1 0-2.474l2.47-2.47a1 1 0 0 1 1.414 1.414L6.164 17H18a1 1 0 0 0 1-1v-3a1 1 0 0 1 1-1Z"></path></svg>
+                    <svg class="if-have-not-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159);"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M17.957 2.293a1 1 0 1 0-1.414 1.414L17.836 5H6a3 3 0 0 0-3 3v3a1 1 0 1 0 2 0V8a1 1 0 0 1 1-1h11.836l-1.293 1.293a1 1 0 0 0 1.414 1.414l2.47-2.47a1.75 1.75 0 0 0 0-2.474l-2.47-2.47ZM20 12a1 1 0 0 1 1 1v3a3 3 0 0 1-3 3H6.164l1.293 1.293a1 1 0 1 1-1.414 1.414l-2.47-2.47a1.75 1.75 0 0 1 0-2.474l2.47-2.47a1 1 0 0 1 1.414 1.414L6.164 17H18a1 1 0 0 0 1-1v-3a1 1 0 0 1 1-1Z"></path></svg>
+                    <span>
+                        @((IsReposted.ActorCount != 0 || Post.QuoteCount != 0) ? @StringUtils.FormatEngagementCount(IsReposted.ActorCount + Post.QuoteCount) : null)
+                    </span>
                 </button>
             </div>
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
-                <button @onclick="IsLiked.ToggleIfNotBusyAsync" class="post-action-bar-button post-action-bar-button-like @(IsLiked.HaveRelationship ? "post-action-bar-button-checked" : null)">
-                    @if (IsLiked.HaveRelationship)
-                    {
-                        <svg fill="none" width="18" viewBox="0 0 24 24" height="18" class="r-84gixx"><path fill="#ec4899" fill-rule="evenodd" clip-rule="evenodd" d="M12.489 21.372c8.528-4.78 10.626-10.47 9.022-14.47-.779-1.941-2.414-3.333-4.342-3.763-1.697-.378-3.552.003-5.169 1.287-1.617-1.284-3.472-1.665-5.17-1.287-1.927.43-3.562 1.822-4.34 3.764-1.605 4 .493 9.69 9.021 14.47a1 1 0 0 0 .978 0Z"></path></svg>
-                    }
-                    else
-                    {
-                        <svg fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159); pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M16.734 5.091c-1.238-.276-2.708.047-4.022 1.38a1 1 0 0 1-1.424 0C9.974 5.137 8.504 4.814 7.266 5.09c-1.263.282-2.379 1.206-2.92 2.556C3.33 10.18 4.252 14.84 12 19.348c7.747-4.508 8.67-9.168 7.654-11.7-.541-1.351-1.657-2.275-2.92-2.557Zm4.777 1.812c1.604 4-.494 9.69-9.022 14.47a1 1 0 0 1-.978 0C2.983 16.592.885 10.902 2.49 6.902c.779-1.942 2.414-3.334 4.342-3.764 1.697-.378 3.552.003 5.169 1.286 1.617-1.283 3.472-1.664 5.17-1.286 1.927.43 3.562 1.822 4.34 3.764Z"></path></svg>
-                    }
-                    @(IsLiked.ActorCount != 0 ? @StringUtils.FormatEngagementCount(IsLiked.ActorCount) : null)
+                <button actionkind="toggleLike" @onclick="IsLiked.ToggleIfNotBusyAsync" class="post-action-bar-button post-action-bar-button-like @(IsLiked.HaveRelationship ? "post-action-bar-button-checked" : null)">
+                    <svg class="if-have-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18"><path fill="#ec4899" fill-rule="evenodd" clip-rule="evenodd" d="M12.489 21.372c8.528-4.78 10.626-10.47 9.022-14.47-.779-1.941-2.414-3.333-4.342-3.763-1.697-.378-3.552.003-5.169 1.287-1.617-1.284-3.472-1.665-5.17-1.287-1.927.43-3.562 1.822-4.34 3.764-1.605 4 .493 9.69 9.021 14.47a1 1 0 0 0 .978 0Z"></path></svg>
+                    <svg class="if-have-not-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159); pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M16.734 5.091c-1.238-.276-2.708.047-4.022 1.38a1 1 0 0 1-1.424 0C9.974 5.137 8.504 4.814 7.266 5.09c-1.263.282-2.379 1.206-2.92 2.556C3.33 10.18 4.252 14.84 12 19.348c7.747-4.508 8.67-9.168 7.654-11.7-.541-1.351-1.657-2.275-2.92-2.557Zm4.777 1.812c1.604 4-.494 9.69-9.022 14.47a1 1 0 0 1-.978 0C2.983 16.592.885 10.902 2.49 6.902c.779-1.942 2.414-3.334 4.342-3.764 1.697-.378 3.552.003 5.169 1.286 1.617-1.283 3.472-1.664 5.17-1.286 1.927.43 3.562 1.822 4.34 3.764Z"></path></svg>
+                    <span>
+                        @(IsLiked.ActorCount != 0 ? @StringUtils.FormatEngagementCount(IsLiked.ActorCount) : null)
+                    </span>
                 </button>
             </div>
 
             <div class="post-action-bar-spacer">
-                @if (PostMenuVisible)
-                {
-                    <div class="post-post-menu menu">
-                        @if (RequestContext.IsLoggedIn && Post.Author.Plc == RequestContext.LoggedInUser)
-                        {
-                            <button class="menu-item" @onclick="DeletePostAsync">Delete</button>
-                        }
-                        <button class="menu-item" @onclick="ViewOnBluesky">View on Bluesky</button>
-                    </div>
-                }
+                
+                <div class="post-post-menu menu @(PostMenuVisible ? "menu-visible" : null)">
+                    @if (RequestContext.IsLoggedIn && Post.Author.Plc == RequestContext.LoggedInUser)
+                    {
+                        <button actionkind="deletePost" class="menu-item" @onclick="DeletePostAsync">Delete</button>
+                    }
+                    <button actionkind="viewOnBluesky" class="menu-item" @onclick="ViewOnBluesky">View on Bluesky</button>
+                </div>
+                
                 <button @onclick="TogglePostMenu" class="post-action-bar-button">
                     <svg fill="none" viewBox="0 0 24 24" width="20" height="20" style="pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm16 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm-6-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path></svg>
                 </button>

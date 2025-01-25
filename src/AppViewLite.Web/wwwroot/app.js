@@ -223,6 +223,7 @@ function getAncestorData(target, name) {
 
 class ActionStateToggler { 
     constructor(actorCount, rkey, addRelationship, deleteRelationship, notifyChange) { 
+        if (!rkey || rkey == '-') rkey = null;
         this.actorCount = actorCount;
         this.rkey = rkey;
         this.addRelationship = addRelationship;
@@ -264,6 +265,20 @@ class ActionStateToggler {
     }
 }
 
+async function httpPost(method, args) { 
+    var response = await fetch('/api/' + method, {
+        body: JSON.stringify(args),
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        method: 'POST'
+    })
+    if (response.status != 200) throw 'HTTP ' + response.status;
+    var text = await response.text();
+    if (!text) return null;
+    return JSON.parse(text);
+}
+
 function setPostStats(postElement, actorCount, kind, singular, plural) { 
     var stats = postElement.querySelector('.post-stats-' + kind + '-formatted');
     if (!stats) return;
@@ -281,20 +296,30 @@ function setActionStats(postElement, actorCount, kind) {
 
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
-        postElement.likeToggler ??= new ActionStateToggler(+postElement.dataset.likecount, +postElement.dataset.likerkey, async () => 'aaaaa', async (rkey) => { }, (count, have) => { 
-            setPostStats(postElement, count, 'likes', 'like', 'likes');
-            setActionStats(postElement, count, 'like');
-            postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
-        });
+        postElement.likeToggler ??= new ActionStateToggler(
+            +postElement.dataset.likecount,
+            postElement.dataset.likerkey,
+            async () => (await httpPost('CreatePostLike', { did, rkey })).rkey,
+            async (rkey) => (await httpPost('DeletePostLike', { rkey })),
+            (count, have) => { 
+                setPostStats(postElement, count, 'likes', 'like', 'likes');
+                setActionStats(postElement, count, 'like');
+                postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
+            });
         postElement.likeToggler.toggleIfNotBusyAsync();
     },
     toggleRepost: async function (did, rkey, postElement) { 
-        postElement.repostToggler ??= new ActionStateToggler(+postElement.dataset.repostcount, +postElement.dataset.repostrkey, async () => 'aaaaa', async (rkey) => { }, (count, have) => { 
-            setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
-            setActionStats(postElement, count + +postElement.dataset.quotecount, 'repost');
-            postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
-            postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
-        });
+        postElement.repostToggler ??= new ActionStateToggler(
+            +postElement.dataset.repostcount,
+            postElement.dataset.repostrkey,
+            async () => (await httpPost('CreateRepost', { did, rkey })).rkey,
+            async (rkey) => (await httpPost('DeleteRepost', { rkey })),
+            (count, have) => { 
+                setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
+                setActionStats(postElement, count + +postElement.dataset.quotecount, 'repost');
+                postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
+                postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
+            });
         postElement.repostToggler.toggleIfNotBusyAsync();
     },
     composeReply: async function (did, rkey) { 
@@ -307,6 +332,8 @@ var postActions = {
         window.open(`https://bsky.app/profile/${did}/post/${rkey}`);
     },
     deletePost: async function (did, rkey, node) { 
+        await httpPost('DeletePost', { rkey });
+        node.remove();
     },
 }
 

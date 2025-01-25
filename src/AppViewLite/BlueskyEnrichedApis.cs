@@ -773,8 +773,8 @@ namespace AppViewLite
             string? nextContinuation = null;
             if (otherReplies.Length == wantMore)
             {
-                nextContinuation = otherReplies[^1].PostId.Serialize();
                 otherReplies = otherReplies.AsSpan(0, otherReplies.Length - 1).ToArray();
+                nextContinuation = otherReplies[^1].PostId.Serialize(); // continuation is exclusive, so UI-last instead of core-last
             }
 
             thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));

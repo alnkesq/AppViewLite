@@ -6,11 +6,13 @@
 @code {
 
 
-    private List<CoalescedNotification> notifications = [];
+    private CoalescedNotification[] newNotifications = [];
+    private CoalescedNotification[] oldNotifications = [];
+    private Notification newestNotification;
     protected override async Task OnParametersSetAsync()
     {
         if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
-        notifications = await BlueskyEnrichedApis.Instance.GetCoalescedNotificationsAsync(RequestContext.OnStateChanged(StateHasChanged));
+        (newNotifications, oldNotifications, newestNotification) = await BlueskyEnrichedApis.Instance.GetCoalescedNotificationsAsync(RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 
@@ -18,7 +20,12 @@
 
 <h1>Notifications</h1>
 
-@foreach (var notification in notifications)
+<div id="notification-newest-id" data-newestnotification="@newestNotification.Serialize()"></div>
+@foreach (var notification in newNotifications)
+{
+    <NotificationRow Notification="@notification" />
+}
+@foreach (var notification in oldNotifications)
 {
     <NotificationRow Notification="@notification" />
 }

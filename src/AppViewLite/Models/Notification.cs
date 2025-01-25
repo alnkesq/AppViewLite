@@ -1,3 +1,4 @@
+using FishyFlip.Lexicon.Com.Shinolabs.Pinksea;
 using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,13 @@ namespace AppViewLite.Models
             if (cmp != 0) return cmp;
             cmp = this.Kind.CompareTo(other.Kind);
             return cmp;
+        }
+
+        public string Serialize() => string.Join("/", EventDate.Value, Actor.PlcValue, RKey.TidValue, (int)Kind);
+        public static Notification Deserialize(string s)
+        {
+            var parts = s.Split('/');
+            return new Notification(new(uint.Parse(parts[0])), new(int.Parse(parts[1])), new(long.Parse(parts[2])), (NotificationKind)int.Parse(parts[3]));
         }
     }
 

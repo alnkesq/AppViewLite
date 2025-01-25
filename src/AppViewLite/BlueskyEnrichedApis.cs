@@ -991,21 +991,33 @@ namespace AppViewLite
             };
         }
 
-        public async Task<BlueskyNotification[]> GetNotificationsAsync(RequestContext ctx)
+        public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx)
         {
-            if (!ctx.IsLoggedIn) return [];
+            if (!ctx.IsLoggedIn) return ([], [], default);
             var session = ctx.Session;
             var user = session.LoggedInUser!.Value;
 
             var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user));
-            await EnrichAsync(notifications.Where(x => !x.Hidden).Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
-            await EnrichAsync(notifications.Where(x => !x.Hidden).Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
-            return notifications!;
+            var nonHiddenNotifications = notifications.NewNotifications.Concat(notifications.OldNotifications).Where(x => !x.Hidden).ToArray();
+            await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
+            await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
+            return (notifications.NewNotifications, notifications.OldNotifications, notifications.NewestNotification);
         }
 
-        public async Task<List<CoalescedNotification>> GetCoalescedNotificationsAsync(RequestContext ctx)
+        public async Task<(CoalescedNotification[] NewNotifications, CoalescedNotification[] OldNotifications, Notification NewestNotification)> GetCoalescedNotificationsAsync(RequestContext ctx)
         {
             var rawNotifications = await GetNotificationsAsync(ctx);
+
+            return (
+                CoalesceNotifications(rawNotifications.NewNotifications, areNew: true),
+                CoalesceNotifications(rawNotifications.OldNotifications, areNew: false),
+                rawNotifications.NewestNotification
+            );
+
+        }
+
+        private static CoalescedNotification[] CoalesceNotifications(BlueskyNotification[] rawNotifications, bool areNew)
+        {
             if (rawNotifications.Length == 0) return [];
             var coalescedList = new List<CoalescedNotification>();
 
@@ -1014,7 +1026,7 @@ namespace AppViewLite
                 if (raw.Hidden) continue;
                 var key = (PostId: raw.Post?.PostId ?? default, raw.Kind);
 
-                var c = coalescedList.TakeWhile(x => (x.LatestDate - raw.EventDate).TotalHours < 3).FirstOrDefault(x => (x.PostId, x.Kind) == key);
+                var c = coalescedList.TakeWhile(x => (x.LatestDate - raw.EventDate).TotalHours < 24).FirstOrDefault(x => (x.PostId, x.Kind) == key);
                 if (c == null)
                 {
                     c = new CoalescedNotification
@@ -1023,6 +1035,7 @@ namespace AppViewLite
                         Kind = key.Kind,
                         LatestDate = raw.EventDate,
                         Post = raw.Post,
+                        IsNew = areNew,
                     };
                     coalescedList.Add(c);
                 }
@@ -1033,11 +1046,9 @@ namespace AppViewLite
                     c.Profiles.Add(raw.Profile);
                 }
             }
-            return coalescedList;
-
+            return coalescedList.ToArray();
         }
 
-        
         internal static string? GetAvatarUrl(string did, string? avatarCid)
         {
             return avatarCid != null ? $"https://cdn.bsky.app/img/avatar_thumbnail/plain/{did}/{avatarCid}@jpeg" : null;

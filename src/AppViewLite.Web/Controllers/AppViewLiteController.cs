@@ -3,6 +3,7 @@ using FishyFlip.Lexicon.App.Bsky.Feed;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using AppViewLite.Models;
 using AppViewLite.Numerics;
 
 namespace AppViewLite.Web
@@ -63,10 +64,24 @@ namespace AppViewLite.Web
         {
             await BlueskyEnrichedApis.Instance.DeleteFollowAsync(Tid.Parse(rkey.Rkey), ctx);
         }
-    }
 
-    public record DidAndRKey(string Did, string Rkey);
-    public record RKeyOnly(string Rkey);
-    public record DidOnly(string Did);
+        [HttpPost(nameof(MarkLastSeenNotification))]
+        public async Task MarkLastSeenNotification([FromBody] NotificationIdArgs notificationId)
+        {
+            var notification = Notification.Deserialize(notificationId.NotificationId);
+            if (notification != default)
+            {
+                BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.LastSeenNotifications.Add(ctx.LoggedInUser, notification));
+                BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotify(ctx.LoggedInUser, handler => handler(0));
+            }
+        }
+
+
+
+        public record DidAndRKey(string Did, string Rkey);
+        public record RKeyOnly(string Rkey);
+        public record DidOnly(string Did);
+        public record NotificationIdArgs(string NotificationId);
+    }
 }
 

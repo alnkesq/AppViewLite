@@ -52,7 +52,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
         public CombinedPersistentMultiDictionary<PostId, DateTime> FailedPostLookups;
-        public CombinedPersistentMultiDictionary<Plc, DateTime> LastSeenNotifications;
+        public CombinedPersistentMultiDictionary<Plc, Notification> LastSeenNotifications;
         public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
         public CombinedPersistentMultiDictionary<Plc, ListEntry> RegisteredUserToFollowees;
         public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
@@ -148,7 +148,7 @@ namespace AppViewLite
 
             CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto", PersistentDictionaryBehavior.PreserveOrder) ;
 
-            LastSeenNotifications = RegisterDictionary<Plc, DateTime>("last-seen-notification", PersistentDictionaryBehavior.SingleValue) ;
+            LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-2", PersistentDictionaryBehavior.SingleValue) ;
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder) ;
             registerForNotificationsCache = new();
@@ -1241,7 +1241,7 @@ namespace AppViewLite
         public void RegisterForNotifications(Plc user)
         {
             if (IsRegisteredForNotifications(user)) return;
-            LastSeenNotifications.Add(user, DateTime.MinValue);
+            LastSeenNotifications.Add(user, new Notification((ApproximateDateTime32)DateTime.UtcNow, default, default, default));
             registerForNotificationsCache.Add(user);
         }
 
@@ -1273,10 +1273,6 @@ namespace AppViewLite
 
         public int SuppressNotificationGeneration;
 
-        public static Notification GetNotificationThresholdForDate(DateTime threshold)
-        {
-            return new Notification(threshold != default ? (ApproximateDateTime32)threshold : default, default, default, default);
-        }
 
 
 
@@ -1298,6 +1294,7 @@ namespace AppViewLite
                 Kind = notification.Kind, 
                 Post = post != default ? GetPost(post) : null, Profile = actor != default ? GetProfile(actor) : default,
                 Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
+                NotificationCore = notification,
             };
 
             
@@ -1309,22 +1306,41 @@ namespace AppViewLite
             if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return 0;
 
             long count = 0;
-            foreach (var chunk in Notifications.GetValuesChunked(user, GetNotificationThresholdForDate(threshold)))
+            foreach (var chunk in Notifications.GetValuesChunked(user, threshold))
             {
                 count += chunk.Count;
             }
             return count;
         }
 
-        public BlueskyNotification[] GetNotificationsForUser(Plc user)
+        public (BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification) GetNotificationsForUser(Plc user)
         {
-            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return [];
-            return
-                Notifications.GetValuesSortedDescending(user, BlueskyRelationships.GetNotificationThresholdForDate(threshold), default)
-                .Take(200)
+            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return ([], [], default);
+            var newNotificationsCore = Notifications.GetValuesSortedDescending(user, threshold, null).ToArray();
+
+            Notification? newestNotification = newNotificationsCore.Length != 0 ? newNotificationsCore[0] : null;
+
+            var newNotifications = 
+                newNotificationsCore
                 .Select(x => RehydrateNotification(x, user))
                 .Where(x => x != null)
                 .ToArray();
+
+            Notification? oldestNew = newNotificationsCore.Length != 0 ? newNotificationsCore[^1] : null;
+
+            var oldNotifications =
+                Notifications.GetValuesSortedDescending(user, null, oldestNew)
+                .Select(x =>
+                {
+                    newestNotification ??= x;
+                    return RehydrateNotification(x, user);
+                })
+                .Where(x => x != null)
+                .Take(10)
+                .ToArray();
+
+            return (newNotifications, oldNotifications, newestNotification ?? default);
+
         }
 
         internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDate, Tid? maxDate)

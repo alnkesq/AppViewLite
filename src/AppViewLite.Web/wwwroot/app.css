@@ -570,6 +570,11 @@ ul {
     border-bottom: 1px solid rgb(212, 219, 226);
     position: relative;
     display: block;
+    transition: background-color 4s linear;
+}
+
+.notification-new{
+    background-color: #D6EBFE;
 }
 
 .notification-meta {

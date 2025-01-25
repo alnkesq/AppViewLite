@@ -14,7 +14,7 @@ namespace AppViewLite
         public BlueskyPost? Post;
         public PostId PostId;
         public List<BlueskyProfile>? Profiles;
-
+        public bool IsNew;
 
         public string KindDisplayText 
         {

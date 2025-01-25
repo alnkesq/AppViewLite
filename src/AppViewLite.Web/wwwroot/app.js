@@ -43,6 +43,19 @@ function applyPageFocus() {
     if (!hasBlazor) { 
         document.querySelector('[autofocus]')?.focus();
     }
+
+    var seenNotificationId = document.querySelector('#notification-newest-id')?.dataset['newestnotification'];
+    if (seenNotificationId) {
+        var token = applyPageId;
+        setTimeout(() => {
+            if (applyPageId != token) return;
+            document.querySelectorAll('.notification-new').forEach(x => x.classList.remove('notification-new'));
+            httpPost('MarkLastSeenNotification', {
+                notificationId: seenNotificationId
+            });
+        }, 1500);
+    }
+    
     
 }
 
@@ -53,7 +66,6 @@ if (hasBlazor) {
     });
 }
 
-applyPageFocus();
 document.addEventListener('click', event => {
     var url = null;
     var t = event.target;
@@ -79,6 +91,9 @@ document.addEventListener('click', event => {
 var recentPages = [];
 var currentlyLoadedPage = location.href;
 var applyPageId = 0;
+
+
+applyPageFocus();
 
 async function applyPage(href, preferRefresh, scrollToTop) { 
     console.log('Load: ' + href);

@@ -27,12 +27,12 @@ namespace AppViewLite.Web
             {
                 foreach (var postId in postIdsToSubscribe)
                 {
-                    dangerousRels.RegisterForPostStatsNotificationThreadSafe(postId, ctx.Callback);
+                    dangerousRels.RegisterForPostStatsNotificationThreadSafe(postId, ctx.LiveUpdatesCallback);
                     ctx.PostIds.Add(postId);
                 }
                 foreach (var postId in postIdsToUnsubscribe)
                 {
-                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, ctx.Callback);
+                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, ctx.LiveUpdatesCallback);
                     ctx.PostIds.Remove(postId);
                 }
             }
@@ -45,12 +45,14 @@ namespace AppViewLite.Web
             var ctx = Program.TryGetSession(httpContext);
             var userPlc = ctx != null && ctx.IsLoggedIn ? ctx.LoggedInUser : default;
             var connectionId = Context.ConnectionId;
-            if (!connectionIdToCallback.TryAdd(connectionId, new ConnectionContext 
-            { 
-                Callback = (notification, commitPlc) => 
+
+            var context = new ConnectionContext
+            {
+                UserPlc = userPlc,
+                LiveUpdatesCallback = (notification, commitPlc) =>
                 {
                     var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
-                    
+
                     object? ownRelationshipChange = null;
                     if (commitPlc == userPlc)
                     {
@@ -65,8 +67,21 @@ namespace AppViewLite.Web
                         };
                     }
                     _ = client.SendAsync("PostEngagementChanged", notification, ownRelationshipChange);
+                },
+                UserNotificationCallback = (notificationCount) =>
+                {
+                    var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
+
+                    _ = client.SendAsync("NotificationCount", notificationCount);
                 }
-            })) throw new Exception();
+            };
+            if (!connectionIdToCallback.TryAdd(connectionId, context)) throw new Exception();
+
+
+            if (userPlc != null)
+                BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.Subscribe(userPlc.Value, context.UserNotificationCallback);
+
+
             return Task.CompletedTask;
         }
 
@@ -77,8 +92,11 @@ namespace AppViewLite.Web
             {
                 foreach (var postId in context.PostIds)
                 {
-                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, context.Callback);
+                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, context.LiveUpdatesCallback);
                 }
+                
+                if(context.UserPlc != null)
+                    dangerousRels.UserNotificationSubscribersThreadSafe.Unsubscribe(context.UserPlc.Value, context.UserNotificationCallback);
             }
 
             return Task.CompletedTask;
@@ -91,6 +109,8 @@ namespace AppViewLite.Web
     class ConnectionContext
     {
         public HashSet<PostId> PostIds = new();
-        public LiveNotificationDelegate Callback;
+        public LiveNotificationDelegate LiveUpdatesCallback;
+        public Action<long>? UserNotificationCallback;
+        public Plc? UserPlc;
     }
 }

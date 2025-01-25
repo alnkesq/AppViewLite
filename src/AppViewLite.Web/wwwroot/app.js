@@ -2,13 +2,22 @@ var hasBlazor = !!window.Blazor;
 
 
 var liveUpdatesPostIds = new Set();
+var notificationCount = parseInt(document.querySelector('.notification-badge').textContent);
+var pageTitleWithoutCounter = document.title;
+
+function updatePageTitle() { 
+    document.title = notificationCount ? '(' + notificationCount + ') ' + pageTitleWithoutCounter : pageTitleWithoutCounter;
+    var badge = document.querySelector('.notification-badge');
+    badge.textContent = notificationCount;
+    badge.classList.toggle('display-none', notificationCount == 0);
+}
 
 var liveUpdatesConnectionFuture = (async () => {
 
 
     var connection = new signalR.HubConnectionBuilder().withUrl("/api/live-updates").build();
     connection.on('PostEngagementChanged', (stats, ownRelationship) => {
-        console.log('PostEngagementChanged: ');
+        //console.log('PostEngagementChanged: ');
         for (const postElement of document.querySelectorAll('.post[data-postrkey="' + stats.rKey + '"][data-postdid="' + stats.did + '"]')) {
             var likeToggler = getOrCreateLikeToggler(stats.did, stats.rKey, postElement);
             likeToggler.applyLiveUpdate(stats.likeCount, ownRelationship?.likeRkey);
@@ -16,7 +25,11 @@ var liveUpdatesConnectionFuture = (async () => {
             var repostToggler = getOrCreateRepostToggler(stats.did, stats.rKey, postElement);
             repostToggler.applyLiveUpdate(stats.repostCount, ownRelationship?.repostRkey);
         }
-    })
+    });
+    connection.on('NotificationCount', (count) => {
+        notificationCount = count;
+        updatePageTitle();
+    });
     await connection.start();
     return connection;
 })();
@@ -83,7 +96,8 @@ async function applyPage(href, preferRefresh, scrollToTop) {
     oldMain.remove();
     page.appendChild(main);
     currentlyLoadedPage = href;
-    document.title = title;
+    pageTitleWithoutCounter = title;
+    updatePageTitle();
     if (scrollToTop) { 
         applyPageFocus();
     }
@@ -131,11 +145,12 @@ if (!hasBlazor) {
         applyPage(location.href, false);
     });
     
+    pageTitleWithoutCounter = document.title;
     recentPages.push({
         href: location.href,
         dateFetched: Date.now(),
         dom: document.querySelector('main'),
-        title: document.title
+        title: pageTitleWithoutCounter,
     });
     window.addEventListener('scroll', async e => {
         if (document.documentElement.scrollTop <= 0) return;
@@ -235,6 +250,7 @@ if (!hasBlazor) {
     });
 
     updateLiveSubscriptions();
+    updatePageTitle();
 }
 
 function getAncestorData(target, name) { 

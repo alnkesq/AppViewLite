@@ -47,10 +47,7 @@
         <div>
             <NavLink href="/notifications">
                 Notifications
-                @if (NotificationCount != 0)
-                {
-                    <span class="notification-badge">@NotificationCount</span>
-                }
+                <span class="notification-badge @(NotificationCount == 0 ? "display-none" : null)">@NotificationCount</span>
             </NavLink>
         </div>
         <div>

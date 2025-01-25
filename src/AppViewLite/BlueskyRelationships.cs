@@ -1268,6 +1268,7 @@ namespace AppViewLite
             if (!IsRegisteredForNotifications(destination)) return;
             if (UsersHaveBlockRelationship(destination, actor) != default) return;
             Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
+            UserNotificationSubscribersThreadSafe.MaybeNotify(destination, handler => handler(GetNotificationCount(destination)));
         }
 
         public int SuppressNotificationGeneration;
@@ -1447,22 +1448,23 @@ namespace AppViewLite
             lastGlobalFlush.Restart();
         }
 
-        private SubscriptionDictionary<PostId, LiveNotificationDelegate> PostNotificationHandlers = new();
+        public SubscriptionDictionary<PostId, LiveNotificationDelegate> PostLiveSubscribersThreadSafe = new();
+        public SubscriptionDictionary<Plc, Action<long>> UserNotificationSubscribersThreadSafe = new();
 
         internal void NotifyPostStatsChange(PostId postId, Plc commitPlc)
         {
-            PostNotificationHandlers.MaybeNotify(postId, (handler) => handler(new PostStatsNotification(postId, TryGetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc));
+            PostLiveSubscribersThreadSafe.MaybeNotify(postId, (handler) => handler(new PostStatsNotification(postId, TryGetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc));
         }
 
         //private Dictionary<PostId, int> notifDebug = new();
 
         public void RegisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
         {
-            PostNotificationHandlers.Subscribe(postId, handler);
+            PostLiveSubscribersThreadSafe.Subscribe(postId, handler);
         }
         public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
         {
-            PostNotificationHandlers.Unsubscribe(postId, handler);
+            PostLiveSubscribersThreadSafe.Unsubscribe(postId, handler);
         }
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();

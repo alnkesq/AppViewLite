@@ -214,9 +214,17 @@ namespace AppViewLite
                 {
                     WithRelationshipsLock(rels =>
                     {
-                        var postId = rels.GetPostId(key.Did, key.RKey);
-                        rels.StorePostInfo(postId, postRecord);
-                        OnRecordReceived(rels, postId);
+                        rels.SuppressNotificationGeneration++;
+                        try
+                        {
+                            var postId = rels.GetPostId(key.Did, key.RKey);
+                            rels.StorePostInfo(postId, postRecord);
+                            OnRecordReceived(rels, postId);
+                        }
+                        finally
+                        {
+                            rels.SuppressNotificationGeneration--;
+                        }
                     });
                 },
                 key =>

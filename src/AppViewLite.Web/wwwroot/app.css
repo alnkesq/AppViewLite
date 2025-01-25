@@ -79,7 +79,7 @@ main {
     .sidebar {
         width: 250px;
         background-color: white;
-        z-index: 4;
+        z-index: 20;
     }
     .sidebar-placeholder {
         display: none;

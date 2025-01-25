@@ -45,19 +45,10 @@
 <h1>Search</h1>
 
 <form action="/search" method="get" class="search-form">
-    <div class="search-form-row">
-        <label>Text: <input type="search" name="q" value="@Q" autofocus /></label>
+    <label class="search-form-query"><input type="search" name="q" value="@Q" autofocus placeholder="Search" /></label>
+    <label class="search-form-submit"><input type="submit" value="Search"></label>
+@*     <div class="search-form-row">
         <label>Author: <input type="text" name="from" value="@From" /></label>
-    </div>
-    <div class="search-form-row">
-        <label>Since: <input type="date" name="since" value="@Since?.ToString("yyyy-MM-dd")" /></label>
-        <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
-    </div>
-    <div class="search-form-row">
-        <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
-        <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
-    </div>
-    <div class="search-form-row">
         <label>
             <select name="language">
                 @foreach (var lang in Enum.GetNames<LanguageEnum>().Where(x => x != "pt_BR" && x != "pt_PT").Select(x =>
@@ -72,8 +63,15 @@
                 }
             </select>
         </label>
-        <label></label>
     </div>
+    <div class="search-form-row">
+        <label>Since: <input type="date" name="since" value="@Since?.ToString("yyyy-MM-dd")" /></label>
+        <label>Until: <input type="date" name="until" value="@Until?.ToString("yyyy-MM-dd")" /></label>
+    </div>
+    <div class="search-form-row">
+        <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
+        <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
+    </div> *@
     <div class="search-form-row">
         <label>
             <select name="sort" onchange="this.form.submit()">
@@ -81,9 +79,8 @@
                 <option value="top" selected="@IsTopPosts">Top posts</option>
             </select>
         </label>
-        <label>
-            <input type="submit" value="Search">
-        </label>
+@*         <label>
+        </label> *@
     </div>
 </form>
 

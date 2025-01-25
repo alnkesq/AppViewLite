@@ -486,12 +486,31 @@ ul {
 
 .search-form {
     margin-top: 15px;
-    text-align: center;
+    text-align: left;
+    width: 400px;
+    margin: 0 auto;
+
 }
 
     .search-form input[type=submit] {
         padding: 3px 4px;
     }
+
+.search-form-query {
+    width: 300px !important;
+}
+.search-form-query input {
+    width:  100% !important;
+    height: 30px;
+}
+.search-form-submit{
+    width: min-content !important;
+    margin-left: 10px;
+}
+.search-form-submit input {
+    width: 50px !important;
+    height: 30px;
+}
 
 .search-form label {
     font-size: 9pt;
@@ -522,7 +541,7 @@ ul {
     .search-form input, .search-form select {
         display: block;
         margin-bottom: 5px;
-        width: 180px !important;
+        width: 180px;
         box-sizing: content-box;
     }
 

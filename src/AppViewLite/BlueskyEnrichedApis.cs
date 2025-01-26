@@ -33,23 +33,29 @@ namespace AppViewLite
     {
         public static BlueskyEnrichedApis Instance;
         internal ATProtocol proto;
-        internal ATProtocol protoAppView;
+        internal ATProtocol protoForHandleResolution;
         private BlueskyRelationships relationshipsUnlocked;
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
-        public BlueskyEnrichedApis(BlueskyRelationships relationships)
+        public BlueskyEnrichedApis(BlueskyRelationships relationships, AtProtocolProvider pdsConfig)
         {
-            this.proto = new ATProtocolBuilder().WithInstanceUrl(new Uri("https://bsky.network")).Build();
-            this.protoAppView = new ATProtocolBuilder().Build();
+            this.proto = new ATProtocolBuilder()
+                .WithInstanceUrl(new Uri(pdsConfig.DefaultHost))
+                .WithATDidCache(atprotoProvider?.Hosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
+                .Build();
+            this.protoForHandleResolution = new ATProtocolBuilder().Build(); // bsky.app
             this.relationshipsUnlocked = relationships;
+            this.atprotoProvider = pdsConfig;
         }
+
+
 
         public async Task<string> ResolveHandleAsync(string handle)
         {
             if (handle.StartsWith('@')) handle = handle.Substring(1);
             if (handle.StartsWith("did:", StringComparison.Ordinal)) return handle;
-            var resolved = (await protoAppView.ResolveHandleAsync(new ATHandle(handle))).HandleResult();
+            var resolved = (await protoForHandleResolution.ResolveHandleAsync(new ATHandle(handle))).HandleResult();
             return resolved!.Did!.ToString();
         }
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
@@ -791,6 +797,8 @@ namespace AppViewLite
         }
 
         private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
+        private AtProtocolProvider atprotoProvider;
+
         public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx)
         {
             var feedGenInfo = await GetFeedGeneratorAsync(did, rkey);
@@ -1131,7 +1139,7 @@ namespace AppViewLite
             var startDate = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
 
-            var indexer = new Indexer(relationshipsUnlocked);
+            var indexer = new Indexer(relationshipsUnlocked, atprotoProvider);
             Tid lastTid;
             Exception? exception = null;
 
@@ -1264,7 +1272,7 @@ namespace AppViewLite
         {
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.Session.PdsSession;
-            var sessionProtocol = new ATProtocolBuilder().Build();
+            var sessionProtocol = atprotoProvider.CreateProtocolForDid(pdsSession.Did.Handler);
             await sessionProtocol.AuthenticateWithPasswordSessionAsync(new AuthSession(pdsSession));
             return sessionProtocol;
 
@@ -1272,7 +1280,7 @@ namespace AppViewLite
 
         public async Task<Session> LoginToPdsAsync(string did, string password)
         {
-            var sessionProtocol = new ATProtocolBuilder().Build();
+            var sessionProtocol = atprotoProvider.CreateProtocolForDid(did);
             var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
             return session;
         }

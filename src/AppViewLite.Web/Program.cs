@@ -43,8 +43,12 @@ namespace AppViewLite.Web
 
         public static async Task Main(string[] args)
         {
+            var atprotoProvider = new AtProtocolProvider([
+                    //new AlternatePds("did:plc:testaaaaaaaaaaaaaaaaaaaa", "http://localhost:5093"),
+                    new AlternatePds("*", "https://bsky.network"),
+                ]);
             Relationships = new();
-            BlueskyEnrichedApis.Instance = new(Relationships);
+            BlueskyEnrichedApis.Instance = new(Relationships, atprotoProvider);
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Services.AddRazorComponents()
@@ -78,7 +82,6 @@ namespace AppViewLite.Web
             var app = builder.Build();
 
             app.Lifetime.ApplicationStopping.Register(Relationships.Dispose);
-            var indexer = new Indexer(Relationships);
 
 
             // Configure the HTTP request pipeline.
@@ -107,17 +110,32 @@ namespace AppViewLite.Web
             app.UseRouting();
             app.UseCors();
             app.UseAntiforgery();
-
             app.MapHub<AppViewLiteHub>("/api/live-updates");
             app.MapControllers();
 
             if (ListenToFirehose)
             {
+                
+                
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(1000);
                     app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
-                    await indexer.ListenJetStreamFirehoseAsync();
+                    var explicitDid = atprotoProvider.Hosts.Where(x => x.IsDid).Select(x => x.Did).ToHashSet();
+                    foreach (var altpds in atprotoProvider.Hosts.GroupBy(x => x.Host))
+                    {
+                        var indexer = new Indexer(Relationships, atprotoProvider)
+                        {
+                            DidAllowlist = altpds.Any(x => x.IsWildcard) ? null : altpds.Select(x => x.Did).ToHashSet(),
+                            DidBlocklist = altpds.Any(x => x.IsWildcard) ? explicitDid : null,
+                            FirehoseUrl = new(altpds.Key),
+                        };
+
+                        indexer.ListenBlueskyFirehoseAsync();
+                    }
+
+                    //await indexer.ListenJetStreamFirehoseAsync();
+               
                 });
             }
             AppViewLiteHubContext = app.Services.GetRequiredService<IHubContext<AppViewLiteHub>>();

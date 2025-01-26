@@ -15,17 +15,22 @@ using System.IO;
 using FishyFlip.Tools;
 using System.Threading;
 using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace AppViewLite
 {
     public class Indexer
     {
         private BlueskyRelationships relationships;
-        public Indexer(BlueskyRelationships relationships)
+        public Uri FirehoseUrl = new("https://bsky.network/");
+        public HashSet<string>? DidBlocklist;
+        public HashSet<string>? DidAllowlist;
+        public AtProtocolProvider AlternatePdsConfiguration;
+        public Indexer(BlueskyRelationships relationships, AtProtocolProvider altPdsConfig)
         {
             this.relationships = relationships;
+            this.AlternatePdsConfiguration = altPdsConfig;
         }
-
 
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
         {
@@ -239,6 +244,9 @@ namespace AppViewLite
 
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {
+
+            VerifyValidForCurrentRelay(e.Record.Did.ToString());
+
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
             {
                 OnRecordCreated(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, e.Record.Commit.Record!, generateNotifications: true, ignoreIfDisposing: true);
@@ -293,10 +301,13 @@ namespace AppViewLite
             await new TaskCompletionSource().Task;
         }
 
+
+
+
         public async Task ListenBlueskyFirehoseAsync()
         {
 
-            var firehose = new FishyFlip.ATWebSocketProtocolBuilder().Build();
+            var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
             firehose.OnConnectionUpdated += async (_, e) =>
             {
                 if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
@@ -314,7 +325,7 @@ namespace AppViewLite
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine(ex);
+                    Console.Error.WriteLine(e.Message?.Commit?.Repo?.ToString() + ": " + ex);
                 }
             };
             await firehose.StartSubscribeReposAsync();
@@ -328,15 +339,24 @@ namespace AppViewLite
             if (commitAuthor == null) return;
             var message = e.Message;
 
+            VerifyValidForCurrentRelay(commitAuthor);
+
             foreach (var del in (message.Commit?.Ops ?? []).Where(x => x.Action == "delete"))
             {
                 OnRecordDeleted(commitAuthor, del.Path, ignoreIfDisposing: true);
             }
 
-            OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record, generateNotifications: true, ignoreIfDisposing: true);
+            if (record != null)
+            {
+                OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record, generateNotifications: true, ignoreIfDisposing: true);
+            }
         }
 
-
+        private void VerifyValidForCurrentRelay(string commitAuthor)
+        {
+            if (DidBlocklist != null && DidBlocklist.Contains(commitAuthor)) throw new Exception($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
+            if (DidAllowlist != null && !DidAllowlist.Contains(commitAuthor)) throw new Exception($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
+        }
 
         public async Task<Tid> ImportCarAsync(string did, string carPath)
         {
@@ -361,7 +381,7 @@ namespace AppViewLite
         }
         public async Task<Tid> ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
         {
-            using var at = CreateAtProto();
+            using var at = AlternatePdsConfiguration.CreateProtocolForDid(did);
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
@@ -378,14 +398,10 @@ namespace AppViewLite
             return importer.LargestSeenRev;
         }
 
-        private static ATProtocol CreateAtProto()
-        {
-            return new ATProtocolBuilder().WithInstanceUrl(new Uri("https://bsky.network")).Build();
-        }
 
         public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, CancellationToken ct = default)
         {
-            using var at = CreateAtProto();
+            using var at = AlternatePdsConfiguration.CreateProtocolForDid(did);
 
             string? cursor = since != default ? since.ToString() : null;
             Tid lastTid = since;

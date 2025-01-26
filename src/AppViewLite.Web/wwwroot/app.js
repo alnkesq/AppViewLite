@@ -24,8 +24,12 @@ var liveUpdatesConnectionFuture = (async () => {
             var likeToggler = getOrCreateLikeToggler(stats.did, stats.rKey, postElement);
             likeToggler.applyLiveUpdate(stats.likeCount, ownRelationship?.likeRkey);
 
+            postElement.dataset.quotecount = stats.quoteCount;
+
             var repostToggler = getOrCreateRepostToggler(stats.did, stats.rKey, postElement);
             repostToggler.applyLiveUpdate(stats.repostCount, ownRelationship?.repostRkey);
+            
+            setPostStats(postElement, stats.replyCount, 'replies', 'reply', 'replies');
         }
     });
     connection.on('NotificationCount', (count) => {
@@ -366,12 +370,16 @@ function setActionStats(postElement, actorCount, kind) {
 
 
 function getOrCreateLikeToggler(did, rkey, postElement) { 
+    var prevKey = '';
     return postElement.likeToggler ??= new ActionStateToggler(
         +postElement.dataset.likecount,
         postElement.dataset.likerkey,
         async () => (await httpPost('CreatePostLike', { did, rkey })).rkey,
         async (rkey) => (await httpPost('DeletePostLike', { rkey })),
         (count, have) => { 
+            var key = formatEngagementCount(count) + have.toString();
+            if (key == prevKey) return;
+            prevKey = key;
             setPostStats(postElement, count, 'likes', 'like', 'likes');
             setActionStats(postElement, count, 'like');
             postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
@@ -379,14 +387,20 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
 }
 
 function getOrCreateRepostToggler(did, rkey, postElement) { 
+    var prevKey = '';
     return postElement.repostToggler ??= new ActionStateToggler(
         +postElement.dataset.repostcount,
         postElement.dataset.repostrkey,
         async () => (await httpPost('CreateRepost', { did, rkey })).rkey,
         async (rkey) => (await httpPost('DeleteRepost', { rkey })),
         (count, have) => { 
+            var quoteCount = +postElement.dataset.quotecount;
+            var key = formatEngagementCount(count) + '/' + formatEngagementCount(quoteCount) + '/' + formatEngagementCount(quoteCount + count) + have.toString();
+            if (key == prevKey) return;
+            prevKey = key;
             setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
-            setActionStats(postElement, count + +postElement.dataset.quotecount, 'repost');
+            setPostStats(postElement, quoteCount, 'quotes', 'quote', 'quotes');
+            setActionStats(postElement, count + quoteCount, 'repost');
             postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
             postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
         });

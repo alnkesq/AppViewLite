@@ -10,6 +10,7 @@
     [Parameter] public string Did { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
+    private FacetData[]? GuessedFacets;
 
     public bool ShowMediaOnly => (Media ?? 0) != 0;
     public bool ShowLikes => (Likes ?? 0) != 0;
@@ -28,6 +29,7 @@
         var r = RequestContext.OnStateChanged(StateHasChanged);
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
         Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, r, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
+        GuessedFacets = StringUtils.GuessFacets(Profile.Profile?.BasicData?.Description);
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
             Did,
             includePosts: !ShowLikes,
@@ -46,6 +48,9 @@
 @if (Profile != null)
 {
     <div class="profile-page @(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
+        <div class="profile-banner">
+            <img src="@Program.GetImageBannerUrl(Did, Profile.Profile.BasicData?.BannerCidBytes)"/>
+        </div>
         <img src="@Profile.Profile.AvatarUrl" class="profile-image-large main-padding" />
         <h1 class="main-padding">@Profile.Profile.DisplayNameOrFallback</h1>
 
@@ -90,6 +95,10 @@
                 </span>
             </a>
         }
+
+        <div class="profile-description main-padding">
+            <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
+        </div>
         
         <div class="tabbed-lists-header">
 

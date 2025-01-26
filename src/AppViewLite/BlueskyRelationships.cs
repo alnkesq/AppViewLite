@@ -1,3 +1,4 @@
+using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
@@ -118,7 +119,7 @@ namespace AppViewLite
             RecursiveReplies = RegisterDictionary<PostId, PostId>("post-reply-recursive") ;
             Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
-            PlcToBasicInfo = RegisterDictionary<Plc, byte>("profile-basic", PersistentDictionaryBehavior.PreserveOrder);
+            PlcToBasicInfo = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
             PostTextSearch = RegisterDictionary<ulong, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
@@ -296,15 +297,14 @@ namespace AppViewLite
             if (PlcToBasicInfo.TryGetPreserveOrderSpanLatest(plc, out var arr))
             {
                 var span = arr.AsSmallSpan();
-                var nul = span.IndexOf((byte)0);
-                var displayName = Encoding.UTF8.GetString(span.Slice(0, nul));
-                if (string.IsNullOrEmpty(displayName)) displayName = null;
-                var avatar = span.Slice(nul + 1);
-                return new BlueskyProfileBasicInfo
+                var proto = DeserializeProto<BlueskyProfileBasicInfo>(arr.AsSmallSpan());
+                lock (textCompressorUnlocked)
                 {
-                    DisplayName = displayName,
-                    AvatarCid = avatar.IsEmpty ? null : Cid.Read(avatar.ToArray()).ToString()
-                };
+                    textCompressorUnlocked.DecompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
+                }
+                proto.AvatarCid = proto.AvatarCidBytes != null ? Cid.Read(proto.AvatarCidBytes).ToString() : null;
+                return proto;
 
             }
             return null;
@@ -333,44 +333,15 @@ namespace AppViewLite
             var lang = p.Langs?.FirstOrDefault();
 
             var langEnum = ParseLanguage(lang);
-            
+
             proto.Language = langEnum;
 
             if (/*langEnum != LanguageEnum.en &&*/ langEnum != LanguageEnum.Unknown)
                 AddToSearchIndex("%lang-" + langEnum.ToString(), approxPostDate);
-            
+            proto.Facets = GetFacetsAsProtos(p.Facets);
 
 
 
-
-            proto.Facets = (p.Facets ?? []).Select(x =>
-            {
-                var feature = x.Features!.FirstOrDefault();
-                if (feature == null) return null;
-
-                var facet = new FacetData
-                {
-                    Start = ((int)x.Index!.ByteStart!),
-                    Length = (int)(x.Index.ByteEnd! - x.Index.ByteStart),
-                };
-
-                if (feature is Mention m)
-                {
-                    facet.Did = m.Did!.Handler;
-                }
-                else if (feature is Link l)
-                {
-                    facet.Link = l.Uri!;
-                }
-                else return null;
-
-                return facet;
-            }).Where(x => x != null).ToArray()!;
-            if (proto.Facets.Length == 0)
-                proto.Facets = null;
-
-
-  
             AddToSearchIndex(HashPlcForTextSearch(postId.Author), approxPostDate);
 
             if (proto.Text != null)
@@ -397,7 +368,7 @@ namespace AppViewLite
                 }
             }
 
-            
+
 
             if (p.Reply?.Root is { } root)
             {
@@ -476,6 +447,36 @@ namespace AppViewLite
             if (proto.QuotedRKey != null)
                 NotifyPostStatsChange(postId, postId.Author);
             return proto;
+        }
+
+        private static FacetData[]? GetFacetsAsProtos(List<Facet>? facets)
+        {
+            if (facets == null) return null;
+            var facetProtos = (facets ?? []).Select(x =>
+            {
+                var feature = x.Features!.FirstOrDefault();
+                if (feature == null) return null;
+
+                var facet = new FacetData
+                {
+                    Start = ((int)x.Index!.ByteStart!),
+                    Length = (int)(x.Index.ByteEnd! - x.Index.ByteStart),
+                };
+
+                if (feature is Mention m)
+                {
+                    facet.Did = m.Did!.Handler;
+                }
+                else if (feature is Link l)
+                {
+                    facet.Link = l.Uri!;
+                }
+                else return null;
+
+                return facet;
+            }).Where(x => x != null).ToArray()!;
+            if (facetProtos.Length == 0) return null;
+            return facetProtos;
         }
 
         public static LanguageEnum ParseLanguage(string? lang)
@@ -606,7 +607,26 @@ namespace AppViewLite
 
         internal void StoreProfileBasicInfo(Plc plc, Profile pf)
         {
-            PlcToBasicInfo.AddRange(plc, [.. Encoding.UTF8.GetBytes(pf.DisplayName ?? string.Empty), 0, .. (pf.Avatar?.Ref?.Link?.ToArray() ?? [])]);
+            //PlcToBasicInfo.AddRange(plc, [.. Encoding.UTF8.GetBytes(pf.DisplayName ?? string.Empty), 0, .. (pf.Avatar?.Ref?.Link?.ToArray() ?? [])]);
+
+            var pinnedPost = pf.PinnedPost?.Uri;
+            if (pinnedPost != null && SerializeDid(pinnedPost.Did!.Handler) != plc)
+                pinnedPost = null;
+
+            var proto = new BlueskyProfileBasicInfo
+            {
+                Description = pf.Description,
+                DisplayName = pf.DisplayName,
+                AvatarCidBytes = pf.Avatar?.Ref?.Link?.ToArray(),
+                BannerCidBytes = pf.Banner?.Ref?.Link?.ToArray(),
+                PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Rkey).TidValue : null,
+            };
+            lock (textCompressorUnlocked)
+            {
+                textCompressorUnlocked.CompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
+                textCompressorUnlocked.CompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
+            }
+            PlcToBasicInfo.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
         }
 
         internal readonly static EfficientTextCompressor textCompressorUnlocked = new();

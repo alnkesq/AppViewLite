@@ -34,7 +34,11 @@ namespace AppViewLite.Web
 
         public static string GetImageThumbnailUrl(string did, byte[] cid)
         {
-            return $"https://cdn.bsky.app/img/feed_thumbnail/plain/{did}/{ Cid.Read(cid) }@jpeg";
+            return $"https://cdn.bsky.app/img/feed_thumbnail/plain/{did}/{Cid.Read(cid)}@jpeg";
+        }
+        public static string GetImageBannerUrl(string did, byte[] cid)
+        {
+            return $"https://cdn.bsky.app/img/banner/plain/{did}/{Cid.Read(cid)}@jpeg";
         }
         public static string GetImageFullUrl(string did, byte[] cid)
         {

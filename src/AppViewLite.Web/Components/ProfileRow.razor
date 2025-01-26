@@ -11,16 +11,29 @@
     {
         this.BuildRenderTree(builder);
     }
+
+    private FacetData[] GuessedFacets;
+
+    protected override void OnParametersSet()
+    {
+        // Facets are not stored explicitly in the profile lexicon
+        GuessedFacets = StringUtils.GuessFacets(Profile.BasicData?.Description);
+    }
 }
 <li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did" data-profiledid="@Profile.Did" data-pendingload="@(Profile.BasicData == null ? 1 : 0)">
-    <a href="@Profile.BaseUrl" class="profile-row-name">
+    <a href="@Profile.BaseUrl" class="profile-row-avatar">
         <img src="@Profile.AvatarUrl" class="profile-image-small">
+    </a>
+    <a href="@Profile.BaseUrl" class="profile-row-name profile-indented">
         @Profile.DisplayNameOrFallback
     </a>
     @if (Profile.BlockReason != default)
     {
         <span class="profile-follow-relationship">@Profile.BlockReason.ToDisplayString()</span>
     }
+    <div class="profile-row-description profile-indented">
+        <TextWithFacets Text="@Profile.BasicData?.Description" Facets="@GuessedFacets"></TextWithFacets>
+    </div>
     @if (RequestContext.IsLoggedIn && Profile.Plc != RequestContext.LoggedInUser)
     {
         <FollowButton Profile="@Profile" />

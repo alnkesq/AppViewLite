@@ -33,18 +33,7 @@
         var facets = Facets ?? [];
         if (textBytes.Contains((byte)'#'))
         {
-
-            var hashtags = new List<FacetData>();
-            foreach (Match m in Regex.Matches(Text, @"#\w+"))
-            {
-                if (m.Index != 0 && !char.IsWhiteSpace(Text[m.Index - 1])) continue;
-                var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(Text.AsSpan(0, m.Index));
-                var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(m.ValueSpan);
-                var hashtag = new FacetData { Start = startUtf8, Length = lengthUtf8, Link = "/search?q=" + Uri.EscapeDataString(m.Value) };
-                if (facets.Any(x => !x.IsDisjoint(hashtag))) continue; // inside a URL
-                hashtags.Add(hashtag);
-            }
-            facets = facets.Concat(hashtags).ToArray();
+            facets = facets.Concat(StringUtils.GuessHashtagFacets(Text).Where(x => facets.All(y => y.IsDisjoint(x)))).ToArray();
         }
         facets = facets.OrderBy(x => x.Start).ToArray();
 

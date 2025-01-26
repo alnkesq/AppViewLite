@@ -1,3 +1,4 @@
+using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
@@ -158,6 +159,71 @@ namespace AppViewLite
                 if (!found) break;
 
             }
+        }
+
+        public static FacetData[]? GuessFacets(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            var facets = new List<FacetData>();
+            void AddFacetIfNoOverlap(FacetData f)
+            {
+                if (facets.All(x => x.IsDisjoint(f)))
+                    facets.Add(f);
+            }
+            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+@[\w\.\-]+")) // @example@mastodon.social
+            {
+                if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                var v = m.Value.Substring(1).Split('@');
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "https://" + v[1] + "/@" + v[0]));
+            }
+            foreach (Match m in Regex.Matches(text, @"[\w\.\-]+@[\w\.\-]+")) // example@gmail.com
+            {
+                if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "mailto:" + m.Value));
+            }
+
+            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+")) // @example.bsky.social
+            {
+                if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, null, m.Value.Substring(1)));
+            }
+
+            foreach (Match m in Regex.Matches(text, @"\bhttps?\:\/\/[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // http://example.com or // http://example.com/path
+            {
+                if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                var link = m.Value;
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, link));
+            }
+            foreach (Match m in Regex.Matches(text, @"\b[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // example.com or // example.com/path
+            {
+                if (m.Index != 0 && (!char.IsWhiteSpace(text[m.Index - 1]) || text[m.Index - 1] == '/')) continue;
+                var link = m.Value;
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "https://" + link));
+            }
+            foreach (var item in GuessHashtagFacets(text))
+            {
+                AddFacetIfNoOverlap(item);
+            }
+            return facets.OrderBy(x => x.Start).ToArray();
+
+        }
+
+
+        public static List<FacetData> GuessHashtagFacets(string text)
+        {
+            var hashtags = new List<FacetData>();
+            foreach (Match m in Regex.Matches(text, @"#\w+"))
+            {
+                if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null));
+            }
+            return hashtags;
+        }
+        private static FacetData CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link, string? did = null)
+        {
+            var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(0, index));
+            var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(index, length));
+            return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did };
         }
     }
 }

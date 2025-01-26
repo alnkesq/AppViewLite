@@ -33,7 +33,12 @@ namespace AppViewLite
 
         public void CompressInPlace(ref string? text, ref byte[]? compressed)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text))
+            {
+                compressed = null;
+                text = null;
+                return;
+            }
             compressed = Compress(text);
             text = null;
         }

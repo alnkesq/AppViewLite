@@ -38,7 +38,7 @@ namespace AppViewLite
 
         public static RequestContext Create(AppViewLiteSession? session = null)
         {
-            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.5));
+            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2));
         }
 
         public static RequestContext CreateInfinite(AppViewLiteSession? session)

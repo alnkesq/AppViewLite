@@ -1,3 +1,4 @@
+using AppViewLite.Numerics;
 using System;
 
 namespace AppViewLite.Numerics

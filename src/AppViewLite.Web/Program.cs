@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using PeterO.Cbor;
 using AppViewLite.Web.Components;
 using AppViewLite.Models;
+using AppViewLite.Numerics;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;

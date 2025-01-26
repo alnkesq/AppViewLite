@@ -578,4 +578,21 @@ async function updateLiveSubscriptions() {
     }
 }
 
+function countGraphemes(string) {
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    const graphemes = Array.from(segmenter.segment(string));
+    return graphemes.length;
+  }
+  
+
+var MAX_GRAPHEMES = 300;
+function composeTextAreaChanged() { 
+    var text = document.querySelector('.compose-textarea').value;
+    var count = countGraphemes(text)
+    var bar = document.querySelector('.compose-textarea-limit');
+    bar.style.width = Math.min(1, count / MAX_GRAPHEMES) * 100 + '%';
+    var exceeds = count > MAX_GRAPHEMES;
+    bar.classList.toggle('compose-textarea-limit-exceeded', exceeds);
+    document.querySelector('.compose-submit').disabled = exceeds;
+}
 

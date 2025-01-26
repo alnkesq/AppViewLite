@@ -149,8 +149,9 @@ namespace AppViewLite.Web
         }
 
         internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext;
-        public static AppViewLiteSession? TryGetSession(HttpContext httpContext)
+        public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
         {
+            if (httpContext == null) return null;
             var now = DateTime.UtcNow;
             var sessionId = TryGetSessionId(httpContext, out var unverifiedDid);
             if (sessionId != null)

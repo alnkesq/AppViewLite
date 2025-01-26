@@ -772,8 +772,13 @@ details:not([open]) .summary-when-open {
 }
 .compose-textarea {
     width: 100%;
-    height: 100px;
+    height: 140px;
     box-sizing: border-box;
+    font-family: inherit;
+    font-size: 12pt;
+}
+.compose-submit-container {
+    text-align: right;
 }
 .compose-textarea-limit-container{
     width: 100%;

@@ -5,6 +5,9 @@ var liveUpdatesPostIds = new Set();
 var notificationCount = parseInt(document.querySelector('.notification-badge')?.textContent ?? 0);
 var pageTitleWithoutCounter = document.title;
 
+/** @type {Map<string, WeakRef<HTMLElement>>} */
+var pendingProfileLoads = new Map();
+
 function updatePageTitle() {
     document.title = notificationCount ? '(' + notificationCount + ') ' + pageTitleWithoutCounter : pageTitleWithoutCounter;
     var badge = document.querySelector('.notification-badge');
@@ -35,6 +38,19 @@ var liveUpdatesConnectionFuture = (async () => {
     connection.on('NotificationCount', (count) => {
         notificationCount = count;
         updatePageTitle();
+    });
+    connection.on('ProfileRendered', (nodeid, html) => { 
+        var temp = document.createElement('div');
+        temp.innerHTML = html;
+        var newnode = temp.firstElementChild;
+        var oldnoderef = pendingProfileLoads.get(nodeid);
+        var oldnode = oldnoderef?.deref();
+        if (!oldnode) { 
+            if (oldnoderef) pendingProfileLoads.delete(nodeid);
+            return;
+        }
+        oldnode.replaceWith(newnode);
+        
     });
     await connection.start();
     return connection;
@@ -495,14 +511,27 @@ function formatEngagementCount(value)
 
 
 async function updateLiveSubscriptions() {
+    var connection = await liveUpdatesConnectionFuture;
     var visiblePosts = [...document.querySelectorAll('.post')].map(x => x.dataset.postdid + '/' + x.dataset.postrkey);
     var visiblePostsSet = new Set(visiblePosts);
     var toSubscribe = visiblePosts.filter(x => !liveUpdatesPostIds.has(x));
     var toUnsubscribe = [...liveUpdatesPostIds].filter(x => !visiblePostsSet.has(x));
     liveUpdatesPostIds = visiblePostsSet;
-    if (!toSubscribe.length && !toUnsubscribe.length) return;
-    
-    await (await liveUpdatesConnectionFuture).invoke('SubscribeUnsubscribePosts', toSubscribe, toUnsubscribe);
+    if (toSubscribe.length || toUnsubscribe.length) {
+        await connection.invoke('SubscribeUnsubscribePosts', toSubscribe, toUnsubscribe);
+    }
+
+    var profilesToLoad = [...document.querySelectorAll(".profile-row[data-pendingload='1']")];
+    if (profilesToLoad.length) { 
+        for (const profile of profilesToLoad) {
+            profile.dataset.pendingload = '0';
+            var nodeId = crypto.randomUUID();
+            profile.dataset.nodeid = nodeId;
+            pendingProfileLoads.set(nodeId, new WeakRef(profile));
+        }
+        
+        await connection.invoke('LoadPendingProfiles', profilesToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.profiledid })))
+    }
 }
 
 

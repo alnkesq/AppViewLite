@@ -81,6 +81,7 @@ namespace AppViewLite.Web
 
             var app = builder.Build();
 
+            StaticServiceProvider = app.Services;
             app.Lifetime.ApplicationStopping.Register(Relationships.Dispose);
 
 
@@ -294,6 +295,7 @@ namespace AppViewLite.Web
 
         }
         public static ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
+        public static IServiceProvider StaticServiceProvider;
 
         private static string? TryGetSessionId(HttpContext httpContext, out string? unverifiedDid)
         {

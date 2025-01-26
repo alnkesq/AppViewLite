@@ -82,7 +82,7 @@ namespace AppViewLite
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
             {
@@ -95,6 +95,16 @@ namespace AppViewLite
                     profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
                 }
             });
+
+
+            if (onProfileDataAvailable != null)
+            {
+                foreach (var profile in profiles)
+                {
+                    if (profile.BasicData != null)
+                        onProfileDataAvailable(profile);
+                }
+            }
             
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
@@ -110,6 +120,7 @@ namespace AppViewLite
                 {
                     if (profile.BasicData == null)
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
+                    onProfileDataAvailable?.Invoke(profile);
                 }
             }
 
@@ -131,7 +142,12 @@ namespace AppViewLite
                         rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
                         OnRecordReceived(rels, plc);
                     });
-                }, ctx);
+                }, 
+                key => 
+                {
+                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.SerializeDid(key.Did)));
+                }
+                , ctx);
 
             await task;
 
@@ -241,11 +257,16 @@ namespace AppViewLite
                         rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow);
                         OnRecordReceived(rels, postId);
                     });
-                }, ctx);
+                },
+                key =>
+                {
+                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.GetPostId(key.Did, key.RKey)));
+                },
+                ctx);
 
 
 
-            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx, ct);
+            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx, ct: ct);
 
             if (loadQuotes)
             {
@@ -258,7 +279,7 @@ namespace AppViewLite
             return posts;
         }
 
-        private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, RequestContext ctx) where TValue : ATObject
+        private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, Action<RelationshipStr> onPreexistingTaskCompleted, RequestContext ctx) where TValue : ATObject
         {
 
             if (keys.Count != 0 && (ctx.LongDeadline == null || !ctx.LongDeadline.IsCompleted))
@@ -271,7 +292,11 @@ namespace AppViewLite
                 {
                     if (pendingRetrievals.TryGetValue(key, out var task))
                     {
-                        task.Task.GetAwaiter().OnCompleted(ctx.TriggerStateChange);
+                        task.Task.GetAwaiter().OnCompleted(() => 
+                        {
+                            onPreexistingTaskCompleted?.Invoke(key);
+                            ctx.TriggerStateChange();
+                        });
                         allTasksToAwait.Add(task.Task);
                     }
                     else if (keysToLookup.Count + 1 < 100)

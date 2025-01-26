@@ -1,4 +1,9 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.RenderTree;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.SignalR;
+using AppViewLite.Web.Components;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System.Collections.Concurrent;
@@ -7,15 +12,37 @@ namespace AppViewLite.Web
 {
     internal class AppViewLiteHub : Hub
     {
-        public AppViewLiteHub()
+        private RequestContext ctx;
+        private ILoggerFactory loggerFactory;
+
+        public AppViewLiteHub(RequestContext ctx, ILoggerFactory loggerFactory)
         {
+            this.ctx = ctx;
+            this.loggerFactory = loggerFactory;
+        }
+
+        public async Task LoadPendingProfiles(ProfileRenderRequest[] requests)
+        {
+            var hub = HubContext;
+            
+            var connectionId = Context.ConnectionId;
+            var profiles = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
+            var newctx = new RequestContext(ctx.Session, null, null);
+            _ = BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p => 
+            {
+                using var scope = Program.StaticServiceProvider.CreateScope();
+                using var renderer = new HtmlRenderer(scope.ServiceProvider, loggerFactory);
+                var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<ProfileRow>(ParameterView.FromDictionary(new Dictionary<string, object>() { { nameof(ProfileRow.Profile), p } }))).ToHtmlString());
+                var index = Array.IndexOf(profiles, p);
+                Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("ProfileRendered", requests[index].nodeId, html);
+            });
             
         }
 
         public Task SubscribeUnsubscribePosts(string[] toSubscribe, string[] toUnsubscribe)
         {
-            var ctx = connectionIdToCallback[Context.ConnectionId];
-            
+            var ctx = HubContext;
+
             var dangerousRels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
             var (postIdsToSubscribe, postIdsToUnsubscribe) = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
             {
@@ -39,6 +66,8 @@ namespace AppViewLite.Web
             return Task.CompletedTask;
         }
 
+        private ConnectionContext HubContext => connectionIdToCallback[Context.ConnectionId];
+        
         public override Task OnConnectedAsync()
         {
             var httpContext = this.Context.GetHttpContext();
@@ -106,6 +135,8 @@ namespace AppViewLite.Web
 
 
         private readonly static ConcurrentDictionary<string, ConnectionContext> connectionIdToCallback = new();
+
+        public record struct ProfileRenderRequest(string nodeId, string did);
     }
 
     class ConnectionContext

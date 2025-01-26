@@ -1,11 +1,18 @@
+@using Microsoft.AspNetCore.Components.Rendering
 @inject RequestContext RequestContext
 
 @code {
     [Parameter]
     public required BlueskyProfile Profile { get; set; }
 
+    public void SetRequestContext(RequestContext ctx) => RequestContext = ctx;
+
+    public void AddToTree(RenderTreeBuilder builder)
+    {
+        this.BuildRenderTree(builder);
+    }
 }
-<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did">
+<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did" data-profiledid="@Profile.Did" data-pendingload="@(Profile.BasicData == null ? 1 : 0)">
     <a href="@Profile.BaseUrl" class="profile-row-name">
         <img src="@Profile.AvatarUrl" class="profile-image-small">
         @Profile.DisplayNameOrFallback

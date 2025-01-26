@@ -173,7 +173,7 @@ namespace AppViewLite
             return r;
         }
 
-        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, bool loadQuotes = true, CancellationToken ct = default)
+        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
             {
@@ -226,6 +226,7 @@ namespace AppViewLite
                     {
                         post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
                     }
+                    onPostDataAvailable?.Invoke(post);
 
                 }
             }
@@ -273,7 +274,7 @@ namespace AppViewLite
                 var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray();
                 if (r.Length != 0)
                 {
-                    await EnrichAsync(r, ctx, loadQuotes: false, ct: ct);
+                    await EnrichAsync(r, ctx, onPostDataAvailable, loadQuotes: false, ct: ct);
                 }
             }
             return posts;

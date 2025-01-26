@@ -7,6 +7,8 @@ var pageTitleWithoutCounter = document.title;
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
 var pendingProfileLoads = new Map();
+/** @type {Map<string, WeakRef<HTMLElement>>} */
+var pendingPostLoads = new Map();
 
 function updatePageTitle() {
     document.title = notificationCount ? '(' + notificationCount + ') ' + pageTitleWithoutCounter : pageTitleWithoutCounter;
@@ -17,6 +19,12 @@ function updatePageTitle() {
     }
 }
 
+
+function parseHtmlAsElement(html) { 
+    var temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.firstElementChild;
+}
 var liveUpdatesConnectionFuture = (async () => {
 
 
@@ -40,18 +48,28 @@ var liveUpdatesConnectionFuture = (async () => {
         updatePageTitle();
     });
     connection.on('ProfileRendered', (nodeid, html) => { 
-        var temp = document.createElement('div');
-        temp.innerHTML = html;
-        var newnode = temp.firstElementChild;
         var oldnoderef = pendingProfileLoads.get(nodeid);
         var oldnode = oldnoderef?.deref();
         if (!oldnode) { 
             if (oldnoderef) pendingProfileLoads.delete(nodeid);
             return;
         }
-        oldnode.replaceWith(newnode);
-        
+        oldnode.replaceWith(parseHtmlAsElement(html));
     });
+    connection.on('PostRendered', (nodeid, html) => { 
+        var oldnoderef = pendingPostLoads.get(nodeid);
+        var oldnode = oldnoderef?.deref();
+        if (!oldnode) { 
+            if (oldnoderef) pendingPostLoads.delete(nodeid);
+            return;
+        }
+        oldnode.replaceWith(parseHtmlAsElement(html));
+        //if (newnode.querySelector(".post-quoted[data-pendingload='1']"))
+
+        updateLiveSubscriptions();
+    });
+
+
     await connection.start();
     return connection;
 })();
@@ -531,6 +549,19 @@ async function updateLiveSubscriptions() {
         }
         
         await connection.invoke('LoadPendingProfiles', profilesToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.profiledid })))
+    }
+
+    
+    var postsToLoad = [...document.querySelectorAll(".post[data-pendingload='1']")];
+    if (postsToLoad.length) { 
+        for (const post of postsToLoad) {
+            post.dataset.pendingload = '0';
+            var nodeId = crypto.randomUUID();
+            post.dataset.nodeid = nodeId;
+            pendingPostLoads.set(nodeId, new WeakRef(post));
+        }
+        
+        await connection.invoke('LoadPendingPosts', postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderflags: x.dataset.renderflags })))
     }
 }
 

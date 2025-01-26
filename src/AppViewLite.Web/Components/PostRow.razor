@@ -25,6 +25,9 @@
     [Parameter]
     public bool ShowThreadLine { get; set; }
 
+    // If you add [Parameter] flags, update RenderFlags serialization and deserialization.
+
+
     private AsyncStateToggler IsLiked;
     private AsyncStateToggler IsReposted;
 
@@ -55,9 +58,37 @@
         UnregisterNotifications();
     }
 
+    public string RenderFlags;
+
+    public static ParameterView CreateParametersForRenderFlags(BlueskyPost post, string renderFlags)
+    {
+        var flags = renderFlags.Select(x => x == '1').ToArray();
+        return ParameterView.FromDictionary(new Dictionary<string, object?>() 
+        {
+            { nameof(PostRow.Post), post },
+
+            { nameof(PostRow.IsQuote), flags[0] },
+            { nameof(PostRow.ShowInReplyTo), flags[1] },
+            { nameof(PostRow.IsLastOfGroup), flags[2] },
+            { nameof(PostRow.ShowRestOfThreadLink), flags[3] },
+            { nameof(PostRow.IsFocalPost), flags[4] },
+            { nameof(PostRow.ShowThreadLine), flags[5] },
+        });
+    
+    }
 
     protected override void OnParametersSet()
     {
+        RenderFlags = string.Join(null, new[]
+        {
+             IsQuote,
+             ShowInReplyTo,
+             IsLastOfGroup,
+             ShowRestOfThreadLink,
+             IsFocalPost,
+             ShowThreadLine
+        }.Select(x => x ? "1" : "0"));
+
         if (notificationsRegisteredForPostId != default && notificationsRegisteredForPostId != Post.PostId)
         {
             UnregisterNotifications();    
@@ -195,7 +226,8 @@
     data-repostcount="@Post.RepostCount"
     data-quotecount="@Post.QuoteCount"
     data-repostrkey="@Post.IsRepostedBySelf?.ToString()"
->
+    data-renderflags="@RenderFlags"
+    data-pendingload="@(Post.Data == null || Post.Author.BasicData == null ? 1 : 0)">
     <a href="@Post.BaseUrl" class="post-background-link"></a>
 
     @if (ShowRestOfThreadLink)

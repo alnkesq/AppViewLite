@@ -24,6 +24,14 @@ namespace AppViewLite
 
         public ATProtocol CreateProtocolForDid(string did)
         {
+            return CreateProtocolForDidCore(did, defaultToRelay: true);
+        }
+        public ATProtocol CreateProtocolForDidForLogin(string did)
+        {
+            return CreateProtocolForDidCore(did, defaultToRelay: false);
+        }
+        private ATProtocol CreateProtocolForDidCore(string did, bool defaultToRelay)
+        {
             var pds = TryGetPdsForDid(did);
             var builder = new ATProtocolBuilder();
             if (pds != null)
@@ -35,7 +43,8 @@ namespace AppViewLite
             }
             else
             {
-                builder.WithInstanceUrl(new Uri(Hosts.FirstOrDefault(x => x.IsWildcard).Host));
+                if (defaultToRelay)
+                    builder.WithInstanceUrl(new Uri(Hosts.FirstOrDefault(x => x.IsWildcard).Host));
             }
             return builder.Build();
         }

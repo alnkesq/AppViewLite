@@ -1306,7 +1306,7 @@ namespace AppViewLite
 
         public async Task<Session> LoginToPdsAsync(string did, string password)
         {
-            var sessionProtocol = atprotoProvider.CreateProtocolForDid(did);
+            var sessionProtocol = atprotoProvider.CreateProtocolForDidForLogin(did);
             var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
             return session;
         }

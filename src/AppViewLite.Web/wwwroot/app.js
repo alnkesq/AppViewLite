@@ -107,9 +107,15 @@ async function applyPage(href, preferRefresh, scrollToTop) {
     if (currentlyLoadedPage == href || preferRefresh) { 
         recentPages = recentPages.filter(x => x.href != href);
     }
-    
-    var [main, title] = await fetchOrReusePageAsync(href, token);
-
+    try {
+        var [main, title] = await fetchOrReusePageAsync(href, token);
+    } catch (e) { 
+        if (token == applyPageId) { 
+            location.href = href;
+            return;
+        }
+        throw e;
+    }
     if (token != applyPageId) throw 'Superseded navigation.'
     
     var oldMain = document.querySelector('main');

@@ -622,6 +622,9 @@ ul {
 
 .profile-description{
     margin-top: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .profile-banner{

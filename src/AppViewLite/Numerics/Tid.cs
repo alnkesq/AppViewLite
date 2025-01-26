@@ -8,8 +8,8 @@ namespace AppViewLite.Numerics
         {
             if (!TryParse(rkey, out var r))
             { 
-                if(long.TryParse(rkey, out _)) throw new Exception("Decimal timestamp IDs are not supported: " + rkey);
-                else throw new Exception("Timestamp ID could not be parsed: " + rkey);
+                if(long.TryParse(rkey, out _)) throw new UnexpectedFirehoseDataException("Decimal timestamp IDs are not supported: " + rkey);
+                else throw new UnexpectedFirehoseDataException("Timestamp ID could not be parsed: " + rkey);
             }
             return r;
         }

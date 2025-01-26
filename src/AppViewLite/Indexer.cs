@@ -186,8 +186,8 @@ namespace AppViewLite
                     }
                     else if (record is Listitem listItem)
                     {
-                        if (commitAuthor != listItem.List.Did.Handler) throw new Exception();
-                        if (listItem.List.Collection != List.RecordType) throw new Exception();
+                        if (commitAuthor != listItem.List.Did.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
+                        if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
                         var listId = new Relationship(commitPlc, Tid.Parse(listItem.List.Rkey));
                         var entry = new ListEntry(relationships.SerializeDid(listItem.Subject.Handler), GetMessageTid(path, Listitem.RecordType + "/"));
                         relationships.ListItems.Add(listId, entry);
@@ -195,23 +195,23 @@ namespace AppViewLite
                     else if (record is Threadgate threadGate)
                     {
                         var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
-                        if (threadGate.Post.Did.Handler != commitAuthor) throw new Exception();
-                        if (threadGate.Post.Rkey != rkey.ToString()) throw new Exception();
-                        if (threadGate.Post.Collection != Post.RecordType) throw new Exception();
+                        if (threadGate.Post.Did.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
+                        if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
+                        if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
                         relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate));
                     }
                     else if (record is Postgate postgate)
                     {
                         var rkey = GetMessageTid(path, Postgate.RecordType + "/");
-                        if (postgate.Post.Did.Handler != commitAuthor) throw new Exception();
-                        if (postgate.Post.Rkey != rkey.ToString()) throw new Exception();
-                        if (postgate.Post.Collection != Post.RecordType) throw new Exception();
+                        if (postgate.Post.Did.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
+                        if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
+                        if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
                         relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate));
                     }
                     else if (record is Listblock listBlock)
                     {
                         var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
-                        if (listBlock.Subject.Collection != List.RecordType) throw new Exception();
+                        if (listBlock.Subject.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
                         var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did.Handler), Tid.Parse(listBlock.Subject.Rkey));
 
                         relationships.ListBlocks.Add(blockId, listId);
@@ -264,7 +264,7 @@ namespace AppViewLite
         }
         public static string GetMessageRKey(string path, string prefix)
         {
-            if (!path.StartsWith(prefix, StringComparison.Ordinal)) throw new Exception();
+            if (!path.StartsWith(prefix, StringComparison.Ordinal)) throw new UnexpectedFirehoseDataException($"Expecting path prefix {prefix}, but found {path}");
             var postShortId = path.Substring(prefix.Length);
             return postShortId;
         }
@@ -287,14 +287,7 @@ namespace AppViewLite
             };
             firehose2.OnRecordReceived += (s, e) =>
             {
-                try
-                {
-                    OnJetStreamEvent(e);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(ex);
-                }
+                TryProcessRecord(() => OnJetStreamEvent(e), e.Record.Did?.Handler);
             };
 
             await firehose2.ConnectAsync();
@@ -319,14 +312,7 @@ namespace AppViewLite
             };
             firehose.OnSubscribedRepoMessage += (s, e) =>
             {
-                try
-                {
-                    OnFirehoseEvent(e);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(e.Message?.Commit?.Repo?.ToString() + ": " + ex);
-                }
+                TryProcessRecord(() => OnFirehoseEvent(e), e.Message.Commit?.Repo.Handler);
             };
             await firehose.StartSubscribeReposAsync();
             await new TaskCompletionSource().Task;
@@ -354,8 +340,8 @@ namespace AppViewLite
 
         private void VerifyValidForCurrentRelay(string commitAuthor)
         {
-            if (DidBlocklist != null && DidBlocklist.Contains(commitAuthor)) throw new Exception($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
-            if (DidAllowlist != null && !DidAllowlist.Contains(commitAuthor)) throw new Exception($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
+            if (DidBlocklist != null && DidBlocklist.Contains(commitAuthor)) throw new UnexpectedFirehoseDataException($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
+            if (DidAllowlist != null && !DidAllowlist.Contains(commitAuthor)) throw new UnexpectedFirehoseDataException($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
         }
 
         public async Task<Tid> ImportCarAsync(string did, string carPath)
@@ -374,11 +360,28 @@ namespace AppViewLite
             importer.LogStats();
             foreach (var record in importer.EnumerateRecords())
             {
-                OnRecordCreated(record.Did, record.Path, record.Record);
+                TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), record.Did);
             }
             importer.Log("Done.");
             return importer.LargestSeenRev;
         }
+
+        private static void TryProcessRecord(Action action, string? did)
+        {
+            try
+            {
+                action();
+            }
+            catch (UnexpectedFirehoseDataException ex)
+            {
+                Console.Error.WriteLine(did + ": " + ex.Message);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(did + ": " + ex);
+            }
+        }
+
         public async Task<Tid> ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
         {
             using var at = AlternatePdsConfiguration.CreateProtocolForDid(did);

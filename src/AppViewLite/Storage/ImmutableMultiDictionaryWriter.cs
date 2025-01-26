@@ -1,3 +1,4 @@
+using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +16,7 @@ namespace AppViewLite.Storage
             this.writer = new SimpleColumnarWriter(destinationPrefix, IsSingleValue ? 2 : 3);
         }
 
-        private int currentValueOffset;
+        private long currentValueOffset;
         public void AddPresorted(TKey key, IEnumerable<TValue> sortedValues)
         {
 
@@ -28,20 +29,19 @@ namespace AppViewLite.Storage
 
                 writer.WriteElement(1, value);
 
-                checked
-                {
-                    currentValueOffset++;
-                }
+                currentValueOffset++;
             }
+
+            
 
             if (startOffset != currentValueOffset)
             {
                 writer.WriteElement(0, key);
-                if (!IsSingleValue)
-                    writer.WriteElement(2, startOffset);
+                WriteStartOffset(startOffset);
             }
 
         }
+
         public void AddPresorted(TKey key, ReadOnlySpan<TValue> sortedValues)
         {
             var startOffset = currentValueOffset;
@@ -54,20 +54,26 @@ namespace AppViewLite.Storage
 
 
                 writer.WriteElement(1, value);
-                checked
-                {
-                    currentValueOffset++;
-                }
+                currentValueOffset++;
             }
 
             if (startOffset != currentValueOffset)
             {
 
                 writer.WriteElement(0, key);
-                if (!IsSingleValue)
-                    writer.WriteElement(2, startOffset);
+                WriteStartOffset(startOffset);
             }
 
+        }
+
+
+        private void WriteStartOffset(long startOffset)
+        {
+            if (!IsSingleValue)
+            {
+                if ((ulong)startOffset > UInt48.MaxValueAsUInt64) throw new Exception();
+                writer.WriteElement(2, (UInt48)startOffset);
+            }
         }
 
         public void AddAllAndCommit(IEnumerable<(TKey Key, TValue Value)> items)

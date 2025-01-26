@@ -2,6 +2,7 @@ using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
 using AppViewLite;
+using AppViewLite.Numerics;
 
 namespace AppViewLite.Storage
 {
@@ -26,7 +27,7 @@ namespace AppViewLite.Storage
 
         public HugeReadOnlyMemory<TKey> Keys => columnarReader.GetColumnHugeMemory<TKey>(0);
         public DangerousHugeReadOnlyMemory<TValue> Values => columnarReader.GetColumnDangerousHugeMemory<TValue>(1);
-        public HugeReadOnlyMemory<int> Offsets => IsSingleValue ? throw new InvalidOperationException() : columnarReader.GetColumnHugeMemory<int>(2);
+        public HugeReadOnlyMemory<UInt48> Offsets => IsSingleValue ? throw new InvalidOperationException() : columnarReader.GetColumnHugeMemory<UInt48>(2);
 
 
 

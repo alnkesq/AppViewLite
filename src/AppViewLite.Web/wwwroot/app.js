@@ -17,7 +17,7 @@ function updatePageTitle() {
 var liveUpdatesConnectionFuture = (async () => {
 
 
-    var connection = new signalR.HubConnectionBuilder().withUrl("/api/live-updates").build();
+    var connection = new signalR.HubConnectionBuilder().withUrl("/api/live-updates").withAutomaticReconnect().build();
     connection.on('PostEngagementChanged', (stats, ownRelationship) => {
         //console.log('PostEngagementChanged: ');
         for (const postElement of document.querySelectorAll('.post[data-postrkey="' + stats.rKey + '"][data-postdid="' + stats.did + '"]')) {

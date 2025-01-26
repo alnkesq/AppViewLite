@@ -1485,14 +1485,7 @@ namespace AppViewLite
 
         //private Dictionary<PostId, int> notifDebug = new();
 
-        public void RegisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
-        {
-            PostLiveSubscribersThreadSafe.Subscribe(postId, handler);
-        }
-        public void UnregisterForPostStatsNotificationThreadSafe(PostId postId, LiveNotificationDelegate? handler)
-        {
-            PostLiveSubscribersThreadSafe.Unsubscribe(postId, handler);
-        }
+
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 

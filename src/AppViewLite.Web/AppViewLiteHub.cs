@@ -27,12 +27,12 @@ namespace AppViewLite.Web
             {
                 foreach (var postId in postIdsToSubscribe)
                 {
-                    dangerousRels.RegisterForPostStatsNotificationThreadSafe(postId, ctx.LiveUpdatesCallback);
+                    dangerousRels.PostLiveSubscribersThreadSafe.Subscribe(postId, ctx.LiveUpdatesCallback);
                     ctx.PostIds.Add(postId);
                 }
                 foreach (var postId in postIdsToUnsubscribe)
                 {
-                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, ctx.LiveUpdatesCallback);
+                    dangerousRels.PostLiveSubscribersThreadSafe.Unsubscribe(postId, ctx.LiveUpdatesCallback);
                     ctx.PostIds.Remove(postId);
                 }
             }
@@ -66,7 +66,7 @@ namespace AppViewLite.Web
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
                         };
                     }
-                    _ = client.SendAsync("PostEngagementChanged", notification, ownRelationshipChange);
+                    _ = client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange);
                 },
                 UserNotificationCallback = (notificationCount) =>
                 {
@@ -90,11 +90,13 @@ namespace AppViewLite.Web
             var dangerousRels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
             if (connectionIdToCallback.TryRemove(this.Context.ConnectionId, out var context))
             {
-                foreach (var postId in context.PostIds)
+                lock (context)
                 {
-                    dangerousRels.UnregisterForPostStatsNotificationThreadSafe(postId, context.LiveUpdatesCallback);
+                    foreach (var postId in context.PostIds)
+                    {
+                        dangerousRels.PostLiveSubscribersThreadSafe.Unsubscribe(postId, context.LiveUpdatesCallback);
+                    }
                 }
-                
                 if(context.UserPlc != null)
                     dangerousRels.UserNotificationSubscribersThreadSafe.Unsubscribe(context.UserPlc.Value, context.UserNotificationCallback);
             }

@@ -36,7 +36,7 @@
 
     private void UnregisterNotifications()
     {
-        BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UnregisterForPostStatsNotificationThreadSafe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
+        BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Unsubscribe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
         PostStatsNotificationHandler = null;
         notificationsRegisteredForPostId = default;
     }
@@ -99,7 +99,7 @@
 
             }
             PostStatsNotificationHandler = CreateLambda(new WeakReference<PostRow>(this), this.Post.PostId);
-            BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.RegisterForPostStatsNotificationThreadSafe(Post.PostId, PostStatsNotificationHandler);
+            BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Subscribe(Post.PostId, PostStatsNotificationHandler);
         }
     }
 

@@ -392,9 +392,9 @@ namespace AppViewLite
             importer.LogStats();
             
             foreach (var record in importer.EnumerateRecords())
-            { 
-                OnRecordCreated(record.Did, record.Path, record.Record);
-                
+            {
+                TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), did);
+                await Task.Delay(10, ct);
             }
             
             importer.Log("Done.");

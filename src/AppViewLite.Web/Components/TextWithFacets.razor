@@ -2,8 +2,10 @@
 @code {
     [Parameter] public string? Text { get; set; }
     [Parameter] public FacetData?[] Facets { get; set; }
+    [Parameter] public string? LinkRestToThread { get; set; }
 
     private List<(string Text, string? Link)> Parts;
+    private bool HasLinks;
 
     private void AddPart(ReadOnlySpan<byte> utf8, string? link)
     {
@@ -12,6 +14,7 @@
 
     protected override void OnParametersSet()
     {
+        HasLinks = false;
         if (string.IsNullOrEmpty(Text))
         {
             Parts = [];
@@ -87,7 +90,7 @@
         var rest = textBytes.AsSpan(processedText);
         if (rest.Length != 0)
             AddPart(rest, null);
-
+        HasLinks = Parts.Any(x => x.Link != null);
 
     }
 }
@@ -100,7 +103,14 @@
     }
     else
     {
-        @part.Text
+        if (LinkRestToThread != null)
+        {
+            <a href="@LinkRestToThread" class="post-body-link-to-thread-text @(HasLinks ? null : "display-block")" tabindex="-1">@part.Text</a>
+        }
+        else
+        {
+            @part.Text
+        }
     }
 }
 

@@ -255,7 +255,7 @@
 
         <div class="post-error post-indented">[@(Post.Data?.Error ?? "Reached post retrieval limit for page load, consider refreshing")]</div>
     }
-    <div class="post-body post-indented">
+    <div class="post-body post-indented @(!IsFocalPost ? "post-body-link-to-thread" : null)">
 
         @if (IsFocalPost)
         {
@@ -263,9 +263,7 @@
         }
         else
         {
-            <a href="@Post.BaseUrl" class="post-body-link-to-thread">
-                <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
-            </a>
+            <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" LinkRestToThread="@Post.BaseUrl" />
         }
 
 

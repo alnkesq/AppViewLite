@@ -75,6 +75,12 @@ if (hasBlazor) {
 document.addEventListener('click', event => {
     var url = null;
     var t = event.target;
+
+    if (t instanceof HTMLElement && t.classList.contains('post-body-link-to-thread')) { 
+        t.querySelector('.post-body-link-to-thread-text')?.click();
+        return;
+    }
+
     while (t) {
         if (t.tagName == 'A' && t.href) {
             url = new URL(t.href);
@@ -82,7 +88,10 @@ document.addEventListener('click', event => {
         }
         t = t.parentNode;
     }
+
+
     if (!url) return;
+
 
     if ((document.querySelector('#components-reconnect-modal') || ((url.pathname == '/login' || url.pathname == '/logout') && url.host == window.location.host))) {
         window.location = url;

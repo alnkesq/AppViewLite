@@ -378,12 +378,21 @@ ul {
     padding-bottom: 10px;
 }
 
-.post-body-link-to-thread {
+.post-body-link-to-thread-text {
     color: inherit;
-    display: block;
+    display: inline;
     outline: none;
     text-decoration: none !important;
 }
+
+.post-body-link-to-thread {
+    cursor: pointer;
+}
+
+.display-block{
+    display: block;
+}
+
 .post-status-bar {
     /*background-color: #f4f4f4;*/
     padding: 5px;

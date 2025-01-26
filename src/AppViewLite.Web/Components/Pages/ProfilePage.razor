@@ -74,6 +74,10 @@
             }
         </div>
 
+        <div class="profile-description main-padding">
+            <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
+        </div>
+
         @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0 && RequestContext.LoggedInUser != Profile.Profile.Plc)
         {
             var knownFollowerCount = Profile.FollowedByPeopleYouFollow.Count;
@@ -96,9 +100,6 @@
             </a>
         }
 
-        <div class="profile-description main-padding">
-            <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
-        </div>
         
         <div class="tabbed-lists-header">
 

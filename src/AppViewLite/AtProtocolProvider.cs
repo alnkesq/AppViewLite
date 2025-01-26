@@ -10,17 +10,19 @@ namespace AppViewLite
 {
     public class AtProtocolProvider
     {
-        public IReadOnlyList<AlternatePds> Hosts { get; private set; }
+        public IReadOnlyList<AlternatePds> HostsAndJetstreams { get; private set; }
         public string DefaultHost { get; private set; }
+        public IReadOnlyList<AlternatePds> AtProtoHosts { get; private set; }
 
         public AtProtocolProvider(IReadOnlyList<AlternatePds> hosts)
         {
-            this.Hosts = hosts;
-            this.DefaultHost = hosts.FirstOrDefault(x => x.IsWildcard).Host ?? "https://bsky.network";
+            this.HostsAndJetstreams = hosts;
+            this.AtProtoHosts = hosts.Where(x => !x.IsJetStream).ToArray();
+            this.DefaultHost = AtProtoHosts.FirstOrDefault(x => x.IsWildcard).Host ?? "https://bsky.network";
         }
 
-        public string GetHostOrRelayForDid(string did) => TryGetPdsForDid(did) ?? Hosts.FirstOrDefault(x => x.IsWildcard).Host;
-        public string TryGetPdsForDid(string did) => Hosts.FirstOrDefault(x => x.IsDid && x.Did == did).Host;
+        public string GetHostOrRelayForDid(string did) => TryGetPdsForDid(did) ?? AtProtoHosts.FirstOrDefault(x => x.IsWildcard).Host;
+        public string TryGetPdsForDid(string did) => AtProtoHosts.FirstOrDefault(x => x.IsDid && x.Did == did).Host;
 
         public ATProtocol CreateProtocolForDid(string did)
         {
@@ -44,7 +46,7 @@ namespace AppViewLite
             else
             {
                 if (defaultToRelay)
-                    builder.WithInstanceUrl(new Uri(Hosts.FirstOrDefault(x => x.IsWildcard).Host));
+                    builder.WithInstanceUrl(new Uri(AtProtoHosts.FirstOrDefault(x => x.IsWildcard).Host));
             }
             return builder.Build();
         }

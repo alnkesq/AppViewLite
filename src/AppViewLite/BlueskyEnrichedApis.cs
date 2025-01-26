@@ -42,7 +42,7 @@ namespace AppViewLite
         {
             this.proto = new ATProtocolBuilder()
                 .WithInstanceUrl(new Uri(pdsConfig.DefaultHost))
-                .WithATDidCache(atprotoProvider?.Hosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
+                .WithATDidCache(atprotoProvider?.AtProtoHosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
                 .Build();
             this.protoForHandleResolution = new ATProtocolBuilder().Build(); // bsky.app
             this.relationshipsUnlocked = relationships;

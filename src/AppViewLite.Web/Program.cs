@@ -49,14 +49,18 @@ namespace AppViewLite.Web
         {
             var atprotoProvider = new AtProtocolProvider([
                     //new AlternatePds("did:plc:testaaaaaaaaaaaaaaaaaaaa", "http://localhost:5093"),
-                    new AlternatePds("*", "https://bsky.network"),
+                    new AlternatePds("*", "https://bsky.network", ListenFirehose: false),
+                    new AlternatePds("*", "https://jetstream.atproto.tools", IsJetStream: true),
                 ]);
             Relationships = new();
             BlueskyEnrichedApis.Instance = new(Relationships, atprotoProvider);
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents()
+                .AddInteractiveServerComponents(options =>
+                {
+                    options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromSeconds(5);
+                })
                 .AddInteractiveWebAssemblyComponents();
 
             builder.Services.AddControllers().AddJsonOptions(options =>
@@ -73,7 +77,6 @@ namespace AppViewLite.Web
             builder.Services.AddScoped(provider =>
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
-
                 return TryGetSession(httpContext) ?? new() { IsReadOnlySimulation = true };
             });
             builder.Services.AddScoped(provider =>
@@ -126,9 +129,11 @@ namespace AppViewLite.Web
                 {
                     await Task.Delay(1000);
                     app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
-                    var explicitDid = atprotoProvider.Hosts.Where(x => x.IsDid).Select(x => x.Did).ToHashSet();
-                    foreach (var altpds in atprotoProvider.Hosts.GroupBy(x => x.Host))
+                    var explicitDid = atprotoProvider.HostsAndJetstreams.Where(x => x.IsDid).Select(x => x.Did).ToHashSet();
+                    foreach (var altpds in atprotoProvider.HostsAndJetstreams.GroupBy(x => x.Host))
                     {
+                        var host = altpds.First();
+                        if (!host.ListenFirehose) continue;
                         var indexer = new Indexer(Relationships, atprotoProvider)
                         {
                             DidAllowlist = altpds.Any(x => x.IsWildcard) ? null : altpds.Select(x => x.Did).ToHashSet(),
@@ -136,7 +141,10 @@ namespace AppViewLite.Web
                             FirehoseUrl = new(altpds.Key),
                         };
 
-                        indexer.ListenBlueskyFirehoseAsync();
+                        if (host.IsJetStream)
+                            _ = indexer.ListenJetStreamFirehoseAsync();
+                        else
+                            _ = indexer.ListenBlueskyFirehoseAsync();
                     }
 
                     //await indexer.ListenJetStreamFirehoseAsync();

@@ -6,6 +6,7 @@
     </div>
     <div class="sidebar-placeholder">
     </div>
+    <div class="background-shadow" onpointerdown="document.body.classList.remove('sidebar-open')"></div>
 
     <main>
         <button class="sidebar-button" onclick="document.body.classList.add('sidebar-open')">
@@ -15,8 +16,8 @@
         @Body
         
     </main>
-    <div class="background-shadow" onpointerdown="document.body.classList.remove('sidebar-open')"></div>
 </div>
+
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

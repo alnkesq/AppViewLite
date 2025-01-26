@@ -61,13 +61,21 @@ main {
 .sidebar-button {
     display: none;
     padding: 0;
+    position: absolute;
 }
 
+.sidebar-button.sidebar-button-fixed{
+    position: fixed;
+}
 
 
 @media (max-width: 793px) {
     .page {
         flex-direction: row;
+    }
+
+    main{
+        padding-top: 20px;
     }
 
     .sidebar {
@@ -79,7 +87,7 @@ main {
     .sidebar {
         width: 250px;
         background-color: white;
-        z-index: 20;
+        z-index: 50;
     }
     .sidebar-placeholder {
         display: none;
@@ -91,8 +99,10 @@ main {
 
     .sidebar-open .background-shadow {
         display: block;
-        background-color: black;
+        background-color: gray;
         opacity: 0.2;
+        z-index: 40;
+        position: fixed;
     }
     .sidebar-button {
         display: block;
@@ -101,6 +111,10 @@ main {
         margin-left: 10px;
         margin-top: 10px;
         cursor: pointer;
+        background: white;
+        z-index: 45;
+        padding-right: 5px;
+        top: 0px;
     }
 
     .tabbed-lists-header{

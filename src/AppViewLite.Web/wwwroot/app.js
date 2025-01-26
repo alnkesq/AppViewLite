@@ -96,7 +96,7 @@ function applyPageFocus() {
         }, 1500);
     }
     
-    
+    updateSidebarButtonScrollVisibility();
 }
 
 if (hasBlazor) {
@@ -210,6 +210,16 @@ function closeCurrentMenu() {
     currentlyOpenMenu = null;
     currentlyOpenMenuButton = null;
 }
+var prevScrollTop = 0;
+
+function updateSidebarButtonScrollVisibility() { 
+    var scrollTop = document.documentElement.scrollTop;
+    var scrollDelta = scrollTop - prevScrollTop;
+    if (Math.abs(scrollDelta) >= 3) {
+        document.querySelector('.sidebar-button').classList.toggle('sidebar-button-fixed', scrollDelta < 0);
+        prevScrollTop = scrollTop;
+    }
+}
 if (!hasBlazor) {
     window.addEventListener('popstate', e => {
         applyPage(location.href, false);
@@ -222,9 +232,12 @@ if (!hasBlazor) {
         dom: document.querySelector('main'),
         title: pageTitleWithoutCounter,
     });
+    
     window.addEventListener('scroll', async e => {
-        if (document.documentElement.scrollTop <= 0) return;
-        var remainingToBottom = document.documentElement.scrollTopMax - document.documentElement.scrollTop;
+        updateSidebarButtonScrollVisibility();
+        var scrollTop = document.documentElement.scrollTop
+        if (scrollTop <= 0) return;
+        var remainingToBottom = document.documentElement.scrollTopMax - scrollTop;
         if (remainingToBottom >= 500) return;
         var paginationButton = document.querySelector('.pagination-button');
         if (!paginationButton) return;

@@ -15,7 +15,7 @@ namespace AppViewLite.Numerics
         public static implicit operator DateTime(ApproximateDateTime32 d) => BaseTime + new TimeSpan(TickDuration.Ticks * d.Value);
         public static explicit operator ApproximateDateTime32(DateTime d)
         {
-            if (d < MinValueAsDateTime) throw new ArgumentOutOfRangeException();
+            if (d < MinValueAsDateTime) throw new UnexpectedFirehoseDataException("Dates before 2023 are not supported: " + d);
             if (d > MaxValueAsDateTime) throw new ArgumentOutOfRangeException();
             var v = (d - BaseTime).Ticks / TickDuration.Ticks;
             return new ApproximateDateTime32((uint)v);

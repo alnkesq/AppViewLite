@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Models
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct Relationship(Plc Actor, Tid RelationshipRKey) : IComparable<Relationship>
     {
 

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Models
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct PostId(Plc Author, Tid PostRKey) : IComparable<PostId>
     {
         public int CompareTo(PostId other)

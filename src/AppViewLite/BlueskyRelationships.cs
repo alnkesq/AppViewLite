@@ -149,18 +149,18 @@ namespace AppViewLite
             ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue) ;
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Notifications = RegisterDictionary<Plc, Notification>("notification") ;
+            Notifications = RegisterDictionary<Plc, Notification>("notification-2") ;
 
             RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees") ;
 
-            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts") ;
-            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts") ;
+            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2") ;
+            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2") ;
 
-            CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto", PersistentDictionaryBehavior.PreserveOrder) ;
+            CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder) ;
 
-            LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-2", PersistentDictionaryBehavior.SingleValue) ;
+            LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-3", PersistentDictionaryBehavior.SingleValue) ;
 
-            AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder) ;
+            AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
 
             
 

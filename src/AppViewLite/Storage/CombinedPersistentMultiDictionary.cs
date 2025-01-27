@@ -1,13 +1,11 @@
 using AppViewLite;
 using AppViewLite.Storage;
-using AppViewLite.Storage;
+using System.Runtime.InteropServices;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace AppViewLite.Storage
@@ -36,6 +34,9 @@ namespace AppViewLite.Storage
             this.DirectoryPath = directory;
             this.behavior = behavior;
 
+            CompactStructCheck<TKey>.Check();
+            CompactStructCheck<TValue>.Check();
+
             System.IO.Directory.CreateDirectory(directory);
 
             slices = Directory.EnumerateFiles(directory, "*.col0.dat").Select(x =>
@@ -59,6 +60,7 @@ namespace AppViewLite.Storage
 
             }).Where(x => x.Reader != null).ToList();
         }
+
 
         private MultiDictionary<TKey, TValue> queue = new();
         public List<SliceInfo> slices;

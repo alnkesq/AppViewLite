@@ -75,6 +75,21 @@ namespace AppViewLite
 
         public string BaseDirectory { get; }
         private IDisposable lockFile;
+
+        private T Register<T>(T r) where T : IFlushable
+        {
+            disposables.Add(r);
+            return r;
+        }
+        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
+        {
+            return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(BaseDirectory + "/" + name, behavior) { ItemsToBuffer = DefaultBufferedItems, OnCompactation = onCompactation });
+        }
+        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
+        {
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory + "/" + name, targetToApproxTarget));
+        }
+
         public BlueskyRelationships(string basedir)
         {
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
@@ -85,19 +100,8 @@ namespace AppViewLite
             ProtoBuf.Serializer.PrepareSerializer<AppViewLiteProfileProto>();
             this.BaseDirectory = basedir;
             Directory.CreateDirectory(basedir);
-            T Register<T>(T r) where T : IFlushable
-            {
-                disposables.Add(r);
-                return r;
-            }
-            CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
-            {
-                return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(basedir + "/" + name, behavior) { ItemsToBuffer = DefaultBufferedItems, OnCompactation = onCompactation });
-            }
-            RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
-            {
-                return Register(new RelationshipDictionary<TTarget>(basedir + "/" + name, targetToApproxTarget));
-            }
+
+
 
 
             lockFile = new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);

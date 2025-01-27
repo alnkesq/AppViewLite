@@ -197,6 +197,10 @@ async function fetchOrReusePageAsync(href, token) {
 
 function fastNavigateTo(href) { 
     if (href.startsWith('/')) href = location.origin + href;
+    if (!href.startsWith(window.location.origin + '/')) { 
+        window.location.href = href;
+        return;
+    }
     window.history.pushState(null, null, href);
     applyPage(href, true, true);
 }

@@ -632,6 +632,9 @@ ul {
     height: 150px;
     position: absolute;
 }
+.profile-banner-no-image{
+    background-color: #0085FF;
+}
 .profile-banner img{
     width: 100%;
     aspect-ratio: 1;

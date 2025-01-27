@@ -48,8 +48,11 @@
 @if (Profile != null)
 {
     <div class="profile-page @(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
-        <div class="profile-banner">
-            <img src="@Program.GetImageBannerUrl(Did, Profile.Profile.BasicData?.BannerCidBytes)"/>
+        <div class="profile-banner @(Profile.Profile.HasBannerImage ? null : "profile-banner-no-image")">
+            @if (Profile.Profile.HasBannerImage)
+            {
+                <img src="@Program.GetImageBannerUrl(Did, Profile.Profile.BasicData!.BannerCidBytes!)"/>
+            }
         </div>
         <img src="@Profile.Profile.AvatarUrl" class="profile-image-large main-padding" />
         <h1 class="main-padding">@Profile.Profile.DisplayNameOrFallback</h1>

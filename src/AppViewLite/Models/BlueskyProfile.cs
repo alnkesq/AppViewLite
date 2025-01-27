@@ -23,6 +23,7 @@ namespace AppViewLite.Models
 
         public Tid? IsFollowedBySelf;
         public bool FollowsYou;
+        public bool HasBannerImage => BasicData?.BannerCidBytes != null;
     }
 }
 

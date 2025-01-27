@@ -1,0 +1,28 @@
+@page "/@{did}/lists/{rkey}"
+@inject RequestContext RequestContext
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    [Parameter] public required string RKey { get; set; }
+    private BlueskyList ListMetadata;
+    private BlueskyProfile[] Members = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        (ListMetadata, Members, NextContinuation) = await BlueskyEnrichedApis.Instance.GetListMembersAsync(Did, RKey, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+    }
+}
+
+<PageTitle>@ListMetadata?.DisplayNameOrFallback</PageTitle>
+<h1>@ListMetadata?.DisplayNameOrFallback</h1>
+<div class="main-padding">List by <a href="@ListMetadata?.Author?.BaseUrl" class="blue-link">@ListMetadata?.Author?.DisplayName</a></div>
+<div class="main-padding list-page-description">
+    @ListMetadata?.Data?.Description
+</div>
+
+
+<ProfileList Profiles="Members" NextContinuation="@NextContinuation" />
+

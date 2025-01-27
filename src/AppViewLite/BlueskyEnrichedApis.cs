@@ -77,10 +77,10 @@ namespace AppViewLite
             }
         }
 
-        
 
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
+        private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingListRetrievals = new();
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
         {
@@ -1392,6 +1392,109 @@ namespace AppViewLite
             return post;
         }
 
+
+
+
+        public async Task<(BlueskyList[] Lists, string? NextContinuation)> GetMemberOfListsAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 10);
+
+            Models.Relationship? parsedContinuation = continuation != null ? Models.Relationship.Deserialize(continuation) : null;
+
+            var lists = WithRelationshipsLock(rels =>
+            {
+                return rels.ListMemberships.GetValuesSorted(rels.SerializeDid(did), parsedContinuation).Take(limit + 1).Select(x => rels.GetList(x)).ToArray();
+            });
+
+            var hasMore = lists.Length > limit;
+            if (hasMore) lists = lists.AsSpan(0, limit).ToArray();
+            await EnrichAsync(lists, ctx);
+            return (lists, hasMore ? lists[^1].ListId.Serialize() : null);
+
+        }
+
+        private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
+        {
+
+            var toLookup = lists.Where(x => x.Data == null).Select(x => x.ListIdStr).Distinct().ToArray();
+            if (toLookup.Length == 0) return lists;
+
+            toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
+            if (toLookup.Length == 0) return lists;
+
+            var idToList = lists.ToLookup(x => x.ListId);
+
+            void OnRecordReceived(BlueskyRelationships rels, Models.Relationship listId)
+            {
+                foreach (var list in idToList[listId])
+                {
+                    if (list.Data == null)
+                        list.Data = rels.TryGetListData(list.ListId);
+                }
+            }
+
+            var task = LookupManyRecordsWithinShortDeadlineAsync<List>(toLookup, pendingProfileRetrievals, List.RecordType, ct,
+                (key, listRecord) =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
+                        rels.Lists.AddRange(id, BlueskyRelationships.SerializeListToBytes(listRecord));
+                        OnRecordReceived(rels, id);
+                    });
+                },
+                key =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
+                        rels.FailedListLookups.Add(id, DateTime.UtcNow);
+                        OnRecordReceived(rels, id);
+                    });
+                },
+                key =>
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
+                        OnRecordReceived(rels, id);
+                    });
+                }
+                , ctx);
+
+            
+            await task;
+            await EnrichAsync(lists.Select(x => x.Author).ToArray(), ctx, ct: ct);
+            return lists;
+        }
+
+        public async Task<(BlueskyList List, BlueskyProfile[] Page, string? NextContinuation)> GetListMembersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+            var listId = WithRelationshipsLock(rels => new Models.Relationship(rels.SerializeDid(did), Tid.Parse(rkey)));
+            var list = WithRelationshipsLock(rels => rels.GetList(listId));
+            
+            await EnrichAsync([list], ctx);
+#if false
+            ListEntry? parsedContinuation = continuation != null ? ListEntry.Deserialize(continuation) : null;
+            var members = WithRelationshipsLock(rels => rels.ListItems.GetValuesSorted(listId, parsedContinuation).Take(limit + 1).Select(x => rels.GetProfile(x.Member, x.ListItemRKey)).ToArray());
+            var hasMore = members.Length > limit;
+            if (hasMore)
+                members = members.AsSpan(0, limit).ToArray();
+            await EnrichAsync(members, ctx);
+            return (list, members, hasMore ? new ListEntry(members[^1].Plc, members[^1].RelationshipRKey!.Value).Serialize() : null);
+#else
+
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Listitem.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
+            var members = WithRelationshipsLock(rels =>
+            {
+                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler))).ToArray();
+            });
+            await EnrichAsync(members, ctx);
+            return (list, members, response.Records.Count > limit ? response!.Cursor : null);
+
+#endif
+        }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         private readonly static HttpClient DefaultHttpClient = new();

@@ -1,0 +1,25 @@
+@page "/@{did}/member-of"
+@inject RequestContext RequestContext
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    private BlueskyList[] MemberOf = [];
+    private BlueskyProfile? Member;
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Member = await BlueskyEnrichedApis.Instance.GetProfileAsync(Did, RequestContext);
+        (MemberOf, NextContinuation) = await BlueskyEnrichedApis.Instance.GetMemberOfListsAsync(Did, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+    }
+}
+
+<PageTitle>List memberships for @Member?.DisplayNameOrFallback</PageTitle>
+<h1>List memberships for <a href="@Member?.BaseUrl">@Member?.DisplayNameOrFallback</a></h1>
+<div class="main-padding">
+    <a href="@Member?.BaseUrl" class="blue-link">Back to profile</a>
+</div>
+<ListList Lists="MemberOf" NextContinuation="@NextContinuation" />
+

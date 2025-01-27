@@ -191,6 +191,7 @@ namespace AppViewLite
                         var listId = new Relationship(commitPlc, Tid.Parse(listItem.List.Rkey));
                         var entry = new ListEntry(relationships.SerializeDid(listItem.Subject.Handler), GetMessageTid(path, Listitem.RecordType + "/"));
                         relationships.ListItems.Add(listId, entry);
+                        relationships.ListMemberships.Add(entry.Member, listId);
                     }
                     else if (record is Threadgate threadGate)
                     {

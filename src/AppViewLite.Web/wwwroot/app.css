@@ -1060,3 +1060,20 @@ button[disabled], input[type=submit][disabled] {
   .display-none {
     display: none;
   }
+
+.list-metadata-row{
+    padding: 20px;
+}
+.list-metadata-row-name{
+    font-weight: bold;
+}
+.list-metadata-row-author{
+}
+.list-metadata-row-description{
+    color: gray;
+    
+}
+.list-page-description{
+    margin-bottom: 20px;
+    color: gray;
+}

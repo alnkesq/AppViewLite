@@ -34,6 +34,7 @@ namespace AppViewLite
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
+        public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
@@ -53,6 +54,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> PostData;
         public CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
+        public CombinedPersistentMultiDictionary<Relationship, DateTime> FailedListLookups;
         public CombinedPersistentMultiDictionary<PostId, DateTime> FailedPostLookups;
         public CombinedPersistentMultiDictionary<Plc, Notification> LastSeenNotifications;
         public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
@@ -125,9 +127,11 @@ namespace AppViewLite
             PostTextSearch = RegisterDictionary<ulong, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
+            FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");
 
             ListItems = RegisterDictionary<Relationship, ListEntry>("list-item") ;
             ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
+            ListMemberships = RegisterDictionary<Plc, Relationship>("list-membership");
 
             Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder) ;
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue);
@@ -153,6 +157,9 @@ namespace AppViewLite
             LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-2", PersistentDictionaryBehavior.SingleValue) ;
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder) ;
+
+            
+
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {
@@ -1509,6 +1516,29 @@ namespace AppViewLite
 
 
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
+
+
+        public BlueskyList GetList(Relationship listId)
+        {
+            var did = TryGetDid(listId.Actor);
+            return new BlueskyList
+            {
+                Did = did,
+                ListId = listId,
+                Data = TryGetListData(listId),
+                ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()),
+                Author = GetProfile(listId.Actor)
+            };
+        }
+
+        public ListData? TryGetListData(Relationship listId)
+        {
+            if (this.Lists.TryGetPreserveOrderSpanLatest(listId, out var listMetadataBytes))
+                return DeserializeProto<ListData>(listMetadataBytes.AsSmallSpan());
+            if (this.FailedListLookups.ContainsKey(listId))
+                return new ListData { Error = "This list could not be retrieved." };
+            return null;
+        }
 
     }
 

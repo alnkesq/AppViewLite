@@ -121,13 +121,12 @@ namespace AppViewLite.Storage
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
         {
             var allValues = this.Values;
-
             var keys = this.Keys;
-            var count = checked((int)keys.Length);
+            var count = keys.Length;
 
             if (IsSingleValue)
             {
-                for (int i = 0; i < count; i++)
+                for (long i = 0; i < count; i++)
                 {
                     yield return (keys[i], allValues.Slice(i, 1));
                 }

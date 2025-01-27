@@ -35,6 +35,7 @@ namespace AppViewLite
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
+        public CombinedPersistentMultiDictionary<ulong, RelationshipHashedRKey> FeedGeneratorSearch;
         public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
@@ -163,6 +164,7 @@ namespace AppViewLite
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
+            FeedGeneratorSearch = RegisterDictionary<ulong, RelationshipHashedRKey>("feed-generator-search");
 
 
             
@@ -1565,6 +1567,11 @@ namespace AppViewLite
                 RKey = rkey,
             };
             FeedGenerators.AddRange(key, SerializeProto(proto));
+
+            foreach (var wordHash in StringUtils.GetAllWords(proto.DisplayName).Concat(StringUtils.GetAllWords(proto.Description)).Select(x => HashWord(x)).Distinct())
+            {
+                FeedGeneratorSearch.AddIfMissing(wordHash, key);
+            }
         }
 
         public BlueskyFeedGeneratorData? TryGetFeedGeneratorData(Plc plc, string rkey)

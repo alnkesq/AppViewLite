@@ -1,11 +1,14 @@
 
 @code {
-    [Parameter] public BlueskyList List { get; set; }
+    [Parameter] public required BlueskyList List { get; set; }
 }
 
 <div class="list-metadata-row">
-    <div class="list-metadata-row-name"><a class="underline-on-hover" href="@List.BaseUrl">@List.DisplayNameOrFallback</a></div>
-    <div class="list-metadata-row-author">List by <a class="blue-link" href="@List.Author.BaseUrl">@List.Author.DisplayNameOrFallback</a></div>
+    <a href="@List.BaseUrl" class="list-metadata-avatar">
+        <img src="@(List.AvatarUrl ?? (List.Data?.Purpose is ListPurposeEnum.Curation ? "/assets/default-feed-avatar.svg" : "/assets/default-list-avatar.svg"))" />
+    </a>
+    <div class="list-metadata-row-name list-indented"><a class="underline-on-hover" href="@List.BaseUrl">@List.DisplayNameOrFallback</a></div>
+    <div class="list-metadata-row-author list-indented">List by <a class="underline-on-hover" href="@List.Author.BaseUrl">@List.Author.DisplayNameOrFallback</a></div>
     <div class="list-metadata-row-description">
         @List.Data?.Description
     </div>

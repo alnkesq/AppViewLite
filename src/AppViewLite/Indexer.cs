@@ -136,6 +136,13 @@ namespace AppViewLite
                             relationships.NotifyPostStatsChange(postId, commitPlc);
                             
                         }
+                        else if (l.Subject.Uri.Collection == Generator.RecordType)
+                        {
+                            // TODO: handle deletions for feed likes
+                            var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did.Handler), l.Subject.Uri.Rkey);
+                            relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
+
+                        }
                     }
                     else if (record is Follow f)
                     {
@@ -186,7 +193,7 @@ namespace AppViewLite
                     }
                     else if (record is List list)
                     {
-                        relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType + "/")), BlueskyRelationships.SerializeListToBytes(list));
+                        relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType + "/")), BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(list)));
                     }
                     else if (record is Listitem listItem)
                     {

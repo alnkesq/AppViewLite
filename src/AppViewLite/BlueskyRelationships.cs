@@ -36,6 +36,7 @@ namespace AppViewLite
         public RelationshipDictionary<Plc> Blocks;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
         public CombinedPersistentMultiDictionary<ulong, RelationshipHashedRKey> FeedGeneratorSearch;
+        public CombinedPersistentMultiDictionary<RelationshipHashedRKey, Relationship> FeedGeneratorLikes;
         public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
@@ -165,7 +166,7 @@ namespace AppViewLite
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
             FeedGeneratorSearch = RegisterDictionary<ulong, RelationshipHashedRKey>("feed-generator-search");
-
+            FeedGeneratorLikes = RegisterDictionary<RelationshipHashedRKey, Relationship>("feed-generator-like");
 
             
 
@@ -529,6 +530,29 @@ namespace AppViewLite
             return System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(word), 4662323635092061535);
         }
 
+
+        public IEnumerable<RelationshipHashedRKey> SearchFeeds(string[] searchTerms, RelationshipHashedRKey maxExclusive)
+        {
+            var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
+            if (searchTermsArray.Length == 0) yield break;
+            var words = searchTermsArray
+                .Select(x => FeedGeneratorSearch.GetValuesChunked(x).ToList())
+                .Select(x => (TotalCount: x.Sum(x => x.Count), Slices: x))
+                .OrderBy(x => x.TotalCount)
+                .ToArray();
+
+            while (true)
+            {
+                PeelUntilNextCommonPost(words, ref maxExclusive);
+                if (maxExclusive == default) break;
+
+                yield return maxExclusive;
+
+                if (!RemoveEmptySearchSlices(words, maxExclusive)) break;
+            }
+
+        }
+
         public IEnumerable<ApproximateDateTime32> SearchPosts(string[] searchTerms, ApproximateDateTime32 since, ApproximateDateTime32? until, Plc author, LanguageEnum language)
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
@@ -547,29 +571,37 @@ namespace AppViewLite
             var mostRecentCommonPost = until ?? ApproximateDateTime32.MaxValue;
             while (true)
             {
-                var approxDate = PeelUntilNextCommonPost(words, mostRecentCommonPost);
-                if (approxDate == default) break;
+                PeelUntilNextCommonPost(words, ref mostRecentCommonPost);
+                if (mostRecentCommonPost == default) break;
 
-                yield return approxDate;
+                yield return mostRecentCommonPost;
 
-                var firstWord = words[0].Slices;
-                var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1] == approxDate);
-                if (sliceIndex == -1) throw new Exception();
-                firstWord[sliceIndex] = firstWord[sliceIndex].Slice(0, firstWord[sliceIndex].Count - 1);
-                firstWord.RemoveAll(x => x.Count == 0);
-                if (firstWord.Count == 0) break;
-
+                if (!RemoveEmptySearchSlices(words, mostRecentCommonPost)) break;
                 if ((DateTime)mostRecentCommonPost < since) break;
             }
 
         }
 
-        private static T PeelUntilNextCommonPost<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, T mostRecentCommonPost) where T : unmanaged, IComparable<T>
+        private static bool RemoveEmptySearchSlices<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, T approxDate) where  T : unmanaged, IEquatable<T>
+        {
+            var firstWord = words[0].Slices;
+            var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1].Equals(approxDate));
+            if (sliceIndex == -1) throw new Exception();
+            firstWord[sliceIndex] = firstWord[sliceIndex].Slice(0, firstWord[sliceIndex].Count - 1);
+            firstWord.RemoveAll(x => x.Count == 0);
+            return firstWord.Count != 0;
+        }
+
+        private static void PeelUntilNextCommonPost<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, ref T mostRecentCommonPost) where T : unmanaged, IComparable<T>
         {
             var first = true;
             while (true)
             {
-                if (words.Any(x => x.Slices.Count == 0)) return default;
+                if (words.Any(x => x.Slices.Count == 0))
+                {
+                    mostRecentCommonPost = default;
+                    return;
+                }
                 var anyChanges = first; // so that we always do the trimming for the first run (in case the user set a until:yyyy-MM-dd parameter)
                 first = false;
                 for (int wordIdx = 0; wordIdx < words.Length; wordIdx++)
@@ -594,7 +626,6 @@ namespace AppViewLite
 
             }
 
-            return mostRecentCommonPost;
         }
 
         private static void TrimAwayPostsAboveThreshold<T>(List<ManagedOrNativeArray<T>> slices, T maxPost) where T : unmanaged, IComparable<T>
@@ -1145,9 +1176,9 @@ namespace AppViewLite
             }
         }
 
-        internal static ReadOnlySpan<byte> SerializeListToBytes(FishyFlip.Lexicon.App.Bsky.Graph.List list)
+        internal static ListData ListToProto(FishyFlip.Lexicon.App.Bsky.Graph.List list)
         {
-            var proto = new ListData
+            return new ListData
             {
                 Description = !string.IsNullOrEmpty(list.Description) ? list.Description : null,
                 DisplayName = list.Name,
@@ -1161,9 +1192,7 @@ namespace AppViewLite
                 AvatarCid = list.Avatar?.Ref?.Link?.ToArray(),
             };
 
-            using var protoMs = new MemoryStream();
-            ProtoBuf.Serializer.Serialize(protoMs, proto);
-            return protoMs.ToArray();
+            
         }
 
 
@@ -1527,14 +1556,14 @@ namespace AppViewLite
         private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 
 
-        public BlueskyList GetList(Relationship listId)
+        public BlueskyList GetList(Relationship listId, ListData? listData = null)
         {
             var did = TryGetDid(listId.Actor);
             return new BlueskyList
             {
                 Did = did,
                 ListId = listId,
-                Data = TryGetListData(listId),
+                Data = listData ?? TryGetListData(listId),
                 ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()),
                 Author = GetProfile(listId.Actor)
             };
@@ -1574,15 +1603,31 @@ namespace AppViewLite
             }
         }
 
-        public BlueskyFeedGeneratorData? TryGetFeedGeneratorData(Plc plc, string rkey)
+        public BlueskyFeedGeneratorData? TryGetFeedGeneratorData(RelationshipHashedRKey feedId)
         {
-            var key = new RelationshipHashedRKey(plc, rkey);
-            if (FeedGenerators.TryGetPreserveOrderSpanLatest(key, out var bytes))
+            if (FeedGenerators.TryGetPreserveOrderSpanLatest(feedId, out var bytes))
                 return DeserializeProto<BlueskyFeedGeneratorData>(bytes.AsSmallSpan());
             return null;
         }
 
+        public BlueskyFeedGenerator GetFeedGenerator(Plc plc, BlueskyFeedGeneratorData data)
+        {
+            return new BlueskyFeedGenerator
+            {
+                 Data = data,
+                 Did = TryGetDid(plc),
+                 RKey = data.RKey,
+                 Author = GetProfile(plc),
+                 LikeCount = FeedGeneratorLikes.GetValueCount(new(plc, data.RKey))
+            };
+        }
 
+        public BlueskyFeedGenerator? TryGetFeedGenerator(RelationshipHashedRKey feedId)
+        {
+            var data = TryGetFeedGeneratorData(feedId);
+            if (data == null) return null;
+            return GetFeedGenerator(feedId.Plc, data);
+        }
 
 
     }

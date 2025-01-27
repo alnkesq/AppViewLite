@@ -850,7 +850,7 @@ namespace AppViewLite
             var result = WithRelationshipsLock(rels =>
             {
                 plc = rels.SerializeDid(did);
-                return rels.TryGetFeedGeneratorData(plc, rkey);
+                return rels.TryGetFeedGeneratorData(new(plc, rkey));
             });
 
             var now = DateTime.UtcNow;
@@ -862,7 +862,7 @@ namespace AppViewLite
                 WithRelationshipsLock(rels =>
                 {
                     rels.IndexFeedGenerator(plc, rkey, (Generator)recordOutput.Value);
-                    result = rels.TryGetFeedGeneratorData(plc, rkey);
+                    result = rels.TryGetFeedGeneratorData(new(plc, rkey));
                 });
             }
 
@@ -1025,12 +1025,8 @@ namespace AppViewLite
 
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey)
         {
-            return new BlueskyFeedGenerator
-            {
-                Did = did,
-                RKey = rkey,
-                Data = await GetFeedGeneratorDataAsync(did, rkey),
-            };
+            var data = await GetFeedGeneratorDataAsync(did, rkey);
+            return WithRelationshipsLock(rels => rels.GetFeedGenerator(rels.SerializeDid(did), data));
         }
 
         public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx)
@@ -1406,11 +1402,8 @@ namespace AppViewLite
                 return rels.ListMemberships.GetValuesSorted(rels.SerializeDid(did), parsedContinuation).Take(limit + 1).Select(x => rels.GetList(x)).ToArray();
             });
 
-            var hasMore = lists.Length > limit;
-            if (hasMore) lists = lists.AsSpan(0, limit).ToArray();
             await EnrichAsync(lists, ctx);
-            return (lists, hasMore ? lists[^1].ListId.Serialize() : null);
-
+            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => x.ListId.Serialize());
         }
 
         private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
@@ -1439,7 +1432,7 @@ namespace AppViewLite
                     WithRelationshipsLock(rels =>
                     {
                         var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
-                        rels.Lists.AddRange(id, BlueskyRelationships.SerializeListToBytes(listRecord));
+                        rels.Lists.AddRange(id, BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(listRecord)));
                         OnRecordReceived(rels, id);
                     });
                 },
@@ -1496,10 +1489,59 @@ namespace AppViewLite
 #endif
         }
 
+        public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> SearchFeedsAsync(string query, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+
+            RelationshipHashedRKey? parsedContinuation = continuation != null ? RelationshipHashedRKey.Deserialize(continuation) : null;
+            var words = StringUtils.GetDistinctWords(query);
+            if (words.Length == 0) return ([], null);
+            var feeds = WithRelationshipsLock(rels =>
+            {
+                return rels.SearchFeeds(words, parsedContinuation ?? RelationshipHashedRKey.MaxValue).Select(x => rels.TryGetFeedGenerator(x)).Where(x => x != null).Take(limit + 1).ToArray();
+            });
+            await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx);
+            return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());
+        }
+
+        private static (T[] Items, string? NextContinuation) GetPageAndNextPaginationFromLimitPlus1<T>(T[] itemsPlusOne, int limit, Func<T, string> serialize)
+        {
+            var hasMore = itemsPlusOne.Length > limit;
+            if (hasMore)
+            {
+                var items = itemsPlusOne.AsSpan(0, limit).ToArray();
+                return (items, serialize(items[^1]));
+            }
+            else
+            {
+                return (itemsPlusOne, null);
+            }
+
+        }
+
+        public async Task<(BlueskyList[] Lists, string? NextContinuation)> GetProfileListsAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), List.RecordType, limit: limit, cursor: continuation)).HandleResult();
+            var lists = WithRelationshipsLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                return response!.Records!.Select(x =>
+                {
+                    var listId = new Models.Relationship(plc, Tid.Parse(x.Uri.Rkey));
+                    return rels.GetList(listId, BlueskyRelationships.ListToProto((List)x.Value));
+                }).ToArray();
+            });
+            await EnrichAsync(lists, ctx);
+            return (lists, response.Cursor);
+
+        }
+
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         private readonly static HttpClient DefaultHttpClient = new();
     }
 }
 
 
-
+ 

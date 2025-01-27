@@ -1,3 +1,4 @@
+using Ipfs;
 using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,8 @@ namespace AppViewLite.Models
         public BlueskyProfile Author;
         public string RKey => ListIdStr.RKey;
         public string BaseUrl => $"/@{Did}/lists/{RKey}";
+
+        public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, Data?.AvatarCid != null ? Cid.Read(Data.AvatarCid).ToString() : null);
     }
 }
 

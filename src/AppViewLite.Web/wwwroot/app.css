@@ -1064,19 +1064,44 @@ button[disabled], input[type=submit][disabled] {
     display: none;
   }
 
-.list-metadata-row{
-    padding: 20px;
+.list-list,  .feed-list{
+    border-top: 1px solid rgb(212, 219, 226);
 }
-.list-metadata-row-name{
+
+.list-metadata-row, .feed-metadata-row {
+    padding: 20px;
+    border-bottom: 1px solid rgb(212, 219, 226);
+    position: relative;
+}
+.list-metadata-row-name, .feed-metadata-row-name{
     font-weight: bold;
 }
-.list-metadata-row-author{
+.list-metadata-row-author, .feed-metadata-row-author{
+    margin-bottom: 12px;
 }
-.list-metadata-row-description{
+.list-metadata-row-description, .feed-metadata-row-description{
     color: gray;
+    padding-bottom: 5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
     
 }
 .list-page-description{
     margin-bottom: 20px;
     color: gray;
+}
+
+.feed-indented, .list-indented{
+    margin-left: 60px;
+}
+.feed-metadata-avatar, .list-metadata-avatar{
+    position: absolute;
+    margin-top: 2px;
+}
+.feed-metadata-avatar img, .list-metadata-avatar img{
+    width: 42px;
+    height: 42px;
+    aspect-ratio: 1;
+    object-fit: cover;
 }

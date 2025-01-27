@@ -1,3 +1,4 @@
+using Ipfs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +20,15 @@ namespace AppViewLite.Models
             var cmp = this.Plc.CompareTo(other.Plc);
             if (cmp != 0) return cmp;
             return this.RKeyHash.CompareTo(other.RKeyHash);
+        }
+
+        public readonly static RelationshipHashedRKey MaxValue = new(Plc.MaxValue, ulong.MaxValue);
+
+        public string Serialize() => Plc.PlcValue + "_" + RKeyHash;
+        public static RelationshipHashedRKey Deserialize(string s)
+        {
+            var a = s.Split('_');
+            return new RelationshipHashedRKey(new Plc(int.Parse(a[0])), ulong.Parse(a[1]));
         }
     }
 }

@@ -846,27 +846,27 @@ namespace AppViewLite
 
         private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey)
         {
-            lock (FeedDomainCache)
+            Plc plc = default;
+            var result = WithRelationshipsLock(rels =>
             {
-                if (FeedDomainCache.TryGetValue((did, rkey), out var z) && (DateTime.UtcNow - z.DateCached).TotalHours < 3)
+                plc = rels.SerializeDid(did);
+                return rels.TryGetFeedGeneratorData(plc, rkey);
+            });
+
+            var now = DateTime.UtcNow;
+
+            if (result == null || (now - result.RetrievalDate).TotalHours > 6)
+            { 
+                var recordOutput = (await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey)).HandleResult();
+                var generator = (Generator)recordOutput!.Value!;
+                WithRelationshipsLock(rels =>
                 {
-                    return z.Info;
-                }
+                    rels.IndexFeedGenerator(plc, rkey, (Generator)recordOutput.Value);
+                    result = rels.TryGetFeedGeneratorData(plc, rkey);
+                });
             }
-            var recordOutput = (await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey)).HandleResult();
-            var generator = (Generator)recordOutput!.Value!;
-            var result = new BlueskyFeedGeneratorData
-            {
-                DisplayName = generator.DisplayName,
-                ImplementationDid = generator.Did!.Handler,
-                AvatarCid = generator.Avatar?.Ref?.Link?.ToArray(),
-                Description = generator.Description,
-            };
-            lock (FeedDomainCache)
-            {
-                FeedDomainCache[(did, rkey)] = (result, DateTime.UtcNow);
-            }
-            return result;
+
+            return result!;
         }
 
         public async Task<PostsAndContinuation> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)

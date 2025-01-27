@@ -34,6 +34,7 @@ namespace AppViewLite
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
+        public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
         public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
@@ -161,6 +162,8 @@ namespace AppViewLite
             LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-3", PersistentDictionaryBehavior.SingleValue) ;
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
+            FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
+
 
             
 
@@ -1543,6 +1546,37 @@ namespace AppViewLite
                 return new ListData { Error = "This list could not be retrieved." };
             return null;
         }
+
+
+        public void IndexFeedGenerator(Plc plc, string rkey, Generator generator)
+        {
+            var key = new RelationshipHashedRKey(plc, rkey);
+
+            var proto = new BlueskyFeedGeneratorData
+            {
+                DisplayName = generator.DisplayName,
+                AvatarCid = generator.Avatar?.Ref?.Link?.ToArray(),
+                Description = generator.Description,
+                DescriptionFacets = GetFacetsAsProtos(generator.DescriptionFacets),
+                RetrievalDate = DateTime.UtcNow,
+                ImplementationDid = generator.Did!.Handler,
+                //IsVideo = generator.ContentMode == "contentModeVideo",
+                AcceptsInteractions = generator.AcceptsInteractions,
+                RKey = rkey,
+            };
+            FeedGenerators.AddRange(key, SerializeProto(proto));
+        }
+
+        public BlueskyFeedGeneratorData? TryGetFeedGeneratorData(Plc plc, string rkey)
+        {
+            var key = new RelationshipHashedRKey(plc, rkey);
+            if (FeedGenerators.TryGetPreserveOrderSpanLatest(key, out var bytes))
+                return DeserializeProto<BlueskyFeedGeneratorData>(bytes.AsSmallSpan());
+            return null;
+        }
+
+
+
 
     }
 

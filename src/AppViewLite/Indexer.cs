@@ -221,6 +221,11 @@ namespace AppViewLite
 
                         relationships.ListBlocks.Add(blockId, listId);
                     }
+                    else if (record is Generator generator)
+                    {
+                        var rkey = GetMessageRKey(path, Generator.RecordType + "/");
+                        relationships.IndexFeedGenerator(commitPlc, rkey, generator);
+                    }
                     //else Console.Error.WriteLine("Creation of unknown object type: " + path);
                     relationships.LogPerformance(sw, "Create-" + path);
                     relationships.MaybeGlobalFlush();

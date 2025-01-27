@@ -959,7 +959,7 @@ namespace AppViewLite
             new Random((int)System.IO.Hashing.XxHash32.HashToUInt32(MemoryMarshal.AsBytes<char>(seed))).Shuffle(items);
         }
 
-        private static void EnsureLimit(ref int limit, int defaultLimit = 100)
+        private static void EnsureLimit(ref int limit, int defaultLimit = 50)
         {
             if (limit <= 0) limit = defaultLimit;
             limit = Math.Min(limit, 200);

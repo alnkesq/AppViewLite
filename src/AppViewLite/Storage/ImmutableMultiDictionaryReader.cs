@@ -118,6 +118,19 @@ namespace AppViewLite.Storage
             return Values.Slice(Offsets[index], GetValueCount(index));
         }
 
+        public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()
+        {
+            if (!IsSingleValue) throw new InvalidOperationException();
+            var allValues = this.Values;
+            var keys = this.Keys;
+            var count = keys.Length;
+
+            for (long i = 0; i < count; i++)
+            {
+                yield return (keys[i], allValues[i]);
+            }
+        }
+
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
         {
             var allValues = this.Values;

@@ -29,6 +29,8 @@ namespace AppViewLite.Storage
         private Stopwatch? lastFlushed;
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public Func<IEnumerable<TValue>, IEnumerable<TValue>>? OnCompactation;
+
+        public event EventHandler AfterCompactation;
         public CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
         {
             this.DirectoryPath = directory;
@@ -222,6 +224,8 @@ namespace AppViewLite.Storage
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
                     slices.Insert(groupStart, new SliceInfo(mergedDate, mergedCount, new(mergedPrefix, behavior)));
+
+                    AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
             }, TaskCreationOptions.LongRunning);
 

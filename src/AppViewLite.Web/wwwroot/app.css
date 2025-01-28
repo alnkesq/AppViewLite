@@ -120,7 +120,10 @@ main {
     }
 
     main{
-        padding-top: 20px;
+        padding-top: 30px;
+    }
+    .profile-page {
+        margin-top: 20px;
     }
 
     .sidebar {
@@ -153,13 +156,13 @@ main {
         display: block;
         background: none;
         border: none;
-        padding-left: 10px;
-        padding-top: 10px;
+        padding-left: 0px;
+        padding-top: 5px;
         cursor: pointer;
         background: white;
         z-index: 45;
-        padding-right: 12px;
-        padding-bottom: 5px;
+        width: 50px;
+        height: 45px;
         top: 0px;
     }
 

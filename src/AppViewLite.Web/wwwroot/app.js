@@ -99,10 +99,22 @@ function applyPageFocus() {
     updateSidebarButtonScrollVisibility();
 
     var searchbox = document.querySelector('.search-form-query input');
+    var query = null;
     if (searchbox) { 
         var query = searchbox.value;
         searchbox.setSelectionRange(query.length, query.length);
     }
+    setSidebarSearchQuery('sidebar-item-search', query);
+    setSidebarSearchQuery('sidebar-item-profiles', query);
+    setSidebarSearchQuery('sidebar-item-feeds', query);
+}
+
+function setSidebarSearchQuery(id, query) { 
+    var link = document.getElementById(id);
+    if (!link) return;
+
+    var url = new URL(link.href);
+    link.href = link.origin + link.pathname + (query ? '?q=' + encodeURIComponent(query) : '');
 }
 
 if (hasBlazor) {

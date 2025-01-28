@@ -108,12 +108,13 @@ main {
         display: block;
         background: none;
         border: none;
-        margin-left: 10px;
-        margin-top: 10px;
+        padding-left: 10px;
+        padding-top: 10px;
         cursor: pointer;
         background: white;
         z-index: 45;
-        padding-right: 5px;
+        padding-right: 12px;
+        padding-bottom: 5px;
         top: 0px;
     }
 

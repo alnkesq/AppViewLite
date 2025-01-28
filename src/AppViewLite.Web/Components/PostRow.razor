@@ -74,7 +74,7 @@
             { nameof(PostRow.IsFocalPost), flags[4] },
             { nameof(PostRow.ShowThreadLine), flags[5] },
         });
-    
+
     }
 
     protected override void OnParametersSet()
@@ -303,8 +303,22 @@
 
     @if (Post.Data?.EmbedRecordUri != null)
     {
-        <div class="post-link-list post-indented">@Post.Data.EmbedRecordUri</div>
-
+        @if (Post.EmbedRecord is BlueskyFeedGenerator feed)
+        {
+            <div class="post-link-list post-indented">
+                <a href="@feed.BaseUrl" class="blue-link">Feed: @feed.DisplayNameOrFallback</a>
+            </div>
+        }
+        else if (Post.EmbedRecord is BlueskyList list)
+        {
+            <div class="post-link-list post-indented">
+                <a href="@list.BaseUrl" class="blue-link">List: @list.DisplayNameOrFallback</a>
+            </div>
+        }
+        else
+        {
+            <div class="post-link-list post-indented">@Post.Data.EmbedRecordUri</div>
+        }
     }
     @if (Post.Data?.ExternalUrl != null)
     {
@@ -342,7 +356,7 @@
                 @if (image.IsVideo)
                 {
                     <a href="@Post.BlueskyUrl" title="@image.AltText" class="post-image-link blue-link" target="_blank" rel="noreferrer">
-                        View video on bsky.app
+                        Watch video on bsky.app
                     </a>
                 }
                 else

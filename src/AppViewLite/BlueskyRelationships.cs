@@ -1665,13 +1665,18 @@ namespace AppViewLite
 
         public BlueskyFeedGenerator GetFeedGenerator(Plc plc, BlueskyFeedGeneratorData data)
         {
+            return GetFeedGenerator(plc, data.RKey, data);
+        }
+        public BlueskyFeedGenerator GetFeedGenerator(Plc plc, string rkey, BlueskyFeedGeneratorData? data = null)
+        {
+            data ??= TryGetFeedGeneratorData(new RelationshipHashedRKey(plc, rkey));
             return new BlueskyFeedGenerator
             {
                  Data = data,
                  Did = TryGetDid(plc),
-                 RKey = data.RKey,
+                 RKey = rkey,
                  Author = GetProfile(plc),
-                 LikeCount = FeedGeneratorLikes.GetValueCount(new(plc, data.RKey))
+                 LikeCount = FeedGeneratorLikes.GetValueCount(new(plc, rkey))
             };
         }
 

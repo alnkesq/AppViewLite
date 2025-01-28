@@ -187,6 +187,8 @@ namespace AppViewLite
                         if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
                             post.IsRepostedBySelf = repostTid.RelationshipRKey;
                     }
+
+                    post.EmbedRecord = relationshipsUnlocked.TryGetAtObject(post.Data?.EmbedRecordUri);
                 }
             });
 
@@ -268,7 +270,7 @@ namespace AppViewLite
 
 
             await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx, ct: ct);
-
+            
             if (loadQuotes)
             {
                 var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray();

@@ -12,17 +12,17 @@ namespace AppViewLite.Models
     {
         public required string Did;
         public required string RKey;
-        public required BlueskyFeedGeneratorData Data;
+        public BlueskyFeedGeneratorData? Data;
         public BlueskyProfile Author;
         public RelationshipHashedRKey FeedId;
         public long LikeCount;
-        public string DisplayNameOrFallback => Data.DisplayName ?? (Did + "/" + RKey);
+        public string DisplayNameOrFallback => Data?.DisplayName ?? (Did + "/" + RKey);
         public Plc Plc => FeedId.Plc;
         public string BaseUrl => $"/feed/{Did}/{RKey}";
 
         public string AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, Data.AvatarCid != null ? Cid.Read(Data.AvatarCid).ToString() : null);
 
-        public string DisplayName => Data.DisplayName ?? RKey;
+        public string DisplayName => Data?.DisplayName ?? RKey;
 
         public ATUri Uri => new ATUri("at://" + Did + "/app.bsky.feed.generator/" + RKey);
 

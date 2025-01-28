@@ -1581,7 +1581,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), List.RecordType, limit: limit, cursor: continuation)).HandleResult();
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), List.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
             var lists = WithRelationshipsLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
@@ -1592,7 +1592,7 @@ namespace AppViewLite
                 }).ToArray();
             });
             await EnrichAsync(lists, ctx);
-            return (lists, response.Cursor);
+            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => x.RKey);
 
         }
 
@@ -1601,7 +1601,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Generator.RecordType, limit: limit, cursor: continuation)).HandleResult();
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Generator.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
             var feeds = WithRelationshipsLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
@@ -1616,7 +1616,7 @@ namespace AppViewLite
                 }).ToArray();
             });
             await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx);
-            return (feeds, response.Cursor);
+            return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.RKey);
 
         }
 

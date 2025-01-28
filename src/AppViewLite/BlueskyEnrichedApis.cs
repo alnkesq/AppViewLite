@@ -1397,12 +1397,13 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 10);
 
-            Models.Relationship? parsedContinuation = continuation != null ? Models.Relationship.Deserialize(continuation) : null;
+            ListMembership? parsedContinuation = continuation != null ? ListMembership.Deserialize(continuation) : null;
 
             var lists = WithRelationshipsLock(rels =>
             {
                 return rels.ListMemberships.GetValuesSorted(rels.SerializeDid(did), parsedContinuation)
-                    .Select(x => rels.GetList(x))
+                    .Where(x => !rels.ListItemDeletions.ContainsKey(new(x.ListAuthor, x.ListItemRKey)))
+                    .Select(x => rels.GetList(new(x.ListAuthor, x.ListRKey)))
                     .Where(x => x.Data?.Deleted != true)
                     .Take(limit + 1)
                     .ToArray();

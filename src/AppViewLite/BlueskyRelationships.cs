@@ -40,7 +40,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchWithDescription;
         public CombinedPersistentMultiDictionary<SizeLimitedWord, Plc> ProfileSearchPrefix;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, Relationship> FeedGeneratorLikes;
-        public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
+        public CombinedPersistentMultiDictionary<Plc, ListMembership> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
@@ -145,7 +145,7 @@ namespace AppViewLite
 
             ListItems = RegisterDictionary<Relationship, ListEntry>("list-item") ;
             ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
-            ListMemberships = RegisterDictionary<Plc, Relationship>("list-membership");
+            ListMemberships = RegisterDictionary<Plc, ListMembership>("list-membership-2");
 
             Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder) ;
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue);
@@ -1687,7 +1687,17 @@ namespace AppViewLite
         public ListData? TryGetListData(Relationship listId)
         {
             if (this.Lists.TryGetPreserveOrderSpanLatest(listId, out var listMetadataBytes))
+            {
+                if (this.ListDeletions.ContainsKey(listId))
+                {
+                    return new ListData
+                    {
+                        Error = "This list was deleted.",
+                        Deleted = true
+                    };
+                }
                 return DeserializeProto<ListData>(listMetadataBytes.AsSmallSpan());
+            }
             if (this.FailedListLookups.ContainsKey(listId))
                 return new ListData { Error = "This list could not be retrieved." };
             return null;

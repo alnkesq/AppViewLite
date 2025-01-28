@@ -204,10 +204,15 @@ namespace AppViewLite
                     {
                         if (commitAuthor != listItem.List.Did.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
                         if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
-                        var listId = new Relationship(commitPlc, Tid.Parse(listItem.List.Rkey));
-                        var entry = new ListEntry(relationships.SerializeDid(listItem.Subject.Handler), GetMessageTid(path, Listitem.RecordType + "/"));
+                        var listRkey = Tid.Parse(listItem.List.Rkey);
+                        var listItemRkey = GetMessageTid(path, Listitem.RecordType + "/");
+                        var member = relationships.SerializeDid(listItem.Subject.Handler);
+
+                        var listId = new Relationship(commitPlc, listRkey);
+                        var entry = new ListEntry(member, listItemRkey);
+
                         relationships.ListItems.Add(listId, entry);
-                        relationships.ListMemberships.Add(entry.Member, listId);
+                        relationships.ListMemberships.Add(entry.Member, new ListMembership(commitPlc, listRkey, listItemRkey));
                     }
                     else if (record is Threadgate threadGate)
                     {

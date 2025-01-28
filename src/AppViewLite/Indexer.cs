@@ -16,6 +16,7 @@ using FishyFlip.Tools;
 using System.Threading;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace AppViewLite
 {
@@ -141,7 +142,10 @@ namespace AppViewLite
                             // TODO: handle deletions for feed likes
                             var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did.Handler), l.Subject.Uri.Rkey);
                             relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
-
+                            if (!relationships.FeedGenerators.ContainsKey(feedId))
+                            {
+                                ScheduleRecordIndexing(l.Subject.Uri);
+                            }
                         }
                     }
                     else if (record is Follow f)
@@ -259,6 +263,22 @@ namespace AppViewLite
         }
 
 
+        private ConcurrentSet<string> currentlyRunningRecordRetrievals = new();
+        private void ScheduleRecordIndexing(ATUri uri)
+        {
+            if (!currentlyRunningRecordRetrievals.TryAdd(uri.ToString())) return;
+            Task.Run(async () =>
+            {
+                Console.Error.WriteLine("Fetching record " + uri);
+                using var proto = AlternatePdsConfiguration.CreateProtocolForDid(uri.Did!.Handler);
+                var record = (await proto.Repo.GetRecordAsync(uri.Did, uri.Collection, uri.Rkey)).HandleResult()!.Value;
+
+                OnRecordCreated(uri.Did.Handler, uri.Pathname.Substring(1), record, ignoreIfDisposing: true);
+
+                currentlyRunningRecordRetrievals.Remove(uri.ToString());
+
+            });
+        }
 
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {

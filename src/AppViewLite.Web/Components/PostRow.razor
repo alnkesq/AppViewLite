@@ -218,7 +218,7 @@
 
 
 
-<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null)" 
+<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null) @(Post.ShouldBlur ? "post-blocked" : null)" 
     @key="@(Post.RKey + "/" + Post.Did)" 
     data-postdid="@Post.Did" data-postrkey="@Post.RKey"
     data-likecount="@Post.LikeCount"
@@ -250,6 +250,13 @@
         </div>
     }
 
+    @if (Post.BlurReason is { } blurReason)
+    {
+        <div class="post-blur-reason-container">
+            <div class="post-blur-reason">@blurReason</div>
+        </div>
+        
+    }
 
     <a href="@Post.Author.BaseUrl" class="post-author-image-link">
         <img src="@Post.Author.AvatarUrl" class="post-author-image">

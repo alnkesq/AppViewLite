@@ -41,6 +41,20 @@ namespace AppViewLite.Models
         public Tid? IsRepostedBySelf;
         public bool IsRepost => RepostDate != null;
         public object? EmbedRecord;
+
+
+        public string? BlurReason
+        {
+            get
+            {
+                var r = Author.BlockReason.ToDisplayString();
+                if (r != null)
+                    return r;
+                return null;
+            }
+        }
+
+        public bool ShouldBlur => BlurReason != null;
     }
 }
 

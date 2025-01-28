@@ -8,6 +8,8 @@ namespace AppViewLite.Models
         public long Following;
         public long Followers;
         public List<BlueskyProfile>? FollowedByPeopleYouFollow;
+        public bool HasFeeds;
+        public bool HasLists;
     }
 }
 

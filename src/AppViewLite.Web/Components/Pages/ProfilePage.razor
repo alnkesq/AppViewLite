@@ -95,15 +95,15 @@
                 </span>
                 <span class="profile-followers-you-follow-text">
                     Followed by @(
-                        knownFollowerCount <= MaxFollowersYouFollowNames 
-                            ? StringUtils.AndJoin(Profile.FollowedByPeopleYouFollow.Select(x => x.DisplayNameOrFallback).ToArray())
-                            : (StringUtils.AndJoin(Profile.FollowedByPeopleYouFollow.Take(MaxFollowersYouFollowNames - 1).Select(x => x.DisplayNameOrFallback).ToArray()) + " and " + (knownFollowerCount - (MaxFollowersYouFollowNames - 1)) + " others")
-                    )
+                knownFollowerCount <= MaxFollowersYouFollowNames 
+            ? StringUtils.AndJoin(Profile.FollowedByPeopleYouFollow.Select(x => x.DisplayNameOrFallback).ToArray())
+            : (StringUtils.AndJoin(Profile.FollowedByPeopleYouFollow.Take(MaxFollowersYouFollowNames - 1).Select(x => x.DisplayNameOrFallback).ToArray()) + " and " + (knownFollowerCount - (MaxFollowersYouFollowNames - 1)) + " others")
+            )
                 </span>
             </a>
         }
 
-        
+
         <div class="tabbed-lists-header">
             <div class="tabbed-lists-header-inner">
 
@@ -112,6 +112,14 @@
                 <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
                 <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
                 <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+                @if (Profile.HasFeeds)
+                {
+                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
+                }
+                @if (Profile.HasLists)
+                {
+                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
+                }
 
                 @* <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a> *@
                 <a class="search-link" href="/search?q= from:@Did" title="Search"><img src="/assets/search.png"></a>

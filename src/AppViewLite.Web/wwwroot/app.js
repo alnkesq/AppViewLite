@@ -310,6 +310,14 @@ if (!hasBlazor) {
     document.addEventListener('click', e => {
         
         var target = e.target;
+
+        if (currentlyOpenMenu) { 
+            if (currentlyOpenMenu.contains(target) || currentlyOpenMenuButton.contains(target)) return;
+            closeCurrentMenu();
+            e.preventDefault();
+            return;
+        }
+
         var actionButton = target.closest('.post-action-bar-button,[actionkind]');
         if (actionButton) { 
             var actionKind = actionButton.getAttribute('actionkind');
@@ -352,23 +360,7 @@ if (!hasBlazor) {
             }
         }
     });
-    document.addEventListener('pointerdown', e => {
-        var target = e.target;
-        if (currentlyOpenMenu) { 
-            if (currentlyOpenMenu.contains(target) || currentlyOpenMenuButton.contains(target)) return;
-            closeCurrentMenu();
-        }
-        
-        /*
-        if (target.previousElementSibling?.classList?.contains('menu')) return;
-        for (const menu of document.querySelectorAll('.menu-visible')) {
-            if (menu.menuOpenedBy == target) continue;
-            if (menu.contains(target)) continue;
-            menu.classList.remove('menu-visible')
-            menu.menuOpenedBy = null;
-        }
-        */
-    });
+
 
     updateLiveSubscriptions();
     updatePageTitle();

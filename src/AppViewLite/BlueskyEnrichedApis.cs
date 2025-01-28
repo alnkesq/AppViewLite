@@ -1401,7 +1401,11 @@ namespace AppViewLite
 
             var lists = WithRelationshipsLock(rels =>
             {
-                return rels.ListMemberships.GetValuesSorted(rels.SerializeDid(did), parsedContinuation).Take(limit + 1).Select(x => rels.GetList(x)).ToArray();
+                return rels.ListMemberships.GetValuesSorted(rels.SerializeDid(did), parsedContinuation)
+                    .Select(x => rels.GetList(x))
+                    .Where(x => x.Data?.Deleted != true)
+                    .Take(limit + 1)
+                    .ToArray();
             });
 
             await EnrichAsync(lists, ctx);

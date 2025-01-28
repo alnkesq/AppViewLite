@@ -16,6 +16,7 @@ namespace AppViewLite.Models
         [ProtoMember(4)] public byte[]? AvatarCid;
         [ProtoMember(5)] public FacetData[]? DescriptionFacets;
         public string? Error;
+        public bool Deleted;
     }
 }
 

@@ -222,6 +222,9 @@ function fastNavigateTo(href) {
         return;
     }
     window.history.pushState(null, null, href);
+    if (window.location.href == href) { 
+        window.scrollTo(0, 0);
+    }
     applyPage(href, true, true);
 }
 

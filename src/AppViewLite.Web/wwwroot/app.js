@@ -231,10 +231,10 @@ function fastNavigateTo(href) {
         window.location.href = href;
         return;
     }
-    window.history.pushState(null, null, href);
     if (window.location.href == href) { 
         window.scrollTo(0, 0);
     }
+    window.history.pushState(null, null, href);
     applyPage(href, true, true);
 }
 

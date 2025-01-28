@@ -1136,3 +1136,6 @@ button[disabled], input[type=submit][disabled] {
     aspect-ratio: 1;
     object-fit: cover;
 }
+.feed-metadata-row-implementation {
+    color: #aaa;
+}

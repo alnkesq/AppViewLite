@@ -1596,12 +1596,13 @@ namespace AppViewLite
                 AcceptsInteractions = generator.AcceptsInteractions,
                 RKey = rkey,
             };
-            FeedGenerators.AddRange(key, SerializeProto(proto));
 
             foreach (var wordHash in StringUtils.GetAllWords(proto.DisplayName).Concat(StringUtils.GetAllWords(proto.Description)).Select(x => HashWord(x)).Distinct())
             {
                 FeedGeneratorSearch.AddIfMissing(wordHash, key);
             }
+            FeedGenerators.AddRange(key, SerializeProto(proto));
+
         }
 
         public BlueskyFeedGeneratorData? TryGetFeedGeneratorData(RelationshipHashedRKey feedId)

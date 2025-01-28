@@ -15,7 +15,7 @@ namespace AppViewLite.Models
         [ProtoMember(3)] public ListPurposeEnum Purpose;
         [ProtoMember(4)] public byte[]? AvatarCid;
         [ProtoMember(5)] public FacetData[]? DescriptionFacets;
-        public string Error;
+        public string? Error;
     }
 }
 

@@ -1513,6 +1513,53 @@ namespace AppViewLite
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());
         }
 
+        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+
+            ProfileSearchContinuation parsedContinuation = continuation != null ? ProfileSearchContinuation.Deserialize(continuation) : new ProfileSearchContinuation(Plc.MaxValue, false);
+            var queryWords = StringUtils.GetDistinctWords(query);
+            if (queryWords.Length == 0) return ([], null);
+            var profiles = new List<BlueskyProfile>();
+            var alreadyReturned = new HashSet<Plc>();
+
+            while (true)
+            {
+                var items = WithRelationshipsLock(rels =>
+                {
+                    return rels.SearchProfiles(queryWords, parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
+                    .Select(x => rels.GetProfile(x))
+                    .Where(x =>
+                    {
+                        var words = StringUtils.GetAllWords(x.BasicData?.DisplayName);
+                        if (parsedContinuation.AlsoSearchDescriptions)
+                        {
+                            words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
+                        }
+                        var wordsHashset = words.ToHashSet();
+                        return queryWords.All(x => wordsHashset.Contains(x));
+                    })
+                    .Where(x => alreadyReturned.Add(x.Plc))
+                    .Take(limit + 1 - profiles.Count)
+                    .ToArray();
+                });
+
+                profiles.AddRange(items);
+                if (!parsedContinuation.AlsoSearchDescriptions && !(profiles.Count > limit))
+                {
+                    parsedContinuation = new ProfileSearchContinuation(Plc.MaxValue, true);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            await EnrichAsync(profiles.ToArray(), ctx);
+            return GetPageAndNextPaginationFromLimitPlus1(profiles.ToArray(), limit, x => new ProfileSearchContinuation(x.Plc, parsedContinuation.AlsoSearchDescriptions).Serialize());
+        }
+        
+
         private static (T[] Items, string? NextContinuation) GetPageAndNextPaginationFromLimitPlus1<T>(T[] itemsPlusOne, int limit, Func<T, string> serialize)
         {
             var hasMore = itemsPlusOne.Length > limit;

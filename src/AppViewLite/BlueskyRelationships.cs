@@ -560,6 +560,28 @@ namespace AppViewLite
 
         }
 
+        public IEnumerable<Plc> SearchProfiles(string[] searchTerms, Plc maxExclusive, bool alsoSearchDescriptions)
+        {
+            var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
+            if (searchTermsArray.Length == 0) yield break;
+            var words = searchTermsArray
+                .Select(x => (alsoSearchDescriptions ? ProfileSearchWithDescription : ProfileSearch).GetValuesChunked(x).ToList())
+                .Select(x => (TotalCount: x.Sum(x => x.Count), Slices: x))
+                .OrderBy(x => x.TotalCount)
+                .ToArray();
+
+            while (true)
+            {
+                PeelUntilNextCommonPost(words, ref maxExclusive);
+                if (maxExclusive == default) break;
+
+                yield return maxExclusive;
+
+                if (!RemoveEmptySearchSlices(words, maxExclusive)) break;
+            }
+
+        }
+
         public IEnumerable<ApproximateDateTime32> SearchPosts(string[] searchTerms, ApproximateDateTime32 since, ApproximateDateTime32? until, Plc author, LanguageEnum language)
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();

@@ -1,0 +1,27 @@
+@page "/search-profiles"
+@inject RequestContext RequestContext
+
+
+@code {
+
+
+    private BlueskyProfile[] Profiles = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Q { get; set; }
+    private string? NextContinuation;
+    protected override async Task OnParametersSetAsync()
+    {
+        (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+    }
+}
+
+<PageTitle>Profiles</PageTitle>
+
+<h1>Profiles</h1>
+
+<form action="/search-profiles" method="get" class="search-form">
+    <label class="search-form-query"><input type="search" name="q" value="@Q" autofocus placeholder="Search" /></label>
+    <label class="search-form-submit"><input type="submit" value="Search"></label>
+</form>
+
+<ProfileList Profiles="@Profiles" NextContinuation="@NextContinuation" />

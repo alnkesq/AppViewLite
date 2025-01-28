@@ -41,9 +41,39 @@ namespace AppViewLite.Storage
         }
 
 
+        public static IEnumerable<T> DistinctByAssumingOrderedInputLatest<TKey, T>(this IEnumerable<T> sortedInput, Func<T, TKey> keyFunc, bool skipCheck = false, IEqualityComparer<TKey>? keyEqualityComparer = null)
+        {
+            keyEqualityComparer ??= GetEqualityComparer<TKey>();
+            if (keyEqualityComparer != GetEqualityComparer<TKey>())
+                skipCheck = true;
+            if (!skipCheck) sortedInput = sortedInput.AssertOrderedAllowDuplicates(x => keyFunc(x), keyEqualityComparer as IComparer<TKey>);
+
+            TKey prevKey = default!;
+            T prevValue = default!;
+            bool hasPrev = false;
+
+            foreach (var item in sortedInput)
+            {
+                var key = keyFunc(item);
+                if (hasPrev && !keyEqualityComparer.Equals(key, prevKey))
+                {
+                    yield return prevValue;
+                }
+                prevKey = key;
+                hasPrev = true;
+                prevValue = item;
+            }
+            if (hasPrev)
+                yield return prevValue;
+        }
+
         public static IEnumerable<T> DistinctAssumingOrderedInput<T>(this IEnumerable<T> sortedInput, bool skipCheck = false, IEqualityComparer<T>? equalityComparer = null)
         {
             return DistinctByAssumingOrderedInput(sortedInput, x => x, skipCheck: skipCheck, keyEqualityComparer: equalityComparer);
+        }
+        public static IEnumerable<T> DistinctAssumingOrderedInputLatest<T>(this IEnumerable<T> sortedInput, bool skipCheck = false, IEqualityComparer<T>? equalityComparer = null)
+        {
+            return DistinctByAssumingOrderedInputLatest(sortedInput, x => x, skipCheck: skipCheck, keyEqualityComparer: equalityComparer);
         }
 
 

@@ -1165,10 +1165,15 @@ namespace AppViewLite
 
         private Plc[] GetFollowersYouFollow(Plc plc, Plc loggedInUser)
         {
-            var myFollowees = RegisteredUserToFollowees.GetValuesSorted(loggedInUser).DistinctAssumingOrderedInput();
+            var myFollowees = RegisteredUserToFollowees
+                .GetValuesSorted(loggedInUser)
+                .DistinctByAssumingOrderedInputLatest(x => x.Member);
             var followers = Follows.GetRelationshipsSorted(plc, default).Select(x => x.Actor).DistinctAssumingOrderedInput();
 
-            return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x.Member, followers, x => x).Where(x => x.Left != default && x.Right != default && !Follows.deletions.ContainsKey(new Relationship(loggedInUser, x.Left.ListItemRKey))).Select(x => x.Key).ToArray();
+            return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x.Member, followers, x => x)
+                .Where(x => x.Left != default && x.Right != default && !Follows.deletions.ContainsKey(new Relationship(loggedInUser, x.Left.ListItemRKey)))
+                .Select(x => x.Key)
+                .ToArray();
         }
 
         internal void EnsureNotDisposed()

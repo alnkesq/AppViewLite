@@ -331,6 +331,11 @@ namespace AppViewLite.Web
             var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(aturi.Handle!.Handle);
             return new ATUri("at://" + did + aturi.Pathname + aturi.Hash);
         }
+
+        public static bool IsBskyAppOrAtUri(string? q)
+        {
+            return q != null && (q.StartsWith("https://bsky.app/", StringComparison.Ordinal) || q.StartsWith("at://", StringComparison.Ordinal));
+        }
     }
 }
 

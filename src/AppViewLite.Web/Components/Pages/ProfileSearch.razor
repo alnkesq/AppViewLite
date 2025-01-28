@@ -1,6 +1,7 @@
 @page "/search-profiles"
+@using System.Text.RegularExpressions
 @inject RequestContext RequestContext
-
+@inject NavigationManager Navigation
 
 @code {
 
@@ -11,6 +12,27 @@
     private string? NextContinuation;
     protected override async Task OnParametersSetAsync()
     {
+        if (Program.IsBskyAppOrAtUri(Q))
+        {
+            Navigation.NavigateTo("/" + Q);
+            return;
+        }
+        if (Q != null && Regex.IsMatch(Q, @"^@?[\w\-]+(?:\.[\w\-]+)+$"))
+        {
+            string? did = null;
+            try
+            {
+                did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Q);
+            }
+            catch (Exception)
+            {
+            }
+            if(did != null)
+            {
+                Navigation.NavigateTo("/@" + did);
+                return;
+            }
+        }
         (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
     }
 }

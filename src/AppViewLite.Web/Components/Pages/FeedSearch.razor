@@ -1,5 +1,6 @@
 @page "/feeds"
 @inject RequestContext RequestContext
+@inject NavigationManager Navigation
 
 
 @code {
@@ -11,6 +12,11 @@
     private string? NextContinuation;
     protected override async Task OnParametersSetAsync()
     {
+        if (Program.IsBskyAppOrAtUri(Q))
+        {
+            Navigation.NavigateTo("/" + Q);
+            return;
+        }
         (Feeds, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchFeedsAsync(Q, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
     }
 }

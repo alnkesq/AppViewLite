@@ -21,7 +21,7 @@
     protected override async Task OnParametersSetAsync()
     {
 
-        if (Q != null && Q.StartsWith("https://bsky.app/", StringComparison.Ordinal))
+        if (Program.IsBskyAppOrAtUri(Q))
         {
             Navigation.NavigateTo("/" + Q);
             return; 

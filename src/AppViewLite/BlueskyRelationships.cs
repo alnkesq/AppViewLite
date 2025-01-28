@@ -35,7 +35,7 @@ namespace AppViewLite
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
-        public CombinedPersistentMultiDictionary<ulong, RelationshipHashedRKey> FeedGeneratorSearch;
+        public CombinedPersistentMultiDictionary<HashedWord, RelationshipHashedRKey> FeedGeneratorSearch;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, Relationship> FeedGeneratorLikes;
         public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
@@ -55,7 +55,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, byte> PlcToBasicInfo;
         public CombinedPersistentMultiDictionary<Plc, byte> PlcToDid;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> PostData;
-        public CombinedPersistentMultiDictionary<ulong, ApproximateDateTime32> PostTextSearch;
+        public CombinedPersistentMultiDictionary<HashedWord, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> FailedListLookups;
         public CombinedPersistentMultiDictionary<PostId, DateTime> FailedPostLookups;
@@ -131,7 +131,7 @@ namespace AppViewLite
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
             PlcToBasicInfo = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
-            PostTextSearch = RegisterDictionary<ulong, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
+            PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
             FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");
@@ -165,7 +165,7 @@ namespace AppViewLite
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
-            FeedGeneratorSearch = RegisterDictionary<ulong, RelationshipHashedRKey>("feed-generator-search");
+            FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterDictionary<RelationshipHashedRKey, Relationship>("feed-generator-like");
 
             
@@ -511,23 +511,23 @@ namespace AppViewLite
 
         private void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
         {
-            ulong hash = HashWord(word);
+            var hash = HashWord(word);
             AddToSearchIndex(hash, approxPostDate);
         }
-        private void AddToSearchIndex(UInt64 hash, ApproximateDateTime32 approxPostDate)
+        private void AddToSearchIndex(HashedWord hash, ApproximateDateTime32 approxPostDate)
         {
             if (this.PostTextSearch.QueuedItems.Contains(hash, approxPostDate)) return;
             this.PostTextSearch.Add(hash, approxPostDate); // Will be deduped on compactation (AddIfMissing is too expensive)
         }
 
-        private static ulong HashPlcForTextSearch(Plc author)
+        private static HashedWord HashPlcForTextSearch(Plc author)
         {
-            return XxHash64.HashToUInt64(MemoryMarshal.AsBytes<int>([author.PlcValue]));
+            return new(XxHash64.HashToUInt64(MemoryMarshal.AsBytes<int>([author.PlcValue])));
         }
 
-        private static ulong HashWord(ReadOnlySpan<char> word)
+        public static HashedWord HashWord(ReadOnlySpan<char> word)
         {
-            return System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(word), 4662323635092061535);
+            return new(System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(word), 4662323635092061535));
         }
 
 

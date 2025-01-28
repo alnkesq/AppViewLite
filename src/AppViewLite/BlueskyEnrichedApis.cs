@@ -1494,11 +1494,20 @@ namespace AppViewLite
             EnsureLimit(ref limit);
 
             RelationshipHashedRKey? parsedContinuation = continuation != null ? RelationshipHashedRKey.Deserialize(continuation) : null;
-            var words = StringUtils.GetDistinctWords(query);
-            if (words.Length == 0) return ([], null);
+            var queryWords = StringUtils.GetDistinctWords(query);
+            if (queryWords.Length == 0) return ([], null);
             var feeds = WithRelationshipsLock(rels =>
             {
-                return rels.SearchFeeds(words, parsedContinuation ?? RelationshipHashedRKey.MaxValue).Select(x => rels.TryGetFeedGenerator(x)).Where(x => x != null).Take(limit + 1).ToArray();
+                return rels.SearchFeeds(queryWords, parsedContinuation ?? RelationshipHashedRKey.MaxValue)
+                .Select(x => rels.TryGetFeedGenerator(x))
+                .Where(x => 
+                {
+                    var words = StringUtils.GetAllWords(x.Data?.DisplayName).Concat(StringUtils.GetAllWords(x.Data?.Description)).Distinct().ToArray();
+                    return queryWords.All(x => words.Contains(x));
+                })
+                .Where(x => x != null)
+                .Take(limit + 1)
+                .ToArray();
             });
             await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx);
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());

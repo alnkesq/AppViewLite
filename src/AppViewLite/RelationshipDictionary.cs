@@ -14,7 +14,7 @@ namespace AppViewLite
     {
 
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
-        private CombinedPersistentMultiDictionary<Relationship, DateTime> deletions;
+        internal CombinedPersistentMultiDictionary<Relationship, DateTime> deletions;
         private CombinedPersistentMultiDictionary<TTarget, int> deletionCounts;
         private CombinedPersistentMultiDictionary<RelationshipHash, UInt24> relationshipIdHashToApproxTarget;
         private Func<TTarget, bool, UInt24?>? targetToApproxTarget;

@@ -161,7 +161,7 @@ namespace AppViewLite
 
             Notifications = RegisterDictionary<Plc, Notification>("notification-2") ;
 
-            RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees") ;
+            RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees");
 
             UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2") ;
             UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2") ;
@@ -1165,10 +1165,10 @@ namespace AppViewLite
 
         private Plc[] GetFollowersYouFollow(Plc plc, Plc loggedInUser)
         {
-            var myFollowees = RegisteredUserToFollowees.GetValuesSorted(loggedInUser).Select(x => x.Member).DistinctAssumingOrderedInput();
+            var myFollowees = RegisteredUserToFollowees.GetValuesSorted(loggedInUser).DistinctAssumingOrderedInput();
             var followers = Follows.GetRelationshipsSorted(plc, default).Select(x => x.Actor).DistinctAssumingOrderedInput();
 
-            return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x, followers, x => x).Where(x => x.Left != default && x.Right != default).Select(x => x.Key).ToArray();
+            return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x.Member, followers, x => x).Where(x => x.Left != default && x.Right != default && !Follows.deletions.ContainsKey(new Relationship(loggedInUser, x.Left.ListItemRKey))).Select(x => x.Key).ToArray();
         }
 
         internal void EnsureNotDisposed()
@@ -1486,18 +1486,56 @@ namespace AppViewLite
             var thresholdDate = minDate != default ? Tid.FromDateTime(minDate, 0) : default;
 
             
-            var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).Select(x => x.Member).ToArray();
-            var followsHashSet = follows.ToHashSet();
+            var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).ToArray();
+            var plcToLatestFollowRkey = new Dictionary<Plc, Tid>();
+            foreach (var follow in follows)
+            {
+                ref var f = ref CollectionsMarshal.GetValueRefOrAddDefault(plcToLatestFollowRkey, follow.Member, out _);
+                if (f.CompareTo(follow.ListItemRKey) < 0)
+                    f = follow.ListItemRKey;
+            }
+            var requireFollowStillValid = new Dictionary<BlueskyPost, (Tid A, Tid B, Tid C)>();
+
+
+            bool IsFollowStillValid(Tid followRkey)
+            {
+                if (followRkey == default) return true;
+                return !Follows.deletions.ContainsKey(new Relationship(loggedInUser, followRkey));
+            }
 
             var usersRecentPosts =
                 follows
                 .Select(author =>
                 {
                     return this
-                        .EnumerateRecentPosts(author, thresholdDate, maxTid)
-                        .Where(x => x.InReplyTo == default || followsHashSet.Contains(x.InReplyTo))
-                        .Select(x => GetPost(x.PostId))
-                        .Where(x => x.Data != null && (x.IsRootPost || followsHashSet.Contains(x.Data.RootPostId.Author)));
+                        .EnumerateRecentPosts(author.Member, thresholdDate, maxTid)
+                        .Select(x =>
+                        {
+                            Tid inReplyToTid = default;
+                            Tid rootTid = default;
+                            var postAuthor = author.Member;
+                            var parentAuthor = x.InReplyTo;
+
+                            if (parentAuthor != default && parentAuthor != postAuthor)
+                            {
+                                if (!plcToLatestFollowRkey.TryGetValue(parentAuthor, out inReplyToTid))
+                                    return null;
+                            }
+
+                            var post = GetPost(x.PostId);
+                            if (post.Data == null) return null;
+
+                            var rootAuthor = post.RootPostId.Author;
+                            if (rootAuthor != postAuthor && rootAuthor != parentAuthor)
+                            {
+                                if (!plcToLatestFollowRkey.TryGetValue(rootAuthor, out rootTid))
+                                    return null;
+                            }
+
+                            requireFollowStillValid[post] = (author.ListItemRKey, inReplyToTid, rootTid);
+                            return post;
+                        })
+                        .Where(x => x != null);
                 });
             var usersRecentReposts =
                 follows
@@ -1505,16 +1543,23 @@ namespace AppViewLite
                 {
                     BlueskyProfile? reposterProfile = null;
                     return this
-                        .EnumerateRecentReposts(reposter, thresholdDate, maxTid)
+                        .EnumerateRecentReposts(reposter.Member, thresholdDate, maxTid)
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId);
-                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter));
+                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter.Member));
                             post.RepostDate = x.RepostRKey.Date;
+                            requireFollowStillValid[post] = (reposter.ListItemRKey, default, default);
                             return post;
                         });
                 });
-            return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value, 0) : x.PostId.PostRKey, new ReverseComparer<Tid>());
+            return
+                SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value, 0) : x.PostId.PostRKey, new ReverseComparer<Tid>())
+                .Where(x =>
+                {
+                    var triplet = requireFollowStillValid[x];
+                    return IsFollowStillValid(triplet.A) && IsFollowStillValid(triplet.B) && IsFollowStillValid(triplet.C);
+                })!;
         }
 
         internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId> alreadyReturned)

@@ -97,6 +97,12 @@ function applyPageFocus() {
     }
     
     updateSidebarButtonScrollVisibility();
+
+    var searchbox = document.querySelector('.search-form-query input');
+    if (searchbox) { 
+        var query = searchbox.value;
+        searchbox.setSelectionRange(query.length, query.length);
+    }
 }
 
 if (hasBlazor) {

@@ -1687,6 +1687,25 @@ namespace AppViewLite
             return GetFeedGenerator(feedId.Plc, data);
         }
 
+        internal object? TryGetAtObject(string? aturi)
+        {
+            if (aturi == null) return null;
+            var parsed = new ATUri(aturi);
+
+            var plc = SerializeDid(parsed.Did!.Handler);
+            if (parsed.Collection == Generator.RecordType)
+            {
+                return GetFeedGenerator(plc, parsed.Rkey);
+            }
+
+            if (parsed.Collection == FishyFlip.Lexicon.App.Bsky.Graph.List.RecordType)
+            {
+                return GetList(new Relationship(plc, Tid.Parse(parsed.Rkey)));
+            }
+
+            return null;
+
+        }
 
     }
 

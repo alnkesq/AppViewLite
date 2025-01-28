@@ -1495,12 +1495,22 @@ namespace AppViewLite
                     f = follow.ListItemRKey;
             }
             var requireFollowStillValid = new Dictionary<BlueskyPost, (Tid A, Tid B, Tid C)>();
-
+            var followPrecise = new Dictionary<Tid, bool>();
 
             bool IsFollowStillValid(Tid followRkey)
             {
                 if (followRkey == default) return true;
-                return !Follows.deletions.ContainsKey(new Relationship(loggedInUser, followRkey));
+                ref var stillValid = ref CollectionsMarshal.GetValueRefOrAddDefault(followPrecise, followRkey, out var exists);
+                if (!exists)
+                    stillValid = !Follows.deletions.ContainsKey(new Relationship(loggedInUser, followRkey));
+                return stillValid;
+            }
+            bool IsFollowPossiblyStillValid(Tid followRkey)
+            {
+                if (followRkey == default) return true;
+                if (followPrecise.TryGetValue(followRkey, out var stillValid))
+                    return stillValid;
+                return true;
             }
 
             var usersRecentPosts =
@@ -1516,9 +1526,14 @@ namespace AppViewLite
                             var postAuthor = author.Member;
                             var parentAuthor = x.InReplyTo;
 
+                            if (!IsFollowPossiblyStillValid(author.ListItemRKey))
+                                return null;
+
                             if (parentAuthor != default && parentAuthor != postAuthor)
                             {
                                 if (!plcToLatestFollowRkey.TryGetValue(parentAuthor, out inReplyToTid))
+                                    return null;
+                                if (!IsFollowPossiblyStillValid(inReplyToTid)) 
                                     return null;
                             }
 
@@ -1529,6 +1544,8 @@ namespace AppViewLite
                             if (rootAuthor != postAuthor && rootAuthor != parentAuthor)
                             {
                                 if (!plcToLatestFollowRkey.TryGetValue(rootAuthor, out rootTid))
+                                    return null;
+                                if (!IsFollowPossiblyStillValid(rootTid))
                                     return null;
                             }
 
@@ -1553,13 +1570,14 @@ namespace AppViewLite
                             return post;
                         });
                 });
-            return
+            var result = 
                 SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value, 0) : x.PostId.PostRKey, new ReverseComparer<Tid>())
                 .Where(x =>
                 {
                     var triplet = requireFollowStillValid[x];
                     return IsFollowStillValid(triplet.A) && IsFollowStillValid(triplet.B) && IsFollowStillValid(triplet.C);
                 })!;
+            return result;
         }
 
         internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId> alreadyReturned)

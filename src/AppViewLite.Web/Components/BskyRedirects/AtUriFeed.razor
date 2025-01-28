@@ -1,0 +1,11 @@
+@page "/at-uri/{did}/app.bsky.feed.generator/{rkey}"
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    [Parameter] public required string RKey { get; set; }
+    protected override void OnParametersSet()
+    {
+        Navigation.NavigateTo($"/feed/{Did}/{RKey}");
+    }
+}

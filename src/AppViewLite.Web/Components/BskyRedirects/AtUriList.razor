@@ -1,0 +1,11 @@
+@page "/at-uri/{did}/app.bsky.graph.list/{rkey}"
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter] public required string Did { get; set; }
+    [Parameter] public required string RKey { get; set; }
+    protected override void OnParametersSet()
+    {
+        Navigation.NavigateTo($"/@{Did}/lists/{RKey}");
+    }
+}

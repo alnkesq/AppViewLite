@@ -36,6 +36,9 @@ namespace AppViewLite
         public RelationshipDictionary<Plc> Blocks;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
         public CombinedPersistentMultiDictionary<HashedWord, RelationshipHashedRKey> FeedGeneratorSearch;
+        public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearch;
+        public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchWithDescription;
+        public CombinedPersistentMultiDictionary<SizeLimitedWord, Plc> ProfileSearchPrefix;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, Relationship> FeedGeneratorLikes;
         public CombinedPersistentMultiDictionary<Plc, Relationship> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
@@ -52,7 +55,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<PostId, PostId> RecursiveReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
         public CombinedPersistentMultiDictionary<PostId, DateTime> PostDeletions;
-        public CombinedPersistentMultiDictionary<Plc, byte> PlcToBasicInfo;
+        public CombinedPersistentMultiDictionary<Plc, byte> Profiles;
         public CombinedPersistentMultiDictionary<Plc, byte> PlcToDid;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> PostData;
         public CombinedPersistentMultiDictionary<HashedWord, ApproximateDateTime32> PostTextSearch;
@@ -129,7 +132,11 @@ namespace AppViewLite
             RecursiveReplies = RegisterDictionary<PostId, PostId>("post-reply-recursive") ;
             Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
-            PlcToBasicInfo = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
+            Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
+            ProfileSearch = RegisterDictionary<HashedWord, Plc>("profile-search");
+            ProfileSearchWithDescription = RegisterDictionary<HashedWord, Plc>("profile-search-with-description");
+            ProfileSearchPrefix = RegisterDictionary<SizeLimitedWord, Plc>("profile-search-prefix");
+
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
             PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
@@ -312,7 +319,7 @@ namespace AppViewLite
 
         public BlueskyProfileBasicInfo? GetProfileBasicInfo(Plc plc)
         {
-            if (PlcToBasicInfo.TryGetPreserveOrderSpanLatest(plc, out var arr))
+            if (Profiles.TryGetPreserveOrderSpanLatest(plc, out var arr))
             {
                 var span = arr.AsSmallSpan();
                 var proto = DeserializeProto<BlueskyProfileBasicInfo>(arr.AsSmallSpan());
@@ -669,12 +676,32 @@ namespace AppViewLite
                 BannerCidBytes = pf.Banner?.Ref?.Link?.ToArray(),
                 PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Rkey).TidValue : null,
             };
+
+            var nameWords = StringUtils.GetDistinctWords(proto.DisplayName);
+            var descriptionWords = StringUtils.GetDistinctWords(proto.Description);
+
+            foreach (var word in nameWords)
+            {
+                var hash = HashWord(word);
+                ProfileSearch.AddIfMissing(hash, plc);
+                ProfileSearchWithDescription.AddIfMissing(hash, plc);
+                ProfileSearchPrefix.AddIfMissing(SizeLimitedWord.Create(word), plc);
+            }
+            foreach (var word in descriptionWords)
+            {
+                var hash = HashWord(word);
+                ProfileSearchWithDescription.AddIfMissing(hash, plc);
+            }
+
             lock (textCompressorUnlocked)
             {
                 textCompressorUnlocked.CompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
                 textCompressorUnlocked.CompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
             }
-            PlcToBasicInfo.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
+
+            
+
+            Profiles.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
         }
 
         internal readonly static EfficientTextCompressor textCompressorUnlocked = new();

@@ -1254,7 +1254,7 @@ namespace AppViewLite
         private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
         {
             var session = ctx.Session;
-            var sessionProtocol = await GetSessionProtocolAsync(ctx);
+            using var sessionProtocol = await GetSessionProtocolAsync(ctx);
             if (sessionProtocol.AuthSession!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)
             {
                 try
@@ -1277,8 +1277,8 @@ namespace AppViewLite
                 rels.StoreAppViewLiteProfile(ctx.LoggedInUser, proto);
             });
             
-            sessionProtocol = await GetSessionProtocolAsync(ctx);
-            return await func(sessionProtocol);
+            using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
+            return await func(sessionProtocol2);
         }
 
         public static byte[] SerializeAuthSession(AuthSession? authSession)

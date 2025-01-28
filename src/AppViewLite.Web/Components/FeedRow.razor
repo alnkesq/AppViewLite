@@ -10,7 +10,7 @@
     <div class="feed-metadata-row-name feed-indented"><a class="underline-on-hover" href="@Feed.BaseUrl">@Feed.DisplayNameOrFallback</a></div>
     <div class="feed-metadata-row-author feed-indented">Feed by <a class="underline-on-hover" href="@Feed.Author.BaseUrl">@Feed.Author.DisplayNameOrFallback</a></div>
     <div class="feed-metadata-row-description">
-        @Feed.Data?.Description
+        <TextWithFacets Text="@Feed.Data?.Description" Facets="@Feed.Data?.DescriptionFacets" />
     </div>
 </div>
 

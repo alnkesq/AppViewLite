@@ -10,7 +10,7 @@
     <div class="list-metadata-row-name list-indented"><a class="underline-on-hover" href="@List.BaseUrl">@List.DisplayNameOrFallback</a></div>
     <div class="list-metadata-row-author list-indented">List by <a class="underline-on-hover" href="@List.Author.BaseUrl">@List.Author.DisplayNameOrFallback</a></div>
     <div class="list-metadata-row-description">
-        @List.Data?.Description
+        <TextWithFacets Text="@List.Data?.Description" Facets="@List.Data?.DescriptionFacets" />
     </div>
 </div>
 

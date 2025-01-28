@@ -1190,6 +1190,7 @@ namespace AppViewLite
                     _ => ListPurposeEnum.Unknown,
                 },
                 AvatarCid = list.Avatar?.Ref?.Link?.ToArray(),
+                DescriptionFacets = GetFacetsAsProtos(list.DescriptionFacets),
             };
 
             

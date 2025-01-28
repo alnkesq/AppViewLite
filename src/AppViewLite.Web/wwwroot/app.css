@@ -549,6 +549,7 @@ ul {
     position: absolute;
     width: 100%;
     overflow: hidden;
+    height: 40px;
     
 }
 .tabbed-lists-header a {

@@ -37,6 +37,9 @@ namespace AppViewLite.Storage
                     var fieldSize = (int)typeof(CompactStructCheck<>).MakeGenericType(field.FieldType).GetMethod(nameof(Check), BindingFlags.Static | BindingFlags.Public)!.Invoke(null, null)!;
                     computedSum += fieldSize;
                 }
+                var inlineArray = typeof(T).GetCustomAttribute<InlineArrayAttribute>();
+                if (inlineArray != null)
+                    computedSum *= inlineArray.Length;
                 if (computedSum != size && typeof(T).GetCustomAttribute<StructLayoutAttribute>() == null)
                     throw new Exception($"Missing [StructLayout(LayoutKind.Sequential, Pack = 1)] attribute for {typeof(T).FullName}. This can lead to wasted storage space.");
                 

@@ -86,14 +86,37 @@ main {
     
 }
 
+.bottom-bar {
+    display: none;
+    background: white;
+    position: fixed;
+    bottom: 0;
+    height: 57px;
+    width: 100%;
+    border-top: 1px solid #D4DBE2;
+    align-items: stretch;
+    flex-direction: row;
+    z-index: 30;
+}
+
+.bottom-bar a{
+    width: 100%;
+    text-align: center;
+    padding-top: 14px;
+}
 
 @media (max-width: 793px) {
     .page {
         flex-direction: row;
     }
 
+    .bottom-bar{
+        display: flex;
+    }
+
     .scroll-up-button {
         left: 15px;
+        bottom: 75px;
     }
 
     main{

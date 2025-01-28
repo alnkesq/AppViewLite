@@ -107,6 +107,15 @@ function applyPageFocus() {
     setSidebarSearchQuery('sidebar-item-search', query);
     setSidebarSearchQuery('sidebar-item-profiles', query);
     setSidebarSearchQuery('sidebar-item-feeds', query);
+
+    
+    var url = new URL(window.location.href);
+    for (const a of document.querySelectorAll('.bottom-bar a')) {
+        var path = new URL(a.href).pathname
+        var selected = path == url.pathname
+        a.firstElementChild.classList.toggle('display-none', selected)
+        a.lastElementChild.classList.toggle('display-none', !selected)
+    }
 }
 
 function setSidebarSearchQuery(id, query) { 
@@ -192,6 +201,7 @@ async function applyPage(href, preferRefresh, scrollToTop) {
         applyPageFocus();
     }
     updateLiveSubscriptions();
+
 
 }
 

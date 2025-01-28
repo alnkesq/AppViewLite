@@ -105,15 +105,17 @@
 
         
         <div class="tabbed-lists-header">
+            <div class="tabbed-lists-header-inner">
 
-            <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
-            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
-            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
-            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
-            <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+                <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
+                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
+                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
+                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
 
-            @* <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a> *@
-            <a class="search-link" href="/search?q= from:@Did" title="Search"><img src="/assets/search.png"></a>
+                @* <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a> *@
+                <a class="search-link" href="/search?q= from:@Did" title="Search"><img src="/assets/search.png"></a>
+            </div>
         </div>
         <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
     </div>

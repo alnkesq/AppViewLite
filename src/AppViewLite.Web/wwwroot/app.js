@@ -225,6 +225,7 @@ function updateSidebarButtonScrollVisibility() {
         document.querySelector('.sidebar-button').classList.toggle('sidebar-button-fixed', scrollDelta < 0);
         prevScrollTop = scrollTop;
     }
+    document.querySelector('.scroll-up-button').classList.toggle('display-none', scrollTop < 700);
 }
 if (!hasBlazor) {
     window.addEventListener('popstate', e => {
@@ -350,6 +351,11 @@ function getAncestorData(target, name) {
         target = target.parentElement;
     }
     throw 'Data attribute not found: ' + name
+}
+
+function scrollToTopAndRefresh() { 
+    window.scrollTo(0, 0);
+    fastNavigateTo(location.href);
 }
 
 

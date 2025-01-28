@@ -133,14 +133,18 @@ if (hasBlazor) {
     });
 }
 
-document.addEventListener('click', event => {
+
+function fastNavigateIfLink(event) { 
     var url = null;
     var t = event.target;
     var a = null;
 
     if (t instanceof HTMLElement && t.classList.contains('post-body-link-to-thread')) { 
-        t.querySelector('.post-body-link-to-thread-text')?.click();
-        return;
+        var href = t.querySelector('.post-body-link-to-thread-text')?.href
+        if (href) {
+            fastNavigateTo(href);
+            return true;
+        }
     }
 
     while (t) {
@@ -153,7 +157,7 @@ document.addEventListener('click', event => {
     }
 
 
-    if (!url) return;
+    if (!url) return false;
 
 
     if ((document.querySelector('#components-reconnect-modal') || ((url.pathname == '/login' || url.pathname == '/logout') && url.host == window.location.host))) {
@@ -162,8 +166,9 @@ document.addEventListener('click', event => {
         fastNavigateTo(url.href);
         event.preventDefault();
     }
+    return true;
+}
 
-}, true);
 
 /**@type {href: string, dateFetched: number, dom: HTMLElement, title: string}[] */
 var recentPages = [];
@@ -312,17 +317,18 @@ if (!hasBlazor) {
         var target = e.target;
 
         if (currentlyOpenMenu) { 
-            if (currentlyOpenMenu.contains(target) || currentlyOpenMenuButton.contains(target)) return;
-            closeCurrentMenu();
-            e.preventDefault();
-            return;
+            if (currentlyOpenMenuButton.contains(target)) { 
+                closeCurrentMenu();
+                return;
+            }
         }
 
+
         var actionButton = target.closest('.post-action-bar-button,[actionkind]');
+        closeCurrentMenu();
         if (actionButton) { 
             var actionKind = actionButton.getAttribute('actionkind');
             if (actionKind) {
-                closeCurrentMenu();
                 console.log(actionKind);
 
                 var postAction = postActions[actionKind];
@@ -350,7 +356,6 @@ if (!hasBlazor) {
                 else {
                     var prevMenu = actionButton.previousElementSibling;
                     if (prevMenu && prevMenu.classList.contains('menu')) {
-                        closeCurrentMenu();
                         prevMenu.classList.add('menu-visible');
 
                         currentlyOpenMenuButton = actionButton;

@@ -1594,6 +1594,30 @@ namespace AppViewLite
 
         }
 
+
+        public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> GetProfileFeedsAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+
+            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Generator.RecordType, limit: limit, cursor: continuation)).HandleResult();
+            var feeds = WithRelationshipsLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                return response!.Records!.Select(x =>
+                {
+                    var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);
+                    if (!rels.FeedGenerators.ContainsKey(feedId))
+                    {
+                        rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value);
+                    }
+                    return rels.TryGetFeedGenerator(feedId)!;
+                }).ToArray();
+            });
+            await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx);
+            return (feeds, response.Cursor);
+
+        }
+
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         private readonly static HttpClient DefaultHttpClient = new();
     }

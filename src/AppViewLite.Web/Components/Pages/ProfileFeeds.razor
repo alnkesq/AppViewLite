@@ -1,9 +1,9 @@
-@page "/@{did}/lists"
+@page "/@{did}/feeds"
 @inject RequestContext RequestContext
 
 @code {
     [Parameter] public required string Did { get; set; }
-    private BlueskyList[] Lists = [];
+    private BlueskyFeedGenerator[] Feeds = [];
     private BlueskyProfile? Member;
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
@@ -12,14 +12,14 @@
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
         Member = await BlueskyEnrichedApis.Instance.GetProfileAsync(Did, RequestContext);
-        (Lists, NextContinuation) = await BlueskyEnrichedApis.Instance.GetProfileListsAsync(Did, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        (Feeds, NextContinuation) = await BlueskyEnrichedApis.Instance.GetProfileFeedsAsync(Did, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 
-<PageTitle>Lists by @Member?.DisplayNameOrFallback</PageTitle>
-<h1>Lists by <a href="@Member?.BaseUrl">@Member?.DisplayNameOrFallback</a></h1>
+<PageTitle>Feeds by @Member?.DisplayNameOrFallback</PageTitle>
+<h1>Feeds by <a href="@Member?.BaseUrl">@Member?.DisplayNameOrFallback</a></h1>
 <div class="main-padding">
     <a href="@Member?.BaseUrl" class="blue-link">Back to profile</a>
 </div>
-<ListList Lists="Lists" NextContinuation="@NextContinuation" />
+<FeedList Feeds="Feeds" NextContinuation="@NextContinuation" />
 

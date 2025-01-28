@@ -148,7 +148,8 @@ namespace AppViewLite
                     {
                         if (HasNumericRKey(path)) return;
                         var followed = relationships.SerializeDid(f.Subject.Handler);
-                        relationships.AddNotification(followed, NotificationKind.FollowedYou, commitPlc);
+                        if (relationships.IsRegisteredForNotifications(followed))
+                            relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
                         relationships.Follows.Add(followed, new Relationship(commitPlc, rkey));
                         if (relationships.IsRegisteredForNotifications(commitPlc))

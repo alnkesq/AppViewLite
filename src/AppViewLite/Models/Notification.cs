@@ -43,6 +43,7 @@ namespace AppViewLite.Models
         MentionedYou,
         RepliedToYourPost,
         RepliedtoYourThread,
+        FollowedYouBack,
     }
 }
 

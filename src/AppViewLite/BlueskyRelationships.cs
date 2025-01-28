@@ -1357,7 +1357,7 @@ namespace AppViewLite
         {
             (PostId post, Plc actor) = notification.Kind switch
             {
-                NotificationKind.FollowedYou => (default, notification.Actor),
+                NotificationKind.FollowedYou or NotificationKind.FollowedYouBack => (default, notification.Actor),
                 NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost => (new PostId(destination, notification.RKey), notification.Actor),
                 NotificationKind.RepliedToYourPost or NotificationKind.RepliedtoYourThread or NotificationKind.QuotedYourPost => (new PostId(notification.Actor, notification.RKey), notification.Actor),
                 _ => default

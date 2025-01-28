@@ -23,6 +23,7 @@ namespace AppViewLite
                 return Kind switch
                 {
                     NotificationKind.FollowedYou => "followed you",
+                    NotificationKind.FollowedYouBack => "followed you back",
                     NotificationKind.LikedYourPost => "liked your post",
                     NotificationKind.RepostedYourPost => "reposted your post",
                     NotificationKind.QuotedYourPost => "quoted you",

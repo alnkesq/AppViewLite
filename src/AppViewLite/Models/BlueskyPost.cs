@@ -52,37 +52,40 @@ namespace AppViewLite.Models
         //public BlueskyPostgate? Postgate;
         public BlueskyThreadgate? Threadgate;
 
-        public string? BlurReason
+        public string? GetBlurReason(bool isFocal)
         {
-            get
+    
+            var r = Author.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor);
+            if (r != null)
+                return r;
+
+            if (isFocal) return null;
+
+            if (QuoterAndAuthorBlockReason != default)
+                return QuoterAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoterAndAuthor);
+            if (QuoteeAndAuthorBlockReason != default)
+                return QuoteeAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoteeAndAuthor);
+
+            if (PostBlockReason != PostBlockReasonKind.None)
             {
-                var r = Author.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor);
-                if (r != null)
-                    return r;
-                if (QuoterAndAuthorBlockReason != default)
-                    return QuoterAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoterAndAuthor);
-                if (QuoteeAndAuthorBlockReason != default)
-                    return QuoteeAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoteeAndAuthor);
-                if (PostBlockReason != PostBlockReasonKind.None)
+                return PostBlockReason switch
                 {
-                    return PostBlockReason switch
-                    {
-                        PostBlockReasonKind.RemovedByQuotee => "Removed by author.",
-                        PostBlockReasonKind.DisabledQuotes => "The author disabled quotes.",
-                        PostBlockReasonKind.RemovedByQuoteeOnQuoter => "The quoted user dislikes this quote.",
-                        PostBlockReasonKind.DisabledQuotesOnQuoter => "The quoted user requested not to be quoted.",
-                        PostBlockReasonKind.HiddenReply => "This reply was hidden by the thread author.",
-                        PostBlockReasonKind.NotAllowlistedReply => "The thread author turned off replies.",
-                        _ => throw new NotSupportedException(),
-                    };
-                }
-                return
-                    ParentAndAuthorBlockReason.ToDisplayString(BlockSubjects.ParentAndAuthor) ??
-                    RootAndAuthorBlockReason.ToDisplayString(BlockSubjects.RootAndAuthor);
+                    PostBlockReasonKind.RemovedByQuotee => "Removed by author.",
+                    PostBlockReasonKind.DisabledQuotes => "The author disabled quotes.",
+                    PostBlockReasonKind.RemovedByQuoteeOnQuoter => "The quoted user dislikes this quote.",
+                    PostBlockReasonKind.DisabledQuotesOnQuoter => "The quoted user requested not to be quoted.",
+                    PostBlockReasonKind.HiddenReply => "This reply was hidden by the thread author.",
+                    PostBlockReasonKind.NotAllowlistedReply => "The thread author turned off replies.",
+                    _ => throw new NotSupportedException(),
+                };
             }
+            return
+                ParentAndAuthorBlockReason.ToDisplayString(BlockSubjects.ParentAndAuthor) ??
+                RootAndAuthorBlockReason.ToDisplayString(BlockSubjects.RootAndAuthor);
+            
         }
 
-        public bool ShouldBlur => BlurReason != null;
+        public bool ShouldBlur(bool isFocal) => GetBlurReason(isFocal) != null;
 
         public override string ToString()
         {

@@ -33,6 +33,9 @@ namespace AppViewLite.Models
         ListMetadata,
         ListEntries,
         BlocklistSubscriptions,
+        FeedGenerators,
+        Threadgates,
+        Postgates,
     }
 
 }

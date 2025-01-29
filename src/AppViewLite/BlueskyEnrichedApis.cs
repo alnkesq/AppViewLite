@@ -1235,6 +1235,9 @@ namespace AppViewLite
                     RepositoryImportKind.ListMetadata => List.RecordType,
                     RepositoryImportKind.ListEntries => Listitem.RecordType,
                     RepositoryImportKind.BlocklistSubscriptions => Listblock.RecordType,
+                    RepositoryImportKind.Threadgates => Threadgate.RecordType,
+                    RepositoryImportKind.Postgates => Postgate.RecordType,
+                    RepositoryImportKind.FeedGenerators => Generator.RecordType,
                     _ => throw new Exception("Unknown collection kind.")
                 };
                 (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ct);

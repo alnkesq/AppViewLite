@@ -24,6 +24,12 @@ namespace AppViewLite.Models
         public Tid? IsFollowedBySelf;
         public bool FollowsYou;
         public bool HasBannerImage => BasicData?.BannerCidBytes != null;
+
+
+        public override string ToString()
+        {
+            return DisplayNameOrFallback;
+        }
     }
 }
 

@@ -83,6 +83,11 @@ namespace AppViewLite.Models
         }
 
         public bool ShouldBlur => BlurReason != null;
+
+        public override string ToString()
+        {
+            return "[" + Author?.DisplayNameOrFallback + "] " + Data?.Text;
+        }
     }
 }
 

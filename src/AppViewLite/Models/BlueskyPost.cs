@@ -52,6 +52,7 @@ namespace AppViewLite.Models
 
         //public BlueskyPostgate? Postgate;
         public BlueskyThreadgate? Threadgate;
+        public bool ViolatesThreadgate;
 
         public string? GetBlurReason(bool isFocal, bool isQuotee)
         {

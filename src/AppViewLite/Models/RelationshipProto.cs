@@ -16,6 +16,7 @@ namespace AppViewLite.Models
 
         public static RelationshipProto FromPostId(PostId p) => new RelationshipProto { Plc = p.Author.PlcValue, Tid = p.PostRKey.TidValue };
         public PostId PostId => new PostId(new(Plc), new(Tid));
+        public Relationship RelationshipId => new Relationship(new(Plc), new(Tid));
     }
 }
 

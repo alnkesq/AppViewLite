@@ -1373,7 +1373,9 @@ namespace AppViewLite
 
         public bool IsMemberOfList(Relationship list, Plc member)
         {
-            
+            if (ListDeletions.ContainsKey(list))
+                return false;
+
             foreach (var memberChunk in ListItems.GetValuesChunked(list))
             {
                 var members = memberChunk.AsSpan();
@@ -1856,6 +1858,39 @@ namespace AppViewLite
                 return BlueskyRelationships.DeserializeProto<BlueskyThreadgate>(threadgateBytes.AsSmallSpan());
             }
             return null;
+        }
+
+
+        public bool ThreadgateAllowsUser(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor)
+        {
+            if (replyAuthor == rootPostId.Author) return true;
+
+            if (!threadgate.AllowlistedOnly) return true;
+
+            if (threadgate.AllowFollowing)
+            {
+                if (Follows.HasActor(rootPostId.Author, replyAuthor, out _))
+                    return true;
+            }
+
+            if (threadgate.AllowMentioned)
+            {
+                var op = TryGetPostData(rootPostId);
+                if (op?.Facets != null)
+                {
+                    var rootDid = TryGetDid(replyAuthor);
+                    if (op?.Facets?.Any(x => x.Did == rootDid) == true)
+                        return true;
+                }
+            }
+
+            if (threadgate.AllowLists != null)
+            {
+                if (threadgate.AllowLists.Any(x => IsMemberOfList(x.RelationshipId, replyAuthor)))
+                    return true;
+            }
+
+            return false;
         }
     }
 

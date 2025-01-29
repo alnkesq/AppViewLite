@@ -250,13 +250,30 @@ namespace AppViewLite
 
 
 
-                    if (post.IsRootPost && rels.Threadgates.TryGetPreserveOrderSpanLatest(post.PostId, out var threadgateBytes))
+                    post.Threadgate = rels.TryGetThreadgate(post.RootPostId);
+                    if (post.Threadgate != null)
                     {
-                        post.Threadgate = BlueskyRelationships.DeserializeProto<BlueskyThreadgate>(threadgateBytes.AsSmallSpan());
+                        if (post.Threadgate.HiddenReplies?.Any(x => x.PostId == post.PostId) == true)
+                        {
+                            if (post.PostBlockReason == default)
+                                post.PostBlockReason = PostBlockReasonKind.HiddenReply;
+                            post.ViolatesThreadgate = true;
+                        }
+                        else if (!rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, post.PostId.Author))
+                        {
+                            if (post.PostBlockReason == default)
+                                post.PostBlockReason = PostBlockReasonKind.NotAllowlistedReply;
+                            post.ViolatesThreadgate = true;
+                        }
                     }
 
 
-           
+                    if (post.RootAndAuthorBlockReason != default)
+                    {
+                        post.ViolatesThreadgate = true;
+                    }
+
+
 
                     onPostDataAvailable?.Invoke(post);
 

@@ -101,18 +101,15 @@ namespace AppViewLite.Web
             var userPlc = ctx != null && ctx.IsLoggedIn ? ctx.LoggedInUser : default;
             var connectionId = Context.ConnectionId;
 
-            var context = new ConnectionContext
+            void SubmitLivePostEngagement(PostStatsNotification notification, Plc commitPlc)
             {
-                UserPlc = userPlc,
-                LiveUpdatesCallback = (notification, commitPlc) =>
-                {
-                    var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
+                var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
 
-                    object? ownRelationshipChange = null;
-                    if (commitPlc == userPlc)
+                object? ownRelationshipChange = null;
+                if (commitPlc != default && commitPlc == userPlc)
+                {
+                    BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => 
                     {
-                        // In this callback, we're already inside the lock.
-                        var rels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
                         rels.Likes.HasActor(notification.PostId, commitPlc, out var userLike);
                         rels.Reposts.HasActor(notification.PostId, commitPlc, out var userRepost);
                         ownRelationshipChange = new
@@ -120,8 +117,22 @@ namespace AppViewLite.Web
                             likeRkey = userLike.RelationshipRKey.ToString() ?? "-",
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
                         };
-                    }
-                    _ = client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange);
+                    });
+
+                }
+                _ = client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange);
+            }
+
+            var throttler = new Throttler<PostStatsNotification>(TimeSpan.FromSeconds(4), (notif) => SubmitLivePostEngagement(notif, default));
+            var context = new ConnectionContext
+            {
+                UserPlc = userPlc,
+                LiveUpdatesCallbackThrottler = throttler,
+                LiveUpdatesCallback = (notification, commitPlc) => 
+                {
+                    if (commitPlc == userPlc) SubmitLivePostEngagement(notification, commitPlc); // send immediately, we don't want to lose the ownRelationshipChange
+                    else
+                        throttler.Notify(notification);
                 },
                 UserNotificationCallback = (notificationCount) =>
                 {
@@ -145,15 +156,21 @@ namespace AppViewLite.Web
             var dangerousRels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
             if (connectionIdToCallback.TryRemove(this.Context.ConnectionId, out var context))
             {
-                lock (context)
+                using (context)
                 {
-                    foreach (var postId in context.PostIds)
+                    lock (context)
                     {
-                        dangerousRels.PostLiveSubscribersThreadSafe.Unsubscribe(postId, context.LiveUpdatesCallback);
+                        foreach (var postId in context.PostIds)
+                        {
+                            dangerousRels.PostLiveSubscribersThreadSafe.Unsubscribe(postId, context.LiveUpdatesCallback);
+                        }
                     }
+                    if (context.UserPlc != null)
+                        dangerousRels.UserNotificationSubscribersThreadSafe.Unsubscribe(context.UserPlc.Value, context.UserNotificationCallback);
+
                 }
-                if(context.UserPlc != null)
-                    dangerousRels.UserNotificationSubscribersThreadSafe.Unsubscribe(context.UserPlc.Value, context.UserNotificationCallback);
+
+
             }
 
             return Task.CompletedTask;
@@ -166,11 +183,17 @@ namespace AppViewLite.Web
         public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags);
     }
 
-    class ConnectionContext
+    class ConnectionContext : IDisposable
     {
         public HashSet<PostId> PostIds = new();
         public LiveNotificationDelegate LiveUpdatesCallback;
+        public Throttler<PostStatsNotification> LiveUpdatesCallbackThrottler;
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
+
+        public void Dispose()
+        {
+            LiveUpdatesCallbackThrottler.Dispose();
+        }
     }
 }

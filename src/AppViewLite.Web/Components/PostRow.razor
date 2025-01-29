@@ -441,7 +441,7 @@
                     {
                         <button actionkind="deletePost" class="menu-item" @onclick="DeletePostAsync">Delete</button>
                     }
-                    <button actionkind="viewOnBluesky" class="menu-item" @onclick="ViewOnBluesky">View on Bluesky</button>
+                    <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                 </div>
                 
                 <button @onclick="TogglePostMenu" class="post-action-bar-button">

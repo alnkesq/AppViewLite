@@ -57,7 +57,7 @@
                     return;
                 }
             }
-            (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, allowPrefixForLastWord: true, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+            (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, allowPrefixForLastWord: false, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
 
         }
         else if (Kind == "feeds")

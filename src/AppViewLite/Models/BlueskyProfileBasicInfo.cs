@@ -19,7 +19,7 @@ namespace AppViewLite.Models
 
         public string? AvatarCid;
         public string? BannerCid;
-
+        public string? Error;
         
     }
 }

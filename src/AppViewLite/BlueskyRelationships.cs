@@ -332,6 +332,13 @@ namespace AppViewLite
                 return proto;
 
             }
+            else if(FailedProfileLookups.ContainsKey(plc))
+            {
+                return new BlueskyProfileBasicInfo
+                {
+                    Error = "This profile could not be retrieved."
+                };
+            }
             return null;
         }
 

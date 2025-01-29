@@ -93,7 +93,7 @@ function applyPageFocus() {
             httpPost('MarkLastSeenNotification', {
                 notificationId: seenNotificationId
             });
-        }, 1500);
+        }, 700);
     }
     
     updateSidebarButtonScrollVisibility();

@@ -66,8 +66,8 @@ namespace AppViewLite.Models
                     return Kind switch
                     {
                         BlockReasonKind.BlockedBy => "This user is subscribed to a blocklist that includes the person they're replying to.",
-                        BlockReasonKind.Blocks => "The user this post is replying to is subscribed to a blocklist that includes them.",
-                        BlockReasonKind.MutualBlock => "This user and the author of the parent post block each other.",
+                        BlockReasonKind.Blocks => "This user is in a blocklist that the person they're replying to is subscribed to.",
+                        BlockReasonKind.MutualBlock => "This user and the person they're replying to block each other.",
                         _ => throw new Exception()
                     };
                 }
@@ -76,8 +76,8 @@ namespace AppViewLite.Models
                     return Kind switch
                     {
                         BlockReasonKind.BlockedBy => "This user blocked the person they're replying to.",
-                        BlockReasonKind.Blocks => "The user this post is replying to blocks this user.",
-                        BlockReasonKind.MutualBlock => "This user and the author of the parent post block each other.",
+                        BlockReasonKind.Blocks => "This user is blocked by the person they're replying to.",
+                        BlockReasonKind.MutualBlock => "This user and the person they're replying to block each other.",
                         _ => throw new Exception()
                     };
                 }

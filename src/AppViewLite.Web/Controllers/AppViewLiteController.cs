@@ -77,6 +77,20 @@ namespace AppViewLite.Web
         }
 
 
+        [HttpGet(nameof(SearchAutoComplete))]
+        public async Task<object> SearchAutoComplete(string q)
+        {
+            var profiles = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx);
+            return new
+            {
+                Profiles = profiles.Profiles.Select(x => new 
+                {
+                    DisplayName = x.DisplayName,
+                    Did = x.Did,
+                    AvatarUrl = x.AvatarUrl,
+                }).ToArray()
+            };
+        }
 
         public record DidAndRKey(string Did, string Rkey);
         public record RKeyOnly(string Rkey);

@@ -1,7 +1,9 @@
 using FishyFlip.Models;
 using Ipfs;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.WebUtilities;
 using PeterO.Cbor;
 using AppViewLite.Web.Components;
 using AppViewLite.Models;
@@ -13,9 +15,9 @@ using System.Text.Json.Serialization;
 
 namespace AppViewLite.Web
 {
-    public class Program
+    public static class Program
     {
-        protected static BlueskyRelationships Relationships;
+        private static BlueskyRelationships Relationships;
 
         public static bool AllowPublicReadOnlyFakeLogin = false;
         public static bool ListenToFirehose = true;
@@ -335,6 +337,29 @@ namespace AppViewLite.Web
         public static bool IsBskyAppOrAtUri(string? q)
         {
             return q != null && (q.StartsWith("https://bsky.app/", StringComparison.Ordinal) || q.StartsWith("at://", StringComparison.Ordinal));
+        }
+
+        public static Uri? GetNextContinuationUrl(this NavigationManager url, string? nextContinuation)
+        {
+            if (nextContinuation == null) return null;
+            return url.WithQueryParameter("continuation", nextContinuation);
+        }
+        public static Uri WithQueryParameter(this NavigationManager url, string name, string? value)
+        {
+            return url.ToAbsoluteUri(url.Uri).WithQueryParameter(name, value);
+        }
+        public static Uri WithQueryParameter(this Uri url, string name, string? value)
+        {
+            var query = QueryHelpers.ParseQuery(url.Query);
+            if (value != null)
+            {
+                query[name] = value;
+            }
+            else
+            {
+                query.Remove(name);
+            }
+            return new Uri(QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query));
         }
     }
 }

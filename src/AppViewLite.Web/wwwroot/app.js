@@ -104,10 +104,6 @@ function applyPageFocus() {
         var query = searchbox.value;
         searchbox.setSelectionRange(query.length, query.length);
     }
-    setSidebarSearchQuery('sidebar-item-search', query);
-    setSidebarSearchQuery('sidebar-item-profiles', query);
-    setSidebarSearchQuery('sidebar-item-feeds', query);
-
     
     var url = new URL(window.location.href);
     for (const a of document.querySelectorAll('.bottom-bar a')) {
@@ -118,13 +114,6 @@ function applyPageFocus() {
     }
 }
 
-function setSidebarSearchQuery(id, query) { 
-    var link = document.getElementById(id);
-    if (!link) return;
-
-    var url = new URL(link.href);
-    link.href = link.origin + link.pathname + (query ? '?q=' + encodeURIComponent(query) : '');
-}
 
 if (hasBlazor) {
     // https://github.com/dotnet/aspnetcore/issues/51338#issuecomment-1766578689
@@ -312,6 +301,15 @@ if (!hasBlazor) {
         if (anyChildren) updateLiveSubscriptions();
     });
 
+    document.addEventListener('keydown', e => {
+        if (e.key == 'Escape') { 
+            closeCurrentMenu();
+            closeAutocompleteMenu();
+
+            e.preventDefault();
+        }
+    });
+
     document.addEventListener('click', e => {
         
         var target = e.target;
@@ -364,6 +362,10 @@ if (!hasBlazor) {
                 }
             }
         }
+
+        var autocomplete = target.closest('.search-form-suggestions');
+        if (!autocomplete)
+            closeAutocompleteMenu();
     });
 
 
@@ -448,6 +450,16 @@ async function httpPost(method, args) {
             'Content-Type': 'application/json',
         },
         method: 'POST'
+    })
+    if (response.status != 200) throw 'HTTP ' + response.status;
+    var text = await response.text();
+    if (!text) return null;
+    return JSON.parse(text);
+}
+
+async function httpGet(method, args) { 
+    var response = await fetch('/api/' + method + '?' + new URLSearchParams(args).toString(), {
+        method: 'GET'
     })
     if (response.status != 200) throw 'HTTP ' + response.status;
     var text = await response.text();
@@ -639,4 +651,45 @@ function composeTextAreaChanged() {
     bar.classList.toggle('compose-textarea-limit-exceeded', exceeds);
     document.querySelector('.compose-submit').disabled = exceeds;
 }
+
+function closeAutocompleteMenu() { 
+    for (const autocomplete of document.querySelectorAll('.search-form-suggestions')) {
+        autocomplete.classList.add('display-none');
+        autocomplete.innerHTML = '';
+    }
+
+}
+
+async function searchBoxAutocomplete(e) { 
+    var searchbox = e.target;
+    var autocomplete = searchbox.parentElement.parentElement.querySelector('.search-form-suggestions');
+    if (!autocomplete) return;
+    var text = searchbox.value;
+    
+    if (!autocomplete.lastSearchToken) autocomplete.lastSearchToken = 0;
+    var token = ++autocomplete.lastSearchToken;
+
+    var result = text ? await httpGet('searchAutoComplete', { q: text }) : {profiles: []};
+    if (autocomplete.lastSearchToken != token) return;
+    autocomplete.innerHTML = '';
+    for (const profile of result.profiles) {
+        var a = document.createElement('a');
+        a.href = '/@' + profile.did;
+        var img = document.createElement('img');
+        img.src = profile.avatarUrl;
+        img.className = 'profile-image-small';
+        a.appendChild(img);
+        a.appendChild(document.createTextNode(profile.displayName));
+        autocomplete.appendChild(a);
+    }
+    if (text && !result.profiles.length) {
+        var a = document.createElement('a');
+        a.href = "/search?q=" + encodeURIComponent(text);
+        a.textContent = 'Search for "' + text + '"'
+        autocomplete.appendChild(a);
+    }
+    if (autocomplete.firstElementChild) autocomplete.classList.remove('display-none');
+    else closeAutocompleteMenu(autocomplete)
+}
+
 

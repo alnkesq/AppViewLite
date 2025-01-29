@@ -6,21 +6,11 @@
     [Parameter] public required BlueskyFeedGenerator[] Feeds { get; set; }
 
     [Parameter] public string? NextContinuation { get; set; }
-    private string? continuationUrl;
+    private Uri? continuationUrl;
 
     protected override void OnParametersSet()
     {
-        if (NextContinuation != null)
-        {
-            var url = Navigation.ToAbsoluteUri(Navigation.Uri);
-            var query = QueryHelpers.ParseQuery(url.Query);
-            query["continuation"] = NextContinuation;
-            continuationUrl = QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query);
-        }
-        else
-        {
-            continuationUrl = null;
-        }
+        continuationUrl = Navigation.GetNextContinuationUrl(NextContinuation);
     }
 
 }

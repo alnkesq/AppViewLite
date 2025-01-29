@@ -1,4 +1,5 @@
 @page "/search"
+@using System.Text.RegularExpressions
 @inject NavigationManager Navigation
 @inject RequestContext RequestContext
 
@@ -13,31 +14,71 @@
     [Parameter][SupplyParameterFromQuery] public required string? Sort { get; set; }
     [Parameter][SupplyParameterFromQuery] public required int? Limit { get; set; }
     [Parameter][SupplyParameterFromQuery] public required string? Language { get; set; }
+    [Parameter][SupplyParameterFromQuery] public required string? Kind { get; set; }
     private string? NextContinuation;
 
     private BlueskyPost[] Posts = [];
+    private BlueskyProfile[] Profiles = [];
+    private BlueskyFeedGenerator[] Feeds = [];
+
     public bool IsTopPosts => Sort == "top";
+
+    private Uri GetSearchUrlForKind(string? kind)
+    {
+        return Navigation.WithQueryParameter("kind", kind).WithQueryParameter("continuation", null);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
+        if (string.IsNullOrEmpty(Kind)) Kind = null;
 
         if (Program.IsBskyAppOrAtUri(Q))
         {
             Navigation.NavigateTo("/" + Q);
             return; 
         }
-        var options = new PostSearchOptions
-            {
-                Query = Q,
-                Since = Since,
-                Until = Until,
-                Author = From,
-                MinLikes = MinLikes ?? 0,
-                MinReposts = MinReposts ?? 0,
-                Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
-            };
 
-        (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext.OnStateChanged(StateHasChanged)) : await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext.OnStateChanged(StateHasChanged));
+        if (Kind == "users")
+        {
+
+            if (Q != null && Regex.IsMatch(Q, @"^@?[\w\-]+(?:\.[\w\-]+)+$"))
+            {
+                string? did = null;
+                try
+                {
+                    did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Q);
+                }
+                catch (Exception)
+                {
+                }
+                if (did != null)
+                {
+                    Navigation.NavigateTo("/@" + did);
+                    return;
+                }
+            }
+            (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, allowPrefixForLastWord: true, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+
+        }
+        else if (Kind == "feeds")
+        {
+            (Feeds, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchFeedsAsync(Q, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        }
+        else
+        {
+            var options = new PostSearchOptions
+                {
+                    Query = Q,
+                    Since = Since,
+                    Until = Until,
+                    Author = From,
+                    MinLikes = MinLikes ?? 0,
+                    MinReposts = MinReposts ?? 0,
+                    Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
+                };
+
+            (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext.OnStateChanged(StateHasChanged)) : await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext.OnStateChanged(StateHasChanged));
+        }
     }
 }
 
@@ -45,9 +86,17 @@
 <h1>Search</h1>
 
 <form action="/search" method="get" class="search-form">
-    <label class="search-form-query"><input type="search" name="q" value="@Q" autofocus placeholder="Search" /></label>
+    @if (Kind != null)
+    {
+        <input type="hidden" name="kind" value="@Kind" />
+    }
+    <label class="search-form-query"><input type="search" name="q" value="@Q" autofocus placeholder="Search" autocomplete="off" oninput="searchBoxAutocomplete(event)" onclick="searchBoxAutocomplete(event)" /></label>
     <label class="search-form-submit"><input type="submit" value="Search"></label>
-@*     <div class="search-form-row">
+
+
+
+
+    @*     <div class="search-form-row">
         <label>Author: <input type="text" name="from" value="@From" /></label>
         <label>
             <select name="language">
@@ -72,16 +121,41 @@
         <label>Minimum likes: <input type="number" min="0" max="1000000000" name="minLikes" value="@MinLikes" /></label>
         <label>Minimum reposts: <input type="number" min="0" max="1000000000" name="minReposts" value="@MinReposts" /></label>
     </div> *@
-    <div class="search-form-row">
-        <label>
-            <select name="sort" onchange="this.form.submit()">
-                <option value="latest">Most recent</option>
-                <option value="top" selected="@IsTopPosts">Top posts</option>
-            </select>
-        </label>
-@*         <label>
-        </label> *@
+    @if (Kind == null)
+    {
+        <div class="search-form-row">
+
+            <label>
+                <select name="sort" onchange="this.form.submit()">
+                    <option value="latest">Most recent</option>
+                    <option value="top" selected="@IsTopPosts">Top posts</option>
+                </select>
+            </label>
+        </div>
+    }
+    <div class="search-form-suggestions display-none">
+        <a href="/">Test</a>
     </div>
 </form>
 
-<PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+<div class="tabbed-lists-header">
+    <div class="tabbed-lists-header-inner">
+        <a href="@GetSearchUrlForKind(null)" class="@(Kind == null ? "active" : null)">Posts</a>
+        <a href="@GetSearchUrlForKind("users")" class="@(Kind == "users" ? "active" : null)">People</a>
+        <a href="@GetSearchUrlForKind("feeds")" class="@(Kind == "feeds" ? "active" : null)">Feeds</a>
+    </div>
+</div>
+
+
+@if (Kind == "users")
+{
+    <ProfileList Profiles="@Profiles" NextContinuation="@NextContinuation" />
+}
+else if(Kind == "feeds")
+{
+    <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
+}
+else
+{
+    <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+}

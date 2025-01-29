@@ -1785,6 +1785,22 @@ namespace AppViewLite
 
         }
 
+        public BlueskyPostgate? TryGetPostgate(PostId postid)
+        {
+            if (Postgates.TryGetPreserveOrderSpanLatest(postid, out var postgateBytes))
+            {
+                return BlueskyRelationships.DeserializeProto<BlueskyPostgate>(postgateBytes.AsSmallSpan());
+            }
+            return null;
+        }
+        public BlueskyThreadgate? TryGetThreadgate(PostId postid)
+        {
+            if (Threadgates.TryGetPreserveOrderSpanLatest(postid, out var threadgateBytes))
+            {
+                return BlueskyRelationships.DeserializeProto<BlueskyThreadgate>(threadgateBytes.AsSmallSpan());
+            }
+            return null;
+        }
     }
 
     public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);

@@ -173,12 +173,13 @@ namespace AppViewLite
             return r;
         }
 
-        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, CancellationToken ct = default)
+        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
             {
                 foreach (var post in posts)
                 {
+
                     if (ctx.IsLoggedIn)
                     {
                         var loggedInUser = ctx.LoggedInUser;
@@ -187,8 +188,6 @@ namespace AppViewLite
                         if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
                             post.IsRepostedBySelf = repostTid.RelationshipRKey;
                     }
-
-                    post.EmbedRecord = relationshipsUnlocked.TryGetAtObject(post.Data?.EmbedRecordUri);
                 }
             });
 
@@ -228,6 +227,27 @@ namespace AppViewLite
                     {
                         post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
                     }
+
+
+                    var author = post.Author.Plc;
+                    post.EmbedRecord = relationshipsUnlocked.TryGetAtObject(post.Data?.EmbedRecordUri);
+                    if (post.Data?.InReplyToPostId is { Author: { } inReplyToAuthor })
+                    {
+                        post.ParentAndAuthorBlockReason = rels.UsersHaveBlockRelationship(inReplyToAuthor, author);
+
+                        if (post.RootPostId.Author != inReplyToAuthor)
+                        {
+                            post.RootAndAuthorBlockReason = rels.UsersHaveBlockRelationship(post.RootPostId.Author, author);
+                        }
+                    }
+
+                    if (post.IsRootPost && rels.Threadgates.TryGetPreserveOrderSpanLatest(post.PostId, out var threadgateBytes))
+                    {
+                        post.Threadgate = BlueskyRelationships.DeserializeProto<BlueskyThreadgate>(threadgateBytes.AsSmallSpan());
+                    }
+
+           
+
                     onPostDataAvailable?.Invoke(post);
 
                 }
@@ -277,6 +297,31 @@ namespace AppViewLite
                 if (r.Length != 0)
                 {
                     await EnrichAsync(r, ctx, onPostDataAvailable, loadQuotes: false, ct: ct);
+                    WithRelationshipsLock(rels =>
+                    {
+                        foreach (var quoter in posts)
+                        {
+                            var quoted = quoter.QuotedPost;
+                            if (quoted == null) continue;
+                            if(sideWithQuotee) quoter.QuoteeAndAuthorBlockReason = rels.UsersHaveBlockRelationship(quoter.PostId.Author, quoted.PostId.Author);
+                            else quoted.QuoterAndAuthorBlockReason = rels.UsersHaveBlockRelationship(quoter.PostId.Author, quoted.PostId.Author);
+                            var quotedPostgate = rels.TryGetPostgate(quoted.PostId);
+                            if (quotedPostgate != null)
+                            {
+                                if (quotedPostgate.DetachedEmbeddings != null && quotedPostgate.DetachedEmbeddings.Any(x => x.PostId == quoter.PostId))
+                                {
+                                    if (sideWithQuotee) quoter.PostBlockReason = PostBlockReasonKind.RemovedByQuoteeOnQuoter;
+                                    else quoted.PostBlockReason = PostBlockReasonKind.RemovedByQuotee;
+                                }
+                                else if (quotedPostgate.DisallowQuotes)
+                                {
+                                    if (sideWithQuotee) quoter.PostBlockReason = PostBlockReasonKind.DisabledQuotesOnQuoter;
+                                    else quoted.PostBlockReason = PostBlockReasonKind.DisabledQuotes;
+                                }
+                            }
+
+                        }
+                    });
                 }
             }
             return posts;
@@ -938,7 +983,7 @@ namespace AppViewLite
             var nextContinuation = SerializeRelationshipContinuationPlcFirst(posts, limit);
             SortByDescendingRelationshipRKey(ref posts);
             //DeterministicShuffle(posts, did + rkey);
-            await EnrichAsync(posts, ctx);
+            await EnrichAsync(posts, ctx, sideWithQuotee: true);
             return (posts, nextContinuation);
         }
 

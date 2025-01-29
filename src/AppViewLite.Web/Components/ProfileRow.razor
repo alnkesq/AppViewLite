@@ -29,7 +29,7 @@
     </a>
     @if (Profile.BlockReason != default)
     {
-        <span class="profile-follow-relationship">@Profile.BlockReason.ToDisplayString()</span>
+        <span class="profile-follow-relationship">@Profile.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor)</span>
     }
     <div class="profile-row-description profile-indented">
         <TextWithFacets Text="@Profile.BasicData?.Description" Facets="@GuessedFacets"></TextWithFacets>

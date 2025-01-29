@@ -39,7 +39,7 @@ namespace AppViewLite.Web
 
         }
 
-        public async Task LoadPendingPosts(PostRenderRequest[] requests)
+        public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee)
         {
             var hub = HubContext;
 
@@ -55,7 +55,7 @@ namespace AppViewLite.Web
                 var req = requests[index];
                 var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags))).ToHtmlString());
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html);
-            });
+            }, sideWithQuotee: sideWithQuotee);
 
         }
 

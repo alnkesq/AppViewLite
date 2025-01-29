@@ -9,12 +9,13 @@ using System.Threading.Tasks;
 namespace AppViewLite.Models
 {
     [ProtoContract]
-    internal class RelationshipProto
+    public class RelationshipProto
     {
         [ProtoMember(1)] public int Plc;
         [ProtoMember(2)] public long Tid;
 
         public static RelationshipProto FromPostId(PostId p) => new RelationshipProto { Plc = p.Author.PlcValue, Tid = p.PostRKey.TidValue };
+        public PostId PostId => new PostId(new(Plc), new(Tid));
     }
 }
 

@@ -614,7 +614,11 @@ async function updateLiveSubscriptions() {
             pendingPostLoads.set(nodeId, new WeakRef(post));
         }
         
-        await connection.invoke('LoadPendingPosts', postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderflags: x.dataset.renderflags })))
+        var sideWithQuotee = new URL(location.href).pathname.endsWith('/quotes')
+        await connection.invoke('LoadPendingPosts',
+            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderflags: x.dataset.renderflags })),
+            sideWithQuotee
+        )
     }
 }
 

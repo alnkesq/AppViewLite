@@ -62,6 +62,7 @@ namespace AppViewLite.Models
         public PostId? InReplyToPostId => InReplyToRKey != null ? new PostId(new(InReplyToPlc!.Value), new(InReplyToRKey.Value)) : null;
         public PostId RootPostId => RootPostPlc != null ? new PostId(new(RootPostPlc!.Value), new(RootPostRKey!.Value)) : PostId; // best effort for deleted posts
 
+        public PostId? QuotedPostId => QuotedRKey != null ? new PostId(new Plc(QuotedPlc!.Value), new Tid(QuotedRKey.Value)) : null;
     }
 }
 

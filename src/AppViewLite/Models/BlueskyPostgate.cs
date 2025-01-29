@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace AppViewLite.Models
 {
     [ProtoContract]
-    internal class BlueskyPostgate
+    public class BlueskyPostgate
     {
         [ProtoMember(1)] public RelationshipProto[]? DetachedEmbeddings;
         [ProtoMember(2)] public bool DisallowQuotes;

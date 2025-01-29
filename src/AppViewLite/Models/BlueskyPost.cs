@@ -43,14 +43,42 @@ namespace AppViewLite.Models
         public object? EmbedRecord;
 
 
+        public PostBlockReasonKind PostBlockReason;
+        public BlockReason ParentAndAuthorBlockReason;
+        public BlockReason RootAndAuthorBlockReason;
+        public BlockReason QuoterAndAuthorBlockReason;
+        public BlockReason QuoteeAndAuthorBlockReason;
+
+        //public BlueskyPostgate? Postgate;
+        public BlueskyThreadgate? Threadgate;
+
         public string? BlurReason
         {
             get
             {
-                var r = Author.BlockReason.ToDisplayString();
+                var r = Author.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor);
                 if (r != null)
                     return r;
-                return null;
+                if (QuoterAndAuthorBlockReason != default)
+                    return QuoterAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoterAndAuthor);
+                if (QuoteeAndAuthorBlockReason != default)
+                    return QuoteeAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoteeAndAuthor);
+                if (PostBlockReason != PostBlockReasonKind.None)
+                {
+                    return PostBlockReason switch
+                    {
+                        PostBlockReasonKind.RemovedByQuotee => "Removed by author.",
+                        PostBlockReasonKind.DisabledQuotes => "The author disabled quotes.",
+                        PostBlockReasonKind.RemovedByQuoteeOnQuoter => "The quoted user dislikes this quote.",
+                        PostBlockReasonKind.DisabledQuotesOnQuoter => "The quoted user requested not to be quoted.",
+                        PostBlockReasonKind.HiddenReply => "This reply was hidden by the thread author.",
+                        PostBlockReasonKind.NotAllowlistedReply => "The thread author turned off replies.",
+                        _ => throw new NotSupportedException(),
+                    };
+                }
+                return
+                    ParentAndAuthorBlockReason.ToDisplayString(BlockSubjects.ParentAndAuthor) ??
+                    RootAndAuthorBlockReason.ToDisplayString(BlockSubjects.RootAndAuthor);
             }
         }
 

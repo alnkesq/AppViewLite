@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace AppViewLite.Models
 {
     [ProtoContract]
-    internal class BlueskyThreadgate
+    public class BlueskyThreadgate
     {
         [ProtoMember(1)] public RelationshipProto[]? HiddenReplies;
         [ProtoMember(2)] public bool AllowlistedOnly;

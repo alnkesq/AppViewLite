@@ -13,13 +13,15 @@ namespace AppViewLite.Models
 
         [ProtoMember(1)] public string? DisplayName;
         [ProtoMember(2)] public byte[]? AvatarCid;
-        [ProtoMember(3)] public required string ImplementationDid;
+        [ProtoMember(3)] public string? ImplementationDid;
         [ProtoMember(4)] public string? Description;
         [ProtoMember(5)] public DateTime RetrievalDate;
         [ProtoMember(6)] public FacetData[]? DescriptionFacets;
         [ProtoMember(7)] public bool IsVideo;
         [ProtoMember(8)] public bool? AcceptsInteractions;
         [ProtoMember(9)] public string RKey;
+        public bool Deleted;
+        public string? Error;
     }
 }
 

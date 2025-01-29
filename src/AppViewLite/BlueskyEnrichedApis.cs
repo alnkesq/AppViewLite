@@ -1560,7 +1560,7 @@ namespace AppViewLite
                     var words = StringUtils.GetAllWords(x.Data?.DisplayName).Concat(StringUtils.GetAllWords(x.Data?.Description)).Distinct().ToArray();
                     return queryWords.All(x => words.Contains(x));
                 })
-                .Where(x => x != null)
+                .Where(x => x != null && x.Data?.Deleted != true)
                 .Take(limit + 1)
                 .ToArray();
             });

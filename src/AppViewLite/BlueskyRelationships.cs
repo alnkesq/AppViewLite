@@ -36,6 +36,7 @@ namespace AppViewLite
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
+        public CombinedPersistentMultiDictionary<RelationshipHashedRKey, DateTime> FeedGeneratorDeletions;
         public CombinedPersistentMultiDictionary<HashedWord, RelationshipHashedRKey> FeedGeneratorSearch;
         public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearch;
         public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchWithDescription;
@@ -177,6 +178,7 @@ namespace AppViewLite
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterDictionary<RelationshipHashedRKey, Relationship>("feed-generator-like");
+            FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
 
             
 
@@ -1760,7 +1762,7 @@ namespace AppViewLite
                 AvatarCid = generator.Avatar?.Ref?.Link?.ToArray(),
                 Description = generator.Description,
                 DescriptionFacets = GetFacetsAsProtos(generator.DescriptionFacets),
-                RetrievalDate = DateTime.UtcNow,
+                RetrievalDate = generator.CreatedAt ?? DateTime.UtcNow,
                 ImplementationDid = generator.Did!.Handler,
                 //IsVideo = generator.ContentMode == "contentModeVideo",
                 AcceptsInteractions = generator.AcceptsInteractions,
@@ -1778,8 +1780,21 @@ namespace AppViewLite
         public BlueskyFeedGeneratorData? TryGetFeedGeneratorData(RelationshipHashedRKey feedId)
         {
             if (FeedGenerators.TryGetPreserveOrderSpanLatest(feedId, out var bytes))
-                return DeserializeProto<BlueskyFeedGeneratorData>(bytes.AsSmallSpan());
+            {
+                var proto = DeserializeProto<BlueskyFeedGeneratorData>(bytes.AsSmallSpan());
+                MakeUtcAfterDeserialization(ref proto.RetrievalDate);
+                if (FeedGeneratorDeletions.TryGetLatestValue(feedId, out var deletionDate) && deletionDate > proto.RetrievalDate)
+                {
+                    return new BlueskyFeedGeneratorData { RKey = proto.RKey, Deleted = true, Error = "This feed was deleted." };
+                }
+                return proto;
+            }
             return null;
+        }
+
+        private static void MakeUtcAfterDeserialization(ref DateTime date)
+        {
+            date = new DateTime(date.Ticks, DateTimeKind.Utc);
         }
 
         public BlueskyFeedGenerator GetFeedGenerator(Plc plc, BlueskyFeedGeneratorData data)

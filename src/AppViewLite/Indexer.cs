@@ -16,7 +16,6 @@ using FishyFlip.Tools;
 using System.Threading;
 using System.Diagnostics;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 
 namespace AppViewLite
 {
@@ -44,52 +43,62 @@ namespace AppViewLite
                 var collection = path.Substring(0, slash);
                 var rkey = path.Substring(slash + 1);
                 var deletionDate = DateTime.UtcNow;
-                if (!Tid.TryParse(rkey, out var tid)) return;
                 var commitPlc = relationships.SerializeDid(commitAuthor);
-                var rel = new Relationship(commitPlc, tid);
-                if (collection == Like.RecordType)
+
+                if (collection == Generator.RecordType)
                 {
-                    var target = relationships.Likes.Delete(rel, deletionDate);
-                    if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
+                    relationships.FeedGeneratorDeletions.Add(new RelationshipHashedRKey(commitPlc, rkey), deletionDate);
                 }
-                else if (collection == Follow.RecordType)
+                else
                 {
-                    relationships.Follows.Delete(rel, deletionDate);
+
+                    if (!Tid.TryParse(rkey, out var tid)) return;
+
+                    var rel = new Relationship(commitPlc, tid);
+                    if (collection == Like.RecordType)
+                    {
+                        var target = relationships.Likes.Delete(rel, deletionDate);
+                        if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
+                    }
+                    else if (collection == Follow.RecordType)
+                    {
+                        relationships.Follows.Delete(rel, deletionDate);
+                    }
+                    else if (collection == Block.RecordType)
+                    {
+                        relationships.Blocks.Delete(rel, deletionDate);
+                    }
+                    else if (collection == Repost.RecordType)
+                    {
+                        var target = relationships.Reposts.Delete(rel, deletionDate);
+                        if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
+                    }
+                    else if (collection == Post.RecordType)
+                    {
+                        relationships.PostDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    }
+                    else if (collection == Listitem.RecordType)
+                    {
+                        relationships.ListItemDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    }
+                    else if (collection == List.RecordType)
+                    {
+                        relationships.ListDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    }
+                    else if (collection == Threadgate.RecordType)
+                    {
+                        relationships.ThreadgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    }
+                    else if (collection == Postgate.RecordType)
+                    {
+                        relationships.PostgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    }
+                    else if (collection == Listblock.RecordType)
+                    {
+                        relationships.ListBlockDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
+                    }
+                    //else Console.Error.WriteLine("Deletion of unknown object type: " + collection);
                 }
-                else if (collection == Block.RecordType)
-                {
-                    relationships.Blocks.Delete(rel, deletionDate);
-                }
-                else if (collection == Repost.RecordType)
-                {
-                    var target = relationships.Reposts.Delete(rel, deletionDate);
-                    if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
-                }
-                else if (collection == Post.RecordType)
-                {
-                    relationships.PostDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
-                }
-                else if (collection == Listitem.RecordType)
-                {
-                    relationships.ListItemDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
-                }
-                else if (collection == List.RecordType)
-                {
-                    relationships.ListDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
-                }
-                else if (collection == Threadgate.RecordType)
-                {
-                    relationships.ThreadgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
-                }
-                else if (collection == Postgate.RecordType)
-                {
-                    relationships.PostgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
-                }
-                else if (collection == Listblock.RecordType)
-                {
-                    relationships.ListBlockDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
-                }
-                //else Console.Error.WriteLine("Deletion of unknown object type: " + collection);
 
                 relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();

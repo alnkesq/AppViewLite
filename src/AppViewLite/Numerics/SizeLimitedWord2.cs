@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace AppViewLite.Models
@@ -26,7 +25,15 @@ namespace AppViewLite.Models
             return result;
         }
 
-        public int Length => AllBytes.IndexOf((byte)0);
+        public int Length
+        {
+            get
+            {
+                var index = AllBytes.IndexOf((byte)0);
+                return index != -1 ? index : MaxLength;
+            }
+        }
+
         public bool IsEmpty => AsUint16 == 0;
 
         [UnscopedRef] public ReadOnlySpan<byte> AllBytes => this;

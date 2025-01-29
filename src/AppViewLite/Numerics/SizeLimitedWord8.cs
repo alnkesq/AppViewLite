@@ -25,8 +25,15 @@ namespace AppViewLite.Numerics
             utf8.CopyTo(resultAsSpan);
             return result;
         }
+        public int Length
+        {
+            get
+            {
+                var index = AllBytes.IndexOf((byte)0);
+                return index != -1 ? index : MaxLength;
+            }
+        }
 
-        public int Length => AllBytes.IndexOf((byte)0);
         public bool IsEmpty => AsUint64 == 0;
 
         [UnscopedRef] public ReadOnlySpan<byte> AllBytes => this;

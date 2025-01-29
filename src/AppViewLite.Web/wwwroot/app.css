@@ -1231,3 +1231,8 @@ button[disabled], input[type=submit][disabled] {
     margin-right: 10px;
 
 }
+
+.post-stats-animated{
+    transition: opacity 0.25s;
+}
+

@@ -467,19 +467,28 @@ async function httpGet(method, args) {
     return JSON.parse(text);
 }
 
+function animateReplaceContent(b, formattedNumber) { 
+    if (b.textContent == formattedNumber) return;
+    b.style.opacity = 0;
+    setTimeout(() => {
+        b.textContent = formattedNumber;
+        b.style.opacity = 1;
+    }, 250);
+}
+
 function setPostStats(postElement, actorCount, kind, singular, plural) { 
     var stats = postElement.querySelector('.post-stats-' + kind + '-formatted');
     if (!stats) return;
     stats.classList.toggle('display-none', !actorCount);
     var b = stats.firstElementChild;
     var text = stats.lastChild;
-    b.textContent = formatEngagementCount(actorCount);
+    animateReplaceContent(b, formatEngagementCount(actorCount));
     text.replaceWith(document.createTextNode(' ' + (actorCount == 1 ? singular : plural)));
     var allStats = postElement.querySelector('.post-focal-stats');
     allStats.classList.toggle('display-none', [...allStats.children].every(x => x.classList.contains('display-none')));
 }
 function setActionStats(postElement, actorCount, kind) { 
-    postElement.querySelector('.post-action-bar-button-' + kind + ' span').textContent = actorCount ? formatEngagementCount(actorCount) : '';
+    animateReplaceContent(postElement.querySelector('.post-action-bar-button-' + kind + ' span'), actorCount ? formatEngagementCount(actorCount) : '');
 }
 
 

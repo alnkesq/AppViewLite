@@ -89,6 +89,12 @@ namespace AppViewLite
             return GetAllWords(text).Distinct().ToArray();
         }
 
+        public static (string[] DistinctWords, string? LastWordPrefix) GetDistinctWordsAndLastPrefix(string? text, bool allowLastWordPrefix = true)
+        {
+            if (!allowLastWordPrefix || string.IsNullOrEmpty(text) || !char.IsLetterOrDigit(text![^1])) return (GetDistinctWords(text), null);
+            var allWords = GetAllWords(text).ToArray();
+            return (allWords.Take(allWords.Length - 1).Distinct().ToArray(), allWords[^1]);
+        }
 
         public static List<string[]> GetExactPhrases(string? text)
         {

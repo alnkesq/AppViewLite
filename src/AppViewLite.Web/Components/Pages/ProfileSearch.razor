@@ -33,7 +33,7 @@
                 return;
             }
         }
-        (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, allowPrefixForLastWord: true, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
     }
 }
 

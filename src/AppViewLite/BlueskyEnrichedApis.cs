@@ -1568,21 +1568,28 @@ namespace AppViewLite
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());
         }
 
-        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, string? continuation, int limit, RequestContext ctx)
+        
+
+        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
 
             ProfileSearchContinuation parsedContinuation = continuation != null ? ProfileSearchContinuation.Deserialize(continuation) : new ProfileSearchContinuation(Plc.MaxValue, false);
-            var queryWords = StringUtils.GetDistinctWords(query);
-            if (queryWords.Length == 0) return ([], null);
+
             var profiles = new List<BlueskyProfile>();
             var alreadyReturned = new HashSet<Plc>();
+
+
+            var (queryWords, wordPrefix) = StringUtils.GetDistinctWordsAndLastPrefix(query, allowPrefixForLastWord);
+            if (queryWords.Length == 0 && wordPrefix == null) return ([], null);
+            
+            
 
             while (true)
             {
                 var items = WithRelationshipsLock(rels =>
                 {
-                    return rels.SearchProfiles(queryWords, parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
+                    return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
                     .Select(x => rels.GetProfile(x))
                     .Where(x =>
                     {
@@ -1592,7 +1599,9 @@ namespace AppViewLite
                             words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
                         }
                         var wordsHashset = words.ToHashSet();
-                        return queryWords.All(x => wordsHashset.Contains(x));
+                        return
+                            queryWords.All(x => wordsHashset.Contains(x)) &&
+                            (wordPrefix == null || wordsHashset.Any(x => x.StartsWith(wordPrefix, StringComparison.Ordinal)));
                     })
                     .Where(x => alreadyReturned.Add(x.Plc))
                     .Take(limit + 1 - profiles.Count)

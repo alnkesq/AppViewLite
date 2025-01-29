@@ -13,6 +13,7 @@ using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using AppViewLite.Numerics;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -38,7 +39,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<HashedWord, RelationshipHashedRKey> FeedGeneratorSearch;
         public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearch;
         public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchWithDescription;
-        public CombinedPersistentMultiDictionary<SizeLimitedWord, Plc> ProfileSearchPrefix;
+        public CombinedPersistentMultiDictionary<SizeLimitedWord8, Plc> ProfileSearchPrefix8;
+        public CombinedPersistentMultiDictionary<SizeLimitedWord2, Plc> ProfileSearchPrefix2;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, Relationship> FeedGeneratorLikes;
         public CombinedPersistentMultiDictionary<Plc, ListMembership> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
@@ -135,7 +137,8 @@ namespace AppViewLite
             Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
             ProfileSearch = RegisterDictionary<HashedWord, Plc>("profile-search");
             ProfileSearchWithDescription = RegisterDictionary<HashedWord, Plc>("profile-search-with-description");
-            ProfileSearchPrefix = RegisterDictionary<SizeLimitedWord, Plc>("profile-search-prefix");
+            ProfileSearchPrefix8 = RegisterDictionary<SizeLimitedWord8, Plc>("profile-search-prefix");
+            ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
             PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
@@ -567,15 +570,44 @@ namespace AppViewLite
 
         }
 
-        public IEnumerable<Plc> SearchProfiles(string[] searchTerms, Plc maxExclusive, bool alsoSearchDescriptions)
+
+
+        public IEnumerable<ManagedOrNativeArray<Plc>> SearchProfilesPrefixOnly(SizeLimitedWord8 prefix)
+        {
+            if (prefix.Length <= 2)
+            {
+                var prefix2 = SizeLimitedWord2.Create(prefix);
+                var maxExclusive = prefix2.GetMaxExclusiveForPrefixRange();
+                return ProfileSearchPrefix2.GetInRangeUnsorted(prefix2, maxExclusive).Select(x => x.Values);
+            }
+            else
+            {
+                var maxExclusive = prefix.GetMaxExclusiveForPrefixRange();
+                return ProfileSearchPrefix8.GetInRangeUnsorted(prefix, maxExclusive).Select(x => x.Values);
+            }
+            
+        }
+
+        public IEnumerable<Plc> SearchProfiles(string[] searchTerms, SizeLimitedWord8 searchTermsLastPrefix, Plc maxExclusive, bool alsoSearchDescriptions)
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
-            if (searchTermsArray.Length == 0) yield break;
-            var words = searchTermsArray
-                .Select(x => (alsoSearchDescriptions ? ProfileSearchWithDescription : ProfileSearch).GetValuesChunked(x).ToList())
+
+            var wordsEnumerable = searchTermsArray
+                .Select(x => (alsoSearchDescriptions ? ProfileSearchWithDescription : ProfileSearch).GetValuesChunked(x).ToList());
+                
+
+            if (!searchTermsLastPrefix.IsEmpty)
+            {
+                var prefixWords = SearchProfilesPrefixOnly(searchTermsLastPrefix).ToList();
+                wordsEnumerable = wordsEnumerable.Append(prefixWords);
+            }
+
+            var words = wordsEnumerable
                 .Select(x => (TotalCount: x.Sum(x => x.Count), Slices: x))
                 .OrderBy(x => x.TotalCount)
                 .ToArray();
+
+            if (words.Length == 0) throw new Exception();
 
             while (true)
             {
@@ -714,7 +746,8 @@ namespace AppViewLite
                 var hash = HashWord(word);
                 ProfileSearch.AddIfMissing(hash, plc);
                 ProfileSearchWithDescription.AddIfMissing(hash, plc);
-                ProfileSearchPrefix.AddIfMissing(SizeLimitedWord.Create(word), plc);
+                ProfileSearchPrefix8.AddIfMissing(SizeLimitedWord8.Create(word), plc);
+                ProfileSearchPrefix2.AddIfMissing(SizeLimitedWord2.Create(word), plc);
             }
             foreach (var word in descriptionWords)
             {

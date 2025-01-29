@@ -68,7 +68,7 @@ else
 <form method="post" @onsubmit="Submit" @formname="composeForm" class="main-padding compose-form">
     <AntiforgeryToken />
     <div>
-        <InputTextArea @bind-Value="Model!.Text" onkeypress="composeTextAreaChanged()"  onkeydown="composeTextAreaChanged()"  onkeyup="composeTextAreaChanged()" onpaste="composeTextAreaChanged()" class="compose-textarea" placeholder="@(IsReply ? "Write your reply" : "What's up?")" autofocus />
+        <InputTextArea @bind-Value="Model!.Text" oninput="composeTextAreaChanged()" class="compose-textarea" placeholder="@(IsReply ? "Write your reply" : "What's up?")" autofocus />
         <div class="compose-textarea-limit-container">
             <div class="compose-textarea-limit">
             </div>

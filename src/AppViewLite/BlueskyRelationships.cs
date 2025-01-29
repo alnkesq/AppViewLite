@@ -1317,6 +1317,7 @@ namespace AppViewLite
 
         public BlockReason UsersHaveBlockRelationship(Plc a, Plc b)
         {
+            if (a == b) return default;
             var direct = UserBlocksUser(a, b);
             var inverse = UserBlocksUser(b, a);
             var directKind = direct.Kind;

@@ -3,8 +3,9 @@ html, body {
     margin: 0;
 }
 
-body {
+html {
     overflow-y: scroll;
+    overflow-x: hidden;
 }
 
 

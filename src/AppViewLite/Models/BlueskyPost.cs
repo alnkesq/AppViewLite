@@ -48,11 +48,12 @@ namespace AppViewLite.Models
         public BlockReason RootAndAuthorBlockReason;
         public BlockReason QuoterAndAuthorBlockReason;
         public BlockReason QuoteeAndAuthorBlockReason;
+        public BlockReason FocalAndAuthorBlockReason;
 
         //public BlueskyPostgate? Postgate;
         public BlueskyThreadgate? Threadgate;
 
-        public string? GetBlurReason(bool isFocal)
+        public string? GetBlurReason(bool isFocal, bool isQuotee)
         {
     
             var r = Author.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor);
@@ -68,24 +69,34 @@ namespace AppViewLite.Models
 
             if (PostBlockReason != PostBlockReasonKind.None)
             {
+
+                if (isQuotee && !(PostBlockReason is PostBlockReasonKind.HiddenReply or PostBlockReasonKind.NotAllowlistedReply))
+                    return null;
+
                 return PostBlockReason switch
                 {
                     PostBlockReasonKind.RemovedByQuotee => "Removed by author.",
                     PostBlockReasonKind.DisabledQuotes => "The author disabled quotes.",
                     PostBlockReasonKind.RemovedByQuoteeOnQuoter => "The quoted user dislikes this quote.",
                     PostBlockReasonKind.DisabledQuotesOnQuoter => "The quoted user requested not to be quoted.",
+
                     PostBlockReasonKind.HiddenReply => "This reply was hidden by the thread author.",
                     PostBlockReasonKind.NotAllowlistedReply => "The thread author turned off replies.",
                     _ => throw new NotSupportedException(),
                 };
             }
+
+            if (FocalAndAuthorBlockReason.ToDisplayString(BlockSubjects.FocalAndAuthor) is { } s) return s;
+
+            if (isQuotee) return null;
+
             return
                 ParentAndAuthorBlockReason.ToDisplayString(BlockSubjects.ParentAndAuthor) ??
                 RootAndAuthorBlockReason.ToDisplayString(BlockSubjects.RootAndAuthor);
             
         }
 
-        public bool ShouldBlur(bool isFocal) => GetBlurReason(isFocal) != null;
+        public bool ShouldBlur(bool isFocal, bool isQuote) => GetBlurReason(isFocal, isQuote) != null;
 
         public override string ToString()
         {

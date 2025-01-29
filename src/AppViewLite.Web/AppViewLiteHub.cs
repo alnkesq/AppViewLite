@@ -39,12 +39,18 @@ namespace AppViewLite.Web
 
         }
 
-        public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee)
+        public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee, string? focalDid)
         {
             var hub = HubContext;
 
             var connectionId = Context.ConnectionId;
-            var posts = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => requests.Select(x => rels.GetPost(rels.GetPostId(x.did, x.rkey))).ToArray());
+            BlueskyPost[]? posts = null;
+            Plc? focalPlc = null;
+            BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+            {
+                posts = requests.Select(x => rels.GetPost(rels.GetPostId(x.did, x.rkey))).ToArray();
+                focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
+            });
             var newctx = new RequestContext(ctx.Session, null, null);
             _ = BlueskyEnrichedApis.Instance.EnrichAsync(posts, newctx, async p =>
             {
@@ -55,7 +61,7 @@ namespace AppViewLite.Web
                 var req = requests[index];
                 var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags))).ToHtmlString());
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html);
-            }, sideWithQuotee: sideWithQuotee);
+            }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc);
 
         }
 

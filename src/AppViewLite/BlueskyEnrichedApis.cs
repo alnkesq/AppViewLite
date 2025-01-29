@@ -173,7 +173,7 @@ namespace AppViewLite
             return r;
         }
 
-        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, CancellationToken ct = default)
+        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
             {
@@ -231,6 +231,13 @@ namespace AppViewLite
 
                     var author = post.Author.Plc;
                     post.EmbedRecord = relationshipsUnlocked.TryGetAtObject(post.Data?.EmbedRecordUri);
+
+                    if (focalPostAuthor != null)
+                    {
+                        post.FocalAndAuthorBlockReason = rels.UsersHaveBlockRelationship(focalPostAuthor.Value, postId.Author);
+                    }
+
+
                     if (post.Data?.InReplyToPostId is { Author: { } inReplyToAuthor })
                     {
                         post.ParentAndAuthorBlockReason = rels.UsersHaveBlockRelationship(inReplyToAuthor, author);
@@ -241,10 +248,13 @@ namespace AppViewLite
                         }
                     }
 
+
+
                     if (post.IsRootPost && rels.Threadgates.TryGetPreserveOrderSpanLatest(post.PostId, out var threadgateBytes))
                     {
                         post.Threadgate = BlueskyRelationships.DeserializeProto<BlueskyThreadgate>(threadgateBytes.AsSmallSpan());
                     }
+
 
            
 
@@ -296,7 +306,7 @@ namespace AppViewLite
                 var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray();
                 if (r.Length != 0)
                 {
-                    await EnrichAsync(r, ctx, onPostDataAvailable, loadQuotes: false, ct: ct);
+                    await EnrichAsync(r, ctx, onPostDataAvailable, loadQuotes: false, focalPostAuthor: focalPostAuthor, ct: ct);
                     WithRelationshipsLock(rels =>
                     {
                         foreach (var quoter in posts)
@@ -865,7 +875,7 @@ namespace AppViewLite
             }
 
             thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
-            await EnrichAsync(thread.ToArray(), ctx);
+            await EnrichAsync(thread.ToArray(), ctx, focalPostAuthor: focalPostId.Author);
             return new(thread.ToArray(), nextContinuation);
         }
 

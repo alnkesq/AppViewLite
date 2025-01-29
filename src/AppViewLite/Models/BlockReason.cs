@@ -82,6 +82,29 @@ namespace AppViewLite.Models
                     };
                 }
             }
+            else if (subjects == BlockSubjects.FocalAndAuthor)
+            {
+                if (List != default)
+                {
+                    return Kind switch
+                    {
+                        BlockReasonKind.BlockedBy => "This user is subscribed to a blocklist that includes the author of the focused post.",
+                        BlockReasonKind.Blocks => "This user is in a blocklist that the author of the focused post is subscribed to.",
+                        BlockReasonKind.MutualBlock => "This user and the author of the focused post block each other.",
+                        _ => throw new Exception()
+                    };
+                }
+                else
+                {
+                    return Kind switch
+                    {
+                        BlockReasonKind.BlockedBy => "This user blocked the author of the focused post.",
+                        BlockReasonKind.Blocks => "This user is blocked by the author of the focused post.",
+                        BlockReasonKind.MutualBlock => "This user and the author of the focused post to block each other.",
+                        _ => throw new Exception()
+                    };
+                }
+            }
             else if (subjects == BlockSubjects.QuoterAndAuthor)
             {
                 if (List != default)
@@ -162,6 +185,7 @@ namespace AppViewLite.Models
         RootAndAuthor,
         QuoterAndAuthor,
         QuoteeAndAuthor,
+        FocalAndAuthor,
     }
 }
 

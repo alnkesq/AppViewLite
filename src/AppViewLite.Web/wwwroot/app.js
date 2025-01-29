@@ -596,6 +596,9 @@ function formatEngagementCount(value)
 async function updateLiveSubscriptions() {
     var connection = await liveUpdatesConnectionFuture;
     var visiblePosts = [...document.querySelectorAll('.post')].map(x => x.dataset.postdid + '/' + x.dataset.postrkey);
+    var focalDid = document.querySelector('.post-list[data-focalpostdid]')?.dataset?.focalpostdid;
+    if (!focalDid) focalDid = null;
+    
     var visiblePostsSet = new Set(visiblePosts);
     var toSubscribe = visiblePosts.filter(x => !liveUpdatesPostIds.has(x));
     var toUnsubscribe = [...liveUpdatesPostIds].filter(x => !visiblePostsSet.has(x));
@@ -629,7 +632,8 @@ async function updateLiveSubscriptions() {
         var sideWithQuotee = new URL(location.href).pathname.endsWith('/quotes')
         await connection.invoke('LoadPendingPosts',
             postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderflags: x.dataset.renderflags })),
-            sideWithQuotee
+            sideWithQuotee,
+            focalDid
         )
     }
 }

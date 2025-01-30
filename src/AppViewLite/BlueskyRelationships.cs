@@ -78,7 +78,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, Pds> PdsHashToPdsId;
         public CombinedPersistentMultiDictionary<DateTime, int> LastRetrievedPlcDirectoryEntry;
 
-
+        public DateTime PlcDirectorySyncDate;
+        public bool ShouldUseBskyAppForHandleResolution => (DateTime.UtcNow - PlcDirectorySyncDate).TotalDays >= 7;
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<IFlushable> disposables = new();
@@ -195,11 +196,13 @@ namespace AppViewLite
             DidDocs = RegisterDictionary<Plc, byte>("did-doc", PersistentDictionaryBehavior.PreserveOrder);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
-
-
+            
+            
+           
 
             
 
+            PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? default;
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {

@@ -4,15 +4,27 @@
 @code{
     private long NotificationCount;
     private string LoginUrl;
+    string? Announcement;
     protected override void OnInitialized()
     {
         NotificationCount = BlueskyEnrichedApis.Instance.GetNotificationCount(Session);
         var url = Navigation.ToAbsoluteUri(Navigation.Uri);
         LoginUrl = url.AbsolutePath == "/login" ? "/login" : "/login?return=" + Uri.EscapeDataString(url.PathAndQuery);
+        var plcDirectoryBehind = DateTime.UtcNow - BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.PlcDirectorySyncDate;
+
+        if (BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.ShouldUseBskyAppForHandleResolution) 
+        {
+            Announcement = $"The PLC directory is still syncing ({plcDirectoryBehind.TotalDays:0.0} days out of date). User search might be incomplete, and handle resolution will be performed using bsky.app";
+        }
+
     }
 }
 
 <nav>
+    @if (Announcement != null)
+    {
+        <div class="sidebar-announcement">@Announcement</div>
+    }
     @if (Session.IsLoggedIn)
     {
         <a href="@Session.Profile!.BaseUrl">

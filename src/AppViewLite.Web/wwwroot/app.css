@@ -1253,3 +1253,9 @@ button[disabled], input[type=submit][disabled] {
     background-position: center;
     background-repeat: no-repeat; 
 }
+
+.sidebar-announcement {
+    font-size: 9pt;
+    background: #ffe0bc;
+    margin-right: 10px;
+}

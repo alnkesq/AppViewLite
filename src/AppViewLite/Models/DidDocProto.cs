@@ -29,7 +29,10 @@ namespace AppViewLite.Models
             using var bw = new BinaryWriter(ms);
             DidDocEncoding format = default;
             bw.Write((byte)format); // will be overwritten later
-            bw.Write(Unsafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)Date));
+            var date = Date;
+            if (date < ApproximateDateTime32.MinValueAsDateTime)
+                date = default;
+            bw.Write(Unsafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)date));
             if (PdsId != null)
             {
                 format |= DidDocEncoding.HasPds;

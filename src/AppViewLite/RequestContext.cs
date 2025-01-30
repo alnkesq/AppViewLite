@@ -15,6 +15,7 @@ namespace AppViewLite
         public Task? ShortDeadline { get; private set; }
         public AppViewLiteSession Session { get; private set; }
         private Action? _triggerStateChange;
+        public string? SignalrConnectionId { get; private set; }
 
         public void TriggerStateChange()
         {
@@ -22,11 +23,12 @@ namespace AppViewLite
         }
 
 
-        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout)
+        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId)
         {
             this.longTimeout = longTimeout;
             this.shortTimeout = shortTimeout;
             this.Session = session;
+            this.SignalrConnectionId = signalrConnectionId;
             InitializeDeadlines();
         }
 
@@ -36,14 +38,14 @@ namespace AppViewLite
             LongDeadline = longTimeout != null ? Task.Delay(longTimeout.Value) : null;
         }
 
-        public static RequestContext Create(AppViewLiteSession? session = null)
+        public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null)
         {
-            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2));
+            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId);
         }
 
-        public static RequestContext CreateInfinite(AppViewLiteSession? session)
+        public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null)
         {
-            return new RequestContext(session, null, null);
+            return new RequestContext(session, null, null, signalrConnectionId);
         }
 
         public RequestContext OnStateChanged(Action a)
@@ -53,7 +55,7 @@ namespace AppViewLite
 
 
             Watchdog? watchdog = null;
-            var ctx = new RequestContext(Session, longTimeout, shortTimeout);
+            var ctx = new RequestContext(Session, longTimeout, shortTimeout, SignalrConnectionId);
 
             ctx._triggerStateChange = () =>
             {

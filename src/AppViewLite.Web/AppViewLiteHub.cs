@@ -27,7 +27,7 @@ namespace AppViewLite.Web
 
             var connectionId = Context.ConnectionId;
             var profiles = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
-            var newctx = new RequestContext(ctx.Session, null, null);
+            var newctx = new RequestContext(ctx.Session, null, null, connectionId);
             _ = BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p =>
             {
                 using var scope = Program.StaticServiceProvider.CreateScope();
@@ -51,7 +51,7 @@ namespace AppViewLite.Web
                 posts = requests.Select(x => rels.GetPost(rels.GetPostId(x.did, x.rkey))).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
             });
-            var newctx = new RequestContext(ctx.Session, null, null);
+            var newctx = new RequestContext(ctx.Session, null, null, connectionId);
             _ = BlueskyEnrichedApis.Instance.EnrichAsync(posts, newctx, async p =>
             {
                 var index = Array.IndexOf(posts, p);

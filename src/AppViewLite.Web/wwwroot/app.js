@@ -25,6 +25,8 @@ function parseHtmlAsElement(html) {
     temp.innerHTML = html;
     return temp.firstElementChild;
 }
+
+var liveUpdatesConnection = null;
 var liveUpdatesConnectionFuture = (async () => {
 
 
@@ -69,6 +71,20 @@ var liveUpdatesConnectionFuture = (async () => {
         updateLiveSubscriptions();
     });
 
+    var lastAutocompleteRefreshToken = 0;
+
+    connection.on('SearchAutoCompleteProfileDetails', () => {
+        var token = ++lastAutocompleteRefreshToken;
+        setTimeout(() => { 
+            if (token != lastAutocompleteRefreshToken) return;
+            var menu = document.querySelector('.search-form-suggestions');
+            if (menu && !menu.classList.contains('display-none')) {
+                searchBoxAutocomplete()
+            }
+        }, 200)
+
+    });
+    liveUpdatesConnection = connection;
 
     await connection.start();
     return connection;
@@ -450,11 +466,14 @@ class ActionStateToggler {
     }
 }
 
+
+
 async function httpPost(method, args) { 
     var response = await fetch('/api/' + method, {
         body: JSON.stringify(args),
         headers: {
             'Content-Type': 'application/json',
+            'X-AppViewLiteSignalrId': liveUpdatesConnection?.connectionId
         },
         method: 'POST'
     })
@@ -466,7 +485,10 @@ async function httpPost(method, args) {
 
 async function httpGet(method, args) { 
     var response = await fetch('/api/' + method + '?' + new URLSearchParams(args).toString(), {
-        method: 'GET'
+        method: 'GET',
+        headers: {
+            'X-AppViewLiteSignalrId': liveUpdatesConnection?.connectionId
+        }
     })
     if (response.status != 200) throw 'HTTP ' + response.status;
     var text = await response.text();
@@ -680,8 +702,8 @@ function closeAutocompleteMenu() {
 
 }
 
-async function searchBoxAutocomplete(e) { 
-    var searchbox = e.target;
+async function searchBoxAutocomplete() { 
+    var searchbox = document.getElementById('search-box');
     var autocomplete = searchbox.parentElement.parentElement.querySelector('.search-form-suggestions');
     if (!autocomplete) return;
     var text = searchbox.value;
@@ -696,7 +718,8 @@ async function searchBoxAutocomplete(e) {
         var a = document.createElement('a');
         a.href = '/@' + profile.did;
         var img = document.createElement('img');
-        img.src = profile.avatarUrl;
+        if (profile.avatarUrl)
+            img.src = profile.avatarUrl;
         img.className = 'profile-image-small';
         a.appendChild(img);
         a.appendChild(document.createTextNode(profile.displayName));

@@ -1181,13 +1181,26 @@ namespace AppViewLite
         {
             var basic = GetProfileBasicInfo(plc);
             var did = TryGetDid(plc);
+            var didDoc = TryGetLatestDidDoc(plc);
             return new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,
                 Did = did,
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
+                PossibleHandle = didDoc?.Handle,
             };
+        }
+
+        private DidDocProto? TryGetLatestDidDoc(Plc plc)
+        {
+            if (DidDocs.TryGetPreserveOrderSpanLatest(plc, out var bytes))
+            {
+                var proto = DeserializeProto<DidDocProto>(bytes.AsSmallSpan());
+                DecompressDidDoc(proto);
+                return proto;
+            }
+            return null;
         }
 
         public BlockReason GetBlockReason(Plc plc, RequestContext? ctx)
@@ -1967,6 +1980,12 @@ namespace AppViewLite
             proto.Pds = null;
         }
 
+        internal void DecompressDidDoc(DidDocProto proto)
+        {
+            if (proto.PdsId == null) return;
+            proto.Pds = DeserializePds(new Pds(proto.PdsId.Value));
+            proto.PdsId = null;
+        }
         public Pds SerializePds(string pds)
         {
             var pdsHash = StringUtils.HashUnicodeToUuid(pds);
@@ -1978,7 +1997,18 @@ namespace AppViewLite
                 PdsHashToPdsId.Add(pdsHash, pdsId);
             }
 
+            var roundtrip = DeserializePds(pdsId);
+            if (roundtrip != pds) throw new Exception("PDS serialization did not roundtrip: " + pds + "/" + roundtrip);
+
             return pdsId;
+        }
+
+        public string DeserializePds(Pds pds)
+        {
+            if (pds == default) throw new ArgumentException();
+            if (PdsIdToString.TryGetPreserveOrderSpanAny(pds, out var utf8))
+                return Encoding.UTF8.GetString(utf8.AsSmallSpan());
+            throw new Exception("Unknown PDS id:" + pds);
         }
     }
 

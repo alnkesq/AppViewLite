@@ -3,6 +3,7 @@ using FishyFlip.Lexicon.App.Bsky.Feed;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 
@@ -80,12 +81,21 @@ namespace AppViewLite.Web
         [HttpGet(nameof(SearchAutoComplete))]
         public async Task<object> SearchAutoComplete(string q)
         {
-            var profiles = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx);
+            var signalrSessionId = ctx.SignalrConnectionId;
+            var responseAlreadySent = false;
+            var profiles = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx, onProfileDataAvailable: profile => 
+            {
+                if (signalrSessionId != null && responseAlreadySent)
+                {
+                    _ = Program.AppViewLiteHubContext.Clients.Client(signalrSessionId).SendAsync("SearchAutoCompleteProfileDetails");
+                }
+            });
+            responseAlreadySent = true;
             return new
             {
                 Profiles = profiles.Profiles.Select(x => new 
                 {
-                    DisplayName = x.DisplayName,
+                    DisplayName = x.DisplayNameOrFallback,
                     Did = x.Did,
                     AvatarUrl = x.AvatarUrl,
                 }).ToArray()

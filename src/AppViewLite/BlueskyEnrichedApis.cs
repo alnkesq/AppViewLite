@@ -1582,7 +1582,7 @@ namespace AppViewLite
 
         
 
-        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx)
+        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null)
         {
             EnsureLimit(ref limit);
 
@@ -1605,7 +1605,7 @@ namespace AppViewLite
                     .Select(x => rels.GetProfile(x))
                     .Where(x =>
                     {
-                        var words = StringUtils.GetAllWords(x.BasicData?.DisplayName);
+                        var words = StringUtils.GetAllWords(x.BasicData?.DisplayName).Concat(StringUtils.GetAllWords(x.PossibleHandle));
                         if (parsedContinuation.AlsoSearchDescriptions)
                         {
                             words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
@@ -1631,7 +1631,7 @@ namespace AppViewLite
                 }
             }
 
-            await EnrichAsync(profiles.ToArray(), ctx);
+            await EnrichAsync(profiles.ToArray(), ctx, onProfileDataAvailable: onProfileDataAvailable);
             return GetPageAndNextPaginationFromLimitPlus1(profiles.ToArray(), limit, x => new ProfileSearchContinuation(x.Plc, parsedContinuation.AlsoSearchDescriptions).Serialize());
         }
         

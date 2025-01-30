@@ -85,7 +85,9 @@ namespace AppViewLite.Web
             builder.Services.AddScoped(provider =>
             {
                 var session = provider.GetRequiredService<AppViewLiteSession>();
-                return RequestContext.Create(session);
+                var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
+                var signalrConnectionId = httpContext.Request.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
+                return RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId);
             });
             builder.Services.AddSignalR();
 
@@ -149,7 +151,7 @@ namespace AppViewLite.Web
                         else
                             _ = indexer.ListenBlueskyFirehoseAsync();
                     }
-
+                    _ = new Indexer(Relationships, atprotoProvider).RetrievePlcDirectoryLoopAsync();
                     //await indexer.ListenJetStreamFirehoseAsync();
                
                 });

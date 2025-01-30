@@ -9,7 +9,21 @@ namespace AppViewLite.Models
         public Plc Plc => new Plc(PlcId);
 
         public string? DisplayName => BasicData?.DisplayName;
-        public string DisplayNameOrFallback => DisplayName ?? Did ?? PlcId.ToString();
+        public string DisplayNameOrFallback
+        {
+            get
+            {
+                if (DisplayName != null) return DisplayName;
+                if (PossibleHandle != null)
+                {
+                    var dot = PossibleHandle.IndexOf('.');
+                    if (dot != -1) return PossibleHandle.Substring(0, dot);
+                    else return PossibleHandle;
+                }
+                return Did ?? PlcId.ToString();
+            }
+        }
+
         public string BaseUrl => "/@" + Did;
         public string BlueskyUrl => $"https://bsky.app/profile/{Did}";
         public string? AvatarCid => BasicData?.AvatarCid;
@@ -25,6 +39,7 @@ namespace AppViewLite.Models
         public bool FollowsYou;
         public bool HasBannerImage => BasicData?.BannerCidBytes != null;
 
+        public string? PossibleHandle;
 
         public ProfileBadge[]? Badges;
 

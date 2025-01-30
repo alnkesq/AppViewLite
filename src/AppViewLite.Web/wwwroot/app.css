@@ -1247,3 +1247,9 @@ button[disabled], input[type=submit][disabled] {
     top: -1px;
 }
 
+.search-form-suggestions .profile-image-small{
+    background-image: url('/assets/default-user-avatar.svg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat; 
+}

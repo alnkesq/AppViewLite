@@ -519,14 +519,13 @@ namespace AppViewLite
             var lastRetrievedDidDoc = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey) ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             using var httpClient = new HttpClient();
 
-            var entries = new List<PlcDirectoryEntry>();
+            var entries = new List<DidDocProto>();
 
             void FlushBatch()
             {
                 if (entries.Count == 0) return;
 
 
-                var protos = entries.Select(x => (x.did, proto: DidDocToProto(x))).ToArray();
                 Log("Flushing " + entries.Count + " PLC directory entries");
                 WithRelationshipsLock(rels =>
                 {
@@ -534,9 +533,9 @@ namespace AppViewLite
                     var didResumeWrites = false;
                     try
                     {
-                        foreach (var (index, entry) in protos.Index())
+                        foreach (var (index, entry) in entries.Index())
                         {
-                            if (index == protos.Length - 1)
+                            if (index == entries.Count - 1)
                             {
                                 // Last entry of the batch, allow the flushes to happen (if necessary)
                                 rels.AvoidFlushes--;
@@ -544,11 +543,11 @@ namespace AppViewLite
 
                             }
 
-                            var plc = rels.SerializeDid(entry.did);
-                            var handle = entry.proto.Handle;
-                            rels.CompressDidDoc(entry.proto);
+                            var plc = rels.SerializeDid(entry.TrustedDid);
+                            var handle = entry.Handle;
+                            rels.CompressDidDoc(entry);
                             //rels.DidDocs.AddRange(plc, BlueskyRelationships.SerializeProto(entry.proto));
-                            rels.DidDocs.AddRange(plc, entry.proto.SerializeToBytes());
+                            rels.DidDocs.AddRange(plc, entry.SerializeToBytes());
 
                             if (handle != null)
                             {
@@ -587,7 +586,7 @@ namespace AppViewLite
                     var itemInPage = 0;
                     await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))
                     {
-                        entries.Add(entry!);
+                        entries.Add(DidDocToProto(entry!, entry!.did));
                         itemInPage++;
                         if (entry!.createdAt > lastRetrievedDidDoc)
                         {
@@ -640,11 +639,12 @@ namespace AppViewLite
             Console.Error.WriteLine(v);
         }
 
-        private static DidDocProto DidDocToProto(PlcDirectoryEntry x)
+        private static DidDocProto DidDocToProto(PlcDirectoryEntry x, string trustedDid)
         {
             var proto = new DidDocProto
             {
                 Date = x.createdAt,
+                TrustedDid = trustedDid
             };
 
             var operation = x.operation;

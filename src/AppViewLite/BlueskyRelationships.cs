@@ -217,9 +217,9 @@ namespace AppViewLite
             foreach (var item in disposables)
             {
                 item.BeforeFlush += flushMappings;
-                item.ShouldFlush += (_, e) =>
+                item.ShouldFlush += (table, e) =>
                 {
-                    if (AvoidFlushes > 0)
+                    if (AvoidFlushes > 0 && !(table == Follows || table == PostData || table == Likes /* big tables unrelated to PLC directory indexing */))
                         e.Cancel = true;
 
 

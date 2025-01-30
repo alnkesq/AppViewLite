@@ -14,6 +14,8 @@ namespace AppViewLite.Models
         /*[ProtoMember(4)] */ public DateTime Date;
         /*[ProtoMember(5)] */ public string? Pds;
 
+        public string TrustedDid;
+
         public string Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null))!;
 
         public override string ToString()

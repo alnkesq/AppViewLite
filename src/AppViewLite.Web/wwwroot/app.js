@@ -325,6 +325,9 @@ if (!hasBlazor) {
             }
         }
 
+        if (fastNavigateIfLink(e))
+            return;
+
 
         var actionButton = target.closest('.post-action-bar-button,[actionkind]');
         closeCurrentMenu();

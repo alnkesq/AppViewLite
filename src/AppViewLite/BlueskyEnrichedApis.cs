@@ -1594,8 +1594,8 @@ namespace AppViewLite
 
             var (queryWords, wordPrefix) = StringUtils.GetDistinctWordsAndLastPrefix(query, allowPrefixForLastWord);
             if (queryWords.Length == 0 && wordPrefix == null) return ([], null);
-            
-            
+
+            var followerCount = new Dictionary<Plc, long>();
 
             while (true)
             {
@@ -1616,6 +1616,11 @@ namespace AppViewLite
                             (wordPrefix == null || wordsHashset.Any(x => x.StartsWith(wordPrefix, StringComparison.Ordinal)));
                     })
                     .Where(x => alreadyReturned.Add(x.Plc))
+                    .Select(x => 
+                    {
+                        followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);
+                        return x;
+                    })
                     .Take(limit + 1 - profiles.Count)
                     .ToArray();
                 });
@@ -1632,7 +1637,9 @@ namespace AppViewLite
             }
 
             await EnrichAsync(profiles.ToArray(), ctx, onProfileDataAvailable: onProfileDataAvailable);
-            return GetPageAndNextPaginationFromLimitPlus1(profiles.ToArray(), limit, x => new ProfileSearchContinuation(x.Plc, parsedContinuation.AlsoSearchDescriptions).Serialize());
+            var result = GetPageAndNextPaginationFromLimitPlus1(profiles.ToArray(), limit, x => new ProfileSearchContinuation(x.Plc, parsedContinuation.AlsoSearchDescriptions).Serialize());
+
+            return (result.Items.OrderByDescending(x => followerCount[x.Plc]).ToArray(), result.NextContinuation);
         }
         
 

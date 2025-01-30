@@ -119,18 +119,15 @@ namespace AppViewLite.Storage
                 var prefix = DirectoryPath + "/" + date.Ticks + "-" + groupCount;
                 using var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(prefix, behavior);
 
-                if (behavior == PersistentDictionaryBehavior.PreserveOrder)
+
+                foreach (var group in queue.OrderBy(x => x.Key))
                 {
-                    foreach (var key in queue.Groups.OrderBy(x => x.Key))
-                    {
-                        writer.AddPresorted(key.Key, key.Value.AsUnsortedSpan());
-                    }
-                    writer.Commit();
+                    var values = group.Values;
+                    if (values.TryAsUnsortedSpan(out var span)) writer.AddPresorted(group.Key, span);
+                    else writer.AddPresorted(group.Key, values.ValuesSorted);
                 }
-                else
-                {
-                    writer.AddAllAndCommit(queue.AllEntries.Select(x => (Key: x.Key, Value: x.Value)));
-                }
+                writer.Commit();
+                
                 queue.Clear();
                 slices.Add(new(date, groupCount, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {groupCount} rows");

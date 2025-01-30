@@ -76,15 +76,6 @@ namespace AppViewLite.Storage
             }
         }
 
-        public void AddAllAndCommit(IEnumerable<(TKey Key, TValue Value)> items)
-        {
-            if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            foreach (var group in items.GroupBy(x => x.Key).OrderBy(x => x.Key))
-            {
-                AddPresorted(group.Key, group.Select(x => x.Value).Order());
-            }
-            Commit();
-        }
 
         public void Commit()
         {

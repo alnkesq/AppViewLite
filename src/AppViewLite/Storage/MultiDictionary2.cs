@@ -77,6 +77,24 @@ namespace AppViewLite
                 throw new NotSupportedException();
             }
 
+
+            [UnscopedRef]
+            public bool TryAsUnsortedSpan(out ReadOnlySpan<TValue> span)
+            {
+                if (_manyValuesPreserved != null)
+                {
+                    span = _manyValuesPreserved;
+                    return true;
+                }
+                else if (_manyValuesSorted == null)
+                {
+                    span = new ReadOnlySpan<TValue>(in _singleValue);
+                    return true;
+                }
+                span = default;
+                return false;
+            }
+
             public readonly bool Contains(TValue value)
             {
                 if (_manyValuesSorted != null) return _manyValuesSorted.Contains(value);

@@ -193,7 +193,7 @@ namespace AppViewLite
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterRelationshipDictionary<RelationshipHashedRKey>("feed-generator-like-2", GetApproxRkeyHash24);
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
-            DidDocs = RegisterDictionary<Plc, byte>("did-doc", PersistentDictionaryBehavior.PreserveOrder);
+            DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
             
@@ -1199,7 +1199,8 @@ namespace AppViewLite
         {
             if (DidDocs.TryGetPreserveOrderSpanLatest(plc, out var bytes))
             {
-                var proto = DeserializeProto<DidDocProto>(bytes.AsSmallSpan());
+                //var proto = DeserializeProto<DidDocProto>(bytes.AsSmallSpan());
+                var proto = DidDocProto.DeserializeFromBytes(bytes.AsSmallSpan());
                 DecompressDidDoc(proto);
                 return proto;
             }

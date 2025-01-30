@@ -547,7 +547,8 @@ namespace AppViewLite
                             var plc = rels.SerializeDid(entry.did);
                             var handle = entry.proto.Handle;
                             rels.CompressDidDoc(entry.proto);
-                            rels.DidDocs.AddRange(plc, BlueskyRelationships.SerializeProto(entry.proto));
+                            //rels.DidDocs.AddRange(plc, BlueskyRelationships.SerializeProto(entry.proto));
+                            rels.DidDocs.AddRange(plc, entry.proto.SerializeToBytes());
 
                             if (handle != null)
                             {
@@ -566,8 +567,12 @@ namespace AppViewLite
 
 
 
-                WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0));
-
+                WithRelationshipsLock(rels =>
+                {
+                    rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
+                    rels.PlcDirectorySyncDate = lastRetrievedDidDoc;
+                });
+                
 
                 entries.Clear();
             }
@@ -662,7 +667,7 @@ namespace AppViewLite
                     }
                     else
                     {
-                        proto.CustomHandle = handle;
+                        proto.CustomDomain = handle;
                     }
                 }
                 else

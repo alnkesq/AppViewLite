@@ -15,6 +15,8 @@ namespace AppViewLite
         public PostId PostId;
         public List<BlueskyProfile>? Profiles;
         public bool IsNew;
+        public BlueskyFeedGenerator? Feed;
+        public RelationshipHashedRKey FeedRKeyHash;
 
         public string KindDisplayText 
         {
@@ -25,11 +27,12 @@ namespace AppViewLite
                     NotificationKind.FollowedYou => "followed you",
                     NotificationKind.FollowedYouBack => "followed you back",
                     NotificationKind.LikedYourPost => "liked your post",
+                    NotificationKind.LikedYourFeed => "liked your feed",
                     NotificationKind.RepostedYourPost => "reposted your post",
                     NotificationKind.QuotedYourPost => "quoted you",
                     NotificationKind.MentionedYou => "mentioned you",
                     NotificationKind.RepliedToYourPost => "replied to your post",
-                    NotificationKind.RepliedtoYourThread => "replied to your thread",
+                    NotificationKind.RepliedToYourThread => "replied to your thread",
                     _ => throw new Exception()
                 };
             }

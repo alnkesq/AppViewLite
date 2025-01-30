@@ -42,7 +42,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchWithDescription;
         public CombinedPersistentMultiDictionary<SizeLimitedWord8, Plc> ProfileSearchPrefix8;
         public CombinedPersistentMultiDictionary<SizeLimitedWord2, Plc> ProfileSearchPrefix2;
-        public CombinedPersistentMultiDictionary<RelationshipHashedRKey, Relationship> FeedGeneratorLikes;
+        public RelationshipDictionary<RelationshipHashedRKey> FeedGeneratorLikes;
         public CombinedPersistentMultiDictionary<Plc, ListMembership> ListMemberships;
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
@@ -177,7 +177,7 @@ namespace AppViewLite
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
-            FeedGeneratorLikes = RegisterDictionary<RelationshipHashedRKey, Relationship>("feed-generator-like");
+            FeedGeneratorLikes = RegisterRelationshipDictionary<RelationshipHashedRKey>("feed-generator-like-2", GetApproxRkeyHash24);
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
 
             
@@ -244,6 +244,10 @@ namespace AppViewLite
         private static UInt24? GetApproxPlc24(Plc plc, bool saturate)
         {
             return (UInt24)(((uint)plc.PlcValue) >> 8);
+        }
+        private static UInt24? GetApproxRkeyHash24(RelationshipHashedRKey rkeyHash, bool saturate)
+        {
+            return GetApproxPlc24(rkeyHash.Plc, saturate);
         }
 
         public bool IsDisposed => _disposed;
@@ -379,7 +383,7 @@ namespace AppViewLite
 
 
 
-            AddToSearchIndex(HashPlcForTextSearch(postId.Author), approxPostDate);
+            PostTextSearch.AddIfMissingBestEffort(HashPlcForTextSearch(postId.Author), approxPostDate);
 
             if (proto.Text != null)
             {
@@ -414,7 +418,7 @@ namespace AppViewLite
                 var rootPost = this.GetPostId(root);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;
-                AddNotification(rootPost.Author, NotificationKind.RepliedtoYourThread, postId);
+                AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId);
             }
             if (p.Reply?.Parent is { } parent)
             {
@@ -530,14 +534,9 @@ namespace AppViewLite
 
         private void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
         {
-            var hash = HashWord(word);
-            AddToSearchIndex(hash, approxPostDate);
+            PostTextSearch.AddIfMissingBestEffort(HashWord(word), approxPostDate);
         }
-        private void AddToSearchIndex(HashedWord hash, ApproximateDateTime32 approxPostDate)
-        {
-            if (this.PostTextSearch.QueuedItems.Contains(hash, approxPostDate)) return;
-            this.PostTextSearch.Add(hash, approxPostDate); // Will be deduped on compactation (AddIfMissing is too expensive)
-        }
+
 
         private static HashedWord HashPlcForTextSearch(Plc author)
         {
@@ -1241,6 +1240,7 @@ namespace AppViewLite
 
         internal const int SearchIndexPopularityMinLikes = 4;
         internal const int SearchIndexPopularityMinReposts = 1;
+        internal const int SearchIndexFeedPopularityMinLikes = 2;
 
         internal void MaybeIndexPopularPost(PostId postId, string indexName, long approxPopularity, int minPopularityForIndex)
         {
@@ -1248,6 +1248,14 @@ namespace AppViewLite
             if (BitOperations.IsPow2(approxPopularity) && approxPopularity >= minPopularityForIndex)
             {
                 AddToSearchIndex("%" + indexName + "-" + approxPopularity, GetApproxTime32(postId.PostRKey));
+            }
+        }
+        internal void MaybeIndexPopularFeed(RelationshipHashedRKey feedId, string indexName, long approxPopularity, int minPopularityForIndex)
+        {
+
+            if (BitOperations.IsPow2(approxPopularity) && approxPopularity >= minPopularityForIndex)
+            {
+                FeedGeneratorSearch.AddIfMissingBestEffort(HashWord("%" + indexName + "-" + approxPopularity), feedId);
             }
         }
 
@@ -1461,10 +1469,19 @@ namespace AppViewLite
             {
                 NotificationKind.FollowedYou or NotificationKind.FollowedYouBack => (default, notification.Actor),
                 NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost => (new PostId(destination, notification.RKey), notification.Actor),
-                NotificationKind.RepliedToYourPost or NotificationKind.RepliedtoYourThread or NotificationKind.QuotedYourPost => (new PostId(notification.Actor, notification.RKey), notification.Actor),
+                NotificationKind.RepliedToYourPost or NotificationKind.RepliedToYourThread or NotificationKind.QuotedYourPost => (new PostId(notification.Actor, notification.RKey), notification.Actor),
                 _ => default
             };
-            if (post == default && actor == default) return null;
+
+            BlueskyFeedGenerator? feed = null;
+            if (notification.Kind == NotificationKind.LikedYourFeed)
+            {
+                feed = TryGetFeedGenerator(new RelationshipHashedRKey(destination, (ulong)notification.RKey.TidValue));
+                actor = notification.Actor;
+                post = default;
+            }
+
+            if (post == default && actor == default && feed == null) return null;
 
             
             return new BlueskyNotification 
@@ -1474,6 +1491,7 @@ namespace AppViewLite
                 Post = post != default ? GetPost(post) : null, Profile = actor != default ? GetProfile(actor) : default,
                 Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
+                Feed = feed,
             };
 
             
@@ -1812,7 +1830,7 @@ namespace AppViewLite
                  Did = TryGetDid(plc),
                  RKey = rkey,
                  Author = GetProfile(plc),
-                 LikeCount = FeedGeneratorLikes.GetValueCount(new(plc, rkey))
+                 LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey))
             };
         }
 

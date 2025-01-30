@@ -150,7 +150,11 @@ namespace AppViewLite
                         {
                             // TODO: handle deletions for feed likes
                             var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did.Handler), l.Subject.Uri.Rkey);
+                            
                             relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
+                            var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
+                            relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
+                            relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/);
                             if (!relationships.FeedGenerators.ContainsKey(feedId))
                             {
                                 ScheduleRecordIndexing(l.Subject.Uri);

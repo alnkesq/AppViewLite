@@ -14,6 +14,7 @@ namespace AppViewLite.Models
         public BlueskyProfile? Profile;
         public bool Hidden;
         public Notification NotificationCore;
+        public BlueskyFeedGenerator? Feed;
     }
 }
 

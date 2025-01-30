@@ -26,6 +26,8 @@ namespace AppViewLite.Models
 
         public ATUri Uri => new ATUri("at://" + Did + "/app.bsky.feed.generator/" + RKey);
 
+        public RelationshipHashedRKey RKeyHash => new(Plc, RKey);
+
         public string? ImplementationDisplayName
         {
             get

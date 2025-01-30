@@ -472,6 +472,12 @@ namespace AppViewLite.Storage
             if (!Contains(key, value))
                 Add(key, value);
         }
+        public void AddIfMissingBestEffort(TKey key, TValue value)
+        {
+            if (queue.Contains(key, value)) return;
+            // Will be deduped on compactation (for cases where AddIfMissing is too expensive)
+            Add(key, value);
+        }
         public void Add(TKey key, TValue value)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();

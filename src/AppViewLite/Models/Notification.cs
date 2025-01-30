@@ -42,8 +42,9 @@ namespace AppViewLite.Models
         QuotedYourPost,
         MentionedYou,
         RepliedToYourPost,
-        RepliedtoYourThread,
+        RepliedToYourThread,
         FollowedYouBack,
+        LikedYourFeed,
     }
 }
 

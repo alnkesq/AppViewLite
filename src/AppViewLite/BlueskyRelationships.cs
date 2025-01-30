@@ -202,7 +202,7 @@ namespace AppViewLite
 
             
 
-            PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? default;
+            PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {

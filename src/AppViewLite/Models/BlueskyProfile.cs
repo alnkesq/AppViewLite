@@ -26,6 +26,8 @@ namespace AppViewLite.Models
         public bool HasBannerImage => BasicData?.BannerCidBytes != null;
 
 
+        public ProfileBadge[]? Badges;
+
         public override string ToString()
         {
             return DisplayNameOrFallback;

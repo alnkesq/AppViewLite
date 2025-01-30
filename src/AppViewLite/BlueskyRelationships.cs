@@ -1148,10 +1148,11 @@ namespace AppViewLite
         public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null)
         {
             var basic = GetProfileBasicInfo(plc);
+            var did = TryGetDid(plc);
             return new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,
-                Did = TryGetDid(plc),
+                Did = did,
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
             };

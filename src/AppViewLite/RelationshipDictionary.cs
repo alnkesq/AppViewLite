@@ -5,6 +5,7 @@ using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -19,7 +20,7 @@ namespace AppViewLite
         private CombinedPersistentMultiDictionary<RelationshipHash, UInt24> relationshipIdHashToApproxTarget;
         private Func<TTarget, bool, UInt24?>? targetToApproxTarget;
         public event EventHandler BeforeFlush;
-
+        public event EventHandler<CancelEventArgs> ShouldFlush;
         public RelationshipDictionary(string pathPrefix, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             this.creations = new CombinedPersistentMultiDictionary<TTarget, Relationship>(pathPrefix) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems};
@@ -34,15 +35,24 @@ namespace AppViewLite
             {
                 this.relationshipIdHashToApproxTarget = new(pathPrefix + "-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
                 this.relationshipIdHashToApproxTarget.BeforeFlush += OnBeforeFlush;
+                this.relationshipIdHashToApproxTarget.ShouldFlush += OnShouldFlush;
             }
             this.creations.BeforeFlush += OnBeforeFlush;
             this.deletions.BeforeFlush += OnBeforeFlush;
             this.deletionCounts.BeforeFlush += OnBeforeFlush;
+
+            this.creations.ShouldFlush += OnShouldFlush;
+            this.deletions.ShouldFlush += OnShouldFlush;
+            this.deletionCounts.ShouldFlush += OnShouldFlush;
         }
 
         private void OnBeforeFlush(object? sender, EventArgs e)
         {
             BeforeFlush?.Invoke(this, e);
+        }
+        private void OnShouldFlush(object? sender, CancelEventArgs e)
+        {
+            ShouldFlush?.Invoke(this, e);
         }
 
         public long GetActorCount(TTarget target)

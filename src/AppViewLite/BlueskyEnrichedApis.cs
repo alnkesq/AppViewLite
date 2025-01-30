@@ -29,23 +29,22 @@ using FishyFlip.Lexicon.App.Bsky.Embed;
 
 namespace AppViewLite
 {
-    public class BlueskyEnrichedApis
+    public class BlueskyEnrichedApis : BlueskyRelationshipsClientBase
     {
         public static BlueskyEnrichedApis Instance;
         internal ATProtocol proto;
         internal ATProtocol protoForHandleResolution;
-        private BlueskyRelationships relationshipsUnlocked;
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
         public BlueskyEnrichedApis(BlueskyRelationships relationships, AtProtocolProvider pdsConfig)
+            : base(relationships)
         {
             this.proto = new ATProtocolBuilder()
                 .WithInstanceUrl(new Uri(pdsConfig.DefaultHost))
                 .WithATDidCache(atprotoProvider?.AtProtoHosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
                 .Build();
             this.protoForHandleResolution = new ATProtocolBuilder().Build(); // bsky.app
-            this.relationshipsUnlocked = relationships;
             this.atprotoProvider = pdsConfig;
         }
 
@@ -58,24 +57,7 @@ namespace AppViewLite
             var resolved = (await protoForHandleResolution.ResolveHandleAsync(new ATHandle(handle))).HandleResult();
             return resolved!.Did!.ToString();
         }
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
-        {
-            BlueskyRelationships.VerifyNotEnumerable<T>();
-            lock (relationshipsUnlocked)
-            {
-                var result = func(relationshipsUnlocked);
-                relationshipsUnlocked.MaybeGlobalFlush();
-                return result;
-            }
-        }
-        public void WithRelationshipsLock(Action<BlueskyRelationships> func)
-        {
-            lock (relationshipsUnlocked)
-            {
-                func(relationshipsUnlocked);
-                relationshipsUnlocked.MaybeGlobalFlush();
-            }
-        }
+
 
 
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
@@ -953,7 +935,7 @@ namespace AppViewLite
                 {
                     return rels.GetRecentPosts(slice, maxPostIdExclusive); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 })
-                .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.ToArray(), x.Key))))
+                .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key))))
                 .ToArray();
 
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));

@@ -16,25 +16,27 @@ using FishyFlip.Tools;
 using System.Threading;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AppViewLite
 {
-    public class Indexer
+    public class Indexer : BlueskyRelationshipsClientBase
     {
-        private BlueskyRelationships relationships;
         public Uri FirehoseUrl = new("https://bsky.network/");
         public HashSet<string>? DidBlocklist;
         public HashSet<string>? DidAllowlist;
         public AtProtocolProvider AlternatePdsConfiguration;
         public Indexer(BlueskyRelationships relationships, AtProtocolProvider altPdsConfig)
+            : base(relationships)
         {
-            this.relationships = relationships;
             this.AlternatePdsConfiguration = altPdsConfig;
         }
 
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
         {
-            lock (relationships)
+            WithRelationshipsLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 var sw = Stopwatch.StartNew();
@@ -102,7 +104,7 @@ namespace AppViewLite
 
                 relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();
-            }
+            });
         }
 
         record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
@@ -123,7 +125,7 @@ namespace AppViewLite
         
 
             ContinueOutsideLock? continueOutsideLock = null;
-            lock (relationships)
+            WithRelationshipsLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 try
@@ -131,7 +133,7 @@ namespace AppViewLite
                     if (!generateNotifications) relationships.SuppressNotificationGeneration++;
                     var sw = Stopwatch.StartNew();
                     relationships.EnsureNotDisposed();
-                    
+
                     var commitPlc = relationships.SerializeDid(commitAuthor);
 
                     if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
@@ -157,7 +159,7 @@ namespace AppViewLite
                         {
                             // TODO: handle deletions for feed likes
                             var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did.Handler), l.Subject.Uri.Rkey);
-                            
+
                             relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
                             relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
@@ -271,18 +273,18 @@ namespace AppViewLite
                 {
                     if (!generateNotifications) relationships.SuppressNotificationGeneration--;
                 }
-            }
+            });
 
             if (continueOutsideLock != null)
             {
                 
                 continueOutsideLock.Value.OutsideLock();
-                lock (relationships)
+                WithRelationshipsLock(relationships =>
                 {
                     var sw = Stopwatch.StartNew();
                     continueOutsideLock.Value.Complete(relationships);
                     relationships.LogPerformance(sw, "WritePost");
-                }
+                });
                 
             }
         }
@@ -493,6 +495,182 @@ namespace AppViewLite
                 return (lastTid, ex);
             }
             
+        }
+
+        public async Task RetrievePlcDirectoryLoopAsync()
+        {
+            while (true)
+            {
+                try
+                {
+                    await RetrievePlcDirectoryAsync();
+                }
+                catch (Exception ex)
+                {
+
+                    Log("PLC directory sync failed: " + ex.ToString());
+                }
+                await Task.Delay(TimeSpan.FromMinutes(10));
+            }
+        }
+
+        private async Task RetrievePlcDirectoryAsync()
+        {
+            var lastRetrievedDidDoc = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey) ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            using var httpClient = new HttpClient();
+
+            var entries = new List<PlcDirectoryEntry>();
+
+            void FlushBatch()
+            {
+                if (entries.Count == 0) return;
+
+
+                var protos = entries.Select(x => (x.did, proto: DidDocToProto(x))).ToArray();
+                Log("Flushing " + entries.Count + " PLC directory entries");
+                WithRelationshipsLock(rels =>
+                {
+                    rels.AvoidFlushes++; // We'll perform many writes, avoid frequent intermediate flushes.
+                    var didResumeWrites = false;
+                    try
+                    {
+                        foreach (var (index, entry) in protos.Index())
+                        {
+                            if (index == protos.Length - 1)
+                            {
+                                // Last entry of the batch, allow the flushes to happen (if necessary)
+                                rels.AvoidFlushes--;
+                                didResumeWrites = true;
+
+                            }
+
+                            var plc = rels.SerializeDid(entry.did);
+                            var handle = entry.proto.Handle;
+                            rels.CompressDidDoc(entry.proto);
+                            rels.DidDocs.AddRange(plc, BlueskyRelationships.SerializeProto(entry.proto));
+
+                            if (handle != null)
+                            {
+                                rels.IndexHandle(handle, plc);
+                                rels.HandleToPossibleDids.Add(BlueskyRelationships.HashWord(handle), plc);
+                            }
+                        }
+                        Log("PLC directory entries flushed.");
+                    }
+                    finally
+                    {
+                        if (!didResumeWrites)
+                            rels.AvoidFlushes--;
+                    }
+                });
+
+
+
+                WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0));
+
+
+                entries.Clear();
+            }
+
+            try
+            {
+                while (true)
+                {
+                    Log("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
+                    using var stream = await httpClient.GetStreamAsync("https://plc.directory/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
+                    var prevLastRetrievedDidDoc = lastRetrievedDidDoc;
+                    var itemInPage = 0;
+                    await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))
+                    {
+                        entries.Add(entry!);
+                        itemInPage++;
+                        if (entry!.createdAt > lastRetrievedDidDoc)
+                        {
+                            // PLC directory contains items with the same createdAt.
+                            // However ?after= is inclusive, so we don't risk losing entries via pagination.
+                            lastRetrievedDidDoc = entry.createdAt;
+                        }
+                        else if (entry.createdAt < lastRetrievedDidDoc)
+                        {
+                            throw new Exception("PLC directory createdAt goes backwards in time");
+                        }
+                    }
+
+                    if (lastRetrievedDidDoc == prevLastRetrievedDidDoc)
+                    {
+                        // We had a page full of IDs all with the same createdAt.
+                        // We'll lose something, but there's no other way of retrieving the missing ones.
+                        lastRetrievedDidDoc = lastRetrievedDidDoc.AddTicks(TimeSpan.TicksPerMillisecond);
+                    }
+                    if (entries!.Count == 0)
+                    {
+                        Log("PLC directory returned no items.");
+                        break;
+                    }
+
+
+                    if ((DateTime.UtcNow - lastRetrievedDidDoc).TotalSeconds < 60)
+                    {
+                        Log("PLC directory sync completed.");
+                        break;
+                    }
+
+                    if (entries.Count >= 50000)
+                    {
+                        FlushBatch();
+                    }
+                }
+            }
+            finally
+            {
+                FlushBatch();
+            }
+
+        }
+
+        private void Log(string v)
+        {
+            Console.Error.WriteLine(v);
+        }
+
+        private static DidDocProto DidDocToProto(PlcDirectoryEntry x)
+        {
+            var proto = new DidDocProto
+            {
+                Date = x.createdAt,
+            };
+
+            var operation = x.operation;
+
+            proto.Pds = operation.service ?? operation.services?.atproto_pds?.endpoint;
+
+            var handle = operation.handle ?? operation.alsoKnownAs?.FirstOrDefault();
+
+
+            if (handle != null)
+            {
+                if (handle.StartsWith("at://", StringComparison.Ordinal))
+                    handle = handle.Substring(5);
+
+                if (Regex.IsMatch(handle, @"^[\w\.\-]{1,1000}$"))
+                {
+                    if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
+                    {
+                        proto.BskySocialUserName = handle.Substring(0, handle.Length - ".bsky.social".Length);
+                    }
+                    else
+                    {
+                        proto.CustomHandle = handle;
+                    }
+                }
+                else
+                {
+                    if (handle.Length > 100) handle = string.Concat(handle.AsSpan(0, 50), "...");
+                    Console.Error.WriteLine("PLC directory invalid handle: " + handle);
+                }
+            }
+
+            return proto;
         }
     }
 }

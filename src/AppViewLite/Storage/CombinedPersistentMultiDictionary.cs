@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.ComponentModel;
 
 namespace AppViewLite.Storage
 {
@@ -18,7 +19,7 @@ namespace AppViewLite.Storage
         PreserveOrder,
     }
     
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable, IFlushable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>
+    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable, IFlushable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
         private readonly string DirectoryPath;
         private readonly PersistentDictionaryBehavior behavior;
@@ -59,15 +60,17 @@ namespace AppViewLite.Storage
                 return new SliceInfo(new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), long.Parse(baseName.Substring(dash + 1)) , reader);
 
             }).Where(x => x.Reader != null).ToList();
+            queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
         }
 
 
-        private MultiDictionary<TKey, TValue> queue = new();
+        private MultiDictionary2<TKey, TValue> queue;
         public List<SliceInfo> slices;
 
         public event EventHandler BeforeFlush;
+        public event EventHandler<CancelEventArgs> ShouldFlush;
 
-        public MultiDictionary<TKey, TValue> QueuedItems => queue;
+        public MultiDictionary2<TKey, TValue> QueuedItems => queue;
         public record struct SliceInfo(DateTime StartTime, long Count, ImmutableMultiDictionaryReader<TKey, TValue> Reader);
 
         
@@ -120,7 +123,7 @@ namespace AppViewLite.Storage
                 {
                     foreach (var key in queue.Groups.OrderBy(x => x.Key))
                     {
-                        writer.AddPresorted(key.Key, CollectionsMarshal.AsSpan(key.Value));
+                        writer.AddPresorted(key.Key, key.Value.AsUnsortedSpan());
                     }
                     writer.Commit();
                 }
@@ -263,7 +266,7 @@ namespace AppViewLite.Storage
 
             if (queue.TryGetValues(key, out var q))
             {
-                value = q[0];
+                value = q.First();
                 return true;
             }
 #else
@@ -287,26 +290,27 @@ namespace AppViewLite.Storage
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             ManagedOrNativeArray<TValue> extraArr = default;
-            if (queue.TryGetValues(key, out var extra))
+            if (queue.TryGetValues(key, out var extraStruct))
             {
+                var extra = extraStruct.ValuesSorted;
                 if (minExclusive != null)
                 {
                     if (maxExclusive != null)
                     {
-                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0 && x.CompareTo(maxExclusive.Value) < 0).Order().ToArray();
+                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0 && x.CompareTo(maxExclusive.Value) < 0).ToArray();
                     }
                     else
                     {
-                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).Order().ToArray();
+                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).ToArray();
                     }
                 }
                 else if (maxExclusive != null)
                 {
-                    extraArr = extra.Where(x => x.CompareTo(maxExclusive.Value) < 0).Order().ToArray();
+                    extraArr = extra.Where(x => x.CompareTo(maxExclusive.Value) < 0).ToArray();
                 }
                 else
                 {
-                    extraArr = extra.Order().ToArray();
+                    extraArr = extra.ToArray();
                 }
             }
             var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
@@ -317,8 +321,10 @@ namespace AppViewLite.Storage
         public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            var extra = queue.TryGetValues(key);
-            if (extra.Count != 0) yield return extra.ToArray();
+            if (queue.TryGetValues(key, out var extra))
+            {
+                yield return extra.ValuesUnsortedArray; // this will actually be sorted
+            }
             for (int i = slices.Count - 1; i >= 0; i--)
             {
                 var vals = slices[i].Reader.GetValues(key);
@@ -344,7 +350,7 @@ namespace AppViewLite.Storage
 
             if (queue.TryGetValues(key, out var q))
             {
-                val = q.ToArray();
+                val = q.ValuesUnsortedArray;
                 return true;
             }
             val = default;
@@ -355,7 +361,7 @@ namespace AppViewLite.Storage
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (queue.TryGetValues(key, out var extra))
             {
-                val = extra.ToArray();
+                val = extra.ValuesUnsortedArray;
                 return true;
             }
             for (int i = slices.Count - 1; i >= 0; i--)
@@ -402,7 +408,7 @@ namespace AppViewLite.Storage
                 var q = queue.TryGetValues(key);
                 if (q.Count != 0)
                 {
-                    foreach (var item in queue.TryGetValues(key))
+                    foreach (var item in queue.TryGetValues(key).ValuesUnsorted)
                     {
                         yield return item;
                     }
@@ -433,9 +439,12 @@ namespace AppViewLite.Storage
                         yield return v[i];
                     }
                 }
-                foreach (var item in queue.TryGetValues(key))
+                if (queue.TryGetValues(key, out var vals))
                 {
-                    yield return item;
+                    foreach (var item in vals.ValuesUnsorted)
+                    {
+                        yield return item;
+                    }
                 }
             }
         }
@@ -472,16 +481,18 @@ namespace AppViewLite.Storage
             if (!Contains(key, value))
                 Add(key, value);
         }
-        public void AddIfMissingBestEffort(TKey key, TValue value)
-        {
-            if (queue.Contains(key, value)) return;
-            // Will be deduped on compactation (for cases where AddIfMissing is too expensive)
-            Add(key, value);
-        }
+
         public void Add(TKey key, TValue value)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            queue.Add(key, value);
+            if (behavior == PersistentDictionaryBehavior.SingleValue)
+            {
+                queue.SetSingleton(key, value);
+            }
+            else
+            {
+                queue.Add(key, value);
+            }
             MaybeFlush();
         }
         public void AddRange(TKey key, ReadOnlySpan<TValue> values)
@@ -497,6 +508,13 @@ namespace AppViewLite.Storage
 
 
         public TimeSpan? MaximumInMemoryBufferDuration { get; set; }
+        public TKey? MaximumKey
+        {
+            get
+            {
+                return EnumerateKeyChunks().Max(x => (TKey?)x[x.Count - 1]);
+            }
+        }
 
         private void MaybeFlush()
         {
@@ -505,6 +523,9 @@ namespace AppViewLite.Storage
             
             if (queue.GroupCount >= ItemsToBuffer || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
+                var shouldFlushArgs = new CancelEventArgs();
+                ShouldFlush(this, shouldFlushArgs);
+                if (shouldFlushArgs.Cancel) return;
                 Flush(false);
             }
             lastFlushed ??= Stopwatch.StartNew();
@@ -590,6 +611,10 @@ namespace AppViewLite.Storage
             }
         }
 
+        public IEnumerable<TKey> EnumerateKeysUnsorted()
+        {
+            return EnumerateKeyChunks().SelectMany(x => x);
+        }
         public IEnumerable<ManagedOrNativeArray<TKey>> EnumerateKeyChunks()
         {
             foreach (var slice in slices)
@@ -597,7 +622,11 @@ namespace AppViewLite.Storage
                 yield return (DangerousHugeReadOnlyMemory<TKey>)slice.Reader.Keys;
             }
             if (queue.GroupCount != 0)
-                yield return queue.Keys.ToArray();
+            {
+                var keys = queue.Keys.ToArray();
+                Array.Sort(keys);
+                yield return keys;
+            }
         }
 
         public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive)
@@ -605,7 +634,7 @@ namespace AppViewLite.Storage
             foreach (var q in queue)
             {
                 if (IsInRange(q.Key, min, maxExclusive))
-                    yield return (q.Key, q.Values.ToArray());
+                    yield return (q.Key, q.Values.ValuesUnsortedArray);
             }
 
             foreach (var slice in slices)

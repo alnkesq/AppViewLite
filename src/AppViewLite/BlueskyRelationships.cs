@@ -72,10 +72,18 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, RecentRepost> UserToRecentReposts;
         public CombinedPersistentMultiDictionary<RepositoryImportKey, byte> CarImports;
         public CombinedPersistentMultiDictionary<Plc, byte> AppViewLiteProfiles;
+        public CombinedPersistentMultiDictionary<Plc, byte> DidDocs;
+        public CombinedPersistentMultiDictionary<HashedWord, Plc> HandleToPossibleDids;
+        public CombinedPersistentMultiDictionary<Pds, byte> PdsIdToString;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, Pds> PdsHashToPdsId;
+        public CombinedPersistentMultiDictionary<DateTime, int> LastRetrievedPlcDirectoryEntry;
+
+
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<IFlushable> disposables = new();
         public const int DefaultBufferedItems = 16 * 1024;
+        public int AvoidFlushes;
 
         public BlueskyRelationships()
             : this(Environment.GetEnvironmentVariable("APPVIEWLITE_DIRECTORY") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"))
@@ -90,7 +98,7 @@ namespace AppViewLite
             disposables.Add(r);
             return r;
         }
-        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
+        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
             return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(BaseDirectory + "/" + name, behavior) { ItemsToBuffer = DefaultBufferedItems, OnCompactation = onCompactation });
         }
@@ -117,12 +125,17 @@ namespace AppViewLite
 
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
             PlcToDid = RegisterDictionary<Plc, byte>("plc-to-did", PersistentDictionaryBehavior.PreserveOrder);
+            PdsIdToString = RegisterDictionary<Pds, byte>("pds-id-to-string", PersistentDictionaryBehavior.PreserveOrder);
+            PdsHashToPdsId = RegisterDictionary<DuckDbUuid, Pds>("pds-hash-to-id", PersistentDictionaryBehavior.SingleValue);
 
 
             EventHandler flushMappings = (s, e) =>
             {
                 PlcToDid.Flush(false);
                 DidHashToUserId.Flush(false);
+
+                PdsIdToString.Flush(false);
+                PdsHashToPdsId.Flush(false);
             };
 
 
@@ -179,6 +192,11 @@ namespace AppViewLite
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterRelationshipDictionary<RelationshipHashedRKey>("feed-generator-like-2", GetApproxRkeyHash24);
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
+            DidDocs = RegisterDictionary<Plc, byte>("did-doc", PersistentDictionaryBehavior.PreserveOrder);
+            HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
+
+
 
             
 
@@ -196,10 +214,19 @@ namespace AppViewLite
             foreach (var item in disposables)
             {
                 item.BeforeFlush += flushMappings;
+                item.ShouldFlush += (_, e) =>
+                {
+                    if (AvoidFlushes > 0)
+                        e.Cancel = true;
+
+
+                };
             }
 
-            CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
 
+            
+            CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
+            LastRetrievedPlcDirectoryEntry.BeforeFlush += (_, _) => GlobalFlush();
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -279,7 +306,7 @@ namespace AppViewLite
             if (PlcToDid.TryGetPreserveOrderSpanAny(plc, out var r))
             {
                 var s = Encoding.UTF8.GetString(r.AsSmallSpan());
-              //  if (SerializeDid(s) != plc) throw new Exception("Did serialization did not roundtrip for " + plc + "/" + s);
+                if (SerializeDid(s) != plc) throw new Exception("Did serialization did not roundtrip for " + plc + "/" + s);
                 return s;
             }
             return null;
@@ -383,7 +410,7 @@ namespace AppViewLite
 
 
 
-            PostTextSearch.AddIfMissingBestEffort(HashPlcForTextSearch(postId.Author), approxPostDate);
+            PostTextSearch.Add(HashPlcForTextSearch(postId.Author), approxPostDate);
 
             if (proto.Text != null)
             {
@@ -534,7 +561,7 @@ namespace AppViewLite
 
         private void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
         {
-            PostTextSearch.AddIfMissingBestEffort(HashWord(word), approxPostDate);
+            PostTextSearch.Add(HashWord(word), approxPostDate);
         }
 
 
@@ -766,10 +793,10 @@ namespace AppViewLite
         private void IndexProfileWord(string word, Plc plc)
         {
             var hash = HashWord(word);
-            ProfileSearch.AddIfMissing(hash, plc);
-            ProfileSearchWithDescription.AddIfMissing(hash, plc);
-            ProfileSearchPrefix8.AddIfMissing(SizeLimitedWord8.Create(word), plc);
-            ProfileSearchPrefix2.AddIfMissing(SizeLimitedWord2.Create(word), plc);
+            ProfileSearch.Add(hash, plc);
+            ProfileSearchWithDescription.Add(hash, plc);
+            ProfileSearchPrefix8.Add(SizeLimitedWord8.Create(word), plc);
+            ProfileSearchPrefix2.Add(SizeLimitedWord2.Create(word), plc);
         }
 
         internal readonly static EfficientTextCompressor textCompressorUnlocked = new();
@@ -1261,7 +1288,7 @@ namespace AppViewLite
 
             if (BitOperations.IsPow2(approxPopularity) && approxPopularity >= minPopularityForIndex)
             {
-                FeedGeneratorSearch.AddIfMissingBestEffort(HashWord("%" + indexName + "-" + approxPopularity), feedId);
+                FeedGeneratorSearch.Add(HashWord("%" + indexName + "-" + approxPopularity), feedId);
             }
         }
 
@@ -1919,10 +1946,39 @@ namespace AppViewLite
 
         internal void IndexHandle(string handle, Plc plc)
         {
+            if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
+            {
+                handle = handle.Substring(0, handle.Length - ".bsky.social".Length);
+            }
             foreach (var word in StringUtils.GetDistinctWords(handle))
             {
                 IndexProfileWord(word, plc);
             }
+        }
+
+
+        internal void CompressDidDoc(DidDocProto proto)
+        {
+            if (proto.Pds == null) return;
+            var pds = proto.Pds;
+
+            var pdsId = SerializePds(pds);
+            proto.PdsId = pdsId.PdsId;
+            proto.Pds = null;
+        }
+
+        public Pds SerializePds(string pds)
+        {
+            var pdsHash = StringUtils.HashUnicodeToUuid(pds);
+
+            if (!PdsHashToPdsId.TryGetSingleValue(pdsHash, out var pdsId))
+            {
+                pdsId = new Pds(checked((PdsIdToString.MaximumKey?.PdsId ?? default) + 1));
+                PdsIdToString.AddRange(pdsId, Encoding.UTF8.GetBytes(pds));
+                PdsHashToPdsId.Add(pdsHash, pdsId);
+            }
+
+            return pdsId;
         }
     }
 

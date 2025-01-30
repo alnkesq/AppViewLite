@@ -131,7 +131,14 @@ namespace AppViewLite
                     if (!generateNotifications) relationships.SuppressNotificationGeneration++;
                     var sw = Stopwatch.StartNew();
                     relationships.EnsureNotDisposed();
+                    
                     var commitPlc = relationships.SerializeDid(commitAuthor);
+
+                    if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
+                    {
+                        relationships.IndexHandle(commitAuthor.Substring(8), commitPlc);
+                    }
+
                     if (record is Like l)
                     {
                         if (l.Subject!.Uri!.Collection == Post.RecordType)

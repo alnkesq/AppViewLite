@@ -744,11 +744,7 @@ namespace AppViewLite
 
             foreach (var word in nameWords)
             {
-                var hash = HashWord(word);
-                ProfileSearch.AddIfMissing(hash, plc);
-                ProfileSearchWithDescription.AddIfMissing(hash, plc);
-                ProfileSearchPrefix8.AddIfMissing(SizeLimitedWord8.Create(word), plc);
-                ProfileSearchPrefix2.AddIfMissing(SizeLimitedWord2.Create(word), plc);
+                IndexProfileWord(word, plc);
             }
             foreach (var word in descriptionWords)
             {
@@ -765,6 +761,15 @@ namespace AppViewLite
             
 
             Profiles.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
+        }
+
+        private void IndexProfileWord(string word, Plc plc)
+        {
+            var hash = HashWord(word);
+            ProfileSearch.AddIfMissing(hash, plc);
+            ProfileSearchWithDescription.AddIfMissing(hash, plc);
+            ProfileSearchPrefix8.AddIfMissing(SizeLimitedWord8.Create(word), plc);
+            ProfileSearchPrefix2.AddIfMissing(SizeLimitedWord2.Create(word), plc);
         }
 
         internal readonly static EfficientTextCompressor textCompressorUnlocked = new();
@@ -1910,6 +1915,14 @@ namespace AppViewLite
             }
 
             return false;
+        }
+
+        internal void IndexHandle(string handle, Plc plc)
+        {
+            foreach (var word in StringUtils.GetDistinctWords(handle))
+            {
+                IndexProfileWord(word, plc);
+            }
         }
     }
 

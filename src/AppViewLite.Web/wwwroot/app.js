@@ -105,6 +105,10 @@ function applyPageFocus() {
         searchbox.setSelectionRange(query.length, query.length);
     }
     
+    updateBottomBarSelectedTab();
+}
+
+function updateBottomBarSelectedTab() { 
     var url = new URL(window.location.href);
     for (const a of document.querySelectorAll('.bottom-bar a')) {
         var path = new URL(a.href).pathname
@@ -113,7 +117,6 @@ function applyPageFocus() {
         a.lastElementChild.classList.toggle('display-none', !selected)
     }
 }
-
 
 if (hasBlazor) {
     // https://github.com/dotnet/aspnetcore/issues/51338#issuecomment-1766578689
@@ -173,6 +176,7 @@ async function applyPage(href, preferRefresh, scrollToTop) {
     if (currentlyLoadedPage == href || preferRefresh) { 
         recentPages = recentPages.filter(x => x.href != href);
     }
+    updateBottomBarSelectedTab();
     try {
         var [main, title] = await fetchOrReusePageAsync(href, token);
     } catch (e) { 
@@ -607,7 +611,7 @@ async function updateLiveSubscriptions() {
     var visiblePosts = [...document.querySelectorAll('.post')].map(x => x.dataset.postdid + '/' + x.dataset.postrkey);
     var focalDid = document.querySelector('.post-list[data-focalpostdid]')?.dataset?.focalpostdid;
     if (!focalDid) focalDid = null;
-    
+
     var visiblePostsSet = new Set(visiblePosts);
     var toSubscribe = visiblePosts.filter(x => !liveUpdatesPostIds.has(x));
     var toUnsubscribe = [...liveUpdatesPostIds].filter(x => !visiblePostsSet.has(x));

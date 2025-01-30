@@ -31,7 +31,7 @@ namespace AppViewLite.Models
             bw.Write((byte)format); // will be overwritten later
             var date = Date;
             if (date < ApproximateDateTime32.MinValueAsDateTime)
-                date = default;
+                date = ApproximateDateTime32.MinValueAsDateTime;
             bw.Write(Unsafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)date));
             if (PdsId != null)
             {

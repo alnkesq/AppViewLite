@@ -600,8 +600,8 @@ var userActions = {
 
 function formatTwoSignificantDigits(displayValue) { 
     var r = (Math.floor(displayValue * 10) / 10).toFixed(1);
-    if (r.Length > 3)
-        r = Math.floor(displayValue);
+    if (r.length > 3)
+        r = Math.floor(displayValue) + '';
     return r;
 
 }

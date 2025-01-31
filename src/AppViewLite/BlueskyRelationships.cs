@@ -1799,7 +1799,7 @@ namespace AppViewLite
 
         internal void NotifyPostStatsChange(PostId postId, Plc commitPlc)
         {
-            PostLiveSubscribersThreadSafe.MaybeNotify(postId, (handler) => handler(new PostStatsNotification(postId, TryGetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc));
+            PostLiveSubscribersThreadSafe.MaybeNotify(postId, (handler) => handler(new PostStatsNotification(postId, GetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc));
         }
 
         //private Dictionary<PostId, int> notifDebug = new();
@@ -1811,7 +1811,7 @@ namespace AppViewLite
 
         public BlueskyList GetList(Relationship listId, ListData? listData = null)
         {
-            var did = TryGetDid(listId.Actor);
+            var did = GetDid(listId.Actor);
             return new BlueskyList
             {
                 Did = did,
@@ -1897,7 +1897,7 @@ namespace AppViewLite
             return new BlueskyFeedGenerator
             {
                  Data = data,
-                 Did = TryGetDid(plc),
+                 Did = GetDid(plc),
                  RKey = rkey,
                  Author = GetProfile(plc),
                  LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey))
@@ -1966,7 +1966,7 @@ namespace AppViewLite
                 var op = TryGetPostData(rootPostId);
                 if (op?.Facets != null)
                 {
-                    var rootDid = TryGetDid(replyAuthor);
+                    var rootDid = GetDid(replyAuthor);
                     if (op?.Facets?.Any(x => x.Did == rootDid) == true)
                         return true;
                 }

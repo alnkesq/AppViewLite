@@ -23,9 +23,13 @@ using FishyFlip.Lexicon.App.Bsky.Graph;
 using AppViewLite.Numerics;
 using System.Diagnostics;
 using System.Globalization;
-using AppViewLite;
 using PeterO.Cbor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
+using DnsClient;
+using System.Reflection.Metadata;
+using DnsClient.Protocol;
+using System.Text;
+using System.Net.Http.Json;
 
 namespace AppViewLite
 {
@@ -33,7 +37,6 @@ namespace AppViewLite
     {
         public static BlueskyEnrichedApis Instance;
         internal ATProtocol proto;
-        internal ATProtocol protoForHandleResolution;
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
@@ -44,19 +47,10 @@ namespace AppViewLite
                 .WithInstanceUrl(new Uri(pdsConfig.DefaultHost))
                 .WithATDidCache(atprotoProvider?.AtProtoHosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
                 .Build();
-            this.protoForHandleResolution = new ATProtocolBuilder().Build(); // bsky.app
             this.atprotoProvider = pdsConfig;
         }
 
 
-
-        public async Task<string> ResolveHandleAsync(string handle)
-        {
-            if (handle.StartsWith('@')) handle = handle.Substring(1);
-            if (handle.StartsWith("did:", StringComparison.Ordinal)) return handle;
-            var resolved = (await protoForHandleResolution.ResolveHandleAsync(new ATHandle(handle))).HandleResult();
-            return resolved!.Did!.ToString();
-        }
 
 
 
@@ -1702,8 +1696,88 @@ namespace AppViewLite
 
         }
 
+        public async Task<string> ResolveHandleAsync(string handle, CancellationToken ct = default)
+        {
+            handle = handle.ToLowerInvariant();
+
+            if (handle.StartsWith('@')) handle = handle.Substring(1);
+            if (handle.StartsWith("did:", StringComparison.Ordinal))
+            {
+                EnsureValidDid(handle, handle);
+                return handle;
+            }
+
+            var lookup = new LookupClient();
+            if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
+            {
+                var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
+                var record = result.Answers.TxtRecords()
+                    .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
+                    .FirstOrDefault(x => x != null && x.StartsWith("did=", StringComparison.Ordinal));
+                if (record != null)
+                {
+                    var did = record.Substring(4);
+                    EnsureValidDid(did);
+                    return did;
+                }
+            }
+            var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did", ct)).Trim();
+            EnsureValidDid(s);
+            return s;
+        }
+
+        private static void EnsureValidDid(string did)
+        {
+            if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+            {
+                if (did.Length != 32) throw new Exception();
+            }
+            else if (did.StartsWith("did:web:", StringComparison.Ordinal))
+            {
+                //var domain2 = did.Substring(8);
+
+                // this is actually ok
+                //if (domain != domain2) throw new Exception("Mismatching domain for did:web: and .well-known/TXT");
+            }
+            else throw new Exception("Invalid did: " + did);
+        }
+
+        internal async Task<DidDocProto> GetDidDocAsync(string did)
+        {
+
+            string didDocUrl;
+            if (did.StartsWith("did:web:", StringComparison.Ordinal))
+            {
+                var host = did.Substring(8);
+                didDocUrl = "https://" + host + "/.well-known/did.json";
+            }
+            else if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+            {
+                didDocUrl = "https://plc.directory/" + did;
+            }
+            else throw new ArgumentException("Unsupported did method: " + did);
+
+
+            var didDocJson = await DefaultHttpClient.GetFromJsonAsync<DidWebRoot>(didDocUrl)!;
+            var didDoc = Indexer.DidDocToProto(didDocJson);
+            return didDoc;
+        }
+
+        public async Task<string> GetVerifiedHandleAsync(string did)
+        {
+            var didDoc = await GetDidDocAsync(did);
+
+            return didDoc.Handle;
+        }
+
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
-        private readonly static HttpClient DefaultHttpClient = new();
+        private readonly static HttpClient DefaultHttpClient;
+
+        static BlueskyEnrichedApis()
+        {
+            DefaultHttpClient = new HttpClient();
+            DefaultHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+        }
     }
 }
 

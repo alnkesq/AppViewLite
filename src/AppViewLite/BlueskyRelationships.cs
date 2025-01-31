@@ -1208,7 +1208,7 @@ namespace AppViewLite
             };
         }
 
-        private DidDocProto? TryGetLatestDidDoc(Plc plc)
+        public DidDocProto? TryGetLatestDidDoc(Plc plc)
         {
             if (DidDocs.TryGetPreserveOrderSpanLatest(plc, out var bytes))
             {

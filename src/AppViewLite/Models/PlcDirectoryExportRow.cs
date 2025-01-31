@@ -49,5 +49,32 @@ namespace AppViewLite.Models
         public string atproto { get; set; }
     }
 
+
+
+    public class DidWebRoot
+    {
+        public string[] context { get; set; }
+        public string id { get; set; }
+        public string[] alsoKnownAs { get; set; }
+        public DidWebVerificationMethod[] verificationMethod { get; set; }
+        public DidWebService[] service { get; set; }
+    }
+
+    public class DidWebVerificationMethod
+    {
+        public string id { get; set; }
+        public string type { get; set; }
+        public string controller { get; set; }
+        public string publicKeyMultibase { get; set; }
+    }
+
+    public class DidWebService
+    {
+        public string id { get; set; }
+        public string type { get; set; }
+        public string serviceEndpoint { get; set; }
+    }
+
+
 }
 

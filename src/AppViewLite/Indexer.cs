@@ -586,7 +586,7 @@ namespace AppViewLite
                     var itemInPage = 0;
                     await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))
                     {
-                        entries.Add(DidDocToProto(entry!, entry!.did));
+                        entries.Add(DidDocToProto(entry!));
                         itemInPage++;
                         if (entry!.createdAt > lastRetrievedDidDoc)
                         {
@@ -639,19 +639,32 @@ namespace AppViewLite
             Console.Error.WriteLine(v);
         }
 
-        private static DidDocProto DidDocToProto(PlcDirectoryEntry x, string trustedDid)
+
+        public static DidDocProto DidDocToProto(PlcDirectoryEntry entry)
+        {
+            var operation = entry.operation;
+            return DidDocToProto(
+                operation.service ?? operation.services?.atproto_pds?.endpoint,
+                operation.handle ?? operation.alsoKnownAs?.FirstOrDefault(),
+                entry.did,
+                entry.createdAt);
+        }
+
+
+        public static DidDocProto DidDocToProto(DidWebRoot root)
+        {
+            return DidDocToProto(root.service.FirstOrDefault(x => x.id == "#atproto_pds")?.serviceEndpoint, root.alsoKnownAs.FirstOrDefault(), null, default);
+        }
+        public static DidDocProto DidDocToProto(string? pds, string? handle, string? trustedDid, DateTime date)
         {
             var proto = new DidDocProto
             {
-                Date = x.createdAt,
+                Date = date,
                 TrustedDid = trustedDid
             };
 
-            var operation = x.operation;
 
-            proto.Pds = operation.service ?? operation.services?.atproto_pds?.endpoint;
-
-            var handle = operation.handle ?? operation.alsoKnownAs?.FirstOrDefault();
+            proto.Pds = pds;
 
 
             if (handle != null)
@@ -679,6 +692,8 @@ namespace AppViewLite
 
             return proto;
         }
+
+
     }
 }
 

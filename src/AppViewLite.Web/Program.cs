@@ -126,7 +126,7 @@ namespace AppViewLite.Web
             app.MapHub<AppViewLiteHub>("/api/live-updates");
             app.MapControllers();
 
-            if (ListenToFirehose)
+            if (ListenToFirehose && !Relationships.IsReadOnly)
             {
                 
                 

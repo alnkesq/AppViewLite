@@ -87,7 +87,7 @@ namespace AppViewLite
         public int AvoidFlushes;
 
         public BlueskyRelationships()
-            : this(Environment.GetEnvironmentVariable("APPVIEWLITE_DIRECTORY") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"))
+            : this(Environment.GetEnvironmentVariable("APPVIEWLITE_DIRECTORY") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"), false)
         { 
         }
 
@@ -108,7 +108,8 @@ namespace AppViewLite
             return Register(new RelationshipDictionary<TTarget>(BaseDirectory + "/" + name, targetToApproxTarget));
         }
 
-        public BlueskyRelationships(string basedir)
+        public bool IsReadOnly { get; private set; }
+        public BlueskyRelationships(string basedir, bool isReadOnly)
         {
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
             ProtoBuf.Serializer.PrepareSerializer<RepositoryImportEntry>();
@@ -117,6 +118,7 @@ namespace AppViewLite
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostgate>();
             ProtoBuf.Serializer.PrepareSerializer<AppViewLiteProfileProto>();
             this.BaseDirectory = basedir;
+            this.IsReadOnly = isReadOnly;
             Directory.CreateDirectory(basedir);
 
 
@@ -214,22 +216,33 @@ namespace AppViewLite
                 }
             }
 
-            foreach (var item in disposables)
+
+            if (IsReadOnly)
             {
-                item.BeforeFlush += flushMappings;
-                item.ShouldFlush += (table, e) =>
+                foreach (var item in disposables)
                 {
-                    if (AvoidFlushes > 0 && !(table == Follows || table == PostData || table == Likes /* big tables unrelated to PLC directory indexing */))
-                        e.Cancel = true;
-
-
-                };
+                    item.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
+                    item.ShouldFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
+                }
             }
+            else
+            {
+
+                foreach (var item in disposables)
+                {
+                    item.BeforeFlush += flushMappings;
+                    item.ShouldFlush += (table, e) =>
+                    {
+                        if (AvoidFlushes > 0 && !(table == Follows || table == PostData || table == Likes /* big tables unrelated to PLC directory indexing */))
+                            e.Cancel = true;
 
 
-            
-            CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
-            LastRetrievedPlcDirectoryEntry.BeforeFlush += (_, _) => GlobalFlush();
+                    };
+                }
+
+                CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
+                LastRetrievedPlcDirectoryEntry.BeforeFlush += (_, _) => GlobalFlush();
+            }
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)

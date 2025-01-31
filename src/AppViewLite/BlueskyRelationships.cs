@@ -1575,6 +1575,8 @@ namespace AppViewLite
 
             Notification? oldestNew = newNotificationsCore.Length != 0 ? newNotificationsCore[^1] : null;
 
+            var distinctOldCoalesceKeys = new HashSet<NotificationCoalesceKey>();
+
             var oldNotifications =
                 Notifications.GetValuesSortedDescending(user, null, oldestNew)
                 .Select(x =>
@@ -1583,7 +1585,12 @@ namespace AppViewLite
                     return RehydrateNotification(x, user);
                 })
                 .Where(x => x != null)
-                .Take(10)
+                .TakeWhile(x => 
+                {
+                    distinctOldCoalesceKeys.Add(x.CoalesceKey);
+                    if (distinctOldCoalesceKeys.Count > 10) return false;
+                    return true;
+                })
                 .ToArray();
 
             return (newNotifications, oldNotifications, newestNotification ?? default);

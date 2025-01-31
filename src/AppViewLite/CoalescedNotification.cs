@@ -18,6 +18,8 @@ namespace AppViewLite
         public BlueskyFeedGenerator? Feed;
         public RelationshipHashedRKey FeedRKeyHash;
 
+        public NotificationCoalesceKey CoalesceKey => new(PostId, Kind, FeedRKeyHash);
+
         public string KindDisplayText 
         {
             get
@@ -39,5 +41,7 @@ namespace AppViewLite
         }
 
     }
+
+    public record struct NotificationCoalesceKey(PostId PostId, NotificationKind Kind, RelationshipHashedRKey FeedRKeyHash);
 }
 

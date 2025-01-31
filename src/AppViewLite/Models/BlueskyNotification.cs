@@ -1,8 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
@@ -15,6 +11,7 @@ namespace AppViewLite.Models
         public bool Hidden;
         public Notification NotificationCore;
         public BlueskyFeedGenerator? Feed;
+        public NotificationCoalesceKey CoalesceKey => new(Post?.PostId ?? default, Kind, Feed?.RKeyHash ?? default);
     }
 }
 

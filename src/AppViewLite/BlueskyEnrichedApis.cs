@@ -1118,9 +1118,9 @@ namespace AppViewLite
             foreach (var raw in rawNotifications)
             {
                 if (raw.Hidden) continue;
-                var key = (PostId: raw.Post?.PostId ?? default, raw.Kind, FeedRKeyHash: raw.Feed?.RKeyHash ?? default);
+                var key = raw.CoalesceKey;
 
-                var c = coalescedList.TakeWhile(x => (x.LatestDate - raw.EventDate).TotalHours < 24).FirstOrDefault(x => (x.PostId, x.Kind, x.FeedRKeyHash) == key);
+                var c = coalescedList.TakeWhile(x => (x.LatestDate - raw.EventDate).TotalHours < 24).FirstOrDefault(x => x.CoalesceKey == key);
                 if (c == null)
                 {
                     c = new CoalescedNotification

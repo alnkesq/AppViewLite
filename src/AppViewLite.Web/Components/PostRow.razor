@@ -142,7 +142,7 @@
         string? navigateTo = "/";
         if (Post.InReplyToPostId != null)
         {
-            var inReplyToDid = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.TryGetDid(Post.InReplyToPostId.Value.Author));
+            var inReplyToDid = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetDid(Post.InReplyToPostId.Value.Author));
             navigateTo = "/@" + inReplyToDid + "/" + Post.InReplyToPostId.Value.PostRKey;
         }
         await BlueskyEnrichedApis.Instance.DeletePostAsync(Post.PostId.PostRKey, RequestContext);

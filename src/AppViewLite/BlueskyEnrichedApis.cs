@@ -1703,7 +1703,7 @@ namespace AppViewLite
             if (handle.StartsWith('@')) handle = handle.Substring(1);
             if (handle.StartsWith("did:", StringComparison.Ordinal))
             {
-                EnsureValidDid(handle, handle);
+                EnsureValidDid(handle);
                 return handle;
             }
 

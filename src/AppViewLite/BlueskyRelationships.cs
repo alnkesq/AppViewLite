@@ -317,7 +317,7 @@ namespace AppViewLite
         }
         private bool _disposed;
 
-        public string? TryGetDid(Plc plc)
+        public string GetDid(Plc plc)
         {
             if (PlcToDid.TryGetPreserveOrderSpanAny(plc, out var r))
             {
@@ -325,7 +325,7 @@ namespace AppViewLite
                 if (SerializeDid(s) != plc) throw new Exception("Did serialization did not roundtrip for " + plc + "/" + s);
                 return s;
             }
-            return null;
+            throw new Exception("Missing DID string for Plc(" + plc + ")");
         }
         public Plc SerializeDid(string did)
         {
@@ -1196,7 +1196,7 @@ namespace AppViewLite
         public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null)
         {
             var basic = GetProfileBasicInfo(plc);
-            var did = TryGetDid(plc);
+            var did = GetDid(plc);
             var didDoc = TryGetLatestDidDoc(plc);
             return new BlueskyProfile()
             {

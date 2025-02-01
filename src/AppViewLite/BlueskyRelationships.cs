@@ -329,35 +329,29 @@ namespace AppViewLite
             }
             throw new Exception("Missing DID string for Plc(" + plc + ")");
         }
+
+
+
         public Plc SerializeDid(string did)
-        {
-            return SerializeDidCore(did, addIfMissing: true);
-        }
-
-
-
-        public Plc SerializeDidCore(string did, bool addIfMissing)
         {
             if (!did.StartsWith("did:", StringComparison.Ordinal)) throw new ArgumentException();
             if (!did.StartsWith("did:web:", StringComparison.Ordinal) && !did.StartsWith("did:plc:", StringComparison.Ordinal)) throw new ArgumentException();
         
             var hash = StringUtils.HashUnicodeToUuid(did);
 
-            
 
-            if (!DidHashToUserId.TryGetSingleValue(hash, out var v))
+
+
+            if (DidHashToUserId.TryGetSingleValue(hash, out var plc))
             {
-                v = new(checked((int)DidHashToUserId.GroupCount + 1));
-                if (!addIfMissing) throw new Exception("Unknown DID.");
-                DidHashToUserId.Add(hash, v);
+                return plc;
             }
 
-            if (!PlcToDid.ContainsKey(v))
-            {
-                if (!addIfMissing) throw new Exception("Unknown DID.");
-                PlcToDid.AddRange(v, Encoding.UTF8.GetBytes(did));
-            }
-            return v;
+            plc = new Plc(checked((PlcToDid.MaximumKey ?? default).PlcValue + 1));
+            PlcToDid.AddRange(plc, Encoding.UTF8.GetBytes(did));
+            DidHashToUserId.Add(hash, plc);
+
+            return plc;
 
         }
         public PostId GetPostId(StrongRef subject, bool ignoreIfNotPost = false)

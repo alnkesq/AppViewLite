@@ -80,6 +80,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, HandleVerificationResult> HandleToDidVerifications;
 
         public DateTime PlcDirectorySyncDate;
+        private Plc LastAssignedPlc;
         public TimeSpan PlcDirectoryStaleness => DateTime.UtcNow - PlcDirectorySyncDate;
        
 
@@ -207,6 +208,7 @@ namespace AppViewLite
             
 
             PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
+            LastAssignedPlc = PlcToDid.MaximumKey ?? default;
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {
@@ -244,6 +246,7 @@ namespace AppViewLite
 
                 CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
                 LastRetrievedPlcDirectoryEntry.BeforeFlush += (_, _) => GlobalFlush();
+
             }
         }
 
@@ -347,7 +350,8 @@ namespace AppViewLite
                 return plc;
             }
 
-            plc = new Plc(checked((PlcToDid.MaximumKey ?? default).PlcValue + 1));
+            plc = new Plc(checked(LastAssignedPlc.PlcValue + 1));
+            LastAssignedPlc = plc;
             PlcToDid.AddRange(plc, Encoding.UTF8.GetBytes(did));
             DidHashToUserId.Add(hash, plc);
 

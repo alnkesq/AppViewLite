@@ -12,8 +12,8 @@ namespace AppViewLite.Storage
         public string PathPrefix;
         private readonly PersistentDictionaryBehavior behavior;
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
-        private TKey MinimumKey;
-        private TKey MaximumKey;
+        public TKey MinimumKey { get; private set; }
+        public TKey MaximumKey { get; private set; }
         public ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
         {
             this.PathPrefix = pathPrefix;

@@ -509,7 +509,16 @@ namespace AppViewLite.Storage
         {
             get
             {
-                return EnumerateKeyChunks().Max(x => (TKey?)x[x.Count - 1]);
+                var maximumKey = slices.Max(x => (TKey?)x.Reader.MaximumKey);
+                if (queue.GroupCount != 0)
+                {
+                    foreach (var key in queue.Keys)
+                    {
+                        if (maximumKey == null || key.CompareTo(maximumKey.Value) > 0)
+                            maximumKey = key;
+                    }
+                }
+                return maximumKey;
             }
         }
 

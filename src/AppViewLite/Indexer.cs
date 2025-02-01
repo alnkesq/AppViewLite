@@ -138,7 +138,7 @@ namespace AppViewLite
 
                     if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
                     {
-                        relationships.IndexHandle(commitAuthor.Substring(8), commitPlc);
+                        relationships.IndexHandle(null, commitAuthor);
                     }
 
                     if (record is Like l)
@@ -543,17 +543,11 @@ namespace AppViewLite
 
                             }
 
-                            var plc = rels.SerializeDid(entry.TrustedDid);
-                            var handle = entry.Handle;
+                            var plc = rels.SerializeDid(entry.TrustedDid!);
                             rels.CompressDidDoc(entry);
-                            //rels.DidDocs.AddRange(plc, BlueskyRelationships.SerializeProto(entry.proto));
                             rels.DidDocs.AddRange(plc, entry.SerializeToBytes());
 
-                            if (handle != null)
-                            {
-                                rels.IndexHandle(handle, plc);
-                                rels.HandleToPossibleDids.Add(BlueskyRelationships.HashWord(handle), plc);
-                            }
+                            rels.IndexHandle(entry.Handle, entry.TrustedDid!);
                         }
                         Log("PLC directory entries flushed.");
                     }

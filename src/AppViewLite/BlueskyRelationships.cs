@@ -77,9 +77,11 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Pds, byte> PdsIdToString;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Pds> PdsHashToPdsId;
         public CombinedPersistentMultiDictionary<DateTime, int> LastRetrievedPlcDirectoryEntry;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, HandleVerificationResult> HandleToDidVerifications;
 
         public DateTime PlcDirectorySyncDate;
-        public bool ShouldUseBskyAppForHandleResolution => (DateTime.UtcNow - PlcDirectorySyncDate).TotalDays >= 7;
+        public TimeSpan PlcDirectoryStaleness => DateTime.UtcNow - PlcDirectorySyncDate;
+       
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<IFlushable> disposables = new();
@@ -198,7 +200,7 @@ namespace AppViewLite
             DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
-            
+            HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications");
             
            
 
@@ -1981,18 +1983,6 @@ namespace AppViewLite
             return false;
         }
 
-        internal void IndexHandle(string handle, Plc plc)
-        {
-            if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
-            {
-                handle = handle.Substring(0, handle.Length - ".bsky.social".Length);
-            }
-            foreach (var word in StringUtils.GetDistinctWords(handle))
-            {
-                IndexProfileWord(word, plc);
-            }
-        }
-
 
         internal void CompressDidDoc(DidDocProto proto)
         {
@@ -2033,6 +2023,41 @@ namespace AppViewLite
             if (PdsIdToString.TryGetPreserveOrderSpanAny(pds, out var utf8))
                 return Encoding.UTF8.GetString(utf8.AsSmallSpan());
             throw new Exception("Unknown PDS id:" + pds);
+        }
+
+        internal void IndexHandleCore(string? handle, string did, Plc plc)
+        {
+            if (handle == null) return;
+
+            HandleToPossibleDids.Add(BlueskyRelationships.HashWord(handle), plc);
+
+            if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
+            {
+                handle = handle.Substring(0, handle.Length - ".bsky.social".Length);
+            }
+            foreach (var word in StringUtils.GetDistinctWords(handle))
+            {
+                IndexProfileWord(word, plc);
+            }
+        }
+
+        internal void IndexHandle(string? handle, string did)
+        {
+            var plc = SerializeDid(did);
+            IndexHandleCore(handle, did, plc);
+
+            if (did.StartsWith("did:web:", StringComparison.Ordinal)) 
+            {
+                var domain = did.Substring(8);
+                if (domain != handle)
+                    IndexHandleCore(domain, did, plc);
+            }
+        }
+
+        internal void AddHandleToDidVerification(string handle, Plc plc)
+        {
+            if (string.IsNullOrEmpty(handle) || handle.Contains(':') || plc == default) throw new ArgumentException();
+            HandleToDidVerifications.Add(StringUtils.HashUnicodeToUuid(handle), new HandleVerificationResult((ApproximateDateTime32)DateTime.UtcNow, plc));
         }
     }
 

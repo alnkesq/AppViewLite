@@ -1696,10 +1696,12 @@ namespace AppViewLite
 
         }
 
-        public async Task<string> ResolveHandleAsync(string handle, CancellationToken ct = default)
+        public TimeSpan HandleToDidMaxStale = TimeSpan.FromDays(10);
+        public TimeSpan DidDocMaxStale = TimeSpan.FromDays(2);
+
+        public async Task<string> ResolveHandleAsync(string handle, bool forceRefresh = false, CancellationToken ct = default)
         {
             handle = handle.ToLowerInvariant();
-
             if (handle.StartsWith('@')) handle = handle.Substring(1);
             if (handle.StartsWith("did:", StringComparison.Ordinal))
             {
@@ -1707,6 +1709,103 @@ namespace AppViewLite
                 return handle;
             }
 
+            var handleUuid = StringUtils.HashUnicodeToUuid(handle);
+
+
+            var (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
+            {
+                var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
+
+                var plc = lastVerification.Plc;
+                var did = plc != default ? rels.GetDid(plc) : null;
+
+                if (plc != default)
+                {
+                    // Check if we're aware of PLC directory updates for this handle. If so, force a refresh.
+                    foreach (var possiblePlc in rels.HandleToPossibleDids.GetValuesUnsorted(BlueskyRelationships.HashWord(handle)).Distinct())
+                    {
+
+                        var didDoc = rels.TryGetLatestDidDoc(possiblePlc);
+                        if (didDoc != null && didDoc.Date > lastVerification.VerificationDate && (didDoc.Handle != handle || possiblePlc != plc))
+                        {
+                            forceRefresh = true;
+                            break;
+                        }
+                        
+                    }
+                }
+
+                return (lastVerification.VerificationDate, plc, did);
+            });
+
+
+
+            if (forceRefresh || plc == default || (DateTime.UtcNow - handleToDidVerificationDate) > HandleToDidMaxStale)
+            {
+                await ResolveHandleCoreAsync(handle, ct);
+                (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
+                {
+                    var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
+                    var did = lastVerification.Plc != default ? rels.GetDid(lastVerification.Plc) : null;
+                    return (lastVerification.VerificationDate, lastVerification.Plc, did);
+                });
+            }
+            if (plc == default) throw new Exception();
+            var didDoc = WithRelationshipsLock(rels =>
+            {
+                return rels.TryGetLatestDidDoc(plc);
+            });
+
+
+
+            if (forceRefresh || IsDidDocStale(did, didDoc))
+            {
+                // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
+                // otherwise did:web, but they're in a different namespace
+                didDoc = await GetDidDocAsync(did);
+                didDoc.Date = DateTime.UtcNow;
+                WithRelationshipsLock(rels =>
+                {
+                    rels.CompressDidDoc(didDoc);
+                    rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
+                    didDoc = rels.TryGetLatestDidDoc(plc);
+                });
+            }
+            if (didDoc.Handle != handle)
+            {
+                if (!forceRefresh)
+                {
+                    return await ResolveHandleAsync(handle, forceRefresh: true, ct);
+                }
+
+
+                throw new Exception($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
+            }
+
+            return did;
+        }
+
+        private bool IsDidDocStale(string did, DidDocProto? didDoc)
+        {
+            if (didDoc == null) return true;
+            if ((DateTime.UtcNow - didDoc.Date) <= DidDocMaxStale)
+            {
+                return false;
+            }
+            if (did.StartsWith("did:plc:", StringComparison.Ordinal) && PlcDirectoryStaleness <= DidDocMaxStale)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public DateTime PlcDirectorySyncDate => relationshipsUnlocked.PlcDirectorySyncDate;
+        public TimeSpan PlcDirectoryStaleness => relationshipsUnlocked.PlcDirectoryStaleness;
+
+        private async Task<string> ResolveHandleCoreAsync(string handle, CancellationToken ct)
+        {
+            Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
             var lookup = new LookupClient();
             if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
             {
@@ -1718,13 +1817,26 @@ namespace AppViewLite
                 {
                     var did = record.Substring(4);
                     EnsureValidDid(did);
+                    WithRelationshipsLock(rels =>
+                    {
+                        rels.IndexHandle(handle, did);
+                        rels.AddHandleToDidVerification(handle, rels.SerializeDid(did));
+                    });
                     return did;
                 }
             }
+
             var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did", ct)).Trim();
             EnsureValidDid(s);
+            WithRelationshipsLock(rels =>
+            {
+                rels.IndexHandle(handle, s);
+                rels.AddHandleToDidVerification(handle, rels.SerializeDid(s));
+            });
             return s;
         }
+
+
 
         private static void EnsureValidDid(string did)
         {
@@ -1744,7 +1856,7 @@ namespace AppViewLite
 
         internal async Task<DidDocProto> GetDidDocAsync(string did)
         {
-
+            Console.Error.WriteLine("GetDidDocAsync: " + did);
             string didDocUrl;
             if (did.StartsWith("did:web:", StringComparison.Ordinal))
             {

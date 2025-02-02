@@ -1596,7 +1596,7 @@ namespace AppViewLite
             {
                 var items = WithRelationshipsLock(rels =>
                 {
-                    return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
+                    return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix, out _), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
                     .Select(x => rels.GetProfile(x))
                     .Where(x =>
                     {

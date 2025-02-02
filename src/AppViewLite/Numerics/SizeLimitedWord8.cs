@@ -11,15 +11,21 @@ namespace AppViewLite.Numerics
     {
         private byte _byte;
 
-        public static SizeLimitedWord8 Create(string? str)
+        public static SizeLimitedWord8 Create(string? str, out bool truncated)
         {
+            truncated = false;
             if (string.IsNullOrEmpty(str)) return default;
-            return Create(Encoding.UTF8.GetBytes(str));
+            return Create(Encoding.UTF8.GetBytes(str), out truncated);
         }
 
-        public static SizeLimitedWord8 Create(ReadOnlySpan<byte> utf8)
+        public static SizeLimitedWord8 Create(ReadOnlySpan<byte> utf8, out bool truncated)
         {
-            if (utf8.Length > MaxLength) utf8 = utf8.Slice(0, MaxLength);
+            truncated = false;
+            if (utf8.Length > MaxLength)
+            {
+                truncated = true;
+                utf8 = utf8.Slice(0, MaxLength);
+            }
             var result = new SizeLimitedWord8();
             Span<byte> resultAsSpan = result;
             utf8.CopyTo(resultAsSpan);
@@ -94,7 +100,7 @@ namespace AppViewLite.Numerics
                     break;
                 }
             }
-            return Create(maxExclusive);
+            return Create(maxExclusive, out _);
         }
     }
 }

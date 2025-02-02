@@ -38,8 +38,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, DateTime> FeedGeneratorDeletions;
         public CombinedPersistentMultiDictionary<HashedWord, RelationshipHashedRKey> FeedGeneratorSearch;
-        public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearch;
-        public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchWithDescription;
+        public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchLong;
+        public CombinedPersistentMultiDictionary<HashedWord, Plc> ProfileSearchDescriptionOnly;
         public CombinedPersistentMultiDictionary<SizeLimitedWord8, Plc> ProfileSearchPrefix8;
         public CombinedPersistentMultiDictionary<SizeLimitedWord2, Plc> ProfileSearchPrefix2;
         public RelationshipDictionary<RelationshipHashedRKey> FeedGeneratorLikes;
@@ -155,8 +155,8 @@ namespace AppViewLite
             Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
             Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
-            ProfileSearch = RegisterDictionary<HashedWord, Plc>("profile-search");
-            ProfileSearchWithDescription = RegisterDictionary<HashedWord, Plc>("profile-search-with-description");
+            ProfileSearchLong = RegisterDictionary<HashedWord, Plc>("profile-search-long");
+            ProfileSearchDescriptionOnly = RegisterDictionary<HashedWord, Plc>("profile-search-description-only");
             ProfileSearchPrefix8 = RegisterDictionary<SizeLimitedWord8, Plc>("profile-search-prefix");
             ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
@@ -636,17 +636,38 @@ namespace AppViewLite
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
 
-            var wordsEnumerable = searchTermsArray
-                .Select(x => (alsoSearchDescriptions ? ProfileSearchWithDescription : ProfileSearch).GetValuesChunked(x).ToList());
-                
+            var toIntersect = new List<List<ManagedOrNativeArray<Plc>>>();
+
+            foreach (var word in searchTerms)
+            {
+                var slices = new List<ManagedOrNativeArray<Plc>>();
+                var sizeLimited = SizeLimitedWord8.Create(word, out var truncated);
+
+                if (truncated)
+                {
+                    slices.AddRange(ProfileSearchLong.GetValuesChunked(HashWord(word)));
+                }
+                else
+                {
+                    slices.AddRange(ProfileSearchPrefix8.GetValuesChunked(sizeLimited));
+                }
+
+
+                if (alsoSearchDescriptions)
+                {
+                    slices.AddRange(ProfileSearchDescriptionOnly.GetValuesChunked(HashWord(word)));
+                }
+
+                toIntersect.Add(slices);
+            }
 
             if (!searchTermsLastPrefix.IsEmpty)
             {
                 var prefixWords = SearchProfilesPrefixOnly(searchTermsLastPrefix).ToList();
-                wordsEnumerable = wordsEnumerable.Append(prefixWords);
+                toIntersect.Add(prefixWords);
             }
 
-            var words = wordsEnumerable
+            var words = toIntersect
                 .Select(x => (TotalCount: x.Sum(x => x.Count), Slices: x))
                 .OrderBy(x => x.TotalCount)
                 .ToArray();
@@ -789,10 +810,10 @@ namespace AppViewLite
             {
                 IndexProfileWord(word, plc);
             }
-            foreach (var word in descriptionWords)
+            foreach (var word in descriptionWords.Except(nameWords))
             {
                 var hash = HashWord(word);
-                ProfileSearchWithDescription.AddIfMissing(hash, plc);
+                ProfileSearchDescriptionOnly.AddIfMissing(hash, plc);
             }
 
             lock (textCompressorUnlocked)
@@ -809,9 +830,12 @@ namespace AppViewLite
         private void IndexProfileWord(string word, Plc plc)
         {
             var hash = HashWord(word);
-            ProfileSearch.Add(hash, plc);
-            ProfileSearchWithDescription.Add(hash, plc);
-            ProfileSearchPrefix8.Add(SizeLimitedWord8.Create(word), plc);
+            
+            ProfileSearchPrefix8.Add(SizeLimitedWord8.Create(word, out var truncated), plc);
+            if (truncated)
+            {
+                ProfileSearchLong.Add(hash, plc);
+            }
             ProfileSearchPrefix2.Add(SizeLimitedWord2.Create(word), plc);
         }
 

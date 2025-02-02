@@ -78,14 +78,14 @@ namespace AppViewLite.Web
 
             builder.Services.AddScoped(provider =>
             {
-                var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
+                var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
                 return TryGetSession(httpContext) ?? new() { IsReadOnlySimulation = true };
             });
             builder.Services.AddScoped(provider =>
             {
                 var session = provider.GetRequiredService<AppViewLiteSession>();
-                var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext!;
-                var signalrConnectionId = httpContext.Request.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
+                var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
+                var signalrConnectionId = httpContext?.Request.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 return RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId);
             });
             builder.Services.AddSignalR();

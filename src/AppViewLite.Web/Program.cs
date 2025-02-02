@@ -18,7 +18,7 @@ namespace AppViewLite.Web
 
         public static bool AllowPublicReadOnlyFakeLogin = false;
         public static bool ListenToFirehose = true;
-        public static bool ListenPlcDirectory = false;
+        public static bool ListenPlcDirectory = true;
         public static string PlcDirectoryBundlePath;
 
         public static string ToFullHumanDate(DateTime date)

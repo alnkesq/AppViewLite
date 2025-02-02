@@ -535,7 +535,7 @@ namespace AppViewLite
                 parquetFileOrDirectory += "/*.parquet";
                 checkGaps = true;
             }
-            var rows = mem.Execute<DidDocProto>($"from '{parquetFileOrDirectory}' where Date >= ? order by Date", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+            var rows = mem.Execute<DidDocProto>($"from '{parquetFileOrDirectory}' where Date >= ?", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
                 .Select(x =>
                 {
                     if (prevDate == null)

@@ -569,15 +569,15 @@ namespace AppViewLite.Storage
 
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)
         {
+            var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), (x, i) => (x.Key, i)).ToArray();
+            var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
+
             if (output.behavior == PersistentDictionaryBehavior.PreserveOrder)
             {
                 if (onCompactation != null) throw new ArgumentException();
-                var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), (x, i) => (x.Key, i)).ToArray();
-                var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices).ToArray();
 
                 foreach (var group in groupedSlices)
                 {
-                    if(group.Values.Count != 1) { }
                     var mostRecent = group.Values[^1];
                     output.AddPresorted(group.Key, mostRecent);
                 }
@@ -585,8 +585,6 @@ namespace AppViewLite.Storage
             }
             else
             {
-                var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), x => x.Key);
-                var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
 
                 foreach (var group in groupedSlices)
                 {

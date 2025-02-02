@@ -40,6 +40,7 @@ namespace AppViewLite.Models
         public bool HasBannerImage => BasicData?.BannerCidBytes != null;
 
         public string? PossibleHandle;
+        public bool HandleIsUncertain;
 
         public ProfileBadge[]? Badges;
 

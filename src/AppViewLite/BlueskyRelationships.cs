@@ -10,7 +10,7 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite;
 using AppViewLite.Storage;
-using AppViewLite.Numerics;
+using DuckDbSharp.Types;
 using AppViewLite.Numerics;
 using System;
 using System.Buffers.Binary;

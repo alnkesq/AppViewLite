@@ -1,22 +1,38 @@
+using ProtoBuf;
 using AppViewLite.Numerics;
+using DuckDbSharp;
+using DuckDbSharp.Types;
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace AppViewLite.Models
 {
-    //[ProtoContract] --
+    [ProtoContract] 
     public class DidDocProto
     {
-        /*[ProtoMember(1)] */ public string? BskySocialUserName;
-        /*[ProtoMember(2)] */ public int? PdsId;
-        /*[ProtoMember(3)] */ public string? CustomDomain;
-        /*[ProtoMember(4)] */ public DateTime Date;
-        /*[ProtoMember(5)] */ public string? Pds;
+        [ProtoMember(1)] public string? BskySocialUserName;
+        [ProtoMember(2)] public int? PdsId;
+        [ProtoMember(3)] public string? CustomDomain;
+        [ProtoMember(4)] public DateTime Date;
+        [ProtoMember(5)] public string? Pds;
+        [ProtoMember(6)] public string[]? MultipleHandles;
 
-        public string? TrustedDid;
+        [ProtoMember(7)] public string? TrustedDid;
+        [DuckDbInclude] public DuckDbUuid PlcAsUInt128;
+        [ProtoMember(9)] public string[]? OtherUrls;
+        
 
-        public string Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null))!;
+        public string? Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null)) ?? MultipleHandles?.FirstOrDefault();
+
+
+        public bool HasHandle(string handle)
+        {
+            ArgumentNullException.ThrowIfNull(handle);
+            if (MultipleHandles != null) return MultipleHandles.Contains(handle);
+            return Handle == handle;
+        }
 
         public override string ToString()
         {
@@ -29,34 +45,44 @@ namespace AppViewLite.Models
 
             using var ms = new MemoryStream();
             using var bw = new BinaryWriter(ms);
+
+
             DidDocEncoding format = default;
             bw.Write((byte)format); // will be overwritten later
-            var date = Date;
-            if (date < ApproximateDateTime32.MinValueAsDateTime)
-                date = ApproximateDateTime32.MinValueAsDateTime;
-            bw.Write(Unsafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)date));
-            if (PdsId != null)
-            {
-                format |= DidDocEncoding.HasPds;
-                bw.Write7BitEncodedInt(PdsId.Value);
-            }
-            if (CustomDomain != null)
-            {
-                format |= DidDocEncoding.HasCustomDomain;
-                lock (BlueskyRelationships.textCompressorUnlocked)
-                {
-                    bw.Write(BlueskyRelationships.textCompressorUnlocked.Compress(CustomDomain));
-                }
-            }
-            else if (BskySocialUserName != null)
-            {
-                format |= DidDocEncoding.HasBskySocialUserName;
-                lock (BlueskyRelationships.textCompressorUnlocked)
-                {
-                    bw.Write(BlueskyRelationships.textCompressorUnlocked.Compress(BskySocialUserName));
-                }
-            }
 
+            if (MultipleHandles != null || OtherUrls != null)
+            {
+                format = DidDocEncoding.Proto;
+                ProtoBuf.Serializer.Serialize(ms, this);
+            }
+            else
+            {
+                var date = Date;
+                if (date < ApproximateDateTime32.MinValueAsDateTime)
+                    date = ApproximateDateTime32.MinValueAsDateTime;
+                bw.Write(Unsafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)date));
+                if (PdsId != null)
+                {
+                    format |= DidDocEncoding.HasPds;
+                    bw.Write7BitEncodedInt(PdsId.Value);
+                }
+                if (CustomDomain != null)
+                {
+                    format |= DidDocEncoding.HasCustomDomain;
+                    lock (BlueskyRelationships.textCompressorUnlocked)
+                    {
+                        bw.Write(BlueskyRelationships.textCompressorUnlocked.Compress(CustomDomain));
+                    }
+                }
+                else if (BskySocialUserName != null)
+                {
+                    format |= DidDocEncoding.HasBskySocialUserName;
+                    lock (BlueskyRelationships.textCompressorUnlocked)
+                    {
+                        bw.Write(BlueskyRelationships.textCompressorUnlocked.Compress(BskySocialUserName));
+                    }
+                }
+            }
             var result = ms.ToArray();
             result[0] = (byte)format;
             return result;
@@ -68,6 +94,10 @@ namespace AppViewLite.Models
         {
             using var br = new BinaryReader(new MemoryStream(bytes.ToArray()));
             var format = (DidDocEncoding)br.ReadByte();
+            if (format == DidDocEncoding.Proto)
+            {
+                return ProtoBuf.Serializer.Deserialize<DidDocProto>(br.BaseStream);
+            }
             var result = new DidDocProto();
             result.Date = Unsafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32());
             if ((format & DidDocEncoding.HasPds) != 0)
@@ -102,6 +132,8 @@ namespace AppViewLite.Models
             HasBskySocialUserName = 1,
             HasCustomDomain = 2,
             HasPds = 4,
+
+            Proto = HasBskySocialUserName | DidDocEncoding.HasCustomDomain,
         }
     }
 }

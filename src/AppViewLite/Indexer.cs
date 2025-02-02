@@ -19,6 +19,10 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Reflection.Metadata;
+using DuckDbSharp;
+using System.Runtime.CompilerServices;
+using DuckDbSharp.Types;
 
 namespace AppViewLite
 {
@@ -514,11 +518,53 @@ namespace AppViewLite
             }
         }
 
+
         private async Task RetrievePlcDirectoryAsync()
         {
             var lastRetrievedDidDoc = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey) ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            using var httpClient = new HttpClient();
+            await RetrievePlcDirectoryAsync(EnumeratePlcDirectoryAsync(lastRetrievedDidDoc));
+        }
 
+        public async Task InitializePlcDirectoryFromBundleAsync(string parquetFileOrDirectory)
+        {
+            var prevDate = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey);
+            using var mem = ThreadSafeTypedDuckDbConnection.CreateInMemory();
+            if (Directory.Exists(parquetFileOrDirectory)) parquetFileOrDirectory += "/*.parquet";
+            var rows = mem.Execute<DidDocProto>($"from '{parquetFileOrDirectory}' where Date >= ? order by Date", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                .Select(x =>
+                {
+                    if (prevDate == null)
+                    {
+                        if (x.Date > new DateTime(2022, 11, 18)) throw new Exception("PLC directory should start at 2022-11-17");
+                        prevDate = x.Date;
+                    }
+                    x.TrustedDid = "did:plc:" + AtProtoS32.EncodePadded(Unsafe.BitCast<DuckDbUuid, UInt128>(x.PlcAsUInt128));
+                    var delta = x.Date - prevDate.Value;
+                    if (delta < TimeSpan.Zero) throw new Exception();
+                    var maxAllowedGap =
+                        x.Date < new DateTime(2023, 2, 20, 0, 0, 0, DateTimeKind.Utc) ? TimeSpan.FromDays(6) :
+                        x.Date < new DateTime(2023, 3, 1, 0, 0, 0, DateTimeKind.Utc) ? TimeSpan.FromHours(24) :
+                        TimeSpan.FromHours(5);
+                        
+                    if (delta > maxAllowedGap)
+                    {
+                        throw new Exception("Excessive gap between PLC directory entries: " + prevDate + " delta: " + delta + ". Are any files missing?");
+                    }
+                    prevDate = x.Date;
+                    return x;
+                });
+            await RetrievePlcDirectoryAsync(AsAsyncEnumerable(rows));
+        }
+        private static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(IEnumerable<T> input)
+        {
+            foreach (var value in input)
+            {
+                yield return value;
+            }
+        }
+        private async Task RetrievePlcDirectoryAsync(IAsyncEnumerable<DidDocProto> sortedEntries)
+        {
+            DateTime lastRetrievedDidDoc = default;
             var entries = new List<DidDocProto>();
 
             void FlushBatch()
@@ -526,7 +572,7 @@ namespace AppViewLite
                 if (entries.Count == 0) return;
 
 
-                Log("Flushing " + entries.Count + " PLC directory entries");
+                Log("Flushing " + entries.Count + " PLC directory entries (" + lastRetrievedDidDoc.ToString("yyyy-MM-dd") + ")");
                 WithRelationshipsLock(rels =>
                 {
                     rels.AvoidFlushes++; // We'll perform many writes, avoid frequent intermediate flushes.
@@ -572,53 +618,15 @@ namespace AppViewLite
 
             try
             {
-                while (true)
+                await foreach (var entry in sortedEntries)
                 {
-                    Log("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
-                    using var stream = await httpClient.GetStreamAsync("https://plc.directory/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
-                    var prevLastRetrievedDidDoc = lastRetrievedDidDoc;
-                    var itemInPage = 0;
-                    await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))
-                    {
-                        entries.Add(DidDocToProto(entry!));
-                        itemInPage++;
-                        if (entry!.createdAt > lastRetrievedDidDoc)
-                        {
-                            // PLC directory contains items with the same createdAt.
-                            // However ?after= is inclusive, so we don't risk losing entries via pagination.
-                            lastRetrievedDidDoc = entry.createdAt;
-                        }
-                        else if (entry.createdAt < lastRetrievedDidDoc)
-                        {
-                            throw new Exception("PLC directory createdAt goes backwards in time");
-                        }
-                    }
-
-                    if (lastRetrievedDidDoc == prevLastRetrievedDidDoc)
-                    {
-                        // We had a page full of IDs all with the same createdAt.
-                        // We'll lose something, but there's no other way of retrieving the missing ones.
-                        lastRetrievedDidDoc = lastRetrievedDidDoc.AddTicks(TimeSpan.TicksPerMillisecond);
-                    }
-                    if (entries!.Count == 0)
-                    {
-                        Log("PLC directory returned no items.");
-                        break;
-                    }
-
-
-                    if ((DateTime.UtcNow - lastRetrievedDidDoc).TotalSeconds < 60)
-                    {
-                        Log("PLC directory sync completed.");
-                        break;
-                    }
+                    entries.Add(entry);
+                    lastRetrievedDidDoc = entry.Date;
 
                     if (entries.Count >= 50000)
                     {
                         FlushBatch();
                     }
-
-                    await Task.Delay(500);
                 }
             }
             finally
@@ -628,7 +636,54 @@ namespace AppViewLite
 
         }
 
-        private void Log(string v)
+        public static async IAsyncEnumerable<DidDocProto> EnumeratePlcDirectoryAsync(DateTime lastRetrievedDidDoc)
+        {
+            while (true)
+            {
+                Log("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
+                using var stream = await  BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync("https://plc.directory/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
+                var prevLastRetrievedDidDoc = lastRetrievedDidDoc;
+                var itemsInPage = 0;
+                await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))
+                {
+                    yield return DidDocToProto(entry!);
+                    itemsInPage++;
+                    if (entry!.createdAt > lastRetrievedDidDoc)
+                    {
+                        // PLC directory contains items with the same createdAt.
+                        // However ?after= is inclusive, so we don't risk losing entries via pagination.
+                        lastRetrievedDidDoc = entry.createdAt;
+                    }
+                    else if (entry.createdAt < lastRetrievedDidDoc)
+                    {
+                        throw new Exception("PLC directory createdAt goes backwards in time");
+                    }
+                }
+
+                if (lastRetrievedDidDoc == prevLastRetrievedDidDoc)
+                {
+                    // We had a page full of IDs all with the same createdAt.
+                    // We'll lose something, but there's no other way of retrieving the missing ones.
+                    lastRetrievedDidDoc = lastRetrievedDidDoc.AddTicks(TimeSpan.TicksPerMillisecond);
+                }
+                if (itemsInPage == 0)
+                {
+                    Log("PLC directory returned no items.");
+                    break;
+                }
+
+
+                if ((DateTime.UtcNow - lastRetrievedDidDoc).TotalSeconds < 60)
+                {
+                    Log("PLC directory sync completed.");
+                    break;
+                }
+
+                await Task.Delay(500);
+            }
+        }
+
+        private static void Log(string v)
         {
             Console.Error.WriteLine(v);
         }
@@ -639,7 +694,7 @@ namespace AppViewLite
             var operation = entry.operation;
             return DidDocToProto(
                 operation.service ?? operation.services?.atproto_pds?.endpoint,
-                operation.handle ?? operation.alsoKnownAs?.FirstOrDefault(),
+                operation.handle != null ? ["at://" + operation.handle] : operation.alsoKnownAs,
                 entry.did,
                 entry.createdAt);
         }
@@ -647,9 +702,9 @@ namespace AppViewLite
 
         public static DidDocProto DidDocToProto(DidWebRoot root)
         {
-            return DidDocToProto(root.service.FirstOrDefault(x => x.id == "#atproto_pds")?.serviceEndpoint, root.alsoKnownAs.FirstOrDefault(), null, default);
+            return DidDocToProto(root.service.FirstOrDefault(x => x.id == "#atproto_pds")?.serviceEndpoint, root.handle != null ? ["at://" + root.handle] : root.alsoKnownAs, null, default);
         }
-        public static DidDocProto DidDocToProto(string? pds, string? handle, string? trustedDid, DateTime date)
+        public static DidDocProto DidDocToProto(string? pds, string[] akas, string? trustedDid, DateTime date)
         {
             var proto = new DidDocProto
             {
@@ -660,34 +715,62 @@ namespace AppViewLite
 
             proto.Pds = pds;
 
-
-            if (handle != null)
+            var handles = new List<string>();
+            var other = new List<string>();
+            if (akas != null)
             {
-                if (handle.StartsWith("at://", StringComparison.Ordinal))
-                    handle = handle.Substring(5);
-
-                if (Regex.IsMatch(handle, @"^[\w\.\-]{1,1000}$"))
+                foreach (var aka in akas)
                 {
-                    if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
+                    if (string.IsNullOrEmpty(aka)) continue;
+                    if (aka.Length > 1024) continue;
+                    if (aka.StartsWith("at://", StringComparison.Ordinal))
                     {
-                        proto.BskySocialUserName = handle.Substring(0, handle.Length - ".bsky.social".Length);
+                        var handle = aka.Substring(5);
+                        if (Regex.IsMatch(handle, @"^[\w\.\-]{1,}$"))
+                        {
+                            handles.Add(handle);
+                        }
+                        else
+                            Console.Error.WriteLine("Invalid handle: " + handle);
+
                     }
                     else
                     {
-                        proto.CustomDomain = handle;
+                        other.Add(aka);
                     }
+                }
+            }
+
+            if (handles.Count == 1)
+            {
+                var handle = handles[0];
+                if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
+                {
+                    proto.BskySocialUserName = handle.Substring(0, handle.Length - ".bsky.social".Length);
                 }
                 else
                 {
-                    if (handle.Length > 100) handle = string.Concat(handle.AsSpan(0, 50), "...");
-                    Console.Error.WriteLine("PLC directory invalid handle: " + handle);
+                    proto.CustomDomain = handle;
                 }
             }
+            else if(handles.Count > 1)
+            {
+                proto.MultipleHandles = handles.ToArray();
+            }
+
+            if (other.Count != 0)
+                proto.OtherUrls = other.ToArray();
 
             return proto;
         }
 
 
+
+        private static string LimitLength(string handle)
+        {
+            if (handle.Length > 100) handle = string.Concat(handle.AsSpan(0, 50), "...");
+            return handle;
+        }
     }
 }
 

@@ -280,10 +280,10 @@
                 </a>
             }
         }
-        <a class="post-author-handle" href="@Post.Author.BaseUrl">test.bsky.social</a>
+        <a class="post-author-handle @(Post.Author.HandleIsUncertain ? "handle-uncertain" : null)" href="@Post.Author.BaseUrl">@Post.Author.PossibleHandle</a>
         @if(!this.IsFocalPost)
         {
-            <text>·</text>
+            <text> ·</text>
             <a class="post-date" href="@Post.BaseUrl" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
         }
     </div>

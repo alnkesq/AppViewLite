@@ -20,7 +20,7 @@ using AppViewLite.Numerics;
 using System.Runtime.InteropServices;
 using FishyFlip.Tools;
 using FishyFlip.Lexicon.App.Bsky.Graph;
-using AppViewLite.Numerics;
+using DuckDbSharp.Types;
 using System.Diagnostics;
 using System.Globalization;
 using PeterO.Cbor;
@@ -1726,7 +1726,7 @@ namespace AppViewLite
                     {
 
                         var didDoc = rels.TryGetLatestDidDoc(possiblePlc);
-                        if (didDoc != null && didDoc.Date > lastVerification.VerificationDate && (didDoc.Handle != handle || possiblePlc != plc))
+                        if (didDoc != null && didDoc.Date > lastVerification.VerificationDate && (!didDoc.HasHandle(handle) || possiblePlc != plc))
                         {
                             forceRefresh = true;
                             break;
@@ -1771,7 +1771,7 @@ namespace AppViewLite
                     didDoc = rels.TryGetLatestDidDoc(plc);
                 });
             }
-            if (didDoc.Handle != handle)
+            if (!didDoc.HasHandle(handle))
             {
                 if (!forceRefresh)
                 {
@@ -1883,7 +1883,7 @@ namespace AppViewLite
         }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
-        private readonly static HttpClient DefaultHttpClient;
+        public readonly static HttpClient DefaultHttpClient;
 
         static BlueskyEnrichedApis()
         {

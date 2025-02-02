@@ -55,6 +55,7 @@ namespace AppViewLite.Models
     {
         public string[] context { get; set; }
         public string id { get; set; }
+        public string handle { get; set; }
         public string[] alsoKnownAs { get; set; }
         public DidWebVerificationMethod[] verificationMethod { get; set; }
         public DidWebService[] service { get; set; }

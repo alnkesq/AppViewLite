@@ -302,13 +302,16 @@ namespace AppViewLite
         {
             lock (this)
             {
-                foreach (var d in disposables)
+                if (!_disposed)
                 {
-                    d.Dispose();
+                    foreach (var d in disposables)
+                    {
+                        d.Dispose();
+                    }
+                    CaptureCheckpoint();
+                    lockFile.Dispose();
+                    _disposed = true;
                 }
-                CaptureCheckpoint();
-                lockFile.Dispose();
-                _disposed = true;
                 
             }
 
@@ -352,6 +355,34 @@ namespace AppViewLite
             var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
             File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
             File.Move(checkpointFile + ".tmp", checkpointFile);
+
+            GarbageCollectOldSlices();
+        }
+
+        private void GarbageCollectOldSlices()
+        {
+            var keep = new DirectoryInfo(BaseDirectory + "/checkpoints")
+                .EnumerateFiles("*.pb")
+                .OrderByDescending(x => x.LastWriteTimeUtc)
+                .Take(3)
+                .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
+                .SelectMany(x => x.Tables ?? [])
+                .GroupBy(x => x.Name)
+                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.StartTime + "-" + x.EndTime).Distinct().ToArray()));
+            foreach (var table in keep)
+            {
+                foreach (var file in new DirectoryInfo(Path.Combine(BaseDirectory, table.TableName)).EnumerateFiles())
+                {
+                    var name = file.Name;
+                    var dot = name.IndexOf('.');
+                    if (dot != -1) name = name.Substring(0, dot);
+                    
+                    if (!table.SlicesToKeep.Any(k => k.Contains(name)))
+                    {
+                        file.Delete();
+                    }
+                }
+            }
         }
 
         private bool _disposed;

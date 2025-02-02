@@ -597,7 +597,7 @@ namespace AppViewLite.Storage
                     else
                     {
                         var enumerables = group.Values.Select(x => x.AsEnumerable()).ToArray();
-                        var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => x);
+                        var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => x).DistinctAssumingOrderedInput();
                         if (onCompactation != null)
                             merged = onCompactation(merged);
 

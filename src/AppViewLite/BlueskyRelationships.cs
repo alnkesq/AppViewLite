@@ -161,7 +161,7 @@ namespace AppViewLite
             ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
-            PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32", onCompactation: x => x.DistinctAssumingOrderedInput());
+            PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32");
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
             FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");

@@ -57,7 +57,9 @@ namespace AppViewLite.Storage
                 }
                 
                 var dash = baseName.IndexOf('-');
-                return new SliceInfo(new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), long.Parse(baseName.Substring(dash + 1)) , reader);
+                return new SliceInfo(
+                    new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), 
+                    reader);
 
             }).Where(x => x.Reader != null).ToList();
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
@@ -71,7 +73,11 @@ namespace AppViewLite.Storage
         public event EventHandler<CancelEventArgs> ShouldFlush;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, long Count, ImmutableMultiDictionaryReader<TKey, TValue> Reader);
+        public record struct SliceInfo(DateTime StartTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
+        {
+            public readonly long KeyCount => Reader.KeyCount;
+            public readonly long ValueCount => Reader.ValueCount;
+        }
 
         
         public void Dispose() // Dispose() must also be called while holding the lock.
@@ -85,7 +91,6 @@ namespace AppViewLite.Storage
             }
         }
 
-        public long GroupCount => slices.Sum(x => x.Count) + queue.GroupCount;
         private int onBeforeFlushNotificationInProgress;
         public void Flush(bool disposing)
         {
@@ -129,7 +134,7 @@ namespace AppViewLite.Storage
                 writer.Commit();
                 
                 queue.Clear();
-                slices.Add(new(date, groupCount, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
+                slices.Add(new(date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {groupCount} rows");
 
                 if (!disposing)
@@ -141,57 +146,62 @@ namespace AppViewLite.Storage
 
         private DateTime prevSliceDate;
 
+
+        public record CompactationCandidate(int Start, int Length, long ItemCount, long LargestComponent, double Score, double RatioOfLargestComponent)
+        {
+        }
+
+        public List<CompactationCandidate> GetCompactationCandidates()
+        {
+            var candidates = new List<CompactationCandidate>();
+            var totalCount = slices.Sum(x => x.ValueCount);
+            for (int start = 0; start < slices.Count; start++)
+            {
+                long itemCount = 0;
+                long largestComponent = 0;
+                for (int end = start + 1; end <= slices.Count; end++)
+                {
+                    var componentSize = slices[end - 1].ValueCount;
+                    largestComponent = Math.Max(largestComponent, componentSize);
+                    itemCount += componentSize;
+                    var length = end - start;
+
+                    var ratioOfLargestComponent = ((double)largestComponent / itemCount);
+                    //var score = (double)length / itemCount * totalCount * (1 - ratioOfLargestComponent);
+                    var score = (1 - ratioOfLargestComponent) * Math.Log(length);
+                    candidates.Add(new CompactationCandidate(start, length, itemCount, largestComponent, score, ratioOfLargestComponent));
+                }
+            }
+            return candidates;
+        }
+
+        private const int TargetSliceCount = 15;
+
         private void MaybeStartCompactation()
         {
             if (pendingCompactation != null) throw new InvalidOperationException();
 
-            var desiredGroupSize = 4;
+            if (slices.Count <= TargetSliceCount) return;
 
+            var minLength = (slices.Count - TargetSliceCount) + 1;
 
-            if (slices.Count < desiredGroupSize) return;
-
-            var last = slices[^desiredGroupSize..];
-
-            var total = last.Sum(x => x.Count);
-            var max = last.Max(x => x.Count);
-            var secondMax = last.OrderByDescending(x => x.Count).ElementAt(1).Count;
-
-            var a = secondMax * 2 > max;
-            var b = total >= max * (desiredGroupSize - 1);
-
-            for (int i = slices.Count - desiredGroupSize - 1; i >= 0; i--)
-            {
-                var extra = slices[i];
-                if (extra.Count < max)
-                {
-                    last.Insert(0, extra);
-                    total += extra.Count;
-                }
-                else
-                    break;
-            }
-
-
-            if ((a && b) || last.Count >= 6)
-            {
-                StartCompactation(slices.Count - last.Count, last.Count);
-            }
-
-            
-  
-
+            var candidates = GetCompactationCandidates();
+            var compatibleCandidates = candidates.Where(x => x.Length >= minLength).ToArray();
+            var best = compatibleCandidates.MaxBy(x => x.Score);
+            StartCompactation(best.Start, best.Length, best);
 
         }
 
-        private void StartCompactation(int groupStart, int groupLength)
+        private void StartCompactation(int groupStart, int groupLength, CompactationCandidate compactationCandidate)
         {
             if (groupLength <= 1) return;
             var inputs = slices.Slice(groupStart, groupLength);
             var mergedDate = inputs.Min(x => x.StartTime);
-            var mergedCount = inputs.Sum(x => x.Count);
+            var mergedCount = inputs.Sum(x => x.ValueCount);
             var mergedPrefix = this.DirectoryPath + "/" + mergedDate.Ticks + "-" + mergedCount;
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
+
             var inputSlices = inputs.Select(x => x.Reader).ToArray();
             var sw = Stopwatch.StartNew();
 
@@ -212,7 +222,7 @@ namespace AppViewLite.Storage
                 return new Action(() => 
                 {
                     // Here we are again inside the lock.
-                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => x.Count)) + " => " + inputs.Sum(x => x.Count));
+                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => x.ValueCount.ToString("#,###"))) + " => " + inputs.Sum(x => x.ValueCount).ToString("#,###") + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     foreach (var input in inputs)
                     {
@@ -225,7 +235,7 @@ namespace AppViewLite.Storage
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
-                    slices.Insert(groupStart, new SliceInfo(mergedDate, mergedCount, new(mergedPrefix, behavior)));
+                    slices.Insert(groupStart, new SliceInfo(mergedDate, new(mergedPrefix, behavior)));
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });

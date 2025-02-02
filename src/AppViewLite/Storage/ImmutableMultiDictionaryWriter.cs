@@ -17,6 +17,10 @@ namespace AppViewLite.Storage
         }
 
         private long currentValueOffset;
+
+        public long KeyCount { get; private set; }
+        public long ValueCount => currentValueOffset;
+
         public void AddPresorted(TKey key, IEnumerable<TValue> sortedValues)
         {
 
@@ -38,6 +42,7 @@ namespace AppViewLite.Storage
             {
                 writer.WriteElement(0, key);
                 WriteStartOffset(startOffset);
+                KeyCount++;
             }
 
         }
@@ -62,6 +67,7 @@ namespace AppViewLite.Storage
 
                 writer.WriteElement(0, key);
                 WriteStartOffset(startOffset);
+                KeyCount++;
             }
 
         }

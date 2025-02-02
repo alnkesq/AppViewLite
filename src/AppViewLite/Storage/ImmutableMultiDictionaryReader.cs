@@ -32,7 +32,8 @@ namespace AppViewLite.Storage
 
 
 
-        public long Count => Offsets.Length;
+        public long KeyCount => Keys.Length;
+        public long ValueCount => Values.Length;
 
         public void Dispose()
         {

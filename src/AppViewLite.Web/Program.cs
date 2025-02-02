@@ -19,6 +19,7 @@ namespace AppViewLite.Web
         public static bool AllowPublicReadOnlyFakeLogin = false;
         public static bool ListenToFirehose = true;
         public static bool ListenPlcDirectory = false;
+        public static string PlcDirectoryBundlePath;
 
         public static string ToFullHumanDate(DateTime date)
         {
@@ -128,7 +129,7 @@ namespace AppViewLite.Web
             {
                 
                 
-                _ = Task.Run(async () =>
+                Task.Run(async () =>
                 {
                     await Task.Delay(1000);
                     app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
@@ -145,13 +146,13 @@ namespace AppViewLite.Web
                         };
 
                         if (host.IsJetStream)
-                            _ = indexer.ListenJetStreamFirehoseAsync();
+                            indexer.ListenJetStreamFirehoseAsync().FireAndForget();
                         else
-                            _ = indexer.ListenBlueskyFirehoseAsync();
+                            indexer.ListenBlueskyFirehoseAsync().FireAndForget();
                     }
                     //await indexer.ListenJetStreamFirehoseAsync();
                
-                });
+                }).FireAndForget();
 
  
             }
@@ -159,10 +160,17 @@ namespace AppViewLite.Web
 
             if (ListenPlcDirectory && !Relationships.IsReadOnly)
             {
-                _ = Task.Run(async () =>
+                Task.Run(async () =>
                 {
-                    await new Indexer(Relationships, atprotoProvider).RetrievePlcDirectoryLoopAsync();
-                });
+
+                    var indexer = new Indexer(Relationships, atprotoProvider);
+                    if (PlcDirectoryBundlePath != null)
+                    {
+                        await indexer.InitializePlcDirectoryFromBundleAsync(PlcDirectoryBundlePath);
+                    }
+                    await indexer.RetrievePlcDirectoryLoopAsync();
+                }).FireAndForget();
+                
             }
 
             AppViewLiteHubContext = app.Services.GetRequiredService<IHubContext<AppViewLiteHub>>();
@@ -209,7 +217,7 @@ namespace AppViewLite.Web
                         LastSeen = now,
                         Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
                     };
-                    _ = OnSessionCreatedOrRestoredAsync(did!, plc, session);
+                    OnSessionCreatedOrRestoredAsync(did!, plc, session).FireAndForget();
                     SessionDictionary[sessionId] = session;
                 }
 
@@ -288,8 +296,8 @@ namespace AppViewLite.Web
             {
                 var deadline = Task.Delay(5000);
                 var loadFollows = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
-                _ = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
-                _ = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
+                BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
+                BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
                 // TODO: fetch entries of subscribed blocklists
                 await Task.WhenAny(deadline, loadFollows);
             }

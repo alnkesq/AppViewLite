@@ -28,14 +28,14 @@ namespace AppViewLite.Web
             var connectionId = Context.ConnectionId;
             var profiles = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
             var newctx = new RequestContext(ctx.Session, null, null, connectionId);
-            _ = BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p =>
+            BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p =>
             {
                 using var scope = Program.StaticServiceProvider.CreateScope();
                 using var renderer = new HtmlRenderer(scope.ServiceProvider, loggerFactory);
                 var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<ProfileRow>(ParameterView.FromDictionary(new Dictionary<string, object>() { { nameof(ProfileRow.Profile), p } }))).ToHtmlString());
                 var index = Array.IndexOf(profiles, p);
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("ProfileRendered", requests[index].nodeId, html);
-            });
+            }).FireAndForget();
 
         }
 
@@ -52,7 +52,7 @@ namespace AppViewLite.Web
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
             });
             var newctx = new RequestContext(ctx.Session, null, null, connectionId);
-            _ = BlueskyEnrichedApis.Instance.EnrichAsync(posts, newctx, async p =>
+            BlueskyEnrichedApis.Instance.EnrichAsync(posts, newctx, async p =>
             {
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
@@ -61,7 +61,7 @@ namespace AppViewLite.Web
                 var req = requests[index];
                 var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags))).ToHtmlString());
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html);
-            }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc);
+            }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc).FireAndForget();
 
         }
 
@@ -120,7 +120,7 @@ namespace AppViewLite.Web
                     });
 
                 }
-                _ = client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange);
+                client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange).FireAndForget();
             }
 
             var throttler = new Throttler<PostStatsNotification>(TimeSpan.FromSeconds(4), (notif) => SubmitLivePostEngagement(notif, default));
@@ -138,7 +138,7 @@ namespace AppViewLite.Web
                 {
                     var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
 
-                    _ = client.SendAsync("NotificationCount", notificationCount);
+                    client.SendAsync("NotificationCount", notificationCount).FireAndForget();
                 }
             };
             if (!connectionIdToCallback.TryAdd(connectionId, context)) throw new Exception();

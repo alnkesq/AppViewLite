@@ -195,7 +195,7 @@
     {
 
         RepostMenuVisible = false;
-        _ = IsReposted.ToggleIfNotBusyAsync();
+        IsReposted.ToggleIfNotBusyAsync().FireAndForget();
     }
     private bool IsBusy;
     private async Task PerformActionIfNotBusyAsync(Func<Task> func)

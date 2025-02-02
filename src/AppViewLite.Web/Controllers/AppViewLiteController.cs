@@ -79,17 +79,28 @@ namespace AppViewLite.Web
 
 
         [HttpGet(nameof(SearchAutoComplete))]
-        public async Task<object> SearchAutoComplete(string q)
+        public async Task<object> SearchAutoComplete(string? q, string? forceResults)
         {
             var signalrSessionId = ctx.SignalrConnectionId;
             var responseAlreadySent = false;
-            var profiles = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx, onProfileDataAvailable: profile => 
+            ProfilesAndContinuation profiles;
+
+            void NotifySearchAutocompleteUpdates()
             {
                 if (signalrSessionId != null && responseAlreadySent)
                 {
-                    _ = Program.AppViewLiteHubContext.Clients.Client(signalrSessionId).SendAsync("SearchAutoCompleteProfileDetails");
+                    Program.AppViewLiteHubContext.Clients.Client(signalrSessionId).SendAsync("SearchAutoCompleteProfileDetails").FireAndForget();
                 }
-            });
+            }
+
+            if (forceResults != null)
+            {
+                profiles = (await BlueskyEnrichedApis.Instance.GetProfilesAsync(forceResults.Split(','), ctx, profile => NotifySearchAutocompleteUpdates()), null);
+            }
+            else
+            {
+                profiles = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx, onProfileDataAvailable: profile => NotifySearchAutocompleteUpdates());
+            }
             responseAlreadySent = true;
             return new
             {
@@ -101,6 +112,7 @@ namespace AppViewLite.Web
                 }).ToArray()
             };
         }
+
 
         public record DidAndRKey(string Did, string Rkey);
         public record RKeyOnly(string Rkey);

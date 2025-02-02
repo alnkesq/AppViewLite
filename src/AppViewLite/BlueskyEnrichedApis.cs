@@ -1050,6 +1050,12 @@ namespace AppViewLite
             await EnrichAsync([profile], ctx);
             return profile;
         }
+        public async Task<BlueskyProfile[]> GetProfilesAsync(string[] dids, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null)
+        {
+            var profiles = WithRelationshipsLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x))).ToArray());
+            await EnrichAsync(profiles, ctx, onProfileDataAvailable);
+            return profiles;
+        }
         public async Task PopulateFullInReplyToAsync(BlueskyPost[] posts, RequestContext ctx)
         {
             WithRelationshipsLock(rels =>

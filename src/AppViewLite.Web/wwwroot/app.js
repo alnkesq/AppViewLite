@@ -79,7 +79,7 @@ var liveUpdatesConnectionFuture = (async () => {
             if (token != lastAutocompleteRefreshToken) return;
             var menu = document.querySelector('.search-form-suggestions');
             if (menu && !menu.classList.contains('display-none')) {
-                searchBoxAutocomplete()
+                searchBoxAutocomplete(true)
             }
         }, 200)
 
@@ -702,7 +702,9 @@ function closeAutocompleteMenu() {
 
 }
 
-async function searchBoxAutocomplete() { 
+var lastAutocompleteDids = [];
+
+async function searchBoxAutocomplete(forceResults) { 
     var searchbox = document.getElementById('search-box');
     var autocomplete = searchbox.parentElement.parentElement.querySelector('.search-form-suggestions');
     if (!autocomplete) return;
@@ -711,7 +713,8 @@ async function searchBoxAutocomplete() {
     if (!autocomplete.lastSearchToken) autocomplete.lastSearchToken = 0;
     var token = ++autocomplete.lastSearchToken;
 
-    var result = text ? await httpGet('searchAutoComplete', { q: text }) : {profiles: []};
+    var result = text ? await httpGet('searchAutoComplete', forceResults ? { forceResults: lastAutocompleteDids.join(',') } : { q: text }) : { profiles: [] };
+    lastAutocompleteDids = result.profiles.map(x => x.did);
     if (autocomplete.lastSearchToken != token) return;
     autocomplete.innerHTML = '';
     for (const profile of result.profiles) {

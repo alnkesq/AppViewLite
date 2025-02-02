@@ -529,26 +529,35 @@ namespace AppViewLite
         {
             var prevDate = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey);
             using var mem = ThreadSafeTypedDuckDbConnection.CreateInMemory();
-            if (Directory.Exists(parquetFileOrDirectory)) parquetFileOrDirectory += "/*.parquet";
+            var checkGaps = false;
+            if (Directory.Exists(parquetFileOrDirectory))
+            {
+                parquetFileOrDirectory += "/*.parquet";
+                checkGaps = true;
+            }
             var rows = mem.Execute<DidDocProto>($"from '{parquetFileOrDirectory}' where Date >= ? order by Date", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
                 .Select(x =>
                 {
                     if (prevDate == null)
                     {
-                        if (x.Date > new DateTime(2022, 11, 18)) throw new Exception("PLC directory should start at 2022-11-17");
+                        if (checkGaps && x.Date > new DateTime(2022, 11, 18)) throw new Exception("PLC directory should start at 2022-11-17");
                         prevDate = x.Date;
                     }
                     x.TrustedDid = "did:plc:" + AtProtoS32.EncodePadded(Unsafe.BitCast<DuckDbUuid, UInt128>(x.PlcAsUInt128));
                     var delta = x.Date - prevDate.Value;
                     if (delta < TimeSpan.Zero) throw new Exception();
-                    var maxAllowedGap =
-                        x.Date < new DateTime(2023, 2, 20, 0, 0, 0, DateTimeKind.Utc) ? TimeSpan.FromDays(6) :
-                        x.Date < new DateTime(2023, 3, 1, 0, 0, 0, DateTimeKind.Utc) ? TimeSpan.FromHours(24) :
-                        TimeSpan.FromHours(5);
-                        
-                    if (delta > maxAllowedGap)
+
+                    if (checkGaps)
                     {
-                        throw new Exception("Excessive gap between PLC directory entries: " + prevDate + " delta: " + delta + ". Are any files missing?");
+                        var maxAllowedGap =
+                            x.Date < new DateTime(2023, 2, 20, 0, 0, 0, DateTimeKind.Utc) ? TimeSpan.FromDays(6) :
+                            x.Date < new DateTime(2023, 3, 1, 0, 0, 0, DateTimeKind.Utc) ? TimeSpan.FromHours(24) :
+                            TimeSpan.FromHours(5);
+
+                        if (delta > maxAllowedGap)
+                        {
+                            throw new Exception("Excessive gap between PLC directory entries: " + prevDate + " delta: " + delta + ". Are any files missing?");
+                        }
                     }
                     prevDate = x.Date;
                     return x;
@@ -626,6 +635,7 @@ namespace AppViewLite
                     if (entries.Count >= 50000)
                     {
                         FlushBatch();
+                        await Task.Delay(500);
                     }
                 }
             }

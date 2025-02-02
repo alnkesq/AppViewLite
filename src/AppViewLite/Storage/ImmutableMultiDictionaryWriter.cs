@@ -40,6 +40,7 @@ namespace AppViewLite.Storage
 
             if (startOffset != currentValueOffset)
             {
+                if (behavior == PersistentDictionaryBehavior.SingleValue && (currentValueOffset - startOffset) != 1) throw new Exception();
                 writer.WriteElement(0, key);
                 WriteStartOffset(startOffset);
                 KeyCount++;
@@ -49,6 +50,7 @@ namespace AppViewLite.Storage
 
         public void AddPresorted(TKey key, ReadOnlySpan<TValue> sortedValues)
         {
+            if (behavior == PersistentDictionaryBehavior.SingleValue && sortedValues.Length > 1) throw new ArgumentException();
             var startOffset = currentValueOffset;
             TValue? prev = default;
 

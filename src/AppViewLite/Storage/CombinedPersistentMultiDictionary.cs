@@ -594,12 +594,23 @@ namespace AppViewLite.Storage
                     }
                     else
                     {
-                        var enumerables = group.Values.Select(x => x.AsEnumerable()).ToArray();
-                        var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => x).DistinctAssumingOrderedInput();
-                        if (onCompactation != null)
-                            merged = onCompactation(merged);
+                        if (output.behavior == PersistentDictionaryBehavior.SingleValue)
+                        {
+                            var slices = group.Values;
+                            var lastSlice = slices[slices.Count - 1];
+                            if (lastSlice.Length != 1) throw new Exception();
+                            var lastValue = lastSlice[0];
+                            output.AddPresorted(group.Key, [lastValue]);
+                        }
+                        else
+                        {
+                            var enumerables = group.Values.Select(x => x.AsEnumerable()).ToArray();
+                            var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => x).DistinctAssumingOrderedInput();
+                            if (onCompactation != null)
+                                merged = onCompactation(merged);
 
-                        output.AddPresorted(group.Key, merged);
+                            output.AddPresorted(group.Key, merged);
+                        }
                     }
                 }
             }

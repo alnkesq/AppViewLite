@@ -1468,6 +1468,11 @@ namespace AppViewLite
             return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => x.ListId.Serialize());
         }
 
+        private async Task<BlueskyFeedGenerator[]> EnrichAsync(BlueskyFeedGenerator[] feeds, RequestContext ctx, CancellationToken ct = default)
+        {
+            await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx, ct: ct);
+            return feeds;
+        }
         private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
         {
 
@@ -1551,6 +1556,45 @@ namespace AppViewLite
 #endif
         }
 
+        public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> GetPopularFeedsAsync(string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+            var feeds = WithRelationshipsLock(rels =>
+            {
+                var minLikes = 1024;
+                var best = new PriorityQueue<RelationshipHashedRKey, long>();
+                var added = new HashSet<RelationshipHashedRKey>();
+                while (minLikes >= BlueskyRelationships.SearchIndexFeedPopularityMinLikes && best.Count < limit)
+                {
+                    var results = rels.SearchFeeds(["%likes-" + minLikes], RelationshipHashedRKey.MaxValue);
+                    foreach (var result in results)
+                    {
+                        if (added.Add(result))
+                        {
+                            best.Enqueue(result, -rels.FeedGeneratorLikes.GetActorCount(result));
+                        }
+                    }
+                    minLikes /= 2;
+                }
+
+
+                var list = new List<BlueskyFeedGenerator>();
+                for (int i = 0; i < limit; i++)
+                {
+                    if (best.TryDequeue(out var r, out _))
+                    {
+                        var f = rels.TryGetFeedGenerator(r);
+                        if (f != null)
+                            list.Add(f);
+                    }
+                }
+                return list;
+                
+            });
+            
+            return (await EnrichAsync(feeds.ToArray(), ctx), null);
+        }
+
         public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> SearchFeedsAsync(string query, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
@@ -1571,7 +1615,7 @@ namespace AppViewLite
                 .Take(limit + 1)
                 .ToArray();
             });
-            await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx);
+            await EnrichAsync(feeds, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());
         }
 
@@ -1691,7 +1735,7 @@ namespace AppViewLite
                     return rels.TryGetFeedGenerator(feedId)!;
                 }).ToArray();
             });
-            await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx);
+            await EnrichAsync(feeds, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.RKey);
 
         }

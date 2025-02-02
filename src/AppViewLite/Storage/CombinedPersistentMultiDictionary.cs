@@ -127,10 +127,14 @@ namespace AppViewLite.Storage
         public event EventHandler<CancelEventArgs> ShouldFlush;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
+        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader, long KeyCount, long ValueCount)
         {
-            public readonly long KeyCount => Reader.KeyCount;
-            public readonly long ValueCount => Reader.ValueCount;
+            public SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
+                 :this(StartTime, EndTime, Reader, Reader.KeyCount, Reader.ValueCount)
+            { 
+           
+            }
+
         }
 
         

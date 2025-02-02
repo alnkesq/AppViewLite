@@ -18,8 +18,26 @@ namespace AppViewLite.Storage
         SingleValue,
         PreserveOrder,
     }
-    
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable, IFlushable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
+
+    public interface ICheckpointable : IFlushable
+    { 
+        public (string TableName, string[] ActiveSlices)[] GetActiveSlices();
+    }
+
+
+    public static class CombinedPersistentMultiDictionary
+    {
+        public static (DateTime StartTime, DateTime EndTime) GetSliceInterval(string fileName)
+        {
+            var dot = fileName.IndexOf('.');
+            var baseName = fileName.Substring(0, dot);
+            var dash = baseName.IndexOf('-');
+            return (new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), new DateTime(long.Parse(baseName.Substring(dash + 1)), DateTimeKind.Utc));
+
+        }
+    }
+
+    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable, IFlushable, ICheckpointable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
         private readonly string DirectoryPath;
         private readonly PersistentDictionaryBehavior behavior;
@@ -30,7 +48,8 @@ namespace AppViewLite.Storage
         public Func<IEnumerable<TValue>, IEnumerable<TValue>>? OnCompactation;
 
         public event EventHandler AfterCompactation;
-        public CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
+        private bool DeleteOldFilesOnCompactation;
+        public CombinedPersistentMultiDictionary(string directory, string[]? slices, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
         {
             this.DirectoryPath = directory;
             this.behavior = behavior;
@@ -40,29 +59,64 @@ namespace AppViewLite.Storage
 
             System.IO.Directory.CreateDirectory(directory);
 
-            slices = Directory.EnumerateFiles(directory, "*.col0.dat").Select(x =>
-            {
-                var fileName = Path.GetFileName(x);
-                var baseName = fileName.Substring(0, fileName.LastIndexOf(".col", StringComparison.Ordinal));
-                ImmutableMultiDictionaryReader<TKey, TValue> reader;
-                try
-                {
-                    reader = new ImmutableMultiDictionaryReader<TKey, TValue>(Path.Combine(directory, baseName), behavior);
-                }
-                catch (FileNotFoundException)
-                {
-                    Console.Error.WriteLine("Partial slice: " + x);
-                    File.Move(x, x + ".orphan-slice");
-                    return default;
-                }
-                
-                var dash = baseName.IndexOf('-');
-                return new SliceInfo(
-                    new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), 
-                    reader);
+            this.slices = new();
 
-            }).Where(x => x.Reader != null).ToList();
+            try
+            {
+                if (slices != null)
+                {
+                    DeleteOldFilesOnCompactation = false;
+                    foreach (var slice in slices)
+                    {
+                        this.slices.Add(OpenSlice(directory, slice + ".col0", behavior, mandatory: true));
+                    }
+                }
+                else
+                {
+                    DeleteOldFilesOnCompactation = true;
+                    foreach (var slice in Directory.EnumerateFiles(directory, "*.col0.dat").OrderBy(x => CombinedPersistentMultiDictionary.GetSliceInterval(Path.GetFileName(x))))
+                    {
+                        var s = OpenSlice(directory, slice, behavior, mandatory: false);
+                        if (s == default) continue;
+                        this.slices.Add(s);
+                    }
+                }
+            }
+            catch
+            {
+                foreach (var slice in this.slices)
+                {
+                    slice.Reader.Dispose();
+                }
+                throw;
+            }
+
+
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
+        }
+
+        private static SliceInfo OpenSlice(string directory, string fileName, PersistentDictionaryBehavior behavior, bool mandatory)
+        {
+            var baseName = fileName.Substring(0, fileName.LastIndexOf(".col", StringComparison.Ordinal));
+            ImmutableMultiDictionaryReader<TKey, TValue> reader;
+            try
+            {
+                reader = new ImmutableMultiDictionaryReader<TKey, TValue>(Path.Combine(directory, baseName), behavior);
+            }
+            catch (FileNotFoundException) when (!mandatory)
+            {
+                var fullPath = Path.Combine(directory, fileName);
+                Console.Error.WriteLine("Partial slice: " + fullPath);
+                File.Move(fullPath, fullPath + ".orphan-slice");
+                return default;
+            }
+            var interval = CombinedPersistentMultiDictionary.GetSliceInterval(fileName);
+
+
+            return new SliceInfo(
+                interval.StartTime,
+                interval.EndTime,
+                reader);
         }
 
 
@@ -73,7 +127,7 @@ namespace AppViewLite.Storage
         public event EventHandler<CancelEventArgs> ShouldFlush;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
+        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
         {
             public readonly long KeyCount => Reader.KeyCount;
             public readonly long ValueCount => Reader.ValueCount;
@@ -121,7 +175,7 @@ namespace AppViewLite.Storage
                 prevSliceDate = date;
 
                 var groupCount = queue.GroupCount;
-                var prefix = DirectoryPath + "/" + date.Ticks + "-" + groupCount;
+                var prefix = DirectoryPath + "/" + date.Ticks + "-" + date.Ticks;
                 using var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(prefix, behavior);
 
 
@@ -134,7 +188,7 @@ namespace AppViewLite.Storage
                 writer.Commit();
                 
                 queue.Clear();
-                slices.Add(new(date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
+                slices.Add(new(date, date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {groupCount} rows");
 
                 if (!disposing)
@@ -196,9 +250,14 @@ namespace AppViewLite.Storage
         {
             if (groupLength <= 1) return;
             var inputs = slices.Slice(groupStart, groupLength);
-            var mergedDate = inputs.Min(x => x.StartTime);
+            for (int i = 1; i < slices.Count; i++)
+            {
+                if (slices[i - 1].StartTime >= slices[i].StartTime) throw new Exception();
+            }
+            var mergedStartTime = inputs[0].StartTime;
+            var mergedEndTime = inputs[^1].EndTime;
             var mergedCount = inputs.Sum(x => x.ValueCount);
-            var mergedPrefix = this.DirectoryPath + "/" + mergedDate.Ticks + "-" + mergedCount;
+            var mergedPrefix = this.DirectoryPath + "/" + mergedStartTime.Ticks + "-" + mergedEndTime.Ticks;
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
 
@@ -227,15 +286,18 @@ namespace AppViewLite.Storage
                     foreach (var input in inputs)
                     {
                         input.Reader.Dispose();
-                        for (int i = 0; i < (IsSingleValue ? 2 : 3); i++)
+                        if (DeleteOldFilesOnCompactation)
                         {
-                            File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
+                            for (int i = 0; i < (IsSingleValue ? 2 : 3); i++)
+                            {
+                                File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
+                            }
                         }
                     }
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
-                    slices.Insert(groupStart, new SliceInfo(mergedDate, new(mergedPrefix, behavior)));
+                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, new(mergedPrefix, behavior)));
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
@@ -695,6 +757,11 @@ namespace AppViewLite.Storage
             return
                 key.CompareTo(min) >= 0 &&
                 key.CompareTo(maxExclusive) < 0;
+        }
+
+        public (string TableName, string[] ActiveSlices)[] GetActiveSlices()
+        {
+            return [(Path.GetFileName(this.DirectoryPath), slices.Select(x => x.StartTime.Ticks + "-" + x.EndTime.Ticks).ToArray())];
         }
     }
 

@@ -1,4 +1,3 @@
-using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
@@ -13,8 +12,6 @@ using AppViewLite.Storage;
 using DuckDbSharp.Types;
 using AppViewLite.Numerics;
 using System;
-using System.Buffers.Binary;
-using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -85,7 +82,7 @@ namespace AppViewLite
        
 
         private HashSet<Plc> registerForNotificationsCache = new();
-        private List<IFlushable> disposables = new();
+        private List<ICheckpointable> disposables = new();
         public const int DefaultBufferedItems = 16 * 1024;
         public int AvoidFlushes;
 
@@ -96,19 +93,28 @@ namespace AppViewLite
 
         public string BaseDirectory { get; }
         private IDisposable lockFile;
+        private Dictionary<string, string[]>? checkpointToLoad;
+        private GlobalCheckpoint loadedCheckpoint;
 
-        private T Register<T>(T r) where T : IFlushable
+        private T Register<T>(T r) where T : ICheckpointable
         {
             disposables.Add(r);
             return r;
         }
         private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
-            return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(BaseDirectory + "/" + name, behavior) { ItemsToBuffer = DefaultBufferedItems, OnCompactation = onCompactation });
+            return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(
+                BaseDirectory + "/" + name,
+                checkpointToLoad.TryGetValue(name, out var slices) ? slices : [],
+                behavior
+            ) {
+                ItemsToBuffer = DefaultBufferedItems,
+                OnCompactation = onCompactation 
+            });
         }
         private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
         {
-            return Register(new RelationshipDictionary<TTarget>(BaseDirectory + "/" + name, targetToApproxTarget));
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad, targetToApproxTarget));
         }
 
         public bool IsReadOnly { get; private set; }
@@ -124,26 +130,22 @@ namespace AppViewLite
             this.IsReadOnly = isReadOnly;
             Directory.CreateDirectory(basedir);
 
-
+            
 
 
             lockFile = new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);
+
+            var checkpointsDir = new DirectoryInfo(basedir + "/checkpoints");
+            checkpointsDir.Create();
+            var latestCheckpoint = checkpointsDir.EnumerateFiles("*.pb").MaxBy(x => (DateTime?)x.LastWriteTimeUtc);
+            loadedCheckpoint = latestCheckpoint != null ? DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(latestCheckpoint.FullName)) : new GlobalCheckpoint();
+            checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.StartTime + "-" + x.EndTime).ToArray());
+
 
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
             PlcToDid = RegisterDictionary<Plc, byte>("plc-to-did", PersistentDictionaryBehavior.PreserveOrder);
             PdsIdToString = RegisterDictionary<Pds, byte>("pds-id-to-string", PersistentDictionaryBehavior.PreserveOrder);
             PdsHashToPdsId = RegisterDictionary<DuckDbUuid, Pds>("pds-hash-to-id", PersistentDictionaryBehavior.SingleValue);
-
-
-            EventHandler flushMappings = (s, e) =>
-            {
-                PlcToDid.Flush(false);
-                DidHashToUserId.Flush(false);
-
-                PdsIdToString.Flush(false);
-                PdsHashToPdsId.Flush(false);
-            };
-
 
 
             Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24);
@@ -234,7 +236,6 @@ namespace AppViewLite
 
                 foreach (var item in disposables)
                 {
-                    item.BeforeFlush += flushMappings;
                     item.ShouldFlush += (table, e) =>
                     {
                         if (AvoidFlushes > 0 && !(table == Follows || table == PostData || table == Likes /* big tables unrelated to PLC directory indexing */))
@@ -244,10 +245,8 @@ namespace AppViewLite
                     };
                 }
 
-                CarImports.BeforeFlush += (_, _) => this.GlobalFlush(); // otherwise at the next incremental CAR import we'll miss some items
-                LastRetrievedPlcDirectoryEntry.BeforeFlush += (_, _) => GlobalFlush();
-
             }
+            checkpointToLoad = null;
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -307,6 +306,7 @@ namespace AppViewLite
                 {
                     d.Dispose();
                 }
+                CaptureCheckpoint();
                 lockFile.Dispose();
                 _disposed = true;
                 
@@ -320,6 +320,40 @@ namespace AppViewLite
                 }
             }
         }
+
+        private void CaptureCheckpoint()
+        {
+            if (IsReadOnly) return;
+            loadedCheckpoint.Tables ??= new();
+            foreach (var table in disposables)
+            {
+                foreach (var activeSlices in table.GetActiveSlices())
+                {
+                    var checkpointTable = loadedCheckpoint.Tables.FirstOrDefault(x => x.Name == activeSlices.TableName);
+                    if (checkpointTable == null)
+                    {
+                        checkpointTable = new() {  Name = activeSlices.TableName };
+                        loadedCheckpoint.Tables.Add(checkpointTable);
+                    }
+
+                    checkpointTable.Slices = activeSlices.ActiveSlices.Select(x => 
+                    {
+                        var interval = CombinedPersistentMultiDictionary.GetSliceInterval(x + ".");
+                        return new GlobalCheckpointSlice()
+                        {
+                            StartTime = interval.StartTime.Ticks,
+                            EndTime = interval.EndTime.Ticks,
+                        };
+                    }).ToArray();
+                }
+            }
+
+
+            var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
+            File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
+            File.Move(checkpointFile + ".tmp", checkpointFile);
+        }
+
         private bool _disposed;
 
         public string GetDid(Plc plc)
@@ -1811,10 +1845,12 @@ namespace AppViewLite
 
         private void GlobalFlush()
         {
+            if (IsReadOnly) throw new InvalidOperationException();
             foreach (var table in disposables)
             {
                 table.Flush(false);
             }
+            CaptureCheckpoint();
             lastGlobalFlush.Restart();
         }
 

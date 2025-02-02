@@ -1,13 +1,10 @@
 using FishyFlip.Models;
 using Ipfs;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.WebUtilities;
-using PeterO.Cbor;
 using AppViewLite.Web.Components;
 using AppViewLite.Models;
-using AppViewLite.Numerics;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -21,6 +18,7 @@ namespace AppViewLite.Web
 
         public static bool AllowPublicReadOnlyFakeLogin = false;
         public static bool ListenToFirehose = true;
+        public static bool ListenPlcDirectory = false;
 
         public static string ToFullHumanDate(DateTime date)
         {
@@ -151,11 +149,22 @@ namespace AppViewLite.Web
                         else
                             _ = indexer.ListenBlueskyFirehoseAsync();
                     }
-                    _ = new Indexer(Relationships, atprotoProvider).RetrievePlcDirectoryLoopAsync();
                     //await indexer.ListenJetStreamFirehoseAsync();
                
                 });
+
+ 
             }
+
+
+            if (ListenPlcDirectory && !Relationships.IsReadOnly)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await new Indexer(Relationships, atprotoProvider).RetrievePlcDirectoryLoopAsync();
+                });
+            }
+
             AppViewLiteHubContext = app.Services.GetRequiredService<IHubContext<AppViewLiteHub>>();
             app.Run();
             

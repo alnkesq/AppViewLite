@@ -6,12 +6,13 @@ using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
-    public class RelationshipDictionary<TTarget> : IDisposable, IFlushable where TTarget : unmanaged, IComparable<TTarget>
+    public class RelationshipDictionary<TTarget> : ICheckpointable where TTarget : unmanaged, IComparable<TTarget>
     {
 
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
@@ -21,19 +22,21 @@ namespace AppViewLite
         private Func<TTarget, bool, UInt24?>? targetToApproxTarget;
         public event EventHandler BeforeFlush;
         public event EventHandler<CancelEventArgs> ShouldFlush;
-        public RelationshipDictionary(string pathPrefix, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
+        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
-            this.creations = new CombinedPersistentMultiDictionary<TTarget, Relationship>(pathPrefix) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems};
-            this.deletions = new CombinedPersistentMultiDictionary<Relationship, DateTime>(pathPrefix + "-deletion", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
-            this.deletionCounts = new CombinedPersistentMultiDictionary<TTarget, int>(pathPrefix + "-deletion-counts", PersistentDictionaryBehavior.SortedValues)
+            CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
-                ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems,
-                OnCompactation = z => new[] { z.Max() }
-            };
+                return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
+            }
+            this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty);
+            this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
+            this.deletionCounts = CreateMultiDictionary<TTarget, int>("-deletion-counts", PersistentDictionaryBehavior.SortedValues);
+            this.deletionCounts.OnCompactation = z => new[] { z.Max() };
+
             this.targetToApproxTarget = targetToApproxTarget;
             if (targetToApproxTarget != null)
             {
-                this.relationshipIdHashToApproxTarget = new(pathPrefix + "-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
+                this.relationshipIdHashToApproxTarget = CreateMultiDictionary<RelationshipHash, UInt24>("-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
                 this.relationshipIdHashToApproxTarget.BeforeFlush += OnBeforeFlush;
                 this.relationshipIdHashToApproxTarget.ShouldFlush += OnShouldFlush;
             }
@@ -117,13 +120,7 @@ namespace AppViewLite
             return false;
         }
 
-        public void Dispose()
-        {
-            creations.Dispose();
-            deletions.Dispose();
-            deletionCounts.Dispose();
-            relationshipIdHashToApproxTarget?.Dispose();
-        }
+    
 
         public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
         {
@@ -290,6 +287,30 @@ namespace AppViewLite
         public long GetApproximateActorCount(TTarget key)
         {
             return creations.GetValueCount(key);
+        }
+
+        private IEnumerable<ICheckpointable> GetComponents()
+        {
+            return new ICheckpointable[]
+                {
+                    creations,
+                    deletions,
+                    deletionCounts,
+                    relationshipIdHashToApproxTarget
+                }.Where(x => x != null);
+        }
+
+        public (string TableName, string[] ActiveSlices)[] GetActiveSlices()
+        {
+            return GetComponents().SelectMany(x => x.GetActiveSlices()).ToArray();
+        }
+
+        public void Dispose()
+        {
+            foreach (var component in GetComponents())
+            {
+                component.Dispose();
+            }
         }
     }
 }

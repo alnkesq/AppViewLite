@@ -27,7 +27,7 @@ namespace AppViewLite
         }
         public static string EncodePadded(UInt128 i)
         {
-            return Encode(i).PadLeft(24, 'a');
+            return Encode(i).PadLeft(24, '2');
         }
 
         public static string Encode(UInt128 i)

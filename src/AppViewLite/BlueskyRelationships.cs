@@ -2174,10 +2174,6 @@ namespace AppViewLite
 
             HandleToPossibleDids.Add(BlueskyRelationships.HashWord(handle), plc);
 
-            if (handle.EndsWith(".bsky.social", StringComparison.Ordinal))
-            {
-                handle = handle.Substring(0, handle.Length - ".bsky.social".Length);
-            }
             foreach (var word in StringUtils.GetDistinctWords(handle))
             {
                 IndexProfileWord(word, plc);

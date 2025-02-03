@@ -1,0 +1,21 @@
+@code {
+    [Parameter] public required BlueskyProfile[] Profiles { get; set; }
+    [Parameter] public string? SearchQuery { get; set; }
+}
+
+@foreach (var profile in Profiles)
+{
+
+    <a href="@profile.BaseUrl" data-did="@profile.Did">
+        <img src="@profile.AvatarUrl" class="profile-image-small">
+        <div>
+            <b>@profile.DisplayNameOrFallback</b>
+            <ProfileBadges Profile="@profile" NoLink="true" />
+        </div>
+        <div data-handledid="@profile.Did" class="handle-generic @(profile.PossibleHandle == "handle.invalid" ? "handle-invalid" : profile.HandleIsUncertain ? "handle-uncertain" : null)">@profile.PossibleHandle</div>
+    </a>
+}
+@if (Profiles.Length == 0 && !string.IsNullOrEmpty(SearchQuery))
+{
+    <a href="/search?q=@(Uri.EscapeDataString(SearchQuery))">Search for "@SearchQuery"</a>
+}

@@ -42,9 +42,7 @@ namespace AppViewLite.Web
             var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
             BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p =>
             {
-                using var scope = Program.StaticServiceProvider.CreateScope();
-                using var renderer = new HtmlRenderer(scope.ServiceProvider, loggerFactory);
-                var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<ProfileRow>(ParameterView.FromDictionary(new Dictionary<string, object>() { { nameof(ProfileRow.Profile), p } }))).ToHtmlString());
+                var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object>() { { nameof(ProfileRow.Profile), p } });
                 var index = Array.IndexOf(profiles, p);
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("ProfileRendered", requests[index].nodeId, html);
             }).FireAndForget();
@@ -85,10 +83,8 @@ namespace AppViewLite.Web
             {
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
-                using var scope = Program.StaticServiceProvider.CreateScope();
-                using var renderer = new HtmlRenderer(scope.ServiceProvider, loggerFactory);
                 var req = requests[index];
-                var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags))).ToHtmlString());
+                var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html);
             }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc).FireAndForget();
 

@@ -384,7 +384,9 @@ ul {
 .handle-generic::before{
     content: ' @';
 }
-.post .handle-generic::before{
+.post .handle-generic::before,
+.search-form-suggestions .handle-generic::before
+{
     width: 17px;
     display: inline-block;
     text-align: right;
@@ -1260,12 +1262,15 @@ button[disabled], input[type=submit][disabled] {
     white-space: nowrap;
     height: 40px;
     align-content: center;
+    padding-left: 55px;
 }
+
 .search-form-suggestions a:hover{
     background: #eee;
 }
 .search-form-suggestions .profile-image-small{
-    margin-right: 10px;
+    position: absolute;
+    left: 4px;
 
 }
 

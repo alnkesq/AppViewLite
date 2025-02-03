@@ -1878,36 +1878,47 @@ namespace AppViewLite
 
         private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
         {
-            // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
-            Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
-            var lookup = new LookupClient();
-            if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
+            try
             {
-                var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
-                var record = result.Answers.TxtRecords()
-                    .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
-                    .FirstOrDefault(x => x != null && x.StartsWith("did=", StringComparison.Ordinal));
-                if (record != null)
+                // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
+                Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
+                var lookup = new LookupClient();
+                if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {
-                    var did = record.Substring(4);
-                    EnsureValidDid(did);
-                    WithRelationshipsLock(rels =>
+                    var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
+                    var record = result.Answers.TxtRecords()
+                        .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
+                        .FirstOrDefault(x => x != null && x.StartsWith("did=", StringComparison.Ordinal));
+                    if (record != null)
                     {
-                        rels.IndexHandle(handle, did);
-                        rels.AddHandleToDidVerification(handle, rels.SerializeDid(did));
-                    });
-                    return did;
+                        var did = record.Substring(4);
+                        EnsureValidDid(did);
+                        WithRelationshipsLock(rels =>
+                        {
+                            rels.IndexHandle(handle, did);
+                            rels.AddHandleToDidVerification(handle, rels.SerializeDid(did));
+                        });
+                        return did;
+                    }
                 }
-            }
 
-            var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did", ct)).Trim();
-            EnsureValidDid(s);
-            WithRelationshipsLock(rels =>
+                var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did", ct)).Trim();
+                EnsureValidDid(s);
+                WithRelationshipsLock(rels =>
+                {
+                    rels.IndexHandle(handle, s);
+                    rels.AddHandleToDidVerification(handle, rels.SerializeDid(s));
+                });
+                return s;
+            }
+            catch (Exception ex)
             {
-                rels.IndexHandle(handle, s);
-                rels.AddHandleToDidVerification(handle, rels.SerializeDid(s));
-            });
-            return s;
+                WithRelationshipsLock(rels =>
+                {
+                    rels.AddHandleToDidVerification(handle, default);
+                });
+                throw;
+            }
         }
 
 

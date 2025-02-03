@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using AppViewLite.Web.Components;
 
 namespace AppViewLite.Web
 {
@@ -81,15 +82,15 @@ namespace AppViewLite.Web
         [HttpGet(nameof(SearchAutoComplete))]
         public async Task<object> SearchAutoComplete(string? q, string? forceResults)
         {
-            var signalrSessionId = ctx.SignalrConnectionId;
+
             var responseAlreadySent = false;
             ProfilesAndContinuation profiles;
-
+            var ctx = this.ctx;
             void NotifySearchAutocompleteUpdates()
             {
-                if (signalrSessionId != null && responseAlreadySent)
+                if (responseAlreadySent)
                 {
-                    Program.AppViewLiteHubContext.Clients.Client(signalrSessionId).SendAsync("SearchAutoCompleteProfileDetails").FireAndForget();
+                    ctx.SendSignalrAsync("SearchAutoCompleteProfileDetails");
                 }
             }
 
@@ -104,12 +105,7 @@ namespace AppViewLite.Web
             responseAlreadySent = true;
             return new
             {
-                Profiles = profiles.Profiles.Select(x => new 
-                {
-                    DisplayName = x.DisplayNameOrFallback,
-                    Did = x.Did,
-                    AvatarUrl = x.AvatarUrl,
-                }).ToArray()
+                Html = await Program.RenderComponentAsync<ProfileSearchAutocomplete>(new Dictionary<string, object?> { { "Profiles", profiles.Profiles }, { "SearchQuery", q } })
             };
         }
 

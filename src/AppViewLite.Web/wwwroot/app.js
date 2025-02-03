@@ -79,19 +79,12 @@ var liveUpdatesConnectionFuture = (async () => {
         for (const a of document.querySelectorAll('.profile-badge-pending[data-badgedid="' + did + '"][data-badgehandle="'+ handle.toLowerCase() +'"]')) {
             a.classList.remove('profile-badge-pending');
         }
+        updateSearchAutoComplete();
     });
 
-    var lastAutocompleteRefreshToken = 0;
 
     connection.on('SearchAutoCompleteProfileDetails', () => {
-        var token = ++lastAutocompleteRefreshToken;
-        setTimeout(() => { 
-            if (token != lastAutocompleteRefreshToken) return;
-            var menu = document.querySelector('.search-form-suggestions');
-            if (menu && !menu.classList.contains('display-none')) {
-                searchBoxAutocomplete(true)
-            }
-        }, 200)
+        updateSearchAutoComplete();
 
     });
     liveUpdatesConnection = connection;
@@ -99,6 +92,19 @@ var liveUpdatesConnectionFuture = (async () => {
     await connection.start();
     return connection;
 })();
+
+var lastAutocompleteRefreshToken = 0;
+
+function updateSearchAutoComplete() { 
+    var token = ++lastAutocompleteRefreshToken;
+    setTimeout(() => { 
+        if (token != lastAutocompleteRefreshToken) return;
+        var menu = document.querySelector('.search-form-suggestions');
+        if (menu && !menu.classList.contains('display-none')) {
+            searchBoxAutocomplete(true)
+        }
+    }, 200)
+}
 
 
 function applyPageFocus() {
@@ -730,26 +736,11 @@ async function searchBoxAutocomplete(forceResults) {
     var token = ++autocomplete.lastSearchToken;
 
     var result = text ? await httpGet('searchAutoComplete', forceResults ? { forceResults: lastAutocompleteDids.join(',') } : { q: text }) : { profiles: [] };
-    lastAutocompleteDids = result.profiles.map(x => x.did);
     if (autocomplete.lastSearchToken != token) return;
-    autocomplete.innerHTML = '';
-    for (const profile of result.profiles) {
-        var a = document.createElement('a');
-        a.href = '/@' + profile.did;
-        var img = document.createElement('img');
-        if (profile.avatarUrl)
-            img.src = profile.avatarUrl;
-        img.className = 'profile-image-small';
-        a.appendChild(img);
-        a.appendChild(document.createTextNode(profile.displayName));
-        autocomplete.appendChild(a);
-    }
-    if (text && !result.profiles.length) {
-        var a = document.createElement('a');
-        a.href = "/search?q=" + encodeURIComponent(text);
-        a.textContent = 'Search for "' + text + '"'
-        autocomplete.appendChild(a);
-    }
+    autocomplete.innerHTML = result.html;
+    lastAutocompleteDids = [...autocomplete.querySelectorAll('a[data-did]')].map(x => x.dataset.did)
+
+
     if (autocomplete.firstElementChild) autocomplete.classList.remove('display-none');
     else closeAutocompleteMenu(autocomplete)
 }

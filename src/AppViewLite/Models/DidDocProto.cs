@@ -27,11 +27,12 @@ namespace AppViewLite.Models
         public string? Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null)) ?? MultipleHandles?.FirstOrDefault();
 
 
-        public bool HasHandle(string handle)
+        public bool HasHandle(string normalizedHandle)
         {
-            ArgumentNullException.ThrowIfNull(handle);
-            if (MultipleHandles != null) return MultipleHandles.Contains(handle);
-            return Handle == handle;
+            ArgumentNullException.ThrowIfNull(normalizedHandle);
+            if (MultipleHandles != null) return MultipleHandles.Any(x => StringUtils.NormalizeHandle(x) == normalizedHandle);
+            var h = Handle;
+            return h != null && StringUtils.NormalizeHandle(h) == normalizedHandle;
         }
 
         public override string ToString()

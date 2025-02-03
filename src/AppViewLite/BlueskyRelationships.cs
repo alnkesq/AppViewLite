@@ -720,20 +720,41 @@ namespace AppViewLite
 
 
 
-        public IEnumerable<ManagedOrNativeArray<Plc>> SearchProfilesPrefixOnly(SizeLimitedWord8 prefix)
+        public List<ManagedOrNativeArray<Plc>> SearchProfilesPrefixOnly(SizeLimitedWord8 prefix)
         {
             if (prefix.Length <= 2)
             {
                 var prefix2 = SizeLimitedWord2.Create(prefix);
                 var maxExclusive = prefix2.GetMaxExclusiveForPrefixRange();
-                return ProfileSearchPrefix2.GetInRangeUnsorted(prefix2, maxExclusive).Select(x => x.Values);
+                return ConsolidatePrefixSearch(ProfileSearchPrefix2.GetInRangeUnsorted(prefix2, maxExclusive).Select(x => x.Values));
             }
             else
             {
                 var maxExclusive = prefix.GetMaxExclusiveForPrefixRange();
-                return ProfileSearchPrefix8.GetInRangeUnsorted(prefix, maxExclusive).Select(x => x.Values);
+                return ConsolidatePrefixSearch(ProfileSearchPrefix8.GetInRangeUnsorted(prefix, maxExclusive).Select(x => x.Values));
             }
             
+        }
+
+        private List<ManagedOrNativeArray<Plc>> ConsolidatePrefixSearch(IEnumerable<ManagedOrNativeArray<Plc>> slices)
+        {
+            var result = new List<ManagedOrNativeArray<Plc>>();
+            var small = new List<Plc>();
+            foreach (var slice in slices)
+            {
+                if (slice.Count <= 5)
+                    small.AddRange(slice);
+                else
+                    result.Add(slice);
+            }
+
+            if (small.Count != 0)
+            {
+                small.Sort();
+                result.Add(small.ToArray());
+            }
+
+            return result;
         }
 
         public IEnumerable<Plc> SearchProfiles(string[] searchTerms, SizeLimitedWord8 searchTermsLastPrefix, Plc maxExclusive, bool alsoSearchDescriptions)
@@ -2201,7 +2222,7 @@ namespace AppViewLite
 
         internal void AddHandleToDidVerification(string handle, Plc plc)
         {
-            if (string.IsNullOrEmpty(handle) || handle.Contains(':') || plc == default) throw new ArgumentException();
+            if (string.IsNullOrEmpty(handle) || handle.Contains(':')) throw new ArgumentException();
             HandleToDidVerifications.Add(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(handle)), new HandleVerificationResult((ApproximateDateTime32)DateTime.UtcNow, plc));
         }
 

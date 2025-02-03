@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace AppViewLite.Web
 {
@@ -390,6 +391,20 @@ namespace AppViewLite.Web
             }
             return new Uri(QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query));
         }
+
+        internal static Task<string> RenderComponentAsync<T>(Dictionary<string, object?> parameters) where T : ComponentBase
+        {
+            return RenderComponentAsync<T>(ParameterView.FromDictionary(parameters));
+        
+        }
+        internal static async Task<string> RenderComponentAsync<T>(ParameterView parameters) where T: ComponentBase
+        {
+            using var scope = Program.StaticServiceProvider.CreateScope();
+            using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+            var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<T>(parameters)).ToHtmlString());
+            return html;
+        }
+        
     }
 }
 

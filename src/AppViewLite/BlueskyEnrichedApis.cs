@@ -1829,7 +1829,8 @@ namespace AppViewLite
                 }
 
 
-                throw new Exception($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
+                if ("did:web:" + handle != did)
+                    throw new Exception($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
             }
 
             return did;

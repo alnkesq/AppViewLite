@@ -85,7 +85,7 @@
                     Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
                 };
 
-            (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext.OnStateChanged(StateHasChanged)) : await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext.OnStateChanged(StateHasChanged));
+            (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext) : await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext);
         }
     }
 }

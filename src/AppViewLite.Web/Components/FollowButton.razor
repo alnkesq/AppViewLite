@@ -2,19 +2,9 @@
 @code{
     [Parameter] public BlueskyProfile Profile { get; set; }
 
-    private AsyncStateToggler IsFollowed;
-    protected override void OnParametersSet()
-    {
-        IsFollowed = new AsyncStateToggler(
-            0,
-            Profile.IsFollowedBySelf,
-            () => BlueskyEnrichedApis.Instance.CreateFollowAsync(Profile.Did, RequestContext),
-            rkey => BlueskyEnrichedApis.Instance.DeleteFollowAsync(rkey, RequestContext),
-            StateHasChanged);
-    }
 }
-<button @onclick="IsFollowed.ToggleIfNotBusyAsync" class="follow-button @(IsFollowed.HaveRelationship ? "follow-button-unfollow" : null)" actionkind="toggleFollow" data-profiledid="@Profile.Did" data-followrkey="@(IsFollowed.RKey ?? "-")" data-followsyou="@(Profile.FollowsYou ? 1 : 0)">
-    @if (IsFollowed.HaveRelationship)
+<button class="follow-button @(Profile.IsFollowedBySelf != null ? "follow-button-unfollow" : null)" actionkind="toggleFollow" data-profiledid="@Profile.Did" data-followrkey="@(Profile.IsFollowedBySelf?.ToString() ?? "-")" data-followsyou="@(Profile.FollowsYou ? 1 : 0)">
+    @if (Profile.IsFollowedBySelf != null)
     {
         <text>Unfollow</text>
     }

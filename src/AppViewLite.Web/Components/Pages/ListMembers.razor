@@ -12,7 +12,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (ListMetadata, Members, NextContinuation) = await BlueskyEnrichedApis.Instance.GetListMembersAsync(Did, RKey, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        (ListMetadata, Members, NextContinuation) = await BlueskyEnrichedApis.Instance.GetListMembersAsync(Did, RKey, Continuation, default, RequestContext);
     }
 }
 

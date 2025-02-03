@@ -12,7 +12,7 @@
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
         Member = await BlueskyEnrichedApis.Instance.GetProfileAsync(Did, RequestContext);
-        (MemberOf, NextContinuation) = await BlueskyEnrichedApis.Instance.GetMemberOfListsAsync(Did, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        (MemberOf, NextContinuation) = await BlueskyEnrichedApis.Instance.GetMemberOfListsAsync(Did, Continuation, default, RequestContext);
     }
 }
 

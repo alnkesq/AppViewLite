@@ -8,7 +8,7 @@
     private PostsAndContinuation Posts = new();
     protected override async Task OnParametersSetAsync()
     {
-        Posts = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext.OnStateChanged(StateHasChanged));
+        Posts = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
     }
 }
 

@@ -12,7 +12,7 @@
     protected override async Task OnParametersSetAsync()
     {
         if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
-        (newNotifications, oldNotifications, newestNotification) = await BlueskyEnrichedApis.Instance.GetCoalescedNotificationsAsync(RequestContext.OnStateChanged(StateHasChanged));
+        (newNotifications, oldNotifications, newestNotification) = await BlueskyEnrichedApis.Instance.GetCoalescedNotificationsAsync(RequestContext);
     }
 }
 

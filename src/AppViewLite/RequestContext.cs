@@ -47,6 +47,8 @@ namespace AppViewLite
             return new RequestContext(session, null, null, signalrConnectionId);
         }
 
+#if false
+        // Blazor server code
         public RequestContext OnStateChanged(Action a)
         {
             var synchronizationContext = SynchronizationContext.Current!;
@@ -81,6 +83,7 @@ namespace AppViewLite
             ctx.InitializeDeadlines(); // reinitialize, don't reuse (blazor server navigations don't provide a new request context)
             return ctx;
         }
+#endif
 
         public bool IsLoggedIn => Session != null && Session.IsLoggedIn;
         public Plc LoggedInUser => Session!.LoggedInUser!.Value;

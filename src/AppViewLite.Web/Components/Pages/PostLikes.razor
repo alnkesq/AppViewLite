@@ -11,7 +11,7 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Likers, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostLikersAsync(Did, RKey, Continuation, default, RequestContext.OnStateChanged(StateHasChanged));
+        (Likers, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostLikersAsync(Did, RKey, Continuation, default, RequestContext);
     }
 }
 

@@ -26,9 +26,8 @@
     const int MaxFollowersYouFollowAvatars = 3;
     protected override async Task OnParametersSetAsync()
     {
-        var r = RequestContext.OnStateChanged(StateHasChanged);
         Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, r, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
+        Profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(Did, RequestContext, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
         GuessedFacets = StringUtils.GuessFacets(Profile.Profile?.BasicData?.Description);
         (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetUserPostsAsync(
             Did,
@@ -38,7 +37,7 @@
             includeLikes: ShowLikes,
             mediaOnly: ShowMediaOnly,
             continuation: Continuation,
-            ctx: r);
+            ctx: RequestContext);
     }
 }
 

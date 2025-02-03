@@ -2202,6 +2202,18 @@ namespace AppViewLite
             if (string.IsNullOrEmpty(handle) || handle.Contains(':') || plc == default) throw new ArgumentException();
             HandleToDidVerifications.Add(StringUtils.HashUnicodeToUuid(handle), new HandleVerificationResult((ApproximateDateTime32)DateTime.UtcNow, plc));
         }
+
+        internal static string DeserializeDidPlcFromUInt128(UInt128 plcAsUInt128)
+        {
+            return "did:plc:" + AtProtoS32.EncodePadded(plcAsUInt128);
+        }
+
+        internal static UInt128 SerializeDidPlcToUInt128(string did)
+        {
+            var result = AtProtoS32.TryDecode128(did.Substring(8))!.Value;
+            if (DeserializeDidPlcFromUInt128(result) != did) throw new Exception("Not a valid did:plc: " + did);
+            return result;
+        }
     }
 
     public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);

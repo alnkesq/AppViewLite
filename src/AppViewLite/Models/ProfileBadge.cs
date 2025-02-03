@@ -11,8 +11,18 @@ namespace AppViewLite.Models
         public required string Kind;
         public string? Description;
         public string? Url;
-        public required string Did;
+        public string? Did;
+        public string? Handle;
+        public bool IsHandleBased;
 
+    }
+
+    public class ProfileBadgeWikidataParquet
+    {
+        public long WikidataId;
+        public string? Handle;
+        public bool IsOrganization;
+        public bool IsGov;
     }
 }
 

@@ -7,7 +7,7 @@
 {
     foreach (var badge in Profile.Badges)
     {
-        <a class="profile-badge" href="@(badge.Url ?? Profile.BaseUrl)">
+        <a data-badgedid="@Profile.Did" data-badgehandle="@(Profile.PossibleHandle != null ? StringUtils.NormalizeHandle(Profile.PossibleHandle) : null)" target="_blank" class="profile-badge @(badge.IsHandleBased && Profile.HandleIsUncertain ? "profile-badge-pending" : null)" href="@(badge.Url ?? Profile.BaseUrl)">
             <img src="/assets/badges/@(badge.Kind).svg" title="@(badge.Description)" />
         </a>
     }

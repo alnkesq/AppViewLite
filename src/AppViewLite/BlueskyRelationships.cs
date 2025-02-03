@@ -1319,8 +1319,6 @@ namespace AppViewLite
             return ProtoBuf.Serializer.Deserialize<T>(ms);
         }
 
-
-
         public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null)
         {
             var basic = GetProfileBasicInfo(plc);
@@ -1340,7 +1338,7 @@ namespace AppViewLite
                 RelationshipRKey = relationshipRKey,
                 PossibleHandle = possibleHandle ?? "handle.invalid",
                 HandleIsUncertain = !handleIsCertain,
-                Badges = new[] { new ProfileBadge { Description = "Test", Kind = "verified-organization", Did = did } }
+                Badges = Badges.GetBadges(plc, did, possibleHandle)
             };
         }
 

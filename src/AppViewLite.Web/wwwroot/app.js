@@ -76,6 +76,9 @@ var liveUpdatesConnectionFuture = (async () => {
             a.classList.remove('handle-uncertain');
             a.classList.toggle('handle-invalid', handle == 'handle.invalid');
         }
+        for (const a of document.querySelectorAll('.profile-badge-pending[data-badgedid="' + did + '"][data-badgehandle="'+ handle.toLowerCase() +'"]')) {
+            a.classList.remove('profile-badge-pending');
+        }
     });
 
     var lastAutocompleteRefreshToken = 0;

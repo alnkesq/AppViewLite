@@ -1274,7 +1274,11 @@ button[disabled], input[type=submit][disabled] {
 }
 
 .profile-badge {
+    transition: opacity 0.25s;
+}
 
+.profile-badge-pending{
+    opacity: 0.05;
 }
 .profile-badge img{
     width: 16px;

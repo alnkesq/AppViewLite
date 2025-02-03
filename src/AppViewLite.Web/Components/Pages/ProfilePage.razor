@@ -54,7 +54,14 @@
             }
         </div>
         <img src="@Profile.Profile.AvatarUrl" class="profile-image-large main-padding" />
-        <h1 class="main-padding">@Profile.Profile.DisplayNameOrFallback</h1>
+        <h1 class="main-padding">
+            @Profile.Profile.DisplayNameOrFallback
+            <ProfileBadges Profile="@Profile.Profile" />
+        </h1>
+
+        <div class="main-padding">
+            <ProfileHandle Profile="@Profile.Profile" />
+        </div>
 
         @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
         {

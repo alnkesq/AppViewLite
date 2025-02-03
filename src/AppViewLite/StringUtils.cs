@@ -231,6 +231,11 @@ namespace AppViewLite
             var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(index, length));
             return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did };
         }
+
+        public static string NormalizeHandle(string handle)
+        {
+            return handle.ToLowerInvariant();
+        }
     }
 }
 

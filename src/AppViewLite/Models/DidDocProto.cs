@@ -96,7 +96,8 @@ namespace AppViewLite.Models
             var format = (DidDocEncoding)br.ReadByte();
             if (format == DidDocEncoding.Proto)
             {
-                return ProtoBuf.Serializer.Deserialize<DidDocProto>(br.BaseStream);
+                var proto = ProtoBuf.Serializer.Deserialize<DidDocProto>(br.BaseStream);
+                return proto;
             }
             var result = new DidDocProto();
             result.Date = Unsafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32());

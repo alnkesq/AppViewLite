@@ -24,9 +24,15 @@
     <a href="@Profile.BaseUrl" class="profile-row-avatar">
         <img src="@Profile.AvatarUrl" class="profile-image-small">
     </a>
-    <a href="@Profile.BaseUrl" class="profile-row-name profile-indented">
-        @Profile.DisplayNameOrFallback
-    </a>
+    <div class="profile-indented profile-row-meta">
+        <a href="@Profile.BaseUrl" class="profile-row-name">
+            @Profile.DisplayNameOrFallback
+        </a>
+        <ProfileBadges Profile="@Profile" />
+    </div>
+    
+    <ProfileHandle Profile="@Profile" />
+
     @if (Profile.BlockReason != default)
     {
         <span class="profile-follow-relationship">@Profile.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor)</span>

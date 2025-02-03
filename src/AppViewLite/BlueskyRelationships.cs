@@ -1328,7 +1328,7 @@ namespace AppViewLite
             var didDoc = TryGetLatestDidDoc(plc);
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
-            if (possibleHandle != null && HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(possibleHandle), out var lastVerification) && lastVerification.Plc == plc && (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
+            if (possibleHandle != null && HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(possibleHandle)), out var lastVerification) && lastVerification.Plc == plc && (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
             {
                 handleIsCertain = true;
             }
@@ -1339,7 +1339,8 @@ namespace AppViewLite
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
                 PossibleHandle = possibleHandle ?? "handle.invalid",
-                HandleIsUncertain = !handleIsCertain
+                HandleIsUncertain = !handleIsCertain,
+                Badges = new[] { new ProfileBadge { Description = "Test", Kind = "verified-organization", Did = did } }
             };
         }
 
@@ -2179,7 +2180,7 @@ namespace AppViewLite
         {
             if (handle == null) return;
 
-            HandleToPossibleDids.Add(BlueskyRelationships.HashWord(handle), plc);
+            HandleToPossibleDids.Add(BlueskyRelationships.HashWord(StringUtils.NormalizeHandle(handle)), plc);
 
             foreach (var word in StringUtils.GetDistinctWords(handle))
             {
@@ -2203,7 +2204,7 @@ namespace AppViewLite
         internal void AddHandleToDidVerification(string handle, Plc plc)
         {
             if (string.IsNullOrEmpty(handle) || handle.Contains(':') || plc == default) throw new ArgumentException();
-            HandleToDidVerifications.Add(StringUtils.HashUnicodeToUuid(handle), new HandleVerificationResult((ApproximateDateTime32)DateTime.UtcNow, plc));
+            HandleToDidVerifications.Add(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(handle)), new HandleVerificationResult((ApproximateDateTime32)DateTime.UtcNow, plc));
         }
 
         internal static string DeserializeDidPlcFromUInt128(UInt128 plcAsUInt128)

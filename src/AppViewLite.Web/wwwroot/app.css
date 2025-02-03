@@ -300,6 +300,7 @@ ul {
     position: relative;
     border-bottom: 1px solid #D4DBE2;
     padding-bottom: 10px;
+    min-height: 50px;
 }
 
 .profile-row-avatar{
@@ -308,13 +309,13 @@ ul {
 
 .profile-row-name {
     font-weight: bold;
-    padding-top: 9px;
-    margin-bottom: 9px;
     position: relative;
     display: inline-block;
 }
 
-.profile-indented{
+
+
+.profile-indented, .profile-row .handle-generic {
     margin-left: 60px;
 }
 
@@ -322,6 +323,8 @@ ul {
     white-space: pre-wrap;
     word-break: break-word;
     overflow-wrap: break-word;
+    margin-right: 100px;
+    margin-top: 8px;
 }
 
 .profile-row .profile-follow-relationship {
@@ -371,19 +374,22 @@ ul {
 }
 
 .post-date, .handle-generic {
-    color: #777 !important; 
+    color: rgb(66, 87, 108) !important; 
 }
 
 .handle-generic {
-    transition: color 0.5s linear;
+    transition: opacity 0.5s linear;
 }
 
 .handle-generic::before{
     content: ' @';
-    width: 20px;
+}
+.post .handle-generic::before{
+    width: 17px;
     display: inline-block;
     text-align: right;
 }
+
 .handle-uncertain::before{
     content: ' (?)';
 }
@@ -391,7 +397,7 @@ ul {
     content: ' (!)';
 }
 .handle-uncertain{
-    color: #bbb !important;
+    opacity: 0.3
 }
 
 .post-reposted-by {
@@ -687,6 +693,10 @@ ul {
         box-sizing: content-box;
     }
 
+.profile-follow-links{
+    margin-top: 8px;
+}
+
 .profile-follow-links a{
     color: rgb(66, 87, 108);   
 }
@@ -695,8 +705,14 @@ ul {
 .profile-page-blocked .profile-follow-links,
 .profile-page-blocked .profile-description,
 .profile-page-blocked .post-list,
-.profile-row-blocked .profile-row-name {
+.profile-row-blocked .profile-row-meta {
     filter: blur(5px)
+}
+
+.profile-row-meta {
+    white-space: nowrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .profile-description{
@@ -1039,6 +1055,7 @@ button[disabled], input[type=submit][disabled] {
 
 .profile-page h1{
     margin-top: 0px;
+    margin-bottom: 0px;
 }
 .profile-row .follow-button {
     position: absolute;
@@ -1265,6 +1282,10 @@ button[disabled], input[type=submit][disabled] {
     vertical-align: middle;
     position: relative;
     top: -1px;
+}
+h1 .profile-badge img{
+    width: 20px;
+    width: 20px;
 }
 
 .search-form-suggestions .profile-image-small{

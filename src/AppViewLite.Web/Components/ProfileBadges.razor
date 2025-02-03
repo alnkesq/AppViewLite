@@ -1,0 +1,14 @@
+@code {
+    [Parameter] public required BlueskyProfile Profile { get; set; }
+
+}
+
+@if (Profile.Badges != null)
+{
+    foreach (var badge in Profile.Badges)
+    {
+        <a class="profile-badge" href="@(badge.Url ?? Profile.BaseUrl)">
+            <img src="/assets/badges/@(badge.Kind).svg" title="@(badge.Description)" />
+        </a>
+    }
+}

@@ -1,0 +1,6 @@
+@code {
+    [Parameter] public required BlueskyProfile Profile { get; set; }
+
+}
+
+<a data-handledid="@Profile.Did" class="handle-generic @(Profile.PossibleHandle == "handle.invalid" ? "handle-invalid" : Profile.HandleIsUncertain ? "handle-uncertain" : null)" href="@Profile.BaseUrl">@Profile.PossibleHandle</a>

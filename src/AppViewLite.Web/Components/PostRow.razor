@@ -275,16 +275,8 @@
         <a class="post-author underline-on-hover" href="@Post.Author.BaseUrl">
             @Post.Author.DisplayNameOrFallback
         </a>
-        @if (Post.Author.Badges != null)
-        {
-            foreach (var badge in Post.Author.Badges)
-            {
-                <a class="profile-badge" href="@(badge.Url ?? Post.BaseUrl)">
-                    <img src="/assets/badges/@(badge.Kind).svg" title="@(badge.Description)" />
-                </a>
-            }
-        }
-        <a data-handledid="@Post.Author.Did" class="post-author-handle handle-generic @(Post.Author.PossibleHandle == "handle.invalid" ? "handle-invalid" : Post.Author.HandleIsUncertain ? "handle-uncertain" : null)" href="@Post.Author.BaseUrl">@Post.Author.PossibleHandle</a>
+        <ProfileBadges Profile="@Post.Author" />
+        <ProfileHandle Profile="@Post.Author" />
         @if(!this.IsFocalPost)
         {
             <text> ·</text>

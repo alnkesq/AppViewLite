@@ -1773,7 +1773,7 @@ namespace AppViewLite
 
         public async Task<string> ResolveHandleAsync(string handle, bool forceRefresh = false, CancellationToken ct = default)
         {
-            handle = handle.ToLowerInvariant();
+            handle = StringUtils.NormalizeHandle(handle);
             if (handle.StartsWith('@')) handle = handle.Substring(1);
             if (handle.StartsWith("did:", StringComparison.Ordinal))
             {
@@ -1879,7 +1879,6 @@ namespace AppViewLite
         private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
         {
             // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
-
             Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
             var lookup = new LookupClient();
             if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known

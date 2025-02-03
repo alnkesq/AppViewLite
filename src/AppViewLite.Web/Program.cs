@@ -93,7 +93,7 @@ namespace AppViewLite.Web
             var app = builder.Build();
 
             StaticServiceProvider = app.Services;
-            app.Lifetime.ApplicationStopping.Register(Relationships.Dispose);
+            app.Lifetime.ApplicationStopping.Register(Relationships.NotifyShutdownRequested);
 
 
             // Configure the HTTP request pipeline.

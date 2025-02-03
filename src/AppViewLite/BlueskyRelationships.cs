@@ -21,6 +21,7 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace AppViewLite
 {
@@ -247,6 +248,8 @@ namespace AppViewLite
 
             }
             checkpointToLoad = null;
+
+            GarbageCollectOldSlices(allowTempFileDeletion: true);
         }
 
         private static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -327,40 +330,48 @@ namespace AppViewLite
         private void CaptureCheckpoint()
         {
             if (IsReadOnly) return;
-            loadedCheckpoint.Tables ??= new();
-            foreach (var table in disposables)
+            try
             {
-                foreach (var activeSlices in table.GetActiveSlices())
+                loadedCheckpoint.Tables ??= new();
+                foreach (var table in disposables)
                 {
-                    var checkpointTable = loadedCheckpoint.Tables.FirstOrDefault(x => x.Name == activeSlices.TableName);
-                    if (checkpointTable == null)
+                    foreach (var activeSlices in table.GetActiveSlices())
                     {
-                        checkpointTable = new() {  Name = activeSlices.TableName };
-                        loadedCheckpoint.Tables.Add(checkpointTable);
-                    }
-
-                    checkpointTable.Slices = activeSlices.ActiveSlices.Select(x => 
-                    {
-                        var interval = CombinedPersistentMultiDictionary.GetSliceInterval(x + ".");
-                        return new GlobalCheckpointSlice()
+                        var checkpointTable = loadedCheckpoint.Tables.FirstOrDefault(x => x.Name == activeSlices.TableName);
+                        if (checkpointTable == null)
                         {
-                            StartTime = interval.StartTime.Ticks,
-                            EndTime = interval.EndTime.Ticks,
-                        };
-                    }).ToArray();
+                            checkpointTable = new() { Name = activeSlices.TableName };
+                            loadedCheckpoint.Tables.Add(checkpointTable);
+                        }
+
+                        checkpointTable.Slices = activeSlices.ActiveSlices.Select(x =>
+                        {
+                            var interval = CombinedPersistentMultiDictionary.GetSliceInterval(x + ".");
+                            return new GlobalCheckpointSlice()
+                            {
+                                StartTime = interval.StartTime.Ticks,
+                                EndTime = interval.EndTime.Ticks,
+                            };
+                        }).ToArray();
+                    }
                 }
+
+
+                var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
+                File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
+                File.Move(checkpointFile + ".tmp", checkpointFile);
+
+                GarbageCollectOldSlices();
             }
-
-
-            var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
-            File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
-            File.Move(checkpointFile + ".tmp", checkpointFile);
-
-            GarbageCollectOldSlices();
+            catch (Exception ex)
+            {
+                CombinedPersistentMultiDictionary.Abort(ex);
+            }
         }
 
-        private void GarbageCollectOldSlices()
+        private void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
+            if (IsReadOnly) return;
             var keep = new DirectoryInfo(BaseDirectory + "/checkpoints")
                 .EnumerateFiles("*.pb")
                 .OrderByDescending(x => x.LastWriteTimeUtc)
@@ -374,6 +385,12 @@ namespace AppViewLite
                 foreach (var file in new DirectoryInfo(Path.Combine(BaseDirectory, table.TableName)).EnumerateFiles())
                 {
                     var name = file.Name;
+                    if (name.EndsWith(".tmp", StringComparison.Ordinal))
+                    {
+                        if (allowTempFileDeletion) file.Delete();
+                        else continue; // might be a parallel compactation
+                    }
+
                     var dot = name.IndexOf('.');
                     if (dot != -1) name = name.Substring(0, dot);
                     
@@ -392,7 +409,7 @@ namespace AppViewLite
             if (PlcToDid.TryGetPreserveOrderSpanAny(plc, out var r))
             {
                 var s = Encoding.UTF8.GetString(r.AsSmallSpan());
-                if (SerializeDid(s) != plc) throw new Exception("Did serialization did not roundtrip for " + plc + "/" + s);
+                if (SerializeDid(s) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + s));
                 return s;
             }
             throw new Exception("Missing DID string for Plc(" + plc + ")");
@@ -1371,7 +1388,22 @@ namespace AppViewLite
 
         internal void EnsureNotDisposed()
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(BlueskyRelationships));
+            if (_disposed)
+            {
+                ShutdownRequested.Token.ThrowIfCancellationRequested();
+                throw new ObjectDisposedException(nameof(BlueskyRelationships));
+            }
+        }
+
+
+        private CancellationTokenSource ShutdownRequested = new CancellationTokenSource();
+        public void NotifyShutdownRequested()
+        {
+            lock (this)
+            {
+                ShutdownRequested.Cancel();
+                Dispose();
+            }
         }
 
         internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst maxPostIdExlusive)

@@ -14,6 +14,10 @@ namespace AppViewLite
             {
                 if (t.IsFaulted)
                 {
+                    if (t.Exception.InnerException is OperationCanceledException)
+                    {
+                        return;
+                    }
                     Console.Error.WriteLine(t.Exception);
                 }
             }, TaskContinuationOptions.OnlyOnFaulted);

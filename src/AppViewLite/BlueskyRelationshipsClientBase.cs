@@ -19,6 +19,7 @@ namespace AppViewLite
             BlueskyRelationships.VerifyNotEnumerable<T>();
             lock (relationshipsUnlocked)
             {
+                relationshipsUnlocked.EnsureNotDisposed();
                 var result = func(relationshipsUnlocked);
                 relationshipsUnlocked.MaybeGlobalFlush();
                 return result;
@@ -28,6 +29,7 @@ namespace AppViewLite
         {
             lock (relationshipsUnlocked)
             {
+                relationshipsUnlocked.EnsureNotDisposed();
                 func(relationshipsUnlocked);
                 relationshipsUnlocked.MaybeGlobalFlush();
             }

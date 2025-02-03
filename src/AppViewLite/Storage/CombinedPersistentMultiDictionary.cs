@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 
 namespace AppViewLite.Storage
 {
@@ -34,6 +36,27 @@ namespace AppViewLite.Storage
             var dash = baseName.IndexOf('-');
             return (new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), new DateTime(long.Parse(baseName.Substring(dash + 1)), DateTimeKind.Utc));
 
+        }
+
+
+        [DoesNotReturn]
+        public static void Abort(Exception? ex)
+        {
+            Console.Error.WriteLine("Unexpected condition occurred. Aborting.");
+            while (ex != null)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Console.Error.WriteLine(ex.StackTrace);
+                ex = ex.InnerException;
+            }
+            Environment.FailFast("Unexpected condition occurred. Aborting.");
+            throw ex;
+        }
+
+        public static void Assert(bool condition)
+        {
+            if (!condition)
+                Abort(new Exception("Failed assertion."));
         }
     }
 
@@ -150,7 +173,20 @@ namespace AppViewLite.Storage
         }
 
         private int onBeforeFlushNotificationInProgress;
+
         public void Flush(bool disposing)
+        {
+            try
+            {
+                FlushCore(disposing);
+            }
+            catch (Exception ex)
+            {
+                CombinedPersistentMultiDictionary.Abort(ex);
+            }
+        }
+
+        private void FlushCore(bool disposing)
         {
             if (onBeforeFlushNotificationInProgress != 0) return;
 
@@ -264,6 +300,7 @@ namespace AppViewLite.Storage
             var mergedPrefix = this.DirectoryPath + "/" + mergedStartTime.Ticks + "-" + mergedEndTime.Ticks;
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
+            
 
             var inputSlices = inputs.Select(x => x.Reader).ToArray();
             var sw = Stopwatch.StartNew();
@@ -276,15 +313,17 @@ namespace AppViewLite.Storage
                 {
                     Compact(inputSlices, writer, OnCompactation);
                 }
-                finally
+                catch (Exception ex)
                 {
-                    writer.Dispose();
+                    CombinedPersistentMultiDictionary.Abort(ex);
                 }
                 sw.Stop();
 
                 return new Action(() => 
                 {
                     // Here we are again inside the lock.
+                    writer.Commit(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
+
                     Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => x.ValueCount.ToString("#,###"))) + " => " + inputs.Sum(x => x.ValueCount).ToString("#,###") + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     foreach (var input in inputs)
@@ -619,18 +658,25 @@ namespace AppViewLite.Storage
 
         private void MaybeCommitPendingCompactation(bool forceWait = false)
         {
-            if (pendingCompactation == null) return;
-            if (forceWait)
+            try
             {
-                pendingCompactation.GetAwaiter().GetResult();
+                if (pendingCompactation == null) return;
+                if (forceWait)
+                {
+                    pendingCompactation.GetAwaiter().GetResult();
+                }
+                if (!pendingCompactation.IsCompleted)
+                {
+                    if (forceWait) throw new Exception();
+                    return;
+                }
+                pendingCompactation.Result();
+                pendingCompactation = null;
             }
-            if (!pendingCompactation.IsCompleted)
+            catch (Exception ex)
             {
-                if (forceWait) throw new Exception();
-                return;
+                CombinedPersistentMultiDictionary.Abort(ex);
             }
-            pendingCompactation.Result();
-            pendingCompactation = null;
         }
 
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)
@@ -680,7 +726,7 @@ namespace AppViewLite.Storage
                     }
                 }
             }
-            output.Commit();
+            // Don't commit yet (see caller)
         }
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateUnsorted()

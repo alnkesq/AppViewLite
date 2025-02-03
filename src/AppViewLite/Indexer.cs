@@ -445,6 +445,9 @@ namespace AppViewLite
             {
                 Console.Error.WriteLine(did + ": " + ex.Message);
             }
+            catch (OperationCanceledException)
+            { 
+            }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(did + ": " + ex);

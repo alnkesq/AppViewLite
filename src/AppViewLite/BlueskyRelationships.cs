@@ -57,7 +57,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
         public CombinedPersistentMultiDictionary<PostId, DateTime> PostDeletions;
         public CombinedPersistentMultiDictionary<Plc, byte> Profiles;
-        public CombinedPersistentMultiDictionary<Plc, byte> PlcToDid;
+        public CombinedPersistentMultiDictionary<Plc, byte> PlcToDidOther;
+        public CombinedPersistentMultiDictionary<Plc, UInt128> PlcToDidPlc;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> PostData;
         public CombinedPersistentMultiDictionary<HashedWord, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
@@ -144,7 +145,8 @@ namespace AppViewLite
 
 
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
-            PlcToDid = RegisterDictionary<Plc, byte>("plc-to-did", PersistentDictionaryBehavior.PreserveOrder);
+            PlcToDidPlc = RegisterDictionary<Plc, UInt128>("plc-to-did-plc", PersistentDictionaryBehavior.SingleValue);
+            PlcToDidOther = RegisterDictionary<Plc, byte>("plc-to-did-other", PersistentDictionaryBehavior.PreserveOrder);
             PdsIdToString = RegisterDictionary<Pds, byte>("pds-id-to-string", PersistentDictionaryBehavior.PreserveOrder);
             PdsHashToPdsId = RegisterDictionary<DuckDbUuid, Pds>("pds-hash-to-id", PersistentDictionaryBehavior.SingleValue);
 
@@ -211,7 +213,8 @@ namespace AppViewLite
             
 
             PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
-            LastAssignedPlc = PlcToDid.MaximumKey ?? default;
+            LastAssignedPlc = new Plc(Math.Max((PlcToDidOther.MaximumKey ?? default).PlcValue, (PlcToDidPlc.MaximumKey ?? default).PlcValue));
+
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {
@@ -406,13 +409,22 @@ namespace AppViewLite
 
         public string GetDid(Plc plc)
         {
-            if (PlcToDid.TryGetPreserveOrderSpanAny(plc, out var r))
+            string did;
+            if (PlcToDidPlc.TryGetSingleValue(plc, out var plc128))
             {
-                var s = Encoding.UTF8.GetString(r.AsSmallSpan());
-                if (SerializeDid(s) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + s));
-                return s;
+                did = DeserializeDidPlcFromUInt128(plc128);
             }
-            throw new Exception("Missing DID string for Plc(" + plc + ")");
+            else if (PlcToDidOther.TryGetPreserveOrderSpanAny(plc, out var r))
+            {
+                did = Encoding.UTF8.GetString(r.AsSmallSpan());
+            }
+            else
+            {  
+                throw new Exception("Missing DID string for Plc(" + plc + ")");
+
+            }
+            if (SerializeDid(did) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + did));
+            return did;
         }
 
 
@@ -434,7 +446,16 @@ namespace AppViewLite
 
             plc = new Plc(checked(LastAssignedPlc.PlcValue + 1));
             LastAssignedPlc = plc;
-            PlcToDid.AddRange(plc, Encoding.UTF8.GetBytes(did));
+
+            if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+            {
+                PlcToDidPlc.Add(plc, SerializeDidPlcToUInt128(did));
+            }
+            else
+            {
+                PlcToDidOther.AddRange(plc, Encoding.UTF8.GetBytes(did));
+            }
+
             DidHashToUserId.Add(hash, plc);
 
             return plc;

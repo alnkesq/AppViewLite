@@ -606,6 +606,7 @@ namespace AppViewLite
 
             if (embed is EmbedImages { } ei)
             {
+                if (ei.Images.Any(x => x.ImageValue?.Ref?.Link == null)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
                 proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref.Link.ToArray() }).ToArray();
             }
             else if (embed is EmbedExternal { } ext)

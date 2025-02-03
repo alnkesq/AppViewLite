@@ -2213,8 +2213,10 @@ namespace AppViewLite
 
         internal static UInt128 SerializeDidPlcToUInt128(string did)
         {
+            if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) throw new ArgumentException();
+            if(did.Length != 32) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             var result = AtProtoS32.TryDecode128(did.Substring(8))!.Value;
-            if (DeserializeDidPlcFromUInt128(result) != did) throw new Exception("Not a valid did:plc: " + did);
+            if (DeserializeDidPlcFromUInt128(result) != did) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             return result;
         }
     }

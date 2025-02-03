@@ -14,7 +14,7 @@ namespace AppViewLite.Models
             get
             {
                 if (DisplayName != null) return DisplayName;
-                if (PossibleHandle != null)
+                if (PossibleHandle != null && PossibleHandle != "handle.invalid")
                 {
                     var dot = PossibleHandle.IndexOf('.');
                     if (dot != -1) return PossibleHandle.Substring(0, dot);

@@ -1347,10 +1347,14 @@ namespace AppViewLite
             var didDoc = TryGetLatestDidDoc(plc);
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
-            if (possibleHandle != null && HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(possibleHandle)), out var lastVerification) && lastVerification.Plc == plc && (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
+            if (possibleHandle != null && HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(possibleHandle)), out var lastVerification) && (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
             {
-                handleIsCertain = true;
+                if (lastVerification.Plc == plc) handleIsCertain = true;
+                else possibleHandle = null;
             }
+            if (possibleHandle == null)
+                handleIsCertain = true;
+
             return new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,

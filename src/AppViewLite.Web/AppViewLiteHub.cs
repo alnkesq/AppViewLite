@@ -7,27 +7,38 @@ using AppViewLite.Web.Components;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System.Collections.Concurrent;
+using DuckDbSharp.Reflection;
+using System.Reflection.Metadata;
 
 namespace AppViewLite.Web
 {
     internal class AppViewLiteHub : Hub
     {
-        private RequestContext ctx;
+        private RequestContext _ctxWithoutConnectionId;
         private ILoggerFactory loggerFactory;
 
         public AppViewLiteHub(RequestContext ctx, ILoggerFactory loggerFactory)
         {
-            this.ctx = ctx;
+            this._ctxWithoutConnectionId = ctx;
             this.loggerFactory = loggerFactory;
         }
 
+        public RequestContext RequestContext
+        {
+            get
+            {
+                _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
+                return _ctxWithoutConnectionId;
+            }
+        }
+        
         public async Task LoadPendingProfiles(ProfileRenderRequest[] requests)
         {
             var hub = HubContext;
 
             var connectionId = Context.ConnectionId;
             var profiles = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
-            var newctx = new RequestContext(ctx.Session, null, null, connectionId);
+            var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
             BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p =>
             {
                 using var scope = Program.StaticServiceProvider.CreateScope();
@@ -37,6 +48,23 @@ namespace AppViewLite.Web
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("ProfileRendered", requests[index].nodeId, html);
             }).FireAndForget();
 
+        }
+
+        public void VerifyUncertainHandlesForDids(string[] dids)
+        {
+            var ctx = RequestContext;
+            var pairs = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+            {
+                return dids.Select(did => (Did: did, PossibleHandle: rels.TryGetLatestDidDoc(rels.SerializeDid(did))?.Handle)).ToArray();
+            });
+            foreach (var pair in pairs)
+            {
+                if (pair.PossibleHandle != null)
+                {
+                    BlueskyEnrichedApis.Instance.VerifyHandleAndNotifyAsync(pair.Did, pair.PossibleHandle, ctx);
+                }
+
+            }
         }
 
         public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee, string? focalDid)
@@ -51,7 +79,7 @@ namespace AppViewLite.Web
                 posts = requests.Select(x => rels.GetPost(rels.GetPostId(x.did, x.rkey))).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
             });
-            var newctx = new RequestContext(ctx.Session, null, null, connectionId);
+            var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
             BlueskyEnrichedApis.Instance.EnrichAsync(posts, newctx, async p =>
             {
                 var index = Array.IndexOf(posts, p);

@@ -284,7 +284,7 @@
                 </a>
             }
         }
-        <a class="post-author-handle @(Post.Author.HandleIsUncertain ? "handle-uncertain" : null)" href="@Post.Author.BaseUrl">@Post.Author.PossibleHandle</a>
+        <a data-handledid="@Post.Author.Did" class="post-author-handle handle-generic @(Post.Author.PossibleHandle == "handle.invalid" ? "handle-invalid" : Post.Author.HandleIsUncertain ? "handle-uncertain" : null)" href="@Post.Author.BaseUrl">@Post.Author.PossibleHandle</a>
         @if(!this.IsFocalPost)
         {
             <text> ·</text>

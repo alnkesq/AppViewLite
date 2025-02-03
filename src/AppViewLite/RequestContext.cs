@@ -14,13 +14,21 @@ namespace AppViewLite
         public Task? ShortDeadline { get; private set; }
         public AppViewLiteSession Session { get; private set; }
         private Action? _triggerStateChange;
-        public string? SignalrConnectionId { get; private set; }
+        public string? SignalrConnectionId { get; set; }
 
         public void TriggerStateChange()
         {
             _triggerStateChange?.Invoke();
         }
 
+
+        public static Func<string, string, object[], Task>? SendSignalrImpl;
+
+        public void SendSignalrAsync(string method, params object[] arguments)
+        {
+            if (SignalrConnectionId == null || SendSignalrImpl == null) return;
+            SendSignalrImpl.Invoke(SignalrConnectionId, method, arguments);
+        }
 
         public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId)
         {

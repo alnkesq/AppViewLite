@@ -370,8 +370,28 @@ ul {
     display: inline-block;
 }
 
-.post-date, .post-author-handle {
+.post-date, .handle-generic {
     color: #777 !important; 
+}
+
+.handle-generic {
+    transition: color 0.5s linear;
+}
+
+.handle-generic::before{
+    content: ' @';
+    width: 20px;
+    display: inline-block;
+    text-align: right;
+}
+.handle-uncertain::before{
+    content: ' (?)';
+}
+.handle-invalid::before{
+    content: ' (!)';
+}
+.handle-uncertain{
+    color: #bbb !important;
 }
 
 .post-reposted-by {

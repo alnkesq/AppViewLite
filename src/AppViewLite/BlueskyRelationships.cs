@@ -1326,13 +1326,20 @@ namespace AppViewLite
             var basic = GetProfileBasicInfo(plc);
             var did = GetDid(plc);
             var didDoc = TryGetLatestDidDoc(plc);
+            var possibleHandle = didDoc?.Handle;
+            bool handleIsCertain = false;
+            if (possibleHandle != null && HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(possibleHandle), out var lastVerification) && lastVerification.Plc == plc && (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
+            {
+                handleIsCertain = true;
+            }
             return new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,
                 Did = did,
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
-                PossibleHandle = didDoc?.Handle,
+                PossibleHandle = possibleHandle ?? "handle.invalid",
+                HandleIsUncertain = !handleIsCertain
             };
         }
 

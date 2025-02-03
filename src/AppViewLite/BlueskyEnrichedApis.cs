@@ -30,6 +30,7 @@ using System.Reflection.Metadata;
 using DnsClient.Protocol;
 using System.Text;
 using System.Net.Http.Json;
+using AppViewLite;
 
 namespace AppViewLite
 {
@@ -48,6 +49,11 @@ namespace AppViewLite
                 .WithATDidCache(atprotoProvider?.AtProtoHosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
                 .Build();
             this.atprotoProvider = pdsConfig;
+
+            PendingHandleVerifications = new(async handle => 
+            {
+                return await ResolveHandleAsync(handle);
+            });
         }
 
 
@@ -57,6 +63,7 @@ namespace AppViewLite
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingListRetrievals = new();
+        public TaskDictionary<string, string> PendingHandleVerifications;
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
         {
@@ -72,6 +79,13 @@ namespace AppViewLite
                 }
             });
 
+            foreach (var profile in profiles)
+            {
+                if (profile.HandleIsUncertain && profile.PossibleHandle != null && profile.PossibleHandle != "handle.invalid")
+                {
+                    VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx);
+                }
+            }
 
             if (onProfileDataAvailable != null)
             {
@@ -128,6 +142,14 @@ namespace AppViewLite
             await task;
 
             return profiles;
+        }
+
+        public void VerifyHandleAndNotifyAsync(string did, string handle, RequestContext ctx)
+        {
+            PendingHandleVerifications.StartAsync(handle, task =>
+            {
+                ctx.SendSignalrAsync("HandleVerificationResult", did, task.IsCompletedSuccessfully && task.Result == did ? handle : "handle.invalid");
+            });
         }
 
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
@@ -1746,8 +1768,8 @@ namespace AppViewLite
 
         }
 
-        public TimeSpan HandleToDidMaxStale = TimeSpan.FromDays(10);
-        public TimeSpan DidDocMaxStale = TimeSpan.FromDays(2);
+        public static TimeSpan HandleToDidMaxStale = TimeSpan.FromDays(10);
+        public static TimeSpan DidDocMaxStale = TimeSpan.FromDays(2);
 
         public async Task<string> ResolveHandleAsync(string handle, bool forceRefresh = false, CancellationToken ct = default)
         {
@@ -1792,7 +1814,7 @@ namespace AppViewLite
 
             if (forceRefresh || plc == default || (DateTime.UtcNow - handleToDidVerificationDate) > HandleToDidMaxStale)
             {
-                await ResolveHandleCoreAsync(handle, ct);
+                await HandleToDidCoreAsync(handle, ct);
                 (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
                 {
                     var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
@@ -1854,8 +1876,10 @@ namespace AppViewLite
         public DateTime PlcDirectorySyncDate => relationshipsUnlocked.PlcDirectorySyncDate;
         public TimeSpan PlcDirectoryStaleness => relationshipsUnlocked.PlcDirectoryStaleness;
 
-        private async Task<string> ResolveHandleCoreAsync(string handle, CancellationToken ct)
+        private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
         {
+            // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
+
             Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
             var lookup = new LookupClient();
             if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known

@@ -70,6 +70,13 @@ var liveUpdatesConnectionFuture = (async () => {
 
         updateLiveSubscriptions();
     });
+    connection.on('HandleVerificationResult', (did, handle) => {
+        for (const a of document.querySelectorAll('.handle-generic[data-handledid="' + did + '"]')) {
+            a.textContent = handle;
+            a.classList.remove('handle-uncertain');
+            a.classList.toggle('handle-invalid', handle == 'handle.invalid');
+        }
+    });
 
     var lastAutocompleteRefreshToken = 0;
 
@@ -674,6 +681,12 @@ async function updateLiveSubscriptions() {
             focalDid
         )
     }
+
+    var uncertainHandleDids = [...document.querySelectorAll('.handle-uncertain')].map(x => x.dataset.handledid );
+    if (uncertainHandleDids.length) { 
+        // necessary in case of race between EnrichAsync()/Signalr and DOM loading
+        await connection.invoke('VerifyUncertainHandlesForDids', [...new Set(uncertainHandleDids)]);
+    }
 }
 
 function countGraphemes(string) {
@@ -737,5 +750,4 @@ async function searchBoxAutocomplete(forceResults) {
     if (autocomplete.firstElementChild) autocomplete.classList.remove('display-none');
     else closeAutocompleteMenu(autocomplete)
 }
-
 

@@ -9,10 +9,12 @@
     [Parameter] public string? FocalPostRKey { get; set; }
     [Parameter] public string? NextContinuation { get; set; }
     private Uri? continuationUrl;
+    private Plc? focalPostPlc;
 
     protected override void OnParametersSet()
     {
         continuationUrl = Navigation.GetNextContinuationUrl(NextContinuation);
+        focalPostPlc = FocalPostDid != null ? BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(FocalPostDid)) : null;
     }
 
     static bool IsLastOfGroup(BlueskyPost post, BlueskyPost? next)
@@ -39,7 +41,7 @@
                 (postId == next?.InReplyToPostId))"
             ShowInReplyTo="@(
                 (ShowInReplyTo && (prev?.RootPostId != post.RootPostId && prev?.PostId.Author != postId.Author)) || 
-                ((prev == null || IsLastOfGroup(prev, post)) && post.IsReply))" 
+                (post.IsReply && ((prev == null || (IsLastOfGroup(prev, post) && post.InReplyToPostId!.Value.Author != focalPostPlc)))))"
             IsLastOfGroup="@IsLastOfGroup(post, next)"
             ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
             IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 

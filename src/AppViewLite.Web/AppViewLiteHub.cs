@@ -28,6 +28,7 @@ namespace AppViewLite.Web
             get
             {
                 _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
+                _ctxWithoutConnectionId.Session = Program.TryGetSessionFromCookie(this.HubContext.SessionCookie);
                 return _ctxWithoutConnectionId;
             }
         }
@@ -167,7 +168,8 @@ namespace AppViewLite.Web
                     var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
 
                     client.SendAsync("NotificationCount", notificationCount).FireAndForget();
-                }
+                },
+                SessionCookie = Program.TryGetSessionCookie(httpContext)
             };
             if (!connectionIdToCallback.TryAdd(connectionId, context)) throw new Exception();
 
@@ -218,6 +220,7 @@ namespace AppViewLite.Web
         public Throttler<PostStatsNotification> LiveUpdatesCallbackThrottler;
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
+        public string? SessionCookie;
 
         public void Dispose()
         {

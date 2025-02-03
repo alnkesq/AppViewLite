@@ -182,9 +182,13 @@ namespace AppViewLite.Web
         internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext;
         public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
         {
-            if (httpContext == null) return null;
+            return TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
+        }
+        public static AppViewLiteSession? TryGetSessionFromCookie(string? sessionIdCookie)
+        {
+            if (sessionIdCookie == null) return null;
             var now = DateTime.UtcNow;
-            var sessionId = TryGetSessionId(httpContext, out var unverifiedDid);
+            var sessionId = TryGetSessionIdFromCookie(sessionIdCookie, out var unverifiedDid);
             if (sessionId != null)
             {
                 if (!SessionDictionary.TryGetValue(sessionId, out var session))
@@ -307,7 +311,7 @@ namespace AppViewLite.Web
 
         public static void LogOut(HttpContext httpContext)
         {
-            var id = TryGetSessionId(httpContext, out var unverifiedDid);
+            var id = TryGetSessionIdFromCookie(TryGetSessionCookie(httpContext), out var unverifiedDid);
             if (id != null)
             {
                 SessionDictionary.Remove(id, out var unverifiedAppViewLiteSession);
@@ -333,16 +337,21 @@ namespace AppViewLite.Web
         public static ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
         public static IServiceProvider StaticServiceProvider;
 
-        private static string? TryGetSessionId(HttpContext httpContext, out string? unverifiedDid)
+        private static string? TryGetSessionIdFromCookie(string cookie, out string? unverifiedDid)
         {
-            if (httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id))
+            if (cookie != null)
             {
-                var r = id.Split('=');
+                var r = cookie.Split('=');
                 unverifiedDid = r[1];
                 return r[0];
             }
             unverifiedDid = null;
             return null;
+        }
+
+        public static string? TryGetSessionCookie(HttpContext? httpContext)
+        {
+            return httpContext != null && httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
         }
 
         public static async Task<ATUri> ResolveUriAsync(string uri)

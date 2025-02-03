@@ -12,7 +12,7 @@ namespace AppViewLite
         private TimeSpan? shortTimeout;
         public Task? LongDeadline { get; private set; }
         public Task? ShortDeadline { get; private set; }
-        public AppViewLiteSession Session { get; private set; }
+        public AppViewLiteSession Session { get; set; }
         private Action? _triggerStateChange;
         public string? SignalrConnectionId { get; set; }
 

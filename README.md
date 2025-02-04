@@ -20,14 +20,13 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 ## Implementation status
 
 - [X] Profile pages (posts, replies, media, following, followers)
-- [X] Reverse relationships (post likers/reposts/quotes)
+- [X] Threads and likers/reposts/quotes. Live stats updates.
+- [X] Login support, notifications, timeline
 - [X] Create and delete posts/quotes/replies/likes/reposts/follows
-- [X] Full text search (including date and author filtering)
-- [X] Timeline
+- [X] Full text search for posts/profiles (including date and author filtering)
 - [X] Custom feeds
-- [X] Notifications
+- [X] Bidirectional handle verification, custom DID doc overrides, relay or direct-to-PDS firehose
 - [ ] [Honor blocks and labels](/../../issues/7)
-- [ ] [Show handles instead of DIDs](/../../issues/6)
 - [ ] [CID verification](/../../issues/5)
 - [ ] [Backfill historical data](/../../issues/8)
 

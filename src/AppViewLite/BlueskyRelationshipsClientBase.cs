@@ -46,7 +46,7 @@ namespace AppViewLite
             });
         }
 
-        public readonly static int PrintLongLocksThreshold = int.Parse(Environment.GetEnvironmentVariable("APPVIEWLITE_PRINT_LONG_LOCKS_MS") ?? "0");
+        public readonly static int PrintLongLocksThreshold = int.Parse(Environment.GetEnvironmentVariable("APPVIEWLITE_PRINT_LONG_LOCKS_MS") ?? "30");
         private static void MaybeLogLongLockUsage(Stopwatch sw, int prevGcCount)
         {
             if (sw.ElapsedMilliseconds > PrintLongLocksThreshold)

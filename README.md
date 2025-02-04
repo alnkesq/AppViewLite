@@ -36,7 +36,7 @@ This AppView runs independently of the main bsky.app appview, except for CDN ima
 - `cd src/AppViewLite.Web`
 - `dotnet run -c Release`
 
-Optionally, you can set `APPVIEWLITE_DIRECTORY` to specify where the data should be stored.
+Optionally, you can set [various configuration settings](https://github.com/alnkesq/AppViewLite/blob/main/docs/Configuration.md), including  `APPVIEWLITE_DIRECTORY` to specify where the data should be stored.
 
 ## Storage mechanism
 Each "table" is a set of memory-mapped columnar storage files that associates one key, to one or many values.

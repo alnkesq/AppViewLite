@@ -17,5 +17,5 @@
 }
 @if (Profiles.Length == 0 && !string.IsNullOrEmpty(SearchQuery))
 {
-    <a href="/search?q=@(Uri.EscapeDataString(SearchQuery))">Search for "@SearchQuery"</a>
+    <a href="/search?q=@(Uri.EscapeDataString(SearchQuery))">@(SearchQuery.StartsWith("https://bsky.app/") || SearchQuery.StartsWith("at://") ? "Go to" : "Search for") "@SearchQuery"</a>
 }

@@ -654,7 +654,7 @@ namespace AppViewLite
             while (true)
             {
                 Log("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
-                using var stream = await  BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync("https://plc.directory/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
+                using var stream = await  BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync(BlueskyEnrichedApis.PlcDirectoryPrefix + "/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
                 var prevLastRetrievedDidDoc = lastRetrievedDidDoc;
                 var itemsInPage = 0;
                 await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))

@@ -2007,7 +2007,7 @@ namespace AppViewLite
             }
             else if (did.StartsWith("did:plc:", StringComparison.Ordinal))
             {
-                didDocUrl = "https://plc.directory/" + did;
+                didDocUrl = PlcDirectoryPrefix + "/" + did;
             }
             else throw new ArgumentException("Unsupported did method: " + did);
 
@@ -2016,6 +2016,8 @@ namespace AppViewLite
             var didDoc = Indexer.DidDocToProto(didDocJson);
             return didDoc;
         }
+
+        public readonly static string PlcDirectoryPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_PLC_DIRECTORY) ?? "https://plc.directory";
 
         public async Task<string> GetVerifiedHandleAsync(string did)
         {

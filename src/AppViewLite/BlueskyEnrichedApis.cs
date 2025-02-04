@@ -31,6 +31,9 @@ using DnsClient.Protocol;
 using System.Text;
 using System.Net.Http.Json;
 using AppViewLite;
+using System.IO;
+using System.Diagnostics.CodeAnalysis;
+using System.Buffers;
 
 namespace AppViewLite
 {
@@ -38,6 +41,7 @@ namespace AppViewLite
     {
         public static BlueskyEnrichedApis Instance;
         internal ATProtocol proto;
+        public bool IsReadOnly => relationshipsUnlocked.IsReadOnly;
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
@@ -1169,9 +1173,23 @@ namespace AppViewLite
             return coalescedList.ToArray();
         }
 
-        internal static string? GetAvatarUrl(string did, string? avatarCid)
+        internal static string? GetAvatarUrl(string did, string? avatarCid, string? pds)
         {
-            return avatarCid != null ? $"https://cdn.bsky.app/img/avatar_thumbnail/plain/{did}/{avatarCid}@jpeg" : null;
+            return GetImageUrl("avatar_thumbnail", did, avatarCid, pds);
+        }
+
+        public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN);
+
+        [return: NotNullIfNotNull(nameof(cid))]
+        public static string? GetImageUrl(string size, string did, string? cid, string? pds)
+        {
+            if (cid == null) return null;
+            var cdn = CdnPrefix ?? "/";
+
+            if (CdnPrefix != null) pds = null;
+            if (pds != null && pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
+
+            return $"{cdn}img/{size}/plain/{did}/{cid}@jpeg" + (pds != null ? "?pds=" + Uri.EscapeDataString(pds) : null);
         }
 
         public long GetNotificationCount(AppViewLiteSession ctx)
@@ -1768,8 +1786,8 @@ namespace AppViewLite
 
         }
 
-        public static TimeSpan HandleToDidMaxStale = TimeSpan.FromDays(10);
-        public static TimeSpan DidDocMaxStale = TimeSpan.FromDays(2);
+        public static TimeSpan HandleToDidMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_HANDLE_TO_DID_MAX_STALE_HOURS) ?? (10 * 24)));
+        public static TimeSpan DidDocMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DID_DOC_MAX_STALE_HOURS) ?? (2 * 24)));
 
         public async Task<string> ResolveHandleAsync(string handle, bool forceRefresh = false, CancellationToken ct = default)
         {
@@ -1834,14 +1852,7 @@ namespace AppViewLite
             {
                 // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
                 // otherwise did:web, but they're in a different namespace
-                didDoc = await GetDidDocAsync(did);
-                didDoc.Date = DateTime.UtcNow;
-                WithRelationshipsLock(rels =>
-                {
-                    rels.CompressDidDoc(didDoc);
-                    rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
-                    didDoc = rels.TryGetLatestDidDoc(plc);
-                });
+                didDoc = await FetchAndStoreDidDocAsync(did, plc);
             }
             if (!didDoc.HasHandle(handle))
             {
@@ -1856,6 +1867,19 @@ namespace AppViewLite
             }
 
             return did;
+        }
+
+        private async Task<DidDocProto> FetchAndStoreDidDocAsync(string did, Plc plc)
+        {
+            var didDoc = await GetDidDocAsync(did);
+            didDoc.Date = DateTime.UtcNow;
+            WithRelationshipsLock(rels =>
+            {
+                rels.CompressDidDoc(didDoc);
+                rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
+                didDoc = rels.TryGetLatestDidDoc(plc);
+            });
+            return didDoc;
         }
 
         private bool IsDidDocStale(string did, DidDocProto? didDoc)
@@ -1877,7 +1901,9 @@ namespace AppViewLite
         public TimeSpan PlcDirectoryStaleness => relationshipsUnlocked.PlcDirectoryStaleness;
 
 
-        private readonly static string? DnsOverHttps = "1.1.1.1";/// System.Environment.GetEnvironmentVariable("APPVIEWLITE_DOH");
+        private readonly static string DnsForTxtResolution = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DNS_SERVER) ?? "1.1.1.1";
+        private readonly static bool DnsUseHttps = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_DNS_OVER_HTTPS) ?? true;
+
 
         private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
         {
@@ -1889,9 +1915,9 @@ namespace AppViewLite
                 if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {
                     string record;
-                    if (DnsOverHttps != null)
+                    if (DnsUseHttps)
                     {
-                        var request = new HttpRequestMessage(HttpMethod.Get, "https://" + DnsOverHttps + "/dns-query?name=_atproto." + Uri.EscapeDataString(handle) + "&type=TXT");
+                        var request = new HttpRequestMessage(HttpMethod.Get, "https://" + DnsForTxtResolution + "/dns-query?name=_atproto." + Uri.EscapeDataString(handle) + "&type=TXT");
                         request.Headers.Accept.Clear();
                         request.Headers.Accept.ParseAdd("application/dns-json");
                         using var response = await DefaultHttpClient.SendAsync(request, ct);
@@ -1900,7 +1926,7 @@ namespace AppViewLite
                     }
                     else
                     {
-                        var lookup = new LookupClient();
+                        var lookup = new LookupClient(System.Net.IPAddress.Parse(DnsForTxtResolution), 53);
                         var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
                         record = result.Answers.TxtRecords()
                             .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
@@ -1939,17 +1965,26 @@ namespace AppViewLite
         }
 
 
+        private readonly static SearchValues<char> DidWebAllowedChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz-.");
+        
 
-        private static void EnsureValidDid(string did)
+        public static void EnsureValidDid(string did)
         {
             if (did.StartsWith("did:plc:", StringComparison.Ordinal))
             {
-                if (did.Length != 32) throw new Exception();
+                if (did.Length != 32) throw new Exception("Invalid did:plc: length.");
+                if (did.AsSpan(8).ContainsAnyExcept(AtProtoS32.Base32SearchValues)) throw new Exception("did:plc: contains invalid base32 characters.");
+
             }
             else if (did.StartsWith("did:web:", StringComparison.Ordinal))
             {
+                var domain = did.AsSpan(8);
+                if (domain.IsEmpty) throw new Exception("Empty did:web: did.");
+                if (domain.ContainsAnyExcept(DidWebAllowedChars)) throw new Exception("did:web: contains invalid characters.");
+                if (domain[0] == '.' || domain[^1] == '.') throw new Exception("did:web: starts or ends with dot.");
+                if (did.Contains("..", StringComparison.Ordinal)) throw new Exception("did:web: contains multiple consecutive dots.");
+              
                 //var domain2 = did.Substring(8);
-
                 // this is actually ok
                 //if (domain != domain2) throw new Exception("Mismatching domain for did:web: and .well-known/TXT");
             }
@@ -1984,6 +2019,41 @@ namespace AppViewLite
             return didDoc.Handle;
         }
 
+        public async Task<byte[]> GetBlobAsBytesAsync(string did, string cid, string? pds)
+        {
+            var response = await GetBlobResponseAsync(did, cid, pds);
+            if (!response.IsSuccessStatusCode)
+            {
+                using (response)
+                {
+                    response.EnsureSuccessStatusCode();
+                }
+            }
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+        public async Task<HttpResponseMessage> GetBlobResponseAsync(string did, string cid, string? pds)
+        {
+            if (pds != null && !pds.Contains(':'))
+            {
+                pds = "https://" + pds;
+            }
+            if (pds == null)
+            {
+                (var plc, pds) = WithRelationshipsLock(rels =>
+                {
+                    var plc = rels.SerializeDid(did);
+                    return (plc, rels.TryGetLatestDidDoc(plc)?.Pds);
+                });
+                if (pds == null)
+                {
+                    pds = (await FetchAndStoreDidDocAsync(did, plc)).Pds;
+                }
+            }
+            var url = $"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}";
+            Console.Error.WriteLine(url);
+            return await DefaultHttpClient.GetAsync(url);
+        }
+
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         public readonly static HttpClient DefaultHttpClient;
 
@@ -1991,6 +2061,7 @@ namespace AppViewLite
         {
             DefaultHttpClient = new HttpClient();
             DefaultHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+            DefaultHttpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024;
         }
     }
 }

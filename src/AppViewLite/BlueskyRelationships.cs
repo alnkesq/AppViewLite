@@ -89,7 +89,9 @@ namespace AppViewLite
         public int AvoidFlushes;
 
         public BlueskyRelationships()
-            : this(Environment.GetEnvironmentVariable("APPVIEWLITE_DIRECTORY") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"), false)
+            : this(
+                  AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"), 
+                  AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
         { 
         }
 
@@ -312,9 +314,11 @@ namespace AppViewLite
                 {
                     foreach (var d in disposables)
                     {
-                        d.Dispose();
+                        if (IsReadOnly) d.DisposeNoFlush();
+                        else d.Dispose();
                     }
-                    CaptureCheckpoint();
+                    if (!IsReadOnly)
+                        CaptureCheckpoint();
                     lockFile.Dispose();
                     _disposed = true;
                 }
@@ -431,9 +435,7 @@ namespace AppViewLite
 
         public Plc SerializeDid(string did)
         {
-            if (!did.StartsWith("did:", StringComparison.Ordinal)) throw new ArgumentException();
-            if (!did.StartsWith("did:web:", StringComparison.Ordinal) && !did.StartsWith("did:plc:", StringComparison.Ordinal)) throw new ArgumentException();
-        
+            BlueskyEnrichedApis.EnsureValidDid(did);
             var hash = StringUtils.HashUnicodeToUuid(did);
 
 

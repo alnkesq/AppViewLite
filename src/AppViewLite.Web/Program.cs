@@ -20,7 +20,6 @@ namespace AppViewLite.Web
         public static bool AllowPublicReadOnlyFakeLogin = false;
         public static bool ListenToFirehose = true;
         public static bool ListenPlcDirectory = true;
-        public static string? PlcDirectoryBundlePath = Environment.GetEnvironmentVariable("APPVIEWLITE_PLC_DIRECTORY_BUNDLE");
 
         public static string ToFullHumanDate(DateTime date)
         {
@@ -35,17 +34,17 @@ namespace AppViewLite.Web
             return date.ToString("MMM d, yyyy");
         }
 
-        public static string GetImageThumbnailUrl(string did, byte[] cid)
+        public static string GetImageThumbnailUrl(string did, byte[] cid, string? pds)
         {
-            return $"https://cdn.bsky.app/img/feed_thumbnail/plain/{did}/{Cid.Read(cid)}@jpeg";
+            return BlueskyEnrichedApis.GetImageUrl("feed_thumbnail", did, Cid.Read(cid).ToString(), pds);
         }
-        public static string GetImageBannerUrl(string did, byte[] cid)
+        public static string GetImageBannerUrl(string did, byte[] cid, string? pds)
         {
-            return $"https://cdn.bsky.app/img/banner/plain/{did}/{Cid.Read(cid)}@jpeg";
+            return BlueskyEnrichedApis.GetImageUrl("banner", did, Cid.Read(cid).ToString(), pds)!;
         }
-        public static string GetImageFullUrl(string did, byte[] cid)
+        public static string GetImageFullUrl(string did, byte[] cid, string? pds)
         {
-            return $"https://cdn.bsky.app/img/feed_fullsize/plain/{did}/{Cid.Read(cid) }@jpeg";
+            return BlueskyEnrichedApis.GetImageUrl("feed_fullsize", did, Cid.Read(cid).ToString(), pds);
         }
 
         public static async Task Main(string[] args)
@@ -157,9 +156,10 @@ namespace AppViewLite.Web
                 {
 
                     var indexer = new Indexer(Relationships, atprotoProvider);
-                    if (PlcDirectoryBundlePath != null)
+                    var bundle = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_PLC_DIRECTORY_BUNDLE);
+                    if (bundle != null)
                     {
-                        await indexer.InitializePlcDirectoryFromBundleAsync(PlcDirectoryBundlePath);
+                        await indexer.InitializePlcDirectoryFromBundleAsync(bundle);
                     }
                     await indexer.RetrievePlcDirectoryLoopAsync();
                 }).FireAndForget();

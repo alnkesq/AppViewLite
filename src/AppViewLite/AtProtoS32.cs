@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Text;
 
 namespace AppViewLite
@@ -6,6 +7,7 @@ namespace AppViewLite
     public static class AtProtoS32
     {
         private const string S32_CHAR = "234567abcdefghijklmnopqrstuvwxyz";
+        public readonly static SearchValues<char> Base32SearchValues = SearchValues.Create(S32_CHAR);
 
         public static string Encode(long i)
         {

@@ -160,16 +160,20 @@ namespace AppViewLite.Storage
 
         }
 
-        
-        public void Dispose() // Dispose() must also be called while holding the lock.
+        public void DisposeNoFlush()
         {
-            Flush(disposing: true);
             if (pendingCompactation != null) throw new Exception();
 
             foreach (var slice in slices)
             {
                 slice.Reader.Dispose();
             }
+        }
+        
+        public void Dispose() // Dispose() must also be called while holding the lock.
+        {
+            Flush(disposing: true);
+            DisposeNoFlush();
         }
 
         private int onBeforeFlushNotificationInProgress;

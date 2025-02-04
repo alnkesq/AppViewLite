@@ -312,6 +312,13 @@ namespace AppViewLite
                 component.Dispose();
             }
         }
+        public void DisposeNoFlush()
+        {
+            foreach (var component in GetComponents())
+            {
+                component.DisposeNoFlush();
+            }
+        }
     }
 }
 

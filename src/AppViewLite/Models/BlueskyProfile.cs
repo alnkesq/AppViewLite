@@ -29,7 +29,7 @@ namespace AppViewLite.Models
         public string? AvatarCid => BasicData?.AvatarCid;
 
         public BlueskyProfileBasicInfo? BasicData;
-        public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, AvatarCid);
+        public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, AvatarCid, Pds);
 
         public Tid? RelationshipRKey;
         public BlockReason BlockReason;
@@ -40,6 +40,7 @@ namespace AppViewLite.Models
         public bool HasBannerImage => BasicData?.BannerCidBytes != null;
 
         public string? PossibleHandle;
+        public string? Pds;
         public bool HandleIsUncertain;
 
         public ProfileBadge[]? Badges;

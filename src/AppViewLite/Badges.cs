@@ -17,7 +17,8 @@ namespace AppViewLite
         public const string KindOrganization = "verified-organization";
         public const string KindGeneric = "verified-generic";
 
-        private static string? WikidataPath = Environment.GetEnvironmentVariable("APPVIEWLITE_WIKIDATA_VERIFICATION");
+        private static string? WikidataPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_WIKIDATA_VERIFICATION);
+
         public static ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>? Wikidata =
             WikidataPath != null ? 
             new ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>(WikidataPath, path => 

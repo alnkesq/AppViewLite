@@ -27,6 +27,7 @@ namespace AppViewLite.Web
         
         public async Task LoadPendingProfiles(ProfileRenderRequest[] requests)
         {
+            if (BlueskyEnrichedApis.Instance.IsReadOnly) return;
             var hub = HubContext;
 
             var connectionId = Context.ConnectionId;
@@ -61,6 +62,7 @@ namespace AppViewLite.Web
         public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee, string? focalDid)
         {
             var hub = HubContext;
+            if (BlueskyEnrichedApis.Instance.IsReadOnly) return;
 
             var connectionId = Context.ConnectionId;
             BlueskyPost[]? posts = null;

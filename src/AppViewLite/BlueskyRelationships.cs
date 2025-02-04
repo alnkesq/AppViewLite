@@ -1951,7 +1951,7 @@ namespace AppViewLite
 
         internal void MaybeGlobalFlush()
         {
-            if (lastGlobalFlush.Elapsed.TotalMinutes >= 5)
+            if (lastGlobalFlush.Elapsed.TotalMinutes >= 10)
             {
                 Console.Error.WriteLine("====== START OF GLOBAL PERIODIC FLUSH ======");
                 GlobalFlush();

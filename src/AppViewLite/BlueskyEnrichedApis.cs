@@ -58,9 +58,59 @@ namespace AppViewLite
             }
             else 
             {
-                _didDocOverridesReloadableFile = new ReloadableFile<DidDocOverridesConfiguration>(didDocOverridesPath, path => DidDocOverridesConfiguration.ReadFromFile(path));
+                _didDocOverridesReloadableFile = new ReloadableFile<DidDocOverridesConfiguration>(didDocOverridesPath, path =>
+                {
+                    var config = DidDocOverridesConfiguration.ReadFromFile(path);
+
+                    var pdsesToDids = config.CustomDidDocs.GroupBy(x => x.Value.Pds).ToDictionary(x => x.Key, x => x.Select(x => x.Key).ToArray());
+
+                    lock (SecondaryFirehoses)
+                    {
+
+                        var stopListening = SecondaryFirehoses.Where(x => !pdsesToDids.ContainsKey(x.Key));
+                        foreach (var oldpds in stopListening)
+                        {
+                            Console.Error.WriteLine("Stopping secondary firehose: " + oldpds.Key);
+                            oldpds.Value.Cancel();
+                            SecondaryFirehoses.Remove(oldpds.Key);
+                        }
+
+                        foreach (var (newpds, dids) in pdsesToDids)
+                        {
+                            if (!SecondaryFirehoses.ContainsKey(newpds))
+                            {
+                                var cts = new CancellationTokenSource();
+                                var indexer = new Indexer(this);
+                                var didsHashset = dids.ToHashSet();
+                                indexer.VerifyValidForCurrentRelay = did =>
+                                {
+                                    if (!didsHashset.Contains(did))
+                                        throw new Exception($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
+                                };
+                                indexer.FirehoseUrl = new Uri(newpds);
+                                Console.Error.WriteLine("Starting secondary firehose: " + newpds);
+                                indexer.StartListeningToAtProtoFirehose(cts.Token).FireAndForget();
+                                SecondaryFirehoses.Add(newpds, cts);
+                            }
+                        }
+                    }
+
+                    return config;
+                });
+                (new Func<Task>(async () =>
+                {
+                    // in case there's no one else to call GetValue for us (only overrides, no main firehose)
+                    while (true)
+                    {
+                        if (DangerousUnlockedRelationships.IsDisposed) return;
+                        _didDocOverridesReloadableFile.GetValue();
+                        await Task.Delay(TimeSpan.FromSeconds(10)); 
+                    }
+                }))();
             }
         }
+
+        private Dictionary<string, CancellationTokenSource> SecondaryFirehoses = new();
 
         private ReloadableFile<DidDocOverridesConfiguration>? _didDocOverridesReloadableFile;
         private DidDocOverridesConfiguration? _staticDidDocOverrides;

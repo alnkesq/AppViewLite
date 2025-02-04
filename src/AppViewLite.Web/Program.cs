@@ -118,49 +118,51 @@ namespace AppViewLite.Web
             {
                 
                 
-                Task.Run(async () =>
+ 
+                await Task.Delay(1000);
+                app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
+
+                var firehoses = (AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ??
+                    "jet:jetstream.atproto.tools"
+                    //"bsky.network"
+                    ).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                foreach (var firehose in firehoses)
                 {
-                    await Task.Delay(1000);
-                    app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
+                    bool isJetStream;
+                    string firehoseUrl;
 
-                    var firehoses = (AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ?? "jet:jetstream.atproto.tools").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    foreach (var firehose in firehoses)
+                    if (firehose.StartsWith("jet:", StringComparison.Ordinal))
                     {
-                        bool isJetStream;
-                        string firehoseUrl;
-
-                        if (firehose.StartsWith("jet:", StringComparison.Ordinal))
-                        {
-                            isJetStream = true;
-                            firehoseUrl = string.Concat("https://", firehose.AsSpan(4));
-                        }
-                        else
-                        {
-                            isJetStream = false;
-                            firehoseUrl = "https://" + firehose;
-                        }
-
-
-                        var indexer = new Indexer(apis)
-                        {
-                            FirehoseUrl = new Uri(firehoseUrl),
-                            VerifyValidForCurrentRelay = did => 
-                            {
-                                if (apis.DidDocOverrides.CustomDidDocs.ContainsKey(did))
-                                {
-                                    throw new Exception($"Ignoring firehose record for {did} because a DID doc override was specified for such DID.");
-                                }
-                            }
-                        };
-
-                        if (isJetStream)
-                            indexer.ListenJetStreamFirehoseAsync().FireAndForget();
-                        else
-                            indexer.ListenBlueskyFirehoseAsync().FireAndForget();
+                        isJetStream = true;
+                        firehoseUrl = string.Concat("https://", firehose.AsSpan(4));
                     }
+                    else
+                    {
+                        isJetStream = false;
+                        firehoseUrl = "https://" + firehose;
+                    }
+
+
+                    var indexer = new Indexer(apis)
+                    {
+                        FirehoseUrl = new Uri(firehoseUrl),
+                        VerifyValidForCurrentRelay = did => 
+                        {
+                            if (apis.DidDocOverrides.CustomDidDocs.ContainsKey(did))
+                            {
+                                throw new Exception($"Ignoring firehose record for {did} because a DID doc override was specified for such DID.");
+                            }
+                        }
+                    };
+
+                    if (isJetStream)
+                        indexer.StartListeningToJetstreamFirehose();
+                    else
+                        indexer.StartListeningToAtProtoFirehose();
+                    
                     //await indexer.ListenJetStreamFirehoseAsync();
                
-                }).FireAndForget();
+                }
 
  
             }

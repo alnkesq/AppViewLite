@@ -340,9 +340,10 @@ namespace AppViewLite
         public static Tid GetMessageTid(string path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
 
 
-        public async Task ListenJetStreamFirehoseAsync()
+        public async Task StartListeningToJetstreamFirehose()
         {
-            using var firehose2 = new ATJetStream(new ATJetStreamOptions());
+            await Task.Yield();
+            using var firehose2 = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
             firehose2.OnConnectionUpdated += async (_, e) =>
             {
                 if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
@@ -358,18 +359,24 @@ namespace AppViewLite
             };
 
             await firehose2.ConnectAsync();
-            await new TaskCompletionSource().Task;
         }
 
 
 
 
-        public async Task ListenBlueskyFirehoseAsync()
+        public async Task StartListeningToAtProtoFirehose(CancellationToken ct = default)
         {
-
+            await Task.Yield();
             var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
+            ct.Register(async () =>
+            {
+                await firehose.StopSubscriptionAsync();
+                firehose.Dispose();
+            });
             firehose.OnConnectionUpdated += async (_, e) =>
             {
+                if (ct.IsCancellationRequested) return;
+
                 if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
                 {
                     Console.Error.WriteLine("CONNECTION DROPPED! Reconnecting soon...");
@@ -379,10 +386,10 @@ namespace AppViewLite
             };
             firehose.OnSubscribedRepoMessage += (s, e) =>
             {
+                ct.ThrowIfCancellationRequested();
                 TryProcessRecord(() => OnFirehoseEvent(e), e.Message.Commit?.Repo.Handler);
             };
-            await firehose.StartSubscribeReposAsync();
-            await new TaskCompletionSource().Task;
+            await firehose.StartSubscribeReposAsync(ct);
         }
 
         private void OnFirehoseEvent(SubscribedRepoEventArgs e)

@@ -1,6 +1,7 @@
 @using AppViewLite.Numerics
 @inject NavigationManager NavigationManager
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter]
@@ -346,7 +347,7 @@
             <a class="post-external-preview post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
                 @if (Post.Data.ExternalThumbCid != null)
                 {
-                    <img class="post-external-preview-image" src="@Program.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid, Post.Author.Pds)" />
+                    <img class="post-external-preview-image" src="@Apis.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid, Post.Author.Pds)" />
                 }
                 <div class="post-external-preview-metadata">
                     <h2 class="post-external-preview-title">@(Post.Data.ExternalTitle ?? Post.Data.ExternalUrl)</h2>
@@ -374,8 +375,8 @@
                 }
                 else
                 {
-                    <a href="@Program.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
-                        <img src="@Program.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
+                    <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
+                        <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
                     </a>
                 }
             }

@@ -20,7 +20,7 @@ namespace AppViewLite.Models
         public Plc Plc => FeedId.Plc;
         public string BaseUrl => $"/feed/{Did}/{RKey}";
 
-        public string AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, Data.AvatarCid != null ? Cid.Read(Data.AvatarCid).ToString() : null, Author.Pds);
+        public string AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data.AvatarCid != null ? Cid.Read(Data.AvatarCid).ToString() : null, Author.Pds);
 
         public string DisplayName => Data?.DisplayName ?? RKey;
 

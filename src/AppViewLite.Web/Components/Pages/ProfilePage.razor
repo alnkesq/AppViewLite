@@ -1,5 +1,6 @@
 @page "/@{did}"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter][SupplyParameterFromQuery] public int? Replies { get; set; }
@@ -50,7 +51,7 @@
         <div class="profile-banner @(Profile.Profile.HasBannerImage ? null : "profile-banner-no-image")">
             @if (Profile.Profile.HasBannerImage)
             {
-                <img src="@Program.GetImageBannerUrl(Did, Profile.Profile.BasicData!.BannerCidBytes!, Profile.Profile.Pds)"/>
+                <img src="@Apis.GetImageBannerUrl(Did, Profile.Profile.BasicData!.BannerCidBytes!, Profile.Profile.Pds)" />
             }
         </div>
         <img src="@(Profile.Profile.AvatarUrl ?? "/assets/default-user-avatar.svg")" class="profile-image-large main-padding" />

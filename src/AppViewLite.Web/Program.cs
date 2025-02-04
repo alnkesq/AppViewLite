@@ -34,18 +34,7 @@ namespace AppViewLite.Web
             return date.ToString("MMM d, yyyy");
         }
 
-        public static string GetImageThumbnailUrl(string did, byte[] cid, string? pds)
-        {
-            return BlueskyEnrichedApis.GetImageUrl("feed_thumbnail", did, Cid.Read(cid).ToString(), pds);
-        }
-        public static string GetImageBannerUrl(string did, byte[] cid, string? pds)
-        {
-            return BlueskyEnrichedApis.GetImageUrl("banner", did, Cid.Read(cid).ToString(), pds)!;
-        }
-        public static string GetImageFullUrl(string did, byte[] cid, string? pds)
-        {
-            return BlueskyEnrichedApis.GetImageUrl("feed_fullsize", did, Cid.Read(cid).ToString(), pds);
-        }
+
 
         public static async Task Main(string[] args)
         {
@@ -55,7 +44,7 @@ namespace AppViewLite.Web
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Services.AddRazorComponents();
-
+            builder.Services.AddSingleton<BlueskyEnrichedApis>(_ => apis);
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;

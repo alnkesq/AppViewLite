@@ -29,7 +29,7 @@ namespace AppViewLite.Models
         public string? AvatarCid => BasicData?.AvatarCid;
 
         public BlueskyProfileBasicInfo? BasicData;
-        public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, AvatarCid, Pds);
+        public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, AvatarCid, Pds);
 
         public Tid? RelationshipRKey;
         public BlockReason BlockReason;

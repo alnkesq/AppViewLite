@@ -34,6 +34,7 @@ using AppViewLite;
 using System.IO;
 using System.Diagnostics.CodeAnalysis;
 using System.Buffers;
+using Ipfs;
 
 namespace AppViewLite
 {
@@ -1227,9 +1228,21 @@ namespace AppViewLite
             return coalescedList.ToArray();
         }
 
-        internal static string? GetAvatarUrl(string did, string? avatarCid, string? pds)
+        internal string? GetAvatarUrl(string did, string? avatarCid, string? pds)
         {
             return GetImageUrl("avatar_thumbnail", did, avatarCid, pds);
+        }
+        public string GetImageThumbnailUrl(string did, byte[] cid, string? pds)
+        {
+            return GetImageUrl("feed_thumbnail", did, Cid.Read(cid).ToString(), pds);
+        }
+        public string GetImageBannerUrl(string did, byte[] cid, string? pds)
+        {
+            return GetImageUrl("banner", did, Cid.Read(cid).ToString(), pds)!;
+        }
+        public string GetImageFullUrl(string did, byte[] cid, string? pds)
+        {
+            return GetImageUrl("feed_fullsize", did, Cid.Read(cid).ToString(), pds);
         }
 
 
@@ -1237,12 +1250,12 @@ namespace AppViewLite
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
         [return: NotNullIfNotNull(nameof(cid))]
-        public static string? GetImageUrl(string size, string did, string? cid, string? pds)
+        public string? GetImageUrl(string size, string did, string? cid, string? pds)
         {
             if (cid == null) return null;
             var cdn = CdnPrefix;
 
-            if (!ServeImages && cdn == null) cdn = "https://cdn.bsky.app";
+            if (!ServeImages && cdn == null && !DidDocOverrides.CustomDidDocs.ContainsKey(did)) cdn = "https://cdn.bsky.app";
 
             if (cdn != null) pds = null;
 

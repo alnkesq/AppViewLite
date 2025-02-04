@@ -21,7 +21,7 @@ namespace AppViewLite.Models
         public string RKey => ListIdStr.RKey;
         public string BaseUrl => $"/@{Did}/lists/{RKey}";
 
-        public string? AvatarUrl => BlueskyEnrichedApis.GetAvatarUrl(Did, Data?.AvatarCid != null ? Cid.Read(Data.AvatarCid).ToString() : null, Author.Pds);
+        public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data?.AvatarCid != null ? Cid.Read(Data.AvatarCid).ToString() : null, Author.Pds);
     }
 }
 

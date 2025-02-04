@@ -51,7 +51,6 @@ namespace AppViewLite.Web
         public static async Task Main(string[] args)
         {
             var atprotoProvider = new AtProtocolProvider([
-                    //new AlternatePds("did:plc:testaaaaaaaaaaaaaaaaaaaa", "http://localhost:5093"),
                     new AlternatePds("*", "https://bsky.network", ListenFirehose: false),
                     new AlternatePds("*", "https://jetstream.atproto.tools", IsJetStream: true),
                 ]);
@@ -59,12 +58,7 @@ namespace AppViewLite.Web
             BlueskyEnrichedApis.Instance = new(Relationships, atprotoProvider);
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
-            builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents(options =>
-                {
-                    options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromSeconds(5);
-                })
-                .AddInteractiveWebAssemblyComponents();
+            builder.Services.AddRazorComponents();
 
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
@@ -100,7 +94,7 @@ namespace AppViewLite.Web
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
-                app.UseWebAssemblyDebugging();
+                //app.UseWebAssemblyDebugging();
             }
             else
             {
@@ -116,9 +110,7 @@ namespace AppViewLite.Web
             
 
             app.MapStaticAssets();
-            app.MapRazorComponents<App>()
-                .AddInteractiveServerRenderMode()
-                .AddInteractiveWebAssemblyRenderMode();
+            app.MapRazorComponents<App>();
 
             app.UseRouting();
             app.UseCors();

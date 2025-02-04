@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AppViewLite\AppViewLite.csproj" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

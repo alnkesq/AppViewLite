@@ -73,8 +73,15 @@ namespace AppViewLite.Web.Controllers
                     using Image image = await GetImageAsync(did, cid, pds, sizePixels);
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
-                    await image.SaveAsJpegAsync(cachePath + ".tmp", new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 70 });
-                    System.IO.File.Move(cachePath + ".tmp", cachePath);
+                    try
+                    {
+                        await image.SaveAsJpegAsync(cachePath + ".tmp", new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 70 });
+                        System.IO.File.Move(cachePath + ".tmp", cachePath);
+                    }
+                    catch when (System.IO.File.Exists(cachePath)) 
+                    { 
+                        // concurrent request already saved this file, this is ok.
+                    }
                 }
 
                 SetMediaHeaders(cid);

@@ -115,6 +115,10 @@ main {
         display: flex;
     }
 
+    .feed-author-link {
+        top: 70px !important; 
+    }
+
     .scroll-up-button {
         left: 15px;
         bottom: 75px;

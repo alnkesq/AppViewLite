@@ -303,9 +303,11 @@ if (!hasBlazor) {
     
     window.addEventListener('scroll', async e => {
         updateSidebarButtonScrollVisibility();
-        var scrollTop = document.documentElement.scrollTop
+        var scrollingElement = document.scrollingElement;
+        var scrollTop = scrollingElement.scrollTop
         if (scrollTop <= 0) return;
-        var remainingToBottom = document.documentElement.scrollTopMax - scrollTop;
+        var scrollTopMax = scrollingElement.scrollHeight - scrollingElement.clientHeight;
+        var remainingToBottom = scrollTopMax - scrollTop;
         if (remainingToBottom >= 500) return;
         var paginationButton = document.querySelector('.pagination-button');
         if (!paginationButton) return;

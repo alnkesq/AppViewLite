@@ -17,9 +17,9 @@ namespace AppViewLite.Web
     {
         private static BlueskyRelationships Relationships;
 
-        public static bool AllowPublicReadOnlyFakeLogin = false;
-        public static bool ListenToFirehose = true;
-        public static bool ListenPlcDirectory = true;
+        public static bool AllowPublicReadOnlyFakeLogin = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN) ?? false;
+        public static bool ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
+
 
         public static string ToFullHumanDate(DateTime date)
         {
@@ -49,12 +49,9 @@ namespace AppViewLite.Web
 
         public static async Task Main(string[] args)
         {
-            var atprotoProvider = new AtProtocolProvider([
-                    new AlternatePds("*", "https://bsky.network", ListenFirehose: false),
-                    new AlternatePds("*", "https://jetstream.atproto.tools", IsJetStream: true),
-                ]);
             Relationships = new();
-            BlueskyEnrichedApis.Instance = new(Relationships, atprotoProvider);
+            var apis = new BlueskyEnrichedApis(Relationships);
+            BlueskyEnrichedApis.Instance = apis;
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Services.AddRazorComponents();
@@ -125,19 +122,38 @@ namespace AppViewLite.Web
                 {
                     await Task.Delay(1000);
                     app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
-                    var explicitDid = atprotoProvider.HostsAndJetstreams.Where(x => x.IsDid).Select(x => x.Did).ToHashSet();
-                    foreach (var altpds in atprotoProvider.HostsAndJetstreams.GroupBy(x => x.Host))
+
+                    var firehoses = (AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ?? "jet:jetstream.atproto.tools").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (var firehose in firehoses)
                     {
-                        var host = altpds.First();
-                        if (!host.ListenFirehose) continue;
-                        var indexer = new Indexer(Relationships, atprotoProvider)
+                        bool isJetStream;
+                        string firehoseUrl;
+
+                        if (firehose.StartsWith("jet:", StringComparison.Ordinal))
                         {
-                            DidAllowlist = altpds.Any(x => x.IsWildcard) ? null : altpds.Select(x => x.Did).ToHashSet(),
-                            DidBlocklist = altpds.Any(x => x.IsWildcard) ? explicitDid : null,
-                            FirehoseUrl = new(altpds.Key),
+                            isJetStream = true;
+                            firehoseUrl = string.Concat("https://", firehose.AsSpan(4));
+                        }
+                        else
+                        {
+                            isJetStream = false;
+                            firehoseUrl = "https://" + firehose;
+                        }
+
+
+                        var indexer = new Indexer(apis)
+                        {
+                            FirehoseUrl = new Uri(firehoseUrl),
+                            VerifyValidForCurrentRelay = did => 
+                            {
+                                if (apis.DidDocOverrides.CustomDidDocs.ContainsKey(did))
+                                {
+                                    throw new Exception($"Ignoring firehose record for {did} because a DID doc override was specified for such DID.");
+                                }
+                            }
                         };
 
-                        if (host.IsJetStream)
+                        if (isJetStream)
                             indexer.ListenJetStreamFirehoseAsync().FireAndForget();
                         else
                             indexer.ListenBlueskyFirehoseAsync().FireAndForget();
@@ -150,12 +166,12 @@ namespace AppViewLite.Web
             }
 
 
-            if (ListenPlcDirectory && !Relationships.IsReadOnly)
+            if ((AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_PLC_DIRECTORY) ?? true) && !Relationships.IsReadOnly)
             {
                 Task.Run(async () =>
                 {
 
-                    var indexer = new Indexer(Relationships, atprotoProvider);
+                    var indexer = new Indexer(apis);
                     var bundle = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_PLC_DIRECTORY_BUNDLE);
                     if (bundle != null)
                     {

@@ -29,13 +29,11 @@ namespace AppViewLite
     public class Indexer : BlueskyRelationshipsClientBase
     {
         public Uri FirehoseUrl = new("https://bsky.network/");
-        public HashSet<string>? DidBlocklist;
-        public HashSet<string>? DidAllowlist;
-        public AtProtocolProvider AlternatePdsConfiguration;
-        public Indexer(BlueskyRelationships relationships, AtProtocolProvider altPdsConfig)
-            : base(relationships)
+        public BlueskyEnrichedApis Apis;
+        public Indexer(BlueskyEnrichedApis apis)
+            : base(apis.DangerousUnlockedRelationships)
         {
-            this.AlternatePdsConfiguration = altPdsConfig;
+            this.Apis = apis;
         }
 
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
@@ -301,8 +299,8 @@ namespace AppViewLite
             Task.Run(async () =>
             {
                 Console.Error.WriteLine("Fetching record " + uri);
-                using var proto = AlternatePdsConfiguration.CreateProtocolForDid(uri.Did!.Handler);
-                var record = (await proto.Repo.GetRecordAsync(uri.Did, uri.Collection, uri.Rkey)).HandleResult()!.Value;
+                
+                var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey));
 
                 OnRecordCreated(uri.Did.Handler, uri.Pathname.Substring(1), record, ignoreIfDisposing: true);
 
@@ -407,12 +405,8 @@ namespace AppViewLite
             }
         }
 
-        private void VerifyValidForCurrentRelay(string commitAuthor)
-        {
-            if (DidBlocklist != null && DidBlocklist.Contains(commitAuthor)) throw new UnexpectedFirehoseDataException($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
-            if (DidAllowlist != null && !DidAllowlist.Contains(commitAuthor)) throw new UnexpectedFirehoseDataException($"Ignoring {commitAuthor} for firehose {FirehoseUrl}");
-        }
-
+        public Action<string> VerifyValidForCurrentRelay;
+        
         public async Task<Tid> ImportCarAsync(string did, string carPath)
         {
             using var stream = File.Open(carPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -456,7 +450,7 @@ namespace AppViewLite
 
         public async Task<Tid> ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
         {
-            using var at = AlternatePdsConfiguration.CreateProtocolForDid(did);
+            using var at = await Apis.CreateProtocolForDidAsync(did);
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
@@ -476,7 +470,7 @@ namespace AppViewLite
 
         public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, CancellationToken ct = default)
         {
-            using var at = AlternatePdsConfiguration.CreateProtocolForDid(did);
+            using var at = await Apis.CreateProtocolForDidAsync(did);
 
             string? cursor = since != default ? since.ToString() : null;
             Tid lastTid = since;

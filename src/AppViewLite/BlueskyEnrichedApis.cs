@@ -40,26 +40,31 @@ namespace AppViewLite
     public class BlueskyEnrichedApis : BlueskyRelationshipsClientBase
     {
         public static BlueskyEnrichedApis Instance;
-        internal ATProtocol proto;
         public bool IsReadOnly => relationshipsUnlocked.IsReadOnly;
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
-        public BlueskyEnrichedApis(BlueskyRelationships relationships, AtProtocolProvider pdsConfig)
+        public BlueskyEnrichedApis(BlueskyRelationships relationships)
             : base(relationships)
         {
-            this.proto = new ATProtocolBuilder()
-                .WithInstanceUrl(new Uri(pdsConfig.DefaultHost))
-                .WithATDidCache(atprotoProvider?.AtProtoHosts.Where(x => x.IsDid).ToDictionary(x => new ATDid(x.Did), x => new Uri(x.Host)) ?? new())
-                .Build();
-            this.atprotoProvider = pdsConfig;
-
             PendingHandleVerifications = new(async handle => 
             {
                 return await ResolveHandleAsync(handle);
             });
+            var didDocOverridesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES);
+            if (didDocOverridesPath == null) 
+            {
+                _staticDidDocOverrides = new();
+            }
+            else 
+            {
+                _didDocOverridesReloadableFile = new ReloadableFile<DidDocOverridesConfiguration>(didDocOverridesPath, path => DidDocOverridesConfiguration.ReadFromFile(path));
+            }
         }
 
+        private ReloadableFile<DidDocOverridesConfiguration>? _didDocOverridesReloadableFile;
+        private DidDocOverridesConfiguration? _staticDidDocOverrides;
+        public DidDocOverridesConfiguration DidDocOverrides => _staticDidDocOverrides ?? _didDocOverridesReloadableFile!.GetValue();
 
 
 
@@ -159,7 +164,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Follow.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
+            var response = await ListRecordsAsync(did, Follow.RecordType, limit: limit + 1, cursor: continuation);
             var following = WithRelationshipsLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
@@ -389,21 +394,21 @@ namespace AppViewLite
                         try
                         {
                             Console.Error.WriteLine("  Firing request for " + key);
-                            var (response, error) = await proto.Repo.GetRecordAsync(GetAtId(key.Did), collection, key.RKey, cancellationToken: ct);
-
-                            if (response is not null)
+                            try
                             {
+                                var response = await GetRecordAsync(key.Did, collection, key.RKey, ct);
                                 var obj = (TValue)response.Value!;
                                 onItemSuccess(key, obj);
                                 Console.Error.WriteLine("     > Completed: " + key);
                                 ctx.TriggerStateChange();
                             }
-                            else
+                            catch (Exception)
                             {
                                 onItemFailure(key);
                                 Console.Error.WriteLine("     > Failure: " + key);
                                 ctx.TriggerStateChange();
                             }
+                
 
                         }
                         catch (Exception ex)
@@ -762,7 +767,7 @@ namespace AppViewLite
             Record[] postRecords = [];
             if (includePosts)
             {
-                var results = (await proto.Repo.ListRecordsAsync(GetAtId(did), Post.RecordType)).HandleResult();
+                var results = await ListRecordsAsync(did, Post.RecordType, 50, null);
                 postRecords = results!.Records!.ToArray();
             }
             var posts = WithRelationshipsLock(rels =>
@@ -786,7 +791,7 @@ namespace AppViewLite
             List<Record> repostRecords = [];
             if (includeReposts)
             {
-                var result = (await proto.Repo.ListRecordsAsync(GetAtId(did), Repost.RecordType)).HandleResult();
+                var result = await ListRecordsAsync(did, Repost.RecordType, 50, null);
                 repostRecords = result!.Records!.ToList();
             }
             var reposts = WithRelationshipsLock(rels =>
@@ -805,7 +810,7 @@ namespace AppViewLite
             List<Record> likeRecords = [];
             if (includeLikes)
             {
-                var results = (await proto.Repo.ListRecordsAsync(GetAtId(did), Like.RecordType)).HandleResult();
+                var results = await ListRecordsAsync(did, Like.RecordType, 50, null);
                 likeRecords = results!.Records!.ToList();
             }
             var likes = WithRelationshipsLock(rels =>
@@ -900,7 +905,6 @@ namespace AppViewLite
         }
 
         //private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
-        private AtProtocolProvider atprotoProvider;
 
         public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx)
         {
@@ -934,7 +938,7 @@ namespace AppViewLite
 
             if (result == null || (now - result.RetrievalDate).TotalHours > 6)
             { 
-                var recordOutput = (await proto.GetRecordAsync(GetAtId(did), Generator.RecordType, rkey)).HandleResult();
+                var recordOutput = await GetRecordAsync(did, Generator.RecordType, rkey);
                 var generator = (Generator)recordOutput!.Value!;
                 WithRelationshipsLock(rels =>
                 {
@@ -1266,7 +1270,7 @@ namespace AppViewLite
             var startDate = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
 
-            var indexer = new Indexer(relationshipsUnlocked, atprotoProvider);
+            var indexer = new Indexer(this);
             Tid lastTid;
             Exception? exception = null;
 
@@ -1402,7 +1406,7 @@ namespace AppViewLite
         {
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.Session.PdsSession;
-            var sessionProtocol = atprotoProvider.CreateProtocolForDid(pdsSession.Did.Handler);
+            var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler);
             await sessionProtocol.AuthenticateWithPasswordSessionAsync(new AuthSession(pdsSession));
             return sessionProtocol;
 
@@ -1410,10 +1414,25 @@ namespace AppViewLite
 
         public async Task<Session> LoginToPdsAsync(string did, string password)
         {
-            var sessionProtocol = atprotoProvider.CreateProtocolForDidForLogin(did);
+            var sessionProtocol = await CreateProtocolForDidAsync(did);
             var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
             return session;
         }
+
+        public async Task<ATProtocol> CreateProtocolForDidAsync(string did)
+        {
+            var diddoc = await GetDidDocAsync(did);
+            var pds = diddoc.Pds;
+            var builder = new ATProtocolBuilder();
+            builder.WithInstanceUrl(new Uri(pds));
+            var dict = new Dictionary<ATDid, Uri>
+            {
+                { new ATDid(did), new Uri(pds) }
+            };
+            builder.WithATDidCache(dict);
+            return builder.Build();
+        }
+
         public async Task<Tid> CreateFollowAsync(string did, RequestContext ctx)
         {
             return await CreateRecordAsync(new Follow { Subject = new ATDid(did) }, ctx);
@@ -1475,7 +1494,7 @@ namespace AppViewLite
 
         private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post)
         {
-            var info = (await proto.Repo.GetRecordAsync(new ATDid(post.Did), Post.RecordType, post.RKey)).HandleResult();
+            var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey);
             return (new StrongRef(info.Uri, info.Cid), (Post)info.Value);
             
         }
@@ -1486,7 +1505,7 @@ namespace AppViewLite
         }
         internal async Task<string> GetCidAsync(string did, string collection, string rkey)
         {
-            return (await proto.Repo.GetRecordAsync(new ATDid(did), collection, rkey)).HandleResult()!.Cid!;
+            return (await GetRecordAsync(did, collection, rkey)).Cid!;
         }
 
         public async Task<BlueskyPost> GetPostAsync(string did, string rkey, RequestContext ctx)
@@ -1596,7 +1615,7 @@ namespace AppViewLite
             return (list, members, hasMore ? new ListEntry(members[^1].Plc, members[^1].RelationshipRKey!.Value).Serialize() : null);
 #else
 
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Listitem.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
+            var response = await ListRecordsAsync(did, Listitem.RecordType, limit: limit + 1, cursor: continuation);
             var members = WithRelationshipsLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler))).ToArray();
@@ -1605,6 +1624,18 @@ namespace AppViewLite
             return (list, members, response.Records.Count > limit ? response!.Cursor : null);
 
 #endif
+        }
+
+        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, CancellationToken ct = default)
+        {
+            using var proto = await CreateProtocolForDidAsync(did);
+            return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, cancellationToken: ct)).HandleResult()!;
+        }
+
+        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, CancellationToken ct = default)
+        {
+            using var proto = await CreateProtocolForDidAsync(did);
+            return (await proto.GetRecordAsync(GetAtId(did), collection, rkey, cancellationToken: ct)).HandleResult()!;
         }
 
         public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> GetPopularFeedsAsync(string? continuation, int limit, RequestContext ctx)
@@ -1752,7 +1783,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), List.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
+            var response = await ListRecordsAsync(did, List.RecordType, limit: limit + 1, cursor: continuation);
             var lists = WithRelationshipsLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
@@ -1772,7 +1803,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = (await proto.Repo.ListRecordsAsync(GetAtId(did), Generator.RecordType, limit: limit + 1, cursor: continuation)).HandleResult();
+            var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation);
             var feeds = WithRelationshipsLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
@@ -1857,7 +1888,7 @@ namespace AppViewLite
             {
                 // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
                 // otherwise did:web, but they're in a different namespace
-                didDoc = await FetchAndStoreDidDocAsync(did, plc);
+                didDoc = DidDocOverrides.TryGetOverride(did) ?? await FetchAndStoreDidDocNoOverrideAsync(did, plc);
             }
             if (!didDoc.HasHandle(handle))
             {
@@ -1874,9 +1905,9 @@ namespace AppViewLite
             return did;
         }
 
-        private async Task<DidDocProto> FetchAndStoreDidDocAsync(string did, Plc plc)
+        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideAsync(string did, Plc plc)
         {
-            var didDoc = await GetDidDocAsync(did);
+            var didDoc = await GetDidDocCoreNoOverrideAsync(did);
             didDoc.Date = DateTime.UtcNow;
             WithRelationshipsLock(rels =>
             {
@@ -1890,6 +1921,7 @@ namespace AppViewLite
         private bool IsDidDocStale(string did, DidDocProto? didDoc)
         {
             if (didDoc == null) return true;
+
             if ((DateTime.UtcNow - didDoc.Date) <= DidDocMaxStale)
             {
                 return false;
@@ -1996,7 +2028,7 @@ namespace AppViewLite
             else throw new Exception("Invalid did: " + did);
         }
 
-        internal async Task<DidDocProto> GetDidDocAsync(string did)
+        internal async Task<DidDocProto> GetDidDocCoreNoOverrideAsync(string did)
         {
             Console.Error.WriteLine("GetDidDocAsync: " + did);
             string didDocUrl;
@@ -2021,7 +2053,7 @@ namespace AppViewLite
 
         public async Task<string> GetVerifiedHandleAsync(string did)
         {
-            var didDoc = await GetDidDocAsync(did);
+            var didDoc = await GetDidDocCoreNoOverrideAsync(did);
 
             return didDoc.Handle;
         }
@@ -2046,18 +2078,29 @@ namespace AppViewLite
             }
             if (pds == null)
             {
-                (var plc, pds) = WithRelationshipsLock(rels =>
-                {
-                    var plc = rels.SerializeDid(did);
-                    return (plc, rels.TryGetLatestDidDoc(plc)?.Pds);
-                });
-                if (pds == null)
-                {
-                    pds = (await FetchAndStoreDidDocAsync(did, plc)).Pds;
-                }
+                pds = (await GetDidDocAsync(did)).Pds;
             }
             var url = $"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}";
             return await DefaultHttpClient.GetAsync(url);
+        }
+
+        private async Task<DidDocProto> GetDidDocAsync(string did)
+        {
+            var didDocOverride = DidDocOverrides.TryGetOverride(did);
+            if (didDocOverride != null) return didDocOverride;
+
+            DidDocProto? doc;
+            (var plc, doc) = WithRelationshipsLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                return (plc, rels.TryGetLatestDidDoc(plc));
+            });
+            if (IsDidDocStale(did, doc))
+            {
+                doc = await FetchAndStoreDidDocNoOverrideAsync(did, plc);
+            }
+
+            return doc!;
         }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();

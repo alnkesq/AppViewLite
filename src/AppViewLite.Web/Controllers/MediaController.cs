@@ -20,6 +20,8 @@ namespace AppViewLite.Web.Controllers
 
         private readonly static SearchValues<char> CidChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
         private readonly static bool Enabled = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) == null;
+        private readonly static bool CacheAvatars = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CACHE_AVATARS) ?? true;
+        private readonly static bool CacheFeedThumbs = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CACHE_FEED_THUMBS) ?? false;
 
         [Route("{size}/plain/{did}/{cid}@jpeg")]
         [HttpGet]
@@ -42,8 +44,10 @@ namespace AppViewLite.Web.Controllers
                 _ => throw new ArgumentException("Unrecognized image size.")
             };
 
-            var storeToDisk = size == "avatar_thumbnail";
-            
+            var storeToDisk =
+                size == "avatar_thumbnail" ? CacheAvatars :
+                size is "feed_thumbnail" or "banner" ? CacheFeedThumbs : 
+                false;
 
             if (storeToDisk)
             {

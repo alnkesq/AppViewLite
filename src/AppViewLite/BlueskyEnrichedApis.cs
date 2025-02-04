@@ -1876,19 +1876,36 @@ namespace AppViewLite
         public DateTime PlcDirectorySyncDate => relationshipsUnlocked.PlcDirectorySyncDate;
         public TimeSpan PlcDirectoryStaleness => relationshipsUnlocked.PlcDirectoryStaleness;
 
+
+        private readonly static string? DnsOverHttps = "1.1.1.1";/// System.Environment.GetEnvironmentVariable("APPVIEWLITE_DOH");
+
         private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
         {
             try
             {
                 // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
                 Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
-                var lookup = new LookupClient();
+                
                 if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {
-                    var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
-                    var record = result.Answers.TxtRecords()
-                        .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
-                        .FirstOrDefault(x => x != null && x.StartsWith("did=", StringComparison.Ordinal));
+                    string record;
+                    if (DnsOverHttps != null)
+                    {
+                        var request = new HttpRequestMessage(HttpMethod.Get, "https://" + DnsOverHttps + "/dns-query?name=_atproto." + Uri.EscapeDataString(handle) + "&type=TXT");
+                        request.Headers.Accept.Clear();
+                        request.Headers.Accept.ParseAdd("application/dns-json");
+                        using var response = await DefaultHttpClient.SendAsync(request, ct);
+                        var result = await response.Content.ReadFromJsonAsync<DnsOverHttpsResponse>(ct);
+                        record = result.Answer?.Where(x => x.type == 16).Select(x => Regex.Match(x.data, @"did=[^\\""]+").Value?.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x));
+                    }
+                    else
+                    {
+                        var lookup = new LookupClient();
+                        var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
+                        record = result.Answers.TxtRecords()
+                            .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
+                            .FirstOrDefault(x => x != null && x.StartsWith("did=", StringComparison.Ordinal));
+                    }
                     if (record != null)
                     {
                         var did = record.Substring(4);

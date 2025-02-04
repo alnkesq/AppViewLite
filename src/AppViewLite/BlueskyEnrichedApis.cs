@@ -1178,18 +1178,23 @@ namespace AppViewLite
             return GetImageUrl("avatar_thumbnail", did, avatarCid, pds);
         }
 
-        public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN);
+
+        public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
+        public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
         [return: NotNullIfNotNull(nameof(cid))]
         public static string? GetImageUrl(string size, string did, string? cid, string? pds)
         {
             if (cid == null) return null;
-            var cdn = CdnPrefix ?? "/";
+            var cdn = CdnPrefix;
 
-            if (CdnPrefix != null) pds = null;
+            if (!ServeImages && cdn == null) cdn = "https://cdn.bsky.app";
+
+            if (cdn != null) pds = null;
+
             if (pds != null && pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
 
-            return $"{cdn}img/{size}/plain/{did}/{cid}@jpeg" + (pds != null ? "?pds=" + Uri.EscapeDataString(pds) : null);
+            return $"{cdn}/img/{size}/plain/{did}/{cid}@jpeg" + (pds != null ? "?pds=" + Uri.EscapeDataString(pds) : null);
         }
 
         public long GetNotificationCount(AppViewLiteSession ctx)

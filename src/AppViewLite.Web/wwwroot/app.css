@@ -298,6 +298,13 @@ ul {
     font-size: 16pt;
 }
 
+.post-focal > .post-meta > .handle-generic{
+    display: block;
+}
+.post-focal > .post-meta > .handle-generic::before{
+    width: auto;
+}
+
 .profile-row {
     margin-bottom: 10px;
     padding-left: 20px;
@@ -315,6 +322,7 @@ ul {
     font-weight: bold;
     position: relative;
     display: inline-block;
+    word-break: break-word;
 }
 
 
@@ -367,6 +375,7 @@ ul {
     margin-top: 83px;
     outline: 1.5px solid white;
     margin-left: 9px;
+    background: white;
 }
 
 .profile-follow-relationship {
@@ -386,7 +395,7 @@ ul {
 }
 
 .handle-generic::before{
-    content: ' @';
+    content: '@';
 }
 .post .handle-generic::before,
 .search-form-suggestions .handle-generic::before
@@ -397,10 +406,10 @@ ul {
 }
 
 .handle-uncertain::before{
-    content: ' (?)';
+    content: '(?)';
 }
 .handle-invalid::before{
-    content: ' (!)';
+    content: '(!)';
 }
 .handle-uncertain{
     opacity: 0.3
@@ -728,6 +737,10 @@ ul {
     overflow-wrap: break-word;
 }
 
+.handle-generic {
+    word-break: break-word;
+}
+
 .profile-banner{
     width: 100%;
     height: 150px;
@@ -988,7 +1001,7 @@ button[disabled], input[type=submit][disabled] {
 
 .post-focal > .post-meta {
     margin-bottom: 20px;
-    padding-top: 8px;
+    
     margin-left: 70px;
 }
 .post-focal > .post-action-bar {
@@ -1301,7 +1314,7 @@ h1 .profile-badge img{
     width: 20px;
 }
 
-.search-form-suggestions .profile-image-small{
+.search-form-suggestions .profile-image-small {
     background-image: url('/assets/default-user-avatar.svg');
     background-size: cover;
     background-position: center;

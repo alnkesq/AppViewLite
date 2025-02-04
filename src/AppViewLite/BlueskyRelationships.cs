@@ -1364,6 +1364,7 @@ namespace AppViewLite
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
                 PossibleHandle = possibleHandle ?? "handle.invalid",
+                Pds = didDoc?.Pds,
                 HandleIsUncertain = !handleIsCertain,
                 Badges = Badges.GetBadges(plc, did, possibleHandle)
             };

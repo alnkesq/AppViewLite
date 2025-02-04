@@ -19,11 +19,14 @@ namespace AppViewLite.Web.Controllers
         
 
         private readonly static SearchValues<char> CidChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
+        private readonly static bool Enabled = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) == null;
 
         [Route("{size}/plain/{did}/{cid}@jpeg")]
         [HttpGet]
         public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds)
         {
+            if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
+
             BlueskyEnrichedApis.EnsureValidDid(did);
 
             if (cid.Length != 59) throw new Exception("Invalid CID length.");
@@ -63,7 +66,7 @@ namespace AppViewLite.Web.Controllers
 
                 if (!System.IO.File.Exists(cachePath))
                 {
-                    using Image image = await GetImage(did, cid, pds, sizePixels);
+                    using Image image = await GetImageAsync(did, cid, pds, sizePixels);
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
                     await image.SaveAsJpegAsync(cachePath + ".tmp", new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 70 });
@@ -84,13 +87,13 @@ namespace AppViewLite.Web.Controllers
             }
             else
             {
-                using Image image = await GetImage(did, cid, pds, sizePixels);
+                using Image image = await GetImageAsync(did, cid, pds, sizePixels);
                 SetMediaHeaders(cid);
                 await image.SaveAsJpegAsync(Response.Body, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 80 });
             }
         }
 
-        private async Task<Image> GetImage(string did, string cid, string? pds, int sizePixels)
+        private async Task<Image> GetImageAsync(string did, string cid, string? pds, int sizePixels)
         {
             var bytes = await BlueskyEnrichedApis.Instance.GetBlobAsBytesAsync(did, cid, pds);
             if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");

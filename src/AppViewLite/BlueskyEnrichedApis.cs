@@ -2050,7 +2050,6 @@ namespace AppViewLite
                 }
             }
             var url = $"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}";
-            Console.Error.WriteLine(url);
             return await DefaultHttpClient.GetAsync(url);
         }
 

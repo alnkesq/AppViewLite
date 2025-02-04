@@ -1,5 +1,6 @@
 using AppViewLite;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -44,7 +45,7 @@ namespace AppViewLite
     {
         private readonly Func<TKey, Task<TValue>> compute;
         private readonly TimeSpan EvictTime;
-        private readonly Dictionary<TKey, (Task<TValue> Task, DateTime Date)> dict = new();
+        private readonly ConcurrentDictionary<TKey, Lazy<Task<TValue>>> dict = new();
         public TaskDictionary(Func<TKey, Task<TValue>> compute)
             : this(compute, TimeSpan.FromSeconds(30))
         { 
@@ -55,23 +56,22 @@ namespace AppViewLite
             this.compute = compute;
             this.EvictTime = evictTime;
         }
-
+        
         public Task<TValue> GetValueAsync(TKey key)
         {
-            lock (dict)
+            var lazy = new Lazy<Task<TValue>>(() =>
             {
-                ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, key, out var exists);
-                if (exists) return slot.Task;
+                var p = CreateTaskAsync(key);
+                return p;
+            }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
-                slot.Date = DateTime.UtcNow;
-                slot.Task = CreateTaskAsync(key);
-                return slot.Task;
-            }
+            return dict.GetOrAdd(key, lazy).Value;
+            
         }
+
 
         private async Task<TValue> CreateTaskAsync(TKey key)
         {
-
             await Task.Yield(); // gets out of the lock, and allows us to store early exceptions
             try
             {
@@ -86,10 +86,7 @@ namespace AppViewLite
             {
                 Task.Delay(EvictTime).GetAwaiter().OnCompleted(() =>
                 {
-                    lock (dict)
-                    {
-                        dict.Remove(key);
-                    }
+                    dict.TryRemove(key, out _);
                 });
             }
         }

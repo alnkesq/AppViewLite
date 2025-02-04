@@ -36,13 +36,13 @@ namespace AppViewLite
             possibleHandle = possibleHandle != null ? StringUtils.NormalizeHandle(possibleHandle) : null;
 
             ProfileBadge? badge = null;
-            if (possibleHandle != null && IsGovDomain(possibleHandle))
+            if (possibleHandle != null && IsGovDomain(possibleHandle, out var tld))
             {
                 badge = new ProfileBadge
                 {
                     IsHandleBased = true,
                     Kind = KindGovernment,
-                    Description = "Government account or elected official",
+                    Description = $"Government account or elected official ({tld})",
                     Url = possibleHandle.EndsWith(".gov", StringComparison.Ordinal) ? "https://en.wikipedia.org/wiki/.gov" : "https://en.wikipedia.org/wiki/.gov#International_equivalents"
                 };
             }
@@ -56,10 +56,14 @@ namespace AppViewLite
                     rows = rows.Where(x => x.WikidataId == wikidataId).ToArray();
                     var isGov = rows.Any(x => x.IsGov);
                     var isOrg = rows.Any(x => x.IsOrganization);
+                    var typeString = possibleHandle.EndsWith(".bsky.social", StringComparison.Ordinal) ? "account" : "domain";
                     badge = new ProfileBadge
                     {
                         Kind = isGov ? KindGovernment : isOrg ? KindOrganization : KindGeneric,
-                        Description = isGov ? "Government account or elected official" : isOrg ? "Organization" : "Verified",
+                        Description = 
+                            isGov ? $"Official government {typeString} (according to Wikidata)" :
+                            isOrg ? $"Official organization {typeString} (according to Wikidata)" :
+                            $"Official {typeString} (according to Wikidata)",
                         Url = "https://www.wikidata.org/wiki/Q" + wikidataId,
                         IsHandleBased = true,
                     };
@@ -74,13 +78,21 @@ namespace AppViewLite
             return result.ToArray();
         }
 
-        private static bool IsGovDomain(string handle)
+        private static bool IsGovDomain(string handle, out string? tld)
         {
             while (true)
             {
-                if (GovTlds.Contains(handle)) return true;
+                if (GovTlds.Contains(handle))
+                {
+                    tld = "." + handle;
+                    return true;
+                }
                 var dot = handle.IndexOf('.');
-                if (dot == -1) return false;
+                if (dot == -1)
+                {
+                    tld = null;
+                    return false;
+                }
                 handle = handle.Substring(dot + 1);
             }
             

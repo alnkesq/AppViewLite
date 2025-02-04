@@ -1,26 +1,18 @@
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Rendering;
-using Microsoft.AspNetCore.Components.RenderTree;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.SignalR;
 using AppViewLite.Web.Components;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System.Collections.Concurrent;
-using DuckDbSharp.Reflection;
-using System.Reflection.Metadata;
 
 namespace AppViewLite.Web
 {
     internal class AppViewLiteHub : Hub
     {
         private RequestContext _ctxWithoutConnectionId;
-        private ILoggerFactory loggerFactory;
 
-        public AppViewLiteHub(RequestContext ctx, ILoggerFactory loggerFactory)
+        public AppViewLiteHub(RequestContext ctx)
         {
             this._ctxWithoutConnectionId = ctx;
-            this.loggerFactory = loggerFactory;
         }
 
         public RequestContext RequestContext

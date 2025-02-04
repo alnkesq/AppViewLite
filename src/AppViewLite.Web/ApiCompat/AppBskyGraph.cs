@@ -10,12 +10,18 @@ namespace AppViewLite.Web
     [EnableCors("BskyClient")]
     public class AppBskyGraph : ControllerBase
     {
+        private readonly BlueskyEnrichedApis apis;
+        public AppBskyGraph(BlueskyEnrichedApis apis)
+        {
+            this.apis = apis;
+        }
+
         [HttpGet("app.bsky.graph.getFollowers")]
         public async Task<FishyFlip.Lexicon.App.Bsky.Graph.GetFollowersOutput> GetFollowers(string actor, string? cursor, int limit)
         {
             var ctx = RequestContext.Create();
-            var subject = await BlueskyEnrichedApis.Instance.GetProfileAsync(actor, ctx);
-            var (followers, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowersAsync(actor, cursor, limit, ctx);
+            var subject = await apis.GetProfileAsync(actor, ctx);
+            var (followers, nextContinuation) = await apis.GetFollowersAsync(actor, cursor, limit, ctx);
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetFollowersOutput
             {
@@ -28,8 +34,8 @@ namespace AppViewLite.Web
         public async Task<FishyFlip.Lexicon.App.Bsky.Graph.GetFollowsOutput> GetFollows(string actor, string? cursor, int limit)
         {
             var ctx = RequestContext.Create();
-            var subject = await BlueskyEnrichedApis.Instance.GetProfileAsync(actor, ctx);
-            var (follows, nextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingAsync(actor, cursor, limit, ctx);
+            var subject = await apis.GetProfileAsync(actor, ctx);
+            var (follows, nextContinuation) = await apis.GetFollowingAsync(actor, cursor, limit, ctx);
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetFollowsOutput
             {

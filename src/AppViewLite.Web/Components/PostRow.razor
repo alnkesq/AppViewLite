@@ -40,7 +40,7 @@
     private LiveNotificationDelegate? PostStatsNotificationHandler;
     private void UnregisterNotifications()
     {
-        BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Unsubscribe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
+        Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Unsubscribe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
         PostStatsNotificationHandler = null;
         notificationsRegisteredForPostId = default;
     }
@@ -100,15 +100,15 @@
         IsLiked = new AsyncStateToggler(
             Post.LikeCount, 
             Post.IsLikedBySelf, 
-            () => BlueskyEnrichedApis.Instance.CreatePostLikeAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
-            rkey => BlueskyEnrichedApis.Instance.DeletePostLikeAsync(rkey, RequestContext), 
+            () => Apis.CreatePostLikeAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
+            rkey => Apis.DeletePostLikeAsync(rkey, RequestContext), 
             StateHasChanged);
 
         IsReposted = new AsyncStateToggler(
             Post.RepostCount,
             Post.IsRepostedBySelf,
-            () => BlueskyEnrichedApis.Instance.CreateRepostAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
-            rkey => BlueskyEnrichedApis.Instance.DeleteRepostAsync(rkey, RequestContext),
+            () => Apis.CreateRepostAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
+            rkey => Apis.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
 
 #if false
@@ -134,7 +134,7 @@
 
             }
             PostStatsNotificationHandler = CreateLambda(new WeakReference<PostRow>(this), this.Post.PostId);
-            BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Subscribe(Post.PostId, PostStatsNotificationHandler);
+            Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Subscribe(Post.PostId, PostStatsNotificationHandler);
         }
 #endif
     }
@@ -147,10 +147,10 @@
         string? navigateTo = "/";
         if (Post.InReplyToPostId != null)
         {
-            var inReplyToDid = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetDid(Post.InReplyToPostId.Value.Author));
+            var inReplyToDid = Apis.WithRelationshipsLock(rels => rels.GetDid(Post.InReplyToPostId.Value.Author));
             navigateTo = "/@" + inReplyToDid + "/" + Post.InReplyToPostId.Value.PostRKey;
         }
-        await BlueskyEnrichedApis.Instance.DeletePostAsync(Post.PostId.PostRKey, RequestContext);
+        await Apis.DeletePostAsync(Post.PostId.PostRKey, RequestContext);
         NavigationManager.NavigateTo(navigateTo);
     }
 

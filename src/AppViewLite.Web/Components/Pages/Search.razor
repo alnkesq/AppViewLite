@@ -2,6 +2,7 @@
 @using System.Text.RegularExpressions
 @inject NavigationManager Navigation
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter][SupplyParameterFromQuery] public required string Q { get; set; }
@@ -46,7 +47,7 @@
                 string? did = null;
                 try
                 {
-                    did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Q);
+                    did = await Apis.ResolveHandleAsync(Q);
                 }
                 catch (Exception)
                 {
@@ -57,19 +58,19 @@
                     return;
                 }
             }
-            (Profiles, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(Q, allowPrefixForLastWord: false, Continuation, default, RequestContext);
+            (Profiles, NextContinuation) = await Apis.SearchProfilesAsync(Q, allowPrefixForLastWord: false, Continuation, default, RequestContext);
 
         }
         else if (Kind == "feeds")
         {
             if (string.IsNullOrEmpty(Q))
             {
-                (Feeds, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPopularFeedsAsync(Continuation, default, RequestContext);
+                (Feeds, NextContinuation) = await Apis.GetPopularFeedsAsync(Continuation, default, RequestContext);
 
             }
             else
             {
-                (Feeds, NextContinuation) = await BlueskyEnrichedApis.Instance.SearchFeedsAsync(Q, Continuation, default, RequestContext);
+                (Feeds, NextContinuation) = await Apis.SearchFeedsAsync(Q, Continuation, default, RequestContext);
             }
         }
         else
@@ -85,7 +86,7 @@
                     Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
                 };
 
-            (Posts, NextContinuation) = IsTopPosts ? await BlueskyEnrichedApis.Instance.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext) : await BlueskyEnrichedApis.Instance.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext);
+            (Posts, NextContinuation) = IsTopPosts ? await Apis.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext) : await Apis.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext);
         }
     }
 }

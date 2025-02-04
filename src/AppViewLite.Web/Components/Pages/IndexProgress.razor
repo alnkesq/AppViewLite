@@ -1,6 +1,6 @@
 @page "/index-progress/{did}/{kind}"
 @inject NavigationManager Navigation
-
+@inject BlueskyEnrichedApis Apis
 
 @code {
     
@@ -11,7 +11,7 @@
 
 <h1>Repository import status for @Did (@Kind)</h1>
 <br />
-@BlueskyEnrichedApis.Instance.GetCarImportStatus(Did, Enum.Parse<RepositoryImportKind>(Kind))
+@Apis.GetCarImportStatus(Did, Enum.Parse<RepositoryImportKind>(Kind))
 <br />
 <br />
 This page will NOT refresh automatically!

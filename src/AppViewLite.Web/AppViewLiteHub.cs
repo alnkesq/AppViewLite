@@ -8,11 +8,12 @@ namespace AppViewLite.Web
 {
     internal class AppViewLiteHub : Hub
     {
-        private RequestContext _ctxWithoutConnectionId;
-
-        public AppViewLiteHub(RequestContext ctx)
+        private readonly RequestContext _ctxWithoutConnectionId;
+        private readonly BlueskyEnrichedApis apis;
+        public AppViewLiteHub(RequestContext ctx, BlueskyEnrichedApis apis)
         {
             this._ctxWithoutConnectionId = ctx;
+            this.apis = apis;
         }
 
         public RequestContext RequestContext
@@ -27,13 +28,13 @@ namespace AppViewLite.Web
         
         public async Task LoadPendingProfiles(ProfileRenderRequest[] requests)
         {
-            if (BlueskyEnrichedApis.Instance.IsReadOnly) return;
+            if (apis.IsReadOnly) return;
             var hub = HubContext;
 
             var connectionId = Context.ConnectionId;
-            var profiles = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
+            var profiles = apis.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
             var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
-            BlueskyEnrichedApis.Instance.EnrichAsync(profiles, newctx, async p =>
+            apis.EnrichAsync(profiles, newctx, async p =>
             {
                 var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object>() { { nameof(ProfileRow.Profile), p } });
                 var index = Array.IndexOf(profiles, p);
@@ -45,7 +46,7 @@ namespace AppViewLite.Web
         public void VerifyUncertainHandlesForDids(string[] dids)
         {
             var ctx = RequestContext;
-            var pairs = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+            var pairs = apis.WithRelationshipsLock(rels =>
             {
                 return dids.Select(did => (Did: did, PossibleHandle: rels.TryGetLatestDidDoc(rels.SerializeDid(did))?.Handle)).ToArray();
             });
@@ -53,7 +54,7 @@ namespace AppViewLite.Web
             {
                 if (pair.PossibleHandle != null)
                 {
-                    BlueskyEnrichedApis.Instance.VerifyHandleAndNotifyAsync(pair.Did, pair.PossibleHandle, ctx);
+                    apis.VerifyHandleAndNotifyAsync(pair.Did, pair.PossibleHandle, ctx);
                 }
 
             }
@@ -62,18 +63,18 @@ namespace AppViewLite.Web
         public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee, string? focalDid)
         {
             var hub = HubContext;
-            if (BlueskyEnrichedApis.Instance.IsReadOnly) return;
+            if (apis.IsReadOnly) return;
 
             var connectionId = Context.ConnectionId;
             BlueskyPost[]? posts = null;
             Plc? focalPlc = null;
-            BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+            apis.WithRelationshipsLock(rels =>
             {
                 posts = requests.Select(x => rels.GetPost(rels.GetPostId(x.did, x.rkey))).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
             });
             var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
-            BlueskyEnrichedApis.Instance.EnrichAsync(posts, newctx, async p =>
+            apis.EnrichAsync(posts, newctx, async p =>
             {
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
@@ -88,8 +89,8 @@ namespace AppViewLite.Web
         {
             var ctx = HubContext;
 
-            var dangerousRels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
-            var (postIdsToSubscribe, postIdsToUnsubscribe) = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+            var dangerousRels = apis.DangerousUnlockedRelationships;
+            var (postIdsToSubscribe, postIdsToUnsubscribe) = apis.WithRelationshipsLock(rels =>
             {
                 return (
                     toSubscribe.Select(x => PostIdString.Deserialize(x)).Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray(),
@@ -127,7 +128,7 @@ namespace AppViewLite.Web
                 object? ownRelationshipChange = null;
                 if (commitPlc != default && commitPlc == userPlc)
                 {
-                    BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => 
+                    apis.WithRelationshipsLock(rels => 
                     {
                         rels.Likes.HasActor(notification.PostId, commitPlc, out var userLike);
                         rels.Reposts.HasActor(notification.PostId, commitPlc, out var userRepost);
@@ -165,7 +166,7 @@ namespace AppViewLite.Web
 
 
             if (userPlc != null)
-                BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.Subscribe(userPlc.Value, context.UserNotificationCallback);
+                apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.Subscribe(userPlc.Value, context.UserNotificationCallback);
 
 
             return Task.CompletedTask;
@@ -173,7 +174,7 @@ namespace AppViewLite.Web
 
         public override Task OnDisconnectedAsync(Exception? exception)
         {
-            var dangerousRels = BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships;
+            var dangerousRels = apis.DangerousUnlockedRelationships;
             if (connectionIdToCallback.TryRemove(this.Context.ConnectionId, out var context))
             {
                 using (context)

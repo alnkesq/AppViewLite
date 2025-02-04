@@ -2,6 +2,7 @@
 @inject RequestContext RequestContext
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [SupplyParameterFromQuery] [Parameter] public string? ReplyDid { get; set; }
@@ -26,15 +27,15 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        ReplyToPost = IsReply ? await BlueskyEnrichedApis.Instance.GetPostAsync(ReplyDid!, ReplyRkey!, RequestContext) : null;
-        QuotedPost = IsQuote ? await BlueskyEnrichedApis.Instance.GetPostAsync(QuoteDid!, QuoteRkey!, RequestContext) : null;
+        ReplyToPost = IsReply ? await Apis.GetPostAsync(ReplyDid!, ReplyRkey!, RequestContext) : null;
+        QuotedPost = IsQuote ? await Apis.GetPostAsync(QuoteDid!, QuoteRkey!, RequestContext) : null;
     }
 
     private async Task Submit()
     {
         if (!string.IsNullOrWhiteSpace(Model!.Text))
         {
-            var rkey = await BlueskyEnrichedApis.Instance.CreatePostAsync(Model.Text,
+            var rkey = await Apis.CreatePostAsync(Model.Text,
                 inReplyTo: IsReply ? new PostIdString(ReplyDid!, ReplyRkey!) : null, 
                 quotedPost: IsQuote ? new PostIdString(QuoteDid!, QuoteRkey!) : null,
                 RequestContext);

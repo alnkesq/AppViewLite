@@ -1,5 +1,6 @@
 @page "/@{did}/{rkey}/likes"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public string Did { get; set; }
@@ -10,8 +11,8 @@
     private BlueskyProfile[] Likers = [];
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Likers, NextContinuation) = await BlueskyEnrichedApis.Instance.GetPostLikersAsync(Did, RKey, Continuation, default, RequestContext);
+        Did = (await Apis.ResolveHandleAsync(Did));
+        (Likers, NextContinuation) = await Apis.GetPostLikersAsync(Did, RKey, Continuation, default, RequestContext);
     }
 }
 

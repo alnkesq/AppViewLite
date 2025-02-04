@@ -1,5 +1,6 @@
 @page "/@{did}/{rkey:length(13)}"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -10,8 +11,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Posts = await BlueskyEnrichedApis.Instance.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext);
+        Did = (await Apis.ResolveHandleAsync(Did));
+        Posts = await Apis.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext);
     }
 }
 

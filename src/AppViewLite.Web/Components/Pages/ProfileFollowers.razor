@@ -1,5 +1,6 @@
 @page "/@{did}/followers"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -9,8 +10,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (Followers, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowersAsync(Did, Continuation, default, RequestContext);
+        Did = (await Apis.ResolveHandleAsync(Did));
+        (Followers, NextContinuation) = await Apis.GetFollowersAsync(Did, Continuation, default, RequestContext);
     }
 }
 

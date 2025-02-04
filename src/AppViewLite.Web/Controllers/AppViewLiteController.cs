@@ -15,10 +15,12 @@ namespace AppViewLite.Web
     public class AppViewLiteController : ControllerBase
     {
         private readonly RequestContext ctx;
+        private readonly BlueskyEnrichedApis apis;
 
-        public AppViewLiteController(RequestContext requestContext)
+        public AppViewLiteController(RequestContext requestContext, BlueskyEnrichedApis apis)
         {
             this.ctx = requestContext;
+            this.apis = apis;
         }
 
         [HttpPost(nameof(CreatePostLike))]
@@ -26,13 +28,13 @@ namespace AppViewLite.Web
         {
             return new
             {
-                rkey = (await BlueskyEnrichedApis.Instance.CreatePostLikeAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
+                rkey = (await apis.CreatePostLikeAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
             };
         }
         [HttpPost(nameof(DeletePostLike))]
         public async Task DeletePostLike([FromBody] RKeyOnly rkey)
         {
-            await BlueskyEnrichedApis.Instance.DeletePostLikeAsync(Tid.Parse(rkey.Rkey), ctx);
+            await apis.DeletePostLikeAsync(Tid.Parse(rkey.Rkey), ctx);
         }
 
         [HttpPost(nameof(CreateRepost))]
@@ -40,7 +42,7 @@ namespace AppViewLite.Web
         {
             return new
             {
-                rkey = (await BlueskyEnrichedApis.Instance.CreateRepostAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
+                rkey = (await apis.CreateRepostAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
             };
         }
         [HttpPost(nameof(CreateFollow))]
@@ -48,23 +50,23 @@ namespace AppViewLite.Web
         {
             return new
             {
-                rkey = (await BlueskyEnrichedApis.Instance.CreateFollowAsync(did.Did, ctx)).ToString()
+                rkey = (await apis.CreateFollowAsync(did.Did, ctx)).ToString()
             };
         }
         [HttpPost(nameof(DeleteRepost))]
         public async Task DeleteRepost([FromBody] RKeyOnly rkey)
         {
-            await BlueskyEnrichedApis.Instance.DeleteRepostAsync(Tid.Parse(rkey.Rkey), ctx);
+            await apis.DeleteRepostAsync(Tid.Parse(rkey.Rkey), ctx);
         }
         [HttpPost(nameof(DeletePost))]
         public async Task DeletePost([FromBody] RKeyOnly rkey)
         {
-            await BlueskyEnrichedApis.Instance.DeletePostAsync(Tid.Parse(rkey.Rkey), ctx);
+            await apis.DeletePostAsync(Tid.Parse(rkey.Rkey), ctx);
         }
         [HttpPost(nameof(DeleteFollow))]
         public async Task DeleteFollow([FromBody] RKeyOnly rkey)
         {
-            await BlueskyEnrichedApis.Instance.DeleteFollowAsync(Tid.Parse(rkey.Rkey), ctx);
+            await apis.DeleteFollowAsync(Tid.Parse(rkey.Rkey), ctx);
         }
 
         [HttpPost(nameof(MarkLastSeenNotification))]
@@ -73,8 +75,8 @@ namespace AppViewLite.Web
             var notification = Notification.Deserialize(notificationId.NotificationId);
             if (notification != default)
             {
-                BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.LastSeenNotifications.Add(ctx.LoggedInUser, notification));
-                BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotify(ctx.LoggedInUser, handler => handler(0));
+                apis.WithRelationshipsLock(rels => rels.LastSeenNotifications.Add(ctx.LoggedInUser, notification));
+                apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotify(ctx.LoggedInUser, handler => handler(0));
             }
         }
 
@@ -96,11 +98,11 @@ namespace AppViewLite.Web
 
             if (forceResults != null)
             {
-                profiles = (await BlueskyEnrichedApis.Instance.GetProfilesAsync(forceResults.Split(','), ctx, profile => NotifySearchAutocompleteUpdates()), null);
+                profiles = (await apis.GetProfilesAsync(forceResults.Split(','), ctx, profile => NotifySearchAutocompleteUpdates()), null);
             }
             else
             {
-                profiles = await BlueskyEnrichedApis.Instance.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx, onProfileDataAvailable: profile => NotifySearchAutocompleteUpdates());
+                profiles = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx, onProfileDataAvailable: profile => NotifySearchAutocompleteUpdates());
             }
             responseAlreadySent = true;
             return new

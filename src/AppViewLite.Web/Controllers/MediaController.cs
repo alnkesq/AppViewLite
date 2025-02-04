@@ -15,8 +15,12 @@ namespace AppViewLite.Web.Controllers
     [ApiController]
     public class MediaController : ControllerBase
     {
-        
-        
+        private readonly BlueskyEnrichedApis apis;
+
+        public MediaController(BlueskyEnrichedApis apis)
+        {
+            this.apis = apis;
+        }
 
         private readonly static SearchValues<char> CidChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
         private readonly static bool Enabled = 
@@ -66,7 +70,7 @@ namespace AppViewLite.Web.Controllers
                 }
 
 
-                var cacheDirectory = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IMAGE_CACHE_DIRECTORY) ?? BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.BaseDirectory + "/image-cache";
+                var cacheDirectory = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IMAGE_CACHE_DIRECTORY) ?? apis.DangerousUnlockedRelationships.BaseDirectory + "/image-cache";
                 var cachePath = Path.Combine(cacheDirectory, size, shortDid.Slice(0, cut).ToString(), shortDid.Slice(cut).ToString() + "_" + cid + ".jpg");
 
 
@@ -108,7 +112,7 @@ namespace AppViewLite.Web.Controllers
 
         private async Task<Image> GetImageAsync(string did, string cid, string? pds, int sizePixels)
         {
-            var bytes = await BlueskyEnrichedApis.Instance.GetBlobAsBytesAsync(did, cid, pds);
+            var bytes = await apis.GetBlobAsBytesAsync(did, cid, pds);
             if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
             var image = SixLabors.ImageSharp.Image.Load(bytes);
 

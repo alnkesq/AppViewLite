@@ -1,5 +1,6 @@
 @page "/firehose"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
 
@@ -8,7 +9,7 @@
     private PostsAndContinuation Posts = new();
     protected override async Task OnParametersSetAsync()
     {
-        Posts = await BlueskyEnrichedApis.Instance.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
+        Posts = await Apis.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
     }
 }
 

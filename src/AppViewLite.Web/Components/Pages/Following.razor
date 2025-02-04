@@ -1,6 +1,7 @@
 @page "/following"
 @inject RequestContext RequestContext
 @inject NavigationManager NavigationManager
+@inject BlueskyEnrichedApis Apis
 
 
 @code {
@@ -12,7 +13,7 @@
     protected override async Task OnParametersSetAsync()
     {
         if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
-        else (Posts, NextContinuation) = await BlueskyEnrichedApis.Instance.GetFollowingFeedAsync(Continuation, default, RequestContext);
+        else (Posts, NextContinuation) = await Apis.GetFollowingFeedAsync(Continuation, default, RequestContext);
     }
 }
 

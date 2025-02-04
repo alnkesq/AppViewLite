@@ -1,5 +1,6 @@
 @page "/@{did}/lists"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -10,9 +11,9 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        Member = await BlueskyEnrichedApis.Instance.GetProfileAsync(Did, RequestContext);
-        (Lists, NextContinuation) = await BlueskyEnrichedApis.Instance.GetProfileListsAsync(Did, Continuation, default, RequestContext);
+        Did = (await Apis.ResolveHandleAsync(Did));
+        Member = await Apis.GetProfileAsync(Did, RequestContext);
+        (Lists, NextContinuation) = await Apis.GetProfileListsAsync(Did, Continuation, default, RequestContext);
     }
 }
 

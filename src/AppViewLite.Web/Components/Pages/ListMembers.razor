@@ -1,5 +1,6 @@
 @page "/@{did}/lists/{rkey}"
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -11,8 +12,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
-        (ListMetadata, Members, NextContinuation) = await BlueskyEnrichedApis.Instance.GetListMembersAsync(Did, RKey, Continuation, default, RequestContext);
+        Did = (await Apis.ResolveHandleAsync(Did));
+        (ListMetadata, Members, NextContinuation) = await Apis.GetListMembersAsync(Did, RKey, Continuation, default, RequestContext);
     }
 }
 

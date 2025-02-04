@@ -2165,6 +2165,14 @@ namespace AppViewLite
 
             return doc!;
         }
+        public async Task<ATUri> ResolveUriAsync(string uri)
+        {
+            var aturi = new ATUri(uri);
+            if (aturi.Did != null) return aturi;
+
+            var did = await ResolveHandleAsync(aturi.Handle!.Handle);
+            return new ATUri("at://" + did + aturi.Pathname + aturi.Hash);
+        }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         public readonly static HttpClient DefaultHttpClient;

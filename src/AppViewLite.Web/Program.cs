@@ -35,7 +35,6 @@ namespace AppViewLite.Web
         }
 
 
-
         public static async Task Main(string[] args)
         {
             Relationships = new();
@@ -187,6 +186,7 @@ namespace AppViewLite.Web
         public static AppViewLiteSession? TryGetSessionFromCookie(string? sessionIdCookie)
         {
             if (sessionIdCookie == null) return null;
+            var apis = BlueskyEnrichedApis.Instance;
             var now = DateTime.UtcNow;
             var sessionId = TryGetSessionIdFromCookie(sessionIdCookie, out var unverifiedDid);
             if (sessionId != null)
@@ -199,7 +199,7 @@ namespace AppViewLite.Web
                     string? did = null;
                     BlueskyProfile? bskyProfile = null;
 
-                    BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+                    apis.WithRelationshipsLock(rels =>
                     {
                         var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
                         var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
@@ -239,14 +239,16 @@ namespace AppViewLite.Web
             return unverifiedProfile?.Sessions?.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
         }
 
+
         public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle, string password)
         {
+            var apis = BlueskyEnrichedApis.Instance;
             if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException();
 
             var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
 
-            var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(handle);
-            var atSession = isReadOnly ? null : await BlueskyEnrichedApis.Instance.LoginToPdsAsync(did, password);
+            var did = await apis.ResolveHandleAsync(handle);
+            var atSession = isReadOnly ? null : await apis.LoginToPdsAsync(did, password);
 
 
 
@@ -260,7 +262,7 @@ namespace AppViewLite.Web
             };
 
             Plc plc = default;
-            BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => 
+            apis.WithRelationshipsLock(rels => 
             {
                 plc = rels.SerializeDid(did);
                 session.LoggedInUser = plc;
@@ -292,17 +294,17 @@ namespace AppViewLite.Web
 
         private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session)
         {
+            var apis = BlueskyEnrichedApis.Instance;
 
-
-            var haveFollowees = BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc));
-            session.Profile = await BlueskyEnrichedApis.Instance.GetProfileAsync(did, RequestContext.CreateInfinite(null));
+            var haveFollowees = apis.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc));
+            session.Profile = await apis.GetProfileAsync(did, RequestContext.CreateInfinite(null));
             
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
-                var loadFollows = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
-                BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
-                BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
+                var loadFollows = apis.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
+                apis.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
+                apis.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
                 // TODO: fetch entries of subscribed blocklists
                 await Task.WhenAny(deadline, loadFollows);
             }
@@ -354,14 +356,7 @@ namespace AppViewLite.Web
             return httpContext != null && httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
         }
 
-        public static async Task<ATUri> ResolveUriAsync(string uri)
-        {
-            var aturi = new ATUri(uri);
-            if (aturi.Did != null) return aturi;
-            
-            var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(aturi.Handle!.Handle);
-            return new ATUri("at://" + did + aturi.Pathname + aturi.Hash);
-        }
+
 
         public static bool IsBskyAppOrAtUri(string? q)
         {

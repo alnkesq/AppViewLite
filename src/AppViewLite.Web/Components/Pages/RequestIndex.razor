@@ -1,6 +1,7 @@
 @page "/request-index"
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
+@inject BlueskyEnrichedApis Apis
 
 <PageTitle>Request repository reindexing</PageTitle>
 <h1>Request repository reindexing</h1>
@@ -43,9 +44,9 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle))
         {
-            var did = await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Model.Handle);
+            var did = await Apis.ResolveHandleAsync(Model.Handle);
 
-            var task = BlueskyEnrichedApis.Instance.ImportCarIncrementalAsync(did, Model.Kind, ignoreIfRecentlyRan: TimeSpan.FromHours(3));
+            var task = Apis.ImportCarIncrementalAsync(did, Model.Kind, ignoreIfRecentlyRan: TimeSpan.FromHours(3));
             await Task.WhenAny(task, Task.Delay(1500));
             Navigation.NavigateTo("/index-progress/" + Uri.EscapeDataString(did) + "/" + Model.Kind, true);
         }

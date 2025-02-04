@@ -11,10 +11,16 @@ namespace AppViewLite.Web
     [EnableCors("BskyClient")]
     public class AppBskyActor : ControllerBase
     {
+        private readonly BlueskyEnrichedApis apis;
+        public AppBskyActor(BlueskyEnrichedApis apis)
+        {
+            this.apis = apis;
+        }
+
         [HttpGet("app.bsky.actor.getProfile")]
         public async Task<FishyFlip.Lexicon.App.Bsky.Actor.ProfileViewDetailed> GetProfile(string actor)
         {
-            var profile = await BlueskyEnrichedApis.Instance.GetFullProfileAsync(actor, RequestContext.Create(), 0);
+            var profile = await apis.GetFullProfileAsync(actor, RequestContext.Create(), 0);
 
             return profile.ToApiCompatDetailed();
         }

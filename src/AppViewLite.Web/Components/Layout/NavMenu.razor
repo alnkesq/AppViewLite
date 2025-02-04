@@ -1,5 +1,6 @@
 @inject AppViewLiteSession Session
 @inject NavigationManager Navigation
+@inject BlueskyEnrichedApis Apis
 
 @code{
     private long NotificationCount;
@@ -7,10 +8,10 @@
     string? Announcement;
     protected override void OnInitialized()
     {
-        NotificationCount = BlueskyEnrichedApis.Instance.GetNotificationCount(Session);
+        NotificationCount = Apis.GetNotificationCount(Session);
         var url = Navigation.ToAbsoluteUri(Navigation.Uri);
         LoginUrl = url.AbsolutePath == "/login" ? "/login" : "/login?return=" + Uri.EscapeDataString(url.PathAndQuery);
-        var staleness = BlueskyEnrichedApis.Instance.PlcDirectoryStaleness;
+        var staleness = Apis.PlcDirectoryStaleness;
 
         if (staleness.TotalDays >= 7) 
         {

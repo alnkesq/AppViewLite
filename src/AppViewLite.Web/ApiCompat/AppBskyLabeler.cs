@@ -10,6 +10,12 @@ namespace AppViewLite.Web.ApiCompat
     [EnableCors("BskyClient")]
     public class AppBskyLabeler : ControllerBase
     {
+        private readonly BlueskyEnrichedApis apis;
+        public AppBskyLabeler(BlueskyEnrichedApis apis)
+        {
+            this.apis = apis;
+        }
+
         [HttpGet("app.bsky.labeler.getServices")]
         public async Task<FishyFlip.Lexicon.App.Bsky.Labeler.GetServicesOutput> GetServices()
         {

@@ -1,6 +1,7 @@
 @using Microsoft.AspNetCore.Mvc.Routing
 @using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Navigation
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required BlueskyPost[] Posts { get; set; }
@@ -14,7 +15,7 @@
     protected override void OnParametersSet()
     {
         continuationUrl = Navigation.GetNextContinuationUrl(NextContinuation);
-        focalPostPlc = FocalPostDid != null ? BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.SerializeDid(FocalPostDid)) : null;
+        focalPostPlc = FocalPostDid != null ? Apis.WithRelationshipsLock(rels => rels.SerializeDid(FocalPostDid)) : null;
     }
 
     static bool IsLastOfGroup(BlueskyPost post, BlueskyPost? next)

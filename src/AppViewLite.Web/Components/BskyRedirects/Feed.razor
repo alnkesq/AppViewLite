@@ -1,5 +1,6 @@
 @page "/profile/{did}/feed/{rkey}"
 @inject NavigationManager Navigation
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
@@ -7,7 +8,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await BlueskyEnrichedApis.Instance.ResolveHandleAsync(Did));
+        Did = (await Apis.ResolveHandleAsync(Did));
         Navigation.NavigateTo("/feed/" + Did + "/" + RKey);
     }
 }

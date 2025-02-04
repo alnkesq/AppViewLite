@@ -29,7 +29,14 @@ namespace AppViewLite.Models
         public string? AvatarCid => BasicData?.AvatarCid;
 
         public BlueskyProfileBasicInfo? BasicData;
-        public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, AvatarCid, Pds);
+        public string? AvatarUrl
+        {
+            get
+            {
+                if (BasicData == null) return null; // still loading. Blank is better than generic avatar.
+                return BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, AvatarCid, Pds) ?? "/assets/default-user-avatar.svg";
+            }
+        }
 
         public Tid? RelationshipRKey;
         public BlockReason BlockReason;

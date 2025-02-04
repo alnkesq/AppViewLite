@@ -264,7 +264,7 @@
     }
 
     <a href="@Post.Author.BaseUrl" class="post-author-image-link">
-        <img src="@(Post.Author.AvatarUrl ?? "/assets/default-user-avatar.svg")" class="post-author-image">
+        <img src="@Post.Author.AvatarUrl" class="post-author-image">
     </a>
 
     @if (IsFocalPost && RequestContext.IsLoggedIn && Post.Author.Plc != RequestContext.LoggedInUser)

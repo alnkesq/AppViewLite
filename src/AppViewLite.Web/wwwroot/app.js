@@ -747,3 +747,27 @@ async function searchBoxAutocomplete(forceResults) {
     else closeAutocompleteMenu(autocomplete)
 }
 
+
+
+
+function emojify(target = document.body) {
+    twemoji.parse(target);
+}
+
+
+emojify();
+
+const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+        if (mutation.addedNodes.length) {
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    emojify(node);
+                }
+            });
+        }
+    });
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+

@@ -25,6 +25,9 @@
     [Parameter]
     public bool ShowThreadLine { get; set; }
 
+    [Parameter]
+    public bool IsThreadView { get; set;  }
+
     // If you add [Parameter] flags, update RenderFlags serialization and deserialization.
 
 
@@ -110,6 +113,8 @@
             () => Apis.CreateRepostAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
             rkey => Apis.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
+
+        blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView);
 
 #if false
         if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
@@ -223,7 +228,7 @@
 
 
 
-<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null) @(Post.ShouldBlur(IsFocalPost, IsQuote) ? "post-blocked" : null) @(Post.QuotedPost != null && !IsQuote ? "post-has-quote" : null)"
+<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null) @(blurReason != null ? "post-blocked" : null) @(Post.QuotedPost != null && !IsQuote ? "post-has-quote" : null)"
     @key="@(Post.RKey + "/" + Post.Did)" 
     data-postdid="@Post.Did" data-postrkey="@Post.RKey"
     data-likecount="@Post.LikeCount"
@@ -255,7 +260,7 @@
         </div>
     }
 
-    @if (Post.GetBlurReason(IsFocalPost, IsQuote) is { } blurReason)
+    @if (blurReason != null)
     {
         <div class="post-blur-reason-container">
             <div class="post-blur-reason">@blurReason</div>

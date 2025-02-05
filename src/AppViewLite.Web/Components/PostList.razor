@@ -46,6 +46,7 @@
             IsLastOfGroup="@IsLastOfGroup(post, next)"
             ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
             IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
+            IsThreadView="@(focalPostPlc != null)"
         />
 
     }

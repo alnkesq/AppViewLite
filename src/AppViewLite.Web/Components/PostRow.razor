@@ -273,9 +273,11 @@
 
     }
 
-    <a href="@Post.Author.BaseUrl" class="post-author-image-link">
-        <img src="@Post.Author.AvatarUrl" class="post-author-image">
-    </a>
+    <div class="post-author-image-link-container">
+        <a href="@Post.Author.BaseUrl" class="post-author-image-link">
+            <img src="@Post.Author.AvatarUrl" class="post-author-image">
+        </a>
+    </div>
 
     @if (IsFocalPost && RequestContext.IsLoggedIn && Post.Author.Plc != RequestContext.LoggedInUser)
     {

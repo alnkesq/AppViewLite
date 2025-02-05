@@ -1956,6 +1956,7 @@ namespace AppViewLite
         {
             if (lastGlobalFlush.Elapsed.TotalMinutes >= 10)
             {
+                if (IsReadOnly) return;
                 Console.Error.WriteLine("====== START OF GLOBAL PERIODIC FLUSH ======");
                 GlobalFlush();
                 Console.Error.WriteLine("====== END OF GLOBAL PERIODIC FLUSH ======");

@@ -232,6 +232,21 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
         recentPages = recentPages.filter(x => x.href != href);
     }
     updateBottomBarSelectedTab();
+
+    var oldMain = document.querySelector('main');
+
+    var oldMainWasHidden = false;
+    setTimeout(() => {
+        if (token != applyPageId) return;
+        if (oldMainWasHidden) return;
+
+        oldMainWasHidden = true;
+        appliedPageObj.scrollTop = document.scrollingElement.scrollTop;
+        oldMain.classList.add('display-none');
+    }, 1000);
+
+
+
     try {
         var p = await fetchOrReusePageAsync(href, token);
     } catch (e) { 
@@ -243,13 +258,17 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
     }
     if (token != applyPageId) throw 'Superseded navigation.'
     
-    var oldMain = document.querySelector('main');
+    p.dom.classList.remove('display-none');
     var page = oldMain.parentElement;
     if (p.dom != oldMain) {
-        appliedPageObj.scrollTop = document.scrollingElement.scrollTop;
+        if (!oldMainWasHidden)
+            appliedPageObj.scrollTop = document.scrollingElement.scrollTop;
         oldMain.remove();
         page.appendChild(p.dom);
     }
+    
+    oldMainWasHidden = true;
+
     appliedPageObj = p;
     updatePageTitle();
     

@@ -394,7 +394,7 @@
 
     @if (IsFocalPost)
     {
-        <div class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</div>
+        <a href="@Post.BaseUrl" class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</a>
 
         <div class="post-focal-stats post-indented @(Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0 ? null : "display-none")">
 

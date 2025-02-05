@@ -3,7 +3,8 @@ var hasBlazor = !!window.Blazor;
 
 var liveUpdatesPostIds = new Set();
 var notificationCount = parseInt(document.querySelector('.notification-badge')?.textContent ?? 0);
-var pageTitleWithoutCounter = document.title;
+
+var historyStack = [];
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
 var pendingProfileLoads = new Map();
@@ -11,7 +12,7 @@ var pendingProfileLoads = new Map();
 var pendingPostLoads = new Map();
 
 function updatePageTitle() {
-    document.title = notificationCount ? '(' + notificationCount + ') ' + pageTitleWithoutCounter : pageTitleWithoutCounter;
+    document.title = notificationCount ? '(' + notificationCount + ') ' + appliedPageObj.title : appliedPageObj.title;
     var badge = document.querySelector('.notification-badge');
     if (badge) {
         badge.textContent = notificationCount;
@@ -183,6 +184,24 @@ function fastNavigateIfLink(event) {
 
     if (!url) return false;
 
+    if (a.id == 'bottom-bar-home-button') { 
+        var previousPage = historyStack[historyStack.length - 1];
+        if (previousPage == url) {
+            console.log('Bottom bar home button: Back');
+            history.back();
+
+            event.preventDefault();
+            return true;
+        }
+        
+        if (url != location.href) {
+            console.log('Navigate to home, avoid refresh')
+            fastNavigateTo(url.href, false, false);
+
+            event.preventDefault();
+            return true;
+        }
+    }
 
     if ((document.querySelector('#components-reconnect-modal') || ((url.pathname == '/login' || url.pathname == '/logout') && url.host == window.location.host))) {
         window.location = url;
@@ -194,23 +213,27 @@ function fastNavigateIfLink(event) {
 }
 
 
-/**@type {href: string, dateFetched: number, dom: HTMLElement, title: string}[] */
+/**@type {href: string, dateFetched: number, dom: HTMLElement, title: string, scrollTop: number}[] */
 var recentPages = [];
-var currentlyLoadedPage = location.href;
 var applyPageId = 0;
 
+var appliedPageObj = null;
 
 applyPageFocus();
 
-async function applyPage(href, preferRefresh, scrollToTop) { 
+async function applyPage(href, preferRefresh = null, scrollToTop = null) { 
     console.log('Load: ' + href);
     var token = ++applyPageId;
-    if (currentlyLoadedPage == href || preferRefresh) { 
+    
+    preferRefresh = preferRefresh ?? (appliedPageObj.href == href);
+    scrollToTop ??= true;
+
+    if (preferRefresh) { 
         recentPages = recentPages.filter(x => x.href != href);
     }
     updateBottomBarSelectedTab();
     try {
-        var [main, title] = await fetchOrReusePageAsync(href, token);
+        var p = await fetchOrReusePageAsync(href, token);
     } catch (e) { 
         if (token == applyPageId) { 
             location.href = href;
@@ -222,13 +245,18 @@ async function applyPage(href, preferRefresh, scrollToTop) {
     
     var oldMain = document.querySelector('main');
     var page = oldMain.parentElement;
-    oldMain.remove();
-    page.appendChild(main);
-    currentlyLoadedPage = href;
-    pageTitleWithoutCounter = title;
+    if (p.dom != oldMain) {
+        appliedPageObj.scrollTop = document.scrollingElement.scrollTop;
+        oldMain.remove();
+        page.appendChild(p.dom);
+    }
+    appliedPageObj = p;
     updatePageTitle();
-    if (scrollToTop) { 
+    
+    if (scrollToTop) {
         applyPageFocus();
+    } else { 
+        document.scrollingElement.scrollTop = p.scrollTop;
     }
     updateLiveSubscriptions();
 
@@ -239,7 +267,7 @@ async function fetchOrReusePageAsync(href, token) {
     
     var p = recentPages.filter(x => x.href == href)[0];
     if (p) {
-        return [p.dom, p.title];
+        return p;
     } else { 
         var response = await fetch(href);
         if (response.status != 200) { 
@@ -250,22 +278,25 @@ async function fetchOrReusePageAsync(href, token) {
         if (token != applyPageId) throw 'Superseded navigation.'
         var dom = temp.querySelector('main');
         var title = temp.querySelector('title').textContent;
-        recentPages.push({ href: href, dom: dom, dateFetched: Date.now(), title: title})
-        return [dom, title];
+        var p = { href: href, dom: dom, dateFetched: Date.now(), title: title, scrollTop: 0 };
+        recentPages.push(p)
+        return p;
     }
 }
 
-function fastNavigateTo(href) { 
+function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) { 
     if (href.startsWith('/')) href = location.origin + href;
     if (!href.startsWith(window.location.origin + '/')) { 
         window.location.href = href;
         return;
     }
-    if (window.location.href == href) { 
+    if (window.location.href == href) {
         window.scrollTo(0, 0);
+    } else {
+        historyStack.push(location.href);
+        window.history.pushState(null, null, href);
     }
-    window.history.pushState(null, null, href);
-    applyPage(href, true, true);
+    applyPage(href, preferRefresh, scrollToTop);
 }
 
 
@@ -290,16 +321,21 @@ function updateSidebarButtonScrollVisibility() {
 }
 if (!hasBlazor) {
     window.addEventListener('popstate', e => {
+        var popped = historyStack.pop();
+        if (popped != location.href) { 
+            console.log("History stack (" + popped +") / pushState (" + location.href + ") mismatch");
+        }
         applyPage(location.href, false);
     });
     
-    pageTitleWithoutCounter = document.title;
-    recentPages.push({
+    appliedPageObj = {
         href: location.href,
         dateFetched: Date.now(),
         dom: document.querySelector('main'),
-        title: pageTitleWithoutCounter,
-    });
+        title: document.title,
+        scrollTop: document.scrollingElement.scrollTop
+    };
+    recentPages.push(appliedPageObj);
     
     window.addEventListener('scroll', async e => {
         updateSidebarButtonScrollVisibility();

@@ -1127,8 +1127,8 @@ button[disabled], input[type=submit][disabled] {
     position: absolute;
     z-index: 35;
     margin-top: 30px;
-    margin-left: -73px;
-    width: 200px !important;
+    margin-left: -120px;
+    width: 300px !important;
 }
 .menu {
     border-radius: 4px;
@@ -1154,6 +1154,9 @@ button[disabled], input[type=submit][disabled] {
     width: calc(100% - 4px);
     font-size: 10pt;
     box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
     .menu-item:hover {
         background: #F1F3F5;

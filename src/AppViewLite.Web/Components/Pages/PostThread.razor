@@ -1,10 +1,12 @@
 @page "/@{did}/{rkey:length(13)}"
+@page "/@{did}/{rkey:length(13)}/media/{mediaId:int}"
 @inject RequestContext RequestContext
 @inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
+    [Parameter] public int MediaId { get; set; }
     [SupplyParameterFromQuery] [Parameter] public string? Continuation { get; set; }
 
     private PostsAndContinuation Posts = new();

@@ -46,26 +46,27 @@
     private LiveNotificationDelegate? PostStatsNotificationHandler;
     private void UnregisterNotifications()
     {
-        Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Unsubscribe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
-        PostStatsNotificationHandler = null;
-        notificationsRegisteredForPostId = default;
+    Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Unsubscribe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
+    PostStatsNotificationHandler = null;
+    notificationsRegisteredForPostId = default;
     }
     public void Dispose()
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+    Dispose(true);
+    GC.SuppressFinalize(this);
     }
     public void Dispose(bool disposing)
     {
-        if(!disposing && PostStatsNotificationHandler != null)
+    if(!disposing && PostStatsNotificationHandler != null)
         {
 
 
-        }
-        UnregisterNotifications();
+    }
+    UnregisterNotifications();
     }
 #endif
     public string RenderFlags;
+
 
     public static ParameterView CreateParametersForRenderFlags(BlueskyPost post, string renderFlags)
     {
@@ -86,7 +87,10 @@
 
     }
 
+    private bool isSelfRepost;
     private string? blurReason;
+    private string OriginalAuthorDisplayName => Post.Author.DisplayNameOrFallback;
+    private string ReposterOrAuthorDisplayName => Post.RepostedBy?.DisplayNameOrFallback ?? OriginalAuthorDisplayName;
 
     protected override void OnParametersSet()
     {
@@ -104,11 +108,11 @@
 
 
 #if false
-        if (notificationsRegisteredForPostId != default && notificationsRegisteredForPostId != Post.PostId)
-        {
-            UnregisterNotifications();    
-        }
-        notificationsRegisteredForPostId = Post.PostId;
+    if (notificationsRegisteredForPostId != default && notificationsRegisteredForPostId != Post.PostId)
+    {
+    UnregisterNotifications();    
+    }
+    notificationsRegisteredForPostId = Post.PostId;
 #endif
         IsLiked = new AsyncStateToggler(
             Post.LikeCount, 
@@ -126,30 +130,31 @@
 
         blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView, IsQuoteList);
 
+        isSelfRepost = Post.IsRepost && Post.RepostedBy.Plc == Post.Author.Plc;
 #if false
-        if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
-        {
-            static LiveNotificationDelegate CreateLambda(WeakReference<PostRow> weakref, PostId postId)
-            {
-                return (h, commitPlc) =>
-                {
-                    if (weakref.TryGetTarget(out var page))
-                    {
-                        page.InvokeAsync(() =>
-                        {
-                            if (page.Post.PostId != postId) return;
-                            page.IsLiked.ActorCount = h.LikeCount;
-                            page.IsReposted.ActorCount = h.RepostCount;
-                            page.Post.ReplyCount = h.ReplyCount;
-                            page.Post.QuoteCount = h.QuoteCount;
-                            page.StateHasChanged();
-                        });
-                    }
+    if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
+    {
+    static LiveNotificationDelegate CreateLambda(WeakReference<PostRow> weakref, PostId postId)
+    {
+    return (h, commitPlc) =>
+    {
+    if (weakref.TryGetTarget(out var page))
+    {
+    page.InvokeAsync(() =>
+    {
+    if (page.Post.PostId != postId) return;
+    page.IsLiked.ActorCount = h.LikeCount;
+    page.IsReposted.ActorCount = h.RepostCount;
+    page.Post.ReplyCount = h.ReplyCount;
+    page.Post.QuoteCount = h.QuoteCount;
+    page.StateHasChanged();
+    });
+            }
                 };
 
-            }
-            PostStatsNotificationHandler = CreateLambda(new WeakReference<PostRow>(this), this.Post.PostId);
-            Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Subscribe(Post.PostId, PostStatsNotificationHandler);
+    }
+    PostStatsNotificationHandler = CreateLambda(new WeakReference<PostRow>(this), this.Post.PostId);
+    Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Subscribe(Post.PostId, PostStatsNotificationHandler);
         }
 #endif
     }
@@ -382,7 +387,7 @@
     {
         <div class="post-image-list post-indented @(Post.Data.Media.Length > 1 || IsQuote ? "post-image-list-compact" : null)">
 
-            @foreach (var image in Post.Data.Media)
+            @foreach (var (index, image) in Post.Data.Media.Index())
             {
                 @if (image.IsVideo)
                 {
@@ -392,7 +397,7 @@
                 }
                 else
                 {
-                    <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
+                    <a href="@Post.BaseUrl/media/@(index + 1)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
                         <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
                     </a>
                 }
@@ -421,7 +426,7 @@
 
             <a href="@Post.BaseUrl/likes" class="post-stats-likes-formatted @(IsLiked.ActorCount != 0 ? null : "display-none")"><b class="post-stats-animated">@StringUtils.FormatEngagementCount(@IsLiked.ActorCount)</b> @(@IsLiked.ActorCount == 1 ? "like" : "likes")</a>
         </div>
-        
+
     }
 
     @if (!IsQuote)
@@ -437,7 +442,7 @@
             </div>
 
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
-                
+
                 <div class="post-repost-menu menu @(RepostMenuVisible ? "menu-visible" : null)">
                     <button actionkind="toggleRepost" class="menu-item post-toggle-repost-menu-item" @onclick="ToggleRepostAndCloseMenu">@(IsReposted.HaveRelationship ? "Undo repost" : "Repost")</button>
                     <button actionkind="composeQuote" class="menu-item" @onclick="NavigateToQuotePost">Quote post</button>
@@ -461,16 +466,83 @@
             </div>
 
             <div class="post-action-bar-spacer">
-                
+
                 <div class="post-post-menu menu @(PostMenuVisible ? "menu-visible" : null)">
-                    @if (RequestContext.IsLoggedIn && Post.Author.Plc == RequestContext.LoggedInUser)
+                    @if (RequestContext.IsLoggedIn)
                     {
-                        <button actionkind="deletePost" class="menu-item" @onclick="DeletePostAsync">Delete</button>
+                        @if (Post.Author.Plc == RequestContext.LoggedInUser)
+                        {
+                            <button actionkind="deletePost" class="menu-item">Delete</button>
+                        }
+                        else if(Post.RepostedBy?.Plc != RequestContext.LoggedInUser)
+                        {
+                            @if (Post.IsRepost)
+                            {
+                                @if (Post.IsSelfRepost)
+                                {
+                                    if (Post.IsImagePost)
+                                    {
+                                        <button actionkind="muteSelfRepostsImage" class="menu-item">Mute image self-reposts by @ReposterOrAuthorDisplayName</button>
+                                    }
+                                    else
+                                    {
+                                        <button actionkind="muteSelfRepostsAll" class="menu-item">Mute self-reposts by @ReposterOrAuthorDisplayName</button>
+                                    }
+                                }
+                                else
+                                {
+                                    if(Post.Author.IsFollowedBySelf == null)
+                                    {
+                                        if (Post.IsImagePost)
+                                        {
+                                            <button actionkind="muteNonFollowedRepostsImage" class="menu-item">Mute non-followed image reposts by @ReposterOrAuthorDisplayName</button>
+                                        }
+                                        else
+                                        {
+                                            <button actionkind="muteNonFollowedRepostsAll" class="menu-item">Mute non-followed reposts by @ReposterOrAuthorDisplayName</button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (Post.IsImagePost)
+                                        {
+                                            <button actionkind="muteNonSelfRepostsImage" class="menu-item">Mute image reposts by @ReposterOrAuthorDisplayName</button>
+                                        }
+                                        else
+                                        {
+                                            <button actionkind="muteNonSelfRepostsAll" class="menu-item">Mute reposts by @ReposterOrAuthorDisplayName</button>
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!Post.IsSelfRepost)
+                            {
+                                if (Post.IsImagePost)
+                                {
+                                    <button actionkind="muteImages" class="menu-item">Mute images by @OriginalAuthorDisplayName</button>
+                                }
+                                else
+                                {
+                                    <button actionkind="muteAll" class="menu-item">Mute @OriginalAuthorDisplayName</button>
+                                }
+                            }
+
+                            if (Post.Data?.ExternalUrl != null)
+                            {
+                                <button actionkind="muteDomain" class="menu-item">Mute links to @(new Uri(Post.Data.ExternalUrl).Host)</button>
+                            }
+
+                            if (Post.Data?.Text != null)
+                            {
+                                <button actionkind="muteKeywords" class="menu-item">Specify words to mute…</button>
+                            }
+                        }
                     }
                     <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                 </div>
                 
-                <button @onclick="TogglePostMenu" class="post-action-bar-button">
+                <button class="post-action-bar-button">
                     <svg fill="none" viewBox="0 0 24 24" width="20" height="20" style="pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm16 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm-6-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path></svg>
                 </button>
             </div>

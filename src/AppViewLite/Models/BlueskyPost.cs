@@ -54,6 +54,10 @@ namespace AppViewLite.Models
         public BlueskyThreadgate? Threadgate;
         public bool ViolatesThreadgate;
 
+        public bool IsSelfRepost => RepostedBy?.Plc == PostId.Author;
+        public bool IsNonSelfRepost => RepostedBy != null && !IsSelfRepost;
+        public bool IsImagePost => Data?.Media != null;
+
         public string? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList)
         {
     

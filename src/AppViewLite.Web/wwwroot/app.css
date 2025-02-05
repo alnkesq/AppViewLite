@@ -19,6 +19,7 @@ html {
 
 main {
     flex: 1;
+    min-width: 0;
 }
 
 .sidebar {
@@ -1239,6 +1240,20 @@ button[disabled], input[type=submit][disabled] {
 .feed-metadata-row-implementation {
     color: #aaa;
 }
+
+
+.post {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.post-meta{ 
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 
 .post-blocked > .post-body,
 .post-blocked > .post-meta,

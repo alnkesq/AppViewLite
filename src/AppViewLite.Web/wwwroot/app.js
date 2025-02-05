@@ -109,7 +109,7 @@ function updateSearchAutoComplete() {
 
 function applyPageFocus() {
     var focalPost = document.querySelector('.post-focal');
-    if (focalPost) focalPost.scrollIntoView();
+    if (focalPost && document.querySelector('.post') != focalPost) focalPost.scrollIntoView();
     else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
     if (!hasBlazor) { 

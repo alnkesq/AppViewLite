@@ -26,7 +26,10 @@
     public bool ShowThreadLine { get; set; }
 
     [Parameter]
-    public bool IsThreadView { get; set;  }
+    public bool IsThreadView { get; set; }
+
+    [Parameter]
+    public bool IsQuoteList { get; set; }
 
     // If you add [Parameter] flags, update RenderFlags serialization and deserialization.
 
@@ -77,7 +80,8 @@
             { nameof(PostRow.ShowRestOfThreadLink), flags[3] },
             { nameof(PostRow.IsFocalPost), flags[4] },
             { nameof(PostRow.ShowThreadLine), flags[5] },
-            { nameof(PostRow.IsThreadView), flags[6]}
+            { nameof(PostRow.IsThreadView), flags[6]},
+            { nameof(PostRow.IsQuoteList), flags[7]},
         });
 
     }
@@ -95,6 +99,7 @@
              IsFocalPost,
              ShowThreadLine,
              IsThreadView,
+             IsQuoteList,
         }.Select(x => x ? "1" : "0"));
 
 
@@ -119,7 +124,7 @@
             rkey => Apis.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
 
-        blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView);
+        blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView, IsQuoteList);
 
 #if false
         if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)

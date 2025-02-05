@@ -54,7 +54,7 @@ namespace AppViewLite.Models
         public BlueskyThreadgate? Threadgate;
         public bool ViolatesThreadgate;
 
-        public string? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView)
+        public string? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList)
         {
     
             var r = Author.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor);
@@ -63,7 +63,7 @@ namespace AppViewLite.Models
 
             if (isFocal) return null;
 
-            if (!isThreadView && !isQuotee) return null;
+            if (!isThreadView && !isQuotee && !isQuoteList) return null;
 
             if (QuoterAndAuthorBlockReason != default)
                 return QuoterAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoterAndAuthor);
@@ -92,6 +92,8 @@ namespace AppViewLite.Models
             if (FocalAndAuthorBlockReason.ToDisplayString(BlockSubjects.FocalAndAuthor) is { } s) return s;
 
             if (isQuotee) return null;
+
+            if (isQuoteList) return null;
 
             return
                 ParentAndAuthorBlockReason.ToDisplayString(BlockSubjects.ParentAndAuthor) ??

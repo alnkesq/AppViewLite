@@ -9,6 +9,7 @@
     [Parameter] public string? FocalPostDid { get; set; }
     [Parameter] public string? FocalPostRKey { get; set; }
     [Parameter] public string? NextContinuation { get; set; }
+    [Parameter] public bool IsQuoteList { get; set; }
     private Uri? continuationUrl;
     private Plc? focalPostPlc;
 
@@ -47,6 +48,7 @@
             ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
             IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
             IsThreadView="@(focalPostPlc != null)"
+            IsQuoteList="@IsQuoteList"
         />
 
     }

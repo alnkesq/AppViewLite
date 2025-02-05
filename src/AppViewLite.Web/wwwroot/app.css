@@ -20,6 +20,7 @@ html {
 main {
     flex: 1;
     min-width: 0;
+    padding-bottom: 70px;
 }
 
 .sidebar {
@@ -1105,7 +1106,7 @@ button[disabled], input[type=submit][disabled] {
 }
 .post-post-menu {
     position: absolute;
-    z-index: 7;
+    z-index: 35;
     margin-top: 30px;
     margin-left: -73px;
     width: 200px !important;

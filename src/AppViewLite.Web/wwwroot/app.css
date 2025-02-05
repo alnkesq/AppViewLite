@@ -89,6 +89,16 @@ main {
     
 }
 
+.scroll-up-button-badge {
+    background-color: rgb(0, 133, 255);
+    border-radius: 50px;
+    width: 11px;
+    height: 11px;
+    position: absolute;
+    margin-top: -32px;
+    margin-left: 32px;
+}
+
 .bottom-bar {
     display: none;
     background: white;
@@ -422,6 +432,7 @@ ul {
 }
 
 .post-reposted-by {
+    
     margin-bottom: 2px;
     color: gray;
     font-size: 10pt;

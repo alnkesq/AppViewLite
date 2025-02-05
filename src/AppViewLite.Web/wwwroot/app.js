@@ -4,6 +4,10 @@
 var liveUpdatesPostIds = new Set();
 var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? 0);
 
+var currentFeedHasNewPosts = false;
+var currentFeedHasNewPostsDelay = -1;
+var currentFeedHasNewPostsTimeout = null;
+
 var historyStack = [];
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
@@ -27,9 +31,12 @@ function updatePageTitle() {
 
 
 function parseHtmlAsElement(html) { 
+    return parseHtmlAsWrapper(html).firstElementChild;
+}
+function parseHtmlAsWrapper(html) { 
     var temp = document.createElement('div');
     temp.innerHTML = html;
-    return temp.firstElementChild;
+    return temp;
 }
 
 var liveUpdatesConnection = null;
@@ -269,6 +276,10 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
 
     appliedPageObj = p;
     updatePageTitle();
+
+    currentFeedHasNewPosts = false;
+    document.querySelector('.scroll-up-button-badge').classList.add('display-none');
+    clearFeedUpdateCheckTimeout();
     
     if (scrollToTop) {
         applyPageFocus();
@@ -290,8 +301,7 @@ async function fetchOrReusePageAsync(href, token) {
         if (response.status != 200) { 
             throw ('HTTP ' + response.status);
         }
-        var temp = document.createElement('div');
-        temp.innerHTML = await response.text();
+        var temp = parseHtmlAsWrapper(await response.text());
         if (token != applyPageId) throw 'Superseded navigation.'
         var dom = temp.querySelector('main');
         var title = temp.querySelector('title').textContent;
@@ -327,6 +337,43 @@ function closeCurrentMenu() {
 }
 var prevScrollTop = 0;
 
+async function checkUpdatesForCurrentFeed() { 
+    console.log('Checking updates for the current feed')
+    var token = applyPageId;
+    var url = new URL(location.href);
+    url.searchParams.delete('limit');
+    url.searchParams.append('limit', 1);
+    var response = await fetch(url.href);
+    var html = await response.text();
+    if (response.status != 200) return;
+    if (token != applyPageId) return;
+    var d = parseHtmlAsWrapper(html);
+
+    var newPosts = [...d.querySelectorAll('.post')].map(x => x.dataset.postrkey + '|' + x.dataset.postdid)
+    var existingPosts = new Set([...document.querySelectorAll('.post')].map(x => x.dataset.postrkey + '|' + x.dataset.postdid))
+
+    if (newPosts.some(x => !existingPosts.has(x))) {
+        console.log('New posts are available for the current feed.')
+        document.querySelector('.scroll-up-button-badge').classList.remove('display-none');
+        currentFeedHasNewPosts = true;
+        currentFeedHasNewPostsTimeout = null;
+    } else { 
+        currentFeedHasNewPostsDelay *= 1.5;
+        console.log('No new posts found, new delay: ' + currentFeedHasNewPostsDelay);
+        currentFeedHasNewPostsTimeout = setTimeout(checkUpdatesForCurrentFeed, currentFeedHasNewPostsDelay);
+    }
+    
+    
+}
+
+function clearFeedUpdateCheckTimeout() { 
+    if (currentFeedHasNewPostsTimeout === null) return;
+    
+    console.log('Clearing feed update check timer.')
+    clearTimeout(currentFeedHasNewPostsTimeout);
+    currentFeedHasNewPostsTimeout = null;
+}
+
 function updateSidebarButtonScrollVisibility() { 
     var scrollTop = document.documentElement.scrollTop;
     var scrollDelta = scrollTop - prevScrollTop;
@@ -334,7 +381,31 @@ function updateSidebarButtonScrollVisibility() {
         document.querySelector('.sidebar-button').classList.toggle('sidebar-button-fixed', scrollDelta < 0);
         prevScrollTop = scrollTop;
     }
-    document.querySelector('.scroll-up-button').classList.toggle('display-none', scrollTop < 700);
+    var showScrollUp = scrollTop >= 700;
+    document.querySelector('.scroll-up-button').classList.toggle('display-none', !showScrollUp);
+
+    var path = new URL(location.href).pathname;
+
+    var needsScrollUpTimer =
+        !currentFeedHasNewPosts &&
+        showScrollUp &&
+        (path == '/following' || path.startsWith('/feed/') || path == '/firehose');
+    
+    if ((currentFeedHasNewPostsTimeout !== null) != needsScrollUpTimer) { 
+        if (needsScrollUpTimer) {
+            currentFeedHasNewPostsDelay = 20000;
+            console.log('Setting up initial timer for feed update check: ' + currentFeedHasNewPostsDelay)
+
+            currentFeedHasNewPostsTimeout = setTimeout(async () => {
+                checkUpdatesForCurrentFeed();
+            }, currentFeedHasNewPostsDelay);
+
+        } else { 
+            clearFeedUpdateCheckTimeout()
+        }
+
+    }
+    
 }
 function onInitialLoad() {
     window.addEventListener('popstate', e => {
@@ -372,9 +443,7 @@ function onInitialLoad() {
         paginationButton.insertAdjacentHTML('beforeend', '<div class="spinner"><svg height="100%" viewBox="0 0 32 32" width="100%"><circle cx="16" cy="16" fill="none" r="14" stroke-width="4" style="stroke: rgb(25, 118, 210); opacity: 0.2;"></circle><circle cx="16" cy="16" fill="none" r="14" stroke-width="4" style="stroke: rgb(25, 118, 210); stroke-dasharray: 80px; stroke-dashoffset: 60px;"></circle></svg></div>')
         var nextPage = await fetch(paginationButton.querySelector('a').href);
         if (nextPage.status != 200) throw ('HTTP ' + nextPage.status);
-        var temp = document.createElement('div');
-        temp.innerHTML = await nextPage.text();
-
+        var temp = parseHtmlAsWrapper(await nextPage.text());
 
         var newList = temp.querySelector('.main-paginated-list');
         var anyChildren = false;

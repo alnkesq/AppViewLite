@@ -77,9 +77,12 @@
             { nameof(PostRow.ShowRestOfThreadLink), flags[3] },
             { nameof(PostRow.IsFocalPost), flags[4] },
             { nameof(PostRow.ShowThreadLine), flags[5] },
+            { nameof(PostRow.IsThreadView), flags[6]}
         });
 
     }
+
+    private string? blurReason;
 
     protected override void OnParametersSet()
     {
@@ -90,8 +93,10 @@
              IsLastOfGroup,
              ShowRestOfThreadLink,
              IsFocalPost,
-             ShowThreadLine
+             ShowThreadLine,
+             IsThreadView,
         }.Select(x => x ? "1" : "0"));
+
 
 #if false
         if (notificationsRegisteredForPostId != default && notificationsRegisteredForPostId != Post.PostId)

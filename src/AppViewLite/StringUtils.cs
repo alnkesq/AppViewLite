@@ -221,6 +221,8 @@ namespace AppViewLite
             foreach (Match m in Regex.Matches(text, @"#\w+"))
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                var value = m.ValueSpan.Slice(1);
+                if (value.ContainsAnyExceptInRange('0', '9')) continue; // e.g. #1
                 hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null));
             }
             return hashtags;

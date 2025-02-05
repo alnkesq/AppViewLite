@@ -2,6 +2,7 @@ using AppViewLite.Models;
 using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -79,9 +80,79 @@ namespace AppViewLite
         {
             if (string.IsNullOrEmpty(text)) return [];
 
+            var emojis = GetEmojis(text);
             text = RemoveDiacritics(text);
 
-            return Regex.Matches(text.ToLowerInvariant(), @"\w+").Select(x => x.Value);
+            var words = Regex.Matches(text.ToLowerInvariant(), @"\w+").Select(x => x.Value);
+
+            if (emojis != null)
+                words = words.Concat(emojis);
+
+            return words;
+        }
+
+        private readonly static Rune ZWJ = new Rune(0x200D);
+        private readonly static Rune VariationSelectorMin = new Rune(0xFE00);
+        private readonly static Rune VariationSelectorMax = new Rune(0xFE0F);
+        private readonly static Rune RegionalIndicatorA = new Rune(0x1F1E6);
+        private readonly static Rune RegionalIndicatorZ = new Rune(0x1F1FF);
+        private readonly static Rune TagMin = new Rune(0xE0000);
+        private readonly static Rune TagMax = new Rune(0xE007F);
+
+        private static IEnumerable<string>? GetEmojis(string text)
+        {
+            if (Ascii.IsValid(text)) return null;
+            var result = new List<string>();
+
+            var currentEmoji = new StringBuilder();
+
+            Span<char> runeBuffer = stackalloc char[2];
+
+            var previousEmojiContinues = false;
+
+            var previousRuneIsRegionalIndicator = false;
+
+            foreach (var rune in text.EnumerateRunes())
+            {
+                
+                var isVariationSelector = rune >= VariationSelectorMin && rune <= VariationSelectorMax;
+                if (isVariationSelector) continue; // color vs black and white emoji
+
+                var isZwj = rune == ZWJ && currentEmoji.Length != 0;
+
+                var isTag = rune >= TagMin && rune <= TagMax;
+                var isRegionalIndicator = rune >= RegionalIndicatorA && rune <= RegionalIndicatorZ;
+
+                if (previousRuneIsRegionalIndicator && isRegionalIndicator)
+                {
+                    previousEmojiContinues = true;
+                    isRegionalIndicator = false; // so that we keep consecutive flags separated
+                }
+
+                var category = Rune.GetUnicodeCategory(rune);
+                if (category is UnicodeCategory.ModifierSymbol || isTag || isZwj)
+                {
+                    previousEmojiContinues = true;
+                }
+
+                if (currentEmoji.Length != 0 && !previousEmojiContinues)
+                {
+                    result.Add(currentEmoji.ToString());
+                    currentEmoji.Clear();
+                }
+
+                if (category is UnicodeCategory.OtherSymbol or UnicodeCategory.ModifierSymbol || isTag || isZwj)
+                {
+                    rune.EncodeToUtf16(runeBuffer);
+                    currentEmoji.Append(runeBuffer.Slice(0, rune.Utf16SequenceLength));
+                }
+
+                previousEmojiContinues = isZwj;
+                previousRuneIsRegionalIndicator = isRegionalIndicator;
+            }
+            if (currentEmoji.Length != 0)
+                result.Add(currentEmoji.ToString());
+            return result;
         }
 
         public static string[] GetDistinctWords(string? text)

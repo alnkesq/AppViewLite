@@ -119,6 +119,10 @@ main {
         top: 70px !important; 
     }
 
+    .top-spacer-mobile {
+        height: 20px;
+    }
+
     .scroll-up-button {
         left: 15px;
         bottom: 75px;

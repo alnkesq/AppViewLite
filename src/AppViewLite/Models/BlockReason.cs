@@ -75,7 +75,7 @@ namespace AppViewLite.Models
                 {
                     return Kind switch
                     {
-                        BlockReasonKind.BlockedBy => "This user blocked the person they're replying to.",
+                        BlockReasonKind.BlockedBy => "This user blocks the person they're replying to.",
                         BlockReasonKind.Blocks => "This user is blocked by the person they're replying to.",
                         BlockReasonKind.MutualBlock => "This user and the person they're replying to block each other.",
                         _ => throw new Exception()
@@ -98,7 +98,7 @@ namespace AppViewLite.Models
                 {
                     return Kind switch
                     {
-                        BlockReasonKind.BlockedBy => "This user blocked the author of the focused post.",
+                        BlockReasonKind.BlockedBy => "This user blocks the author of the focused post.",
                         BlockReasonKind.Blocks => "This user is blocked by the author of the focused post.",
                         BlockReasonKind.MutualBlock => "This user and the author of the focused post to block each other.",
                         _ => throw new Exception()
@@ -121,7 +121,7 @@ namespace AppViewLite.Models
                 {
                     return Kind switch
                     {
-                        BlockReasonKind.BlockedBy => "This user blocked the person quoting this.",
+                        BlockReasonKind.BlockedBy => "This user blocks the person quoting this.",
                         BlockReasonKind.Blocks => "The person quoting this blocks this user.",
                         BlockReasonKind.MutualBlock => "This user and the person quoting this block each other.",
                         _ => throw new Exception()

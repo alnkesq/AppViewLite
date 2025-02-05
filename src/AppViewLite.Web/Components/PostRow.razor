@@ -380,7 +380,7 @@
 
     @if (Post.Data?.Media != null)
     {
-        <div class="post-image-list post-indented @(Post.Data.Media.Length > 1 ? "post-image-list-compact" : null)">
+        <div class="post-image-list post-indented @(Post.Data.Media.Length > 1 || IsQuote ? "post-image-list-compact" : null)">
 
             @foreach (var image in Post.Data.Media)
             {

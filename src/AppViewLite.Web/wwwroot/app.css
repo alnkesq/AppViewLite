@@ -486,6 +486,10 @@ ul {
         max-height: 390px;
         object-fit: cover;
     }
+    .post-quoted .post-image{
+        width: calc(25% - 4px);
+        max-height: 195px;
+    }
 
 .bsky-link {
     filter: grayscale() opacity(0.7);

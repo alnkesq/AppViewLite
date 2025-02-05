@@ -1,8 +1,8 @@
-var hasBlazor = !!window.Blazor;
+
 
 
 var liveUpdatesPostIds = new Set();
-var notificationCount = parseInt(document.querySelector('.notification-badge')?.textContent ?? 0);
+var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? 0);
 
 var historyStack = [];
 
@@ -13,7 +13,12 @@ var pendingPostLoads = new Map();
 
 function updatePageTitle() {
     document.title = notificationCount ? '(' + notificationCount + ') ' + appliedPageObj.title : appliedPageObj.title;
-    var badge = document.querySelector('.notification-badge');
+    var badge = document.querySelector('.sidebar .notification-badge');
+    if (badge) {
+        badge.textContent = notificationCount;
+        badge.classList.toggle('display-none', notificationCount == 0);
+    }
+    var badge = document.querySelector('.bottom-bar .notification-badge');
     if (badge) {
         badge.textContent = notificationCount;
         badge.classList.toggle('display-none', notificationCount == 0);
@@ -113,9 +118,9 @@ function applyPageFocus() {
     if (focalPost && document.querySelector('.post') != focalPost) focalPost.scrollIntoView();
     else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
-    if (!hasBlazor) { 
-        document.querySelector('[autofocus]')?.focus();
-    }
+    
+    document.querySelector('[autofocus]')?.focus();
+    
 
     var seenNotificationId = document.querySelector('#notification-newest-id')?.dataset['newestnotification'];
     if (seenNotificationId) {
@@ -123,6 +128,8 @@ function applyPageFocus() {
         setTimeout(() => {
             if (applyPageId != token) return;
             document.querySelectorAll('.notification-new').forEach(x => x.classList.remove('notification-new'));
+            notificationCount = 0;
+            updatePageTitle();
             httpPost('MarkLastSeenNotification', {
                 notificationId: seenNotificationId
             });
@@ -147,15 +154,8 @@ function updateBottomBarSelectedTab() {
         var path = new URL(a.href).pathname
         var selected = path == url.pathname
         a.firstElementChild.classList.toggle('display-none', selected)
-        a.lastElementChild.classList.toggle('display-none', !selected)
+        a.firstElementChild.nextElementSibling.classList.toggle('display-none', !selected)
     }
-}
-
-if (hasBlazor) {
-    // https://github.com/dotnet/aspnetcore/issues/51338#issuecomment-1766578689
-    Blazor.addEventListener('enhancedload', () => {
-        applyPageFocus();
-    });
 }
 
 
@@ -205,7 +205,7 @@ function fastNavigateIfLink(event) {
 
     if ((document.querySelector('#components-reconnect-modal') || ((url.pathname == '/login' || url.pathname == '/logout') && url.host == window.location.host))) {
         window.location = url;
-    } else if (!hasBlazor && !a.target) { 
+    } else if (!a.target) { 
         fastNavigateTo(url.href);
         event.preventDefault();
     }
@@ -218,8 +218,6 @@ var recentPages = [];
 var applyPageId = 0;
 
 var appliedPageObj = null;
-
-applyPageFocus();
 
 async function applyPage(href, preferRefresh = null, scrollToTop = null) { 
     console.log('Load: ' + href);
@@ -338,7 +336,7 @@ function updateSidebarButtonScrollVisibility() {
     }
     document.querySelector('.scroll-up-button').classList.toggle('display-none', scrollTop < 700);
 }
-if (!hasBlazor) {
+function onInitialLoad() {
     window.addEventListener('popstate', e => {
         var popped = historyStack.pop();
         if (popped != location.href) { 
@@ -464,7 +462,7 @@ if (!hasBlazor) {
             closeAutocompleteMenu();
     });
 
-
+    applyPageFocus();
     updateLiveSubscriptions();
     updatePageTitle();
 }
@@ -825,4 +823,5 @@ const observer = new MutationObserver(mutations => {
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
+onInitialLoad();
 

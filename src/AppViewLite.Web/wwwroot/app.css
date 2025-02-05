@@ -714,7 +714,12 @@ ul {
     margin-top: 0px;
     padding: 2px 2px;
 }
-    
+
+
+.bottom-bar .notification-badge {
+    margin-top: -6px;
+    margin-left: -12px;
+}
 
 
     .search-form input, .search-form select {

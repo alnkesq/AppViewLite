@@ -387,7 +387,7 @@
     {
         <div class="post-image-list post-indented @(Post.Data.Media.Length > 1 || IsQuote ? "post-image-list-compact" : null)">
 
-            @foreach (var (index, image) in Post.Data.Media.Index())
+            @foreach (var image in Post.Data.Media)
             {
                 @if (image.IsVideo)
                 {
@@ -397,7 +397,7 @@
                 }
                 else
                 {
-                    <a href="@Post.BaseUrl/media/@(index + 1)" title="@image.AltText" class="post-image-link" target="_blank" rel="noreferrer">
+                    <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
                         <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
                     </a>
                 }
@@ -468,6 +468,7 @@
             <div class="post-action-bar-spacer">
 
                 <div class="post-post-menu menu @(PostMenuVisible ? "menu-visible" : null)">
+                    <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                     @if (RequestContext.IsLoggedIn)
                     {
                         @if (Post.Author.Plc == RequestContext.LoggedInUser)
@@ -539,7 +540,6 @@
                             }
                         }
                     }
-                    <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                 </div>
                 
                 <button class="post-action-bar-button">

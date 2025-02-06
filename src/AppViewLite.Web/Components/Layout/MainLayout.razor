@@ -8,6 +8,14 @@
     <div class="sidebar-placeholder">
     </div>
     <div class="background-shadow" onclick="document.body.classList.remove('sidebar-open')"></div>
+    
+    <div class="theater-background display-none" onclick="closeTheater()"></div>
+    <div class="theater display-none" onclick="closeTheater()">
+        <div class="theater-image-container">
+            <img class="theater-image" />
+        </div>
+        <div class="theater-alt"></div>
+    </div>
 
     <main>
         <button class="sidebar-button" onclick="document.body.classList.add('sidebar-open')">

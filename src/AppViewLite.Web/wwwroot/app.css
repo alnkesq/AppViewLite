@@ -46,6 +46,46 @@ main {
     height: 100%;
 }
 
+.theater-background, .theater{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 50;
+}
+.theater-background {
+    background-color: black;
+    opacity: 0.9;
+}
+
+.theater{
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.theater-image-container{
+    flex: 1;
+    min-height: 0;
+}
+
+.theater-image {
+    aspect-ratio: 1;
+    object-fit: contain;
+    width: 100%;
+    height: 100%;
+}
+
+.theater-alt{
+    background: #333;
+    color: white;
+    max-height: 120px;
+    padding: 10px;
+    overflow-x: auto;
+    font-size: 9pt;
+}
+
 .page {
     flex-direction: row;
 }
@@ -1175,6 +1215,13 @@ button[disabled], input[type=submit][disabled] {
     opacity: 0.5;
 }
 
+.whole-page-spinner{
+    margin-top: 33vh;
+}
+.whole-page-spinner .spinner{
+    margin-top: 0;
+}
+
 .spinner {
     animation: rotate 0.75s linear infinite;
     width: 20px;
@@ -1275,6 +1322,9 @@ button[disabled], input[type=submit][disabled] {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    padding-top: 1px;
+    padding-bottom: 1px;
 }
 
 

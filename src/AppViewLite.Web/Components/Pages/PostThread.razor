@@ -8,17 +8,18 @@
     [Parameter] public required string RKey { get; set; }
     [Parameter] public int MediaId { get; set; }
     [SupplyParameterFromQuery] [Parameter] public string? Continuation { get; set; }
-
+    private BlueskyPost? FocalPost;
     private PostsAndContinuation Posts = new();
 
     protected override async Task OnParametersSetAsync()
     {
         Did = (await Apis.ResolveHandleAsync(Did));
         Posts = await Apis.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext);
+        FocalPost = Posts.Posts.FirstOrDefault(x => x.RKey == RKey && x.Did == Did);
     }
 }
 
-<PageTitle>Post</PageTitle>
+<PageTitle>@(FocalPost != null ? FocalPost.Author.DisplayNameOrFallback + (FocalPost.Data?.Text != null ? ": " + FocalPost.Data.Text : null) : "Post")</PageTitle>
 
 <PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" ShowInReplyTo="false" FocalPostDid="@Did" FocalPostRKey="@RKey" />
 

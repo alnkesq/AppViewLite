@@ -159,7 +159,7 @@ namespace AppViewLite
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
 
-            toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
+            toLookup = WithRelationshipsUpgradableLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
             if (toLookup.Length == 0) return profiles;
 
             var plcToProfile = profiles.ToLookup(x => x.Plc);
@@ -661,7 +661,7 @@ namespace AppViewLite
             options = await InitializeSearchOptionsAsync(options, ctx);
             var until = options.Until;
             var query = options.Query;
-            var author = options.Author != null ? WithRelationshipsLock(rels => rels.SerializeDid(options.Author)) : default;
+            var author = options.Author != null ? SerializeSingleDid(options.Author) : default;
             var queryWords = StringUtils.GetDistinctWords(query);
             if (queryWords.Length == 0) return ([], null);
             var queryPhrases = StringUtils.GetExactPhrases(query);
@@ -908,11 +908,10 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 100);
             var thread = new List<BlueskyPost>();
-
-            var focalPost = WithRelationshipsLock(rels => rels.GetPost(did, rkey));
+            var focalPost = GetSinglePost(did, rkey);
             var focalPostId = new PostId(new Plc(focalPost.Author.PlcId), Tid.Parse(focalPost.RKey));
 
-            if (continuation == null) 
+            if (continuation == null)
             {
                 thread.Add(focalPost);
 
@@ -969,6 +968,21 @@ namespace AppViewLite
             thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
             await EnrichAsync(thread.ToArray(), ctx, focalPostAuthor: focalPostId.Author);
             return new(thread.ToArray(), nextContinuation);
+        }
+
+        public BlueskyPost GetSinglePost(string did, string rkey)
+        {
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPost(plc, Tid.Parse(rkey)));
+        }
+
+        public BlueskyProfile GetSingleProfile(string did)
+        {
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc));
+        }
+
+        private Plc SerializeSingleDid(string did)
+        {
+            return WithRelationshipsLockForDid(did, (plc, rels) => plc);
         }
 
         //private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
@@ -1104,7 +1118,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var profiles = WithRelationshipsLock(rels => rels.GetFollowers(did, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFollowers(plc, DeserializeRelationshipContinuation(continuation), limit + 1));
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did);
@@ -1155,13 +1169,13 @@ namespace AppViewLite
         }
         public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)
         {
-            var profile = WithRelationshipsLock(rels => rels.GetProfile(rels.SerializeDid(did)));
+            var profile = GetSingleProfile(did);
             await EnrichAsync([profile], ctx);
             return profile;
         }
         public async Task<BlueskyProfile[]> GetProfilesAsync(string[] dids, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null)
         {
-            var profiles = WithRelationshipsLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x))).ToArray());
+            var profiles = WithRelationshipsUpgradableLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x))).ToArray());
             await EnrichAsync(profiles, ctx, onProfileDataAvailable);
             return profiles;
         }
@@ -1192,7 +1206,7 @@ namespace AppViewLite
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey)
         {
             var data = await GetFeedGeneratorDataAsync(did, rkey);
-            return WithRelationshipsLock(rels => rels.GetFeedGenerator(rels.SerializeDid(did), data));
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data));
         }
 
         public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx)
@@ -1601,7 +1615,7 @@ namespace AppViewLite
 
         public async Task<BlueskyPost> GetPostAsync(string did, string rkey, RequestContext ctx)
         {
-            var post = WithRelationshipsLock(rels => rels.GetPost(did, rkey));
+            var post = GetSinglePost(did, rkey);
             await EnrichAsync([post], ctx);
             return post;
         }
@@ -1615,9 +1629,9 @@ namespace AppViewLite
 
             ListMembership? parsedContinuation = continuation != null ? ListMembership.Deserialize(continuation) : null;
 
-            var lists = WithRelationshipsLock(rels =>
+            var lists = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
-                return rels.ListMemberships.GetValuesSorted(rels.SerializeDid(did), parsedContinuation)
+                return rels.ListMemberships.GetValuesSorted(plc, parsedContinuation)
                     .Where(x => !rels.ListItemDeletions.ContainsKey(new(x.ListAuthor, x.ListItemRKey)))
                     .Select(x => rels.GetList(new(x.ListAuthor, x.ListRKey)))
                     .Where(x => x.Data?.Deleted != true)
@@ -1640,7 +1654,7 @@ namespace AppViewLite
             var toLookup = lists.Where(x => x.Data == null).Select(x => x.ListIdStr).Distinct().ToArray();
             if (toLookup.Length == 0) return lists;
 
-            toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
+            toLookup = WithRelationshipsUpgradableLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
             if (toLookup.Length == 0) return lists;
 
             var idToList = lists.ToLookup(x => x.ListId);
@@ -1692,7 +1706,7 @@ namespace AppViewLite
         public async Task<(BlueskyList List, BlueskyProfile[] Page, string? NextContinuation)> GetListMembersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
-            var listId = WithRelationshipsLock(rels => new Models.Relationship(rels.SerializeDid(did), Tid.Parse(rkey)));
+            var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)));
             var list = WithRelationshipsLock(rels => rels.GetList(listId));
             
             await EnrichAsync([list], ctx);
@@ -1707,7 +1721,7 @@ namespace AppViewLite
 #else
 
             var response = await ListRecordsAsync(did, Listitem.RecordType, limit: limit + 1, cursor: continuation);
-            var members = WithRelationshipsLock(rels =>
+            var members = WithRelationshipsUpgradableLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler))).ToArray();
             });
@@ -1875,9 +1889,8 @@ namespace AppViewLite
             EnsureLimit(ref limit);
 
             var response = await ListRecordsAsync(did, List.RecordType, limit: limit + 1, cursor: continuation);
-            var lists = WithRelationshipsLock(rels =>
+            var lists = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
-                var plc = rels.SerializeDid(did);
                 return response!.Records!.Select(x =>
                 {
                     var listId = new Models.Relationship(plc, Tid.Parse(x.Uri.Rkey));
@@ -1895,9 +1908,8 @@ namespace AppViewLite
             EnsureLimit(ref limit);
 
             var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation);
-            var feeds = WithRelationshipsLock(rels =>
+            var feeds = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
-                var plc = rels.SerializeDid(did);
                 return response!.Records!.Select(x =>
                 {
                     var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);

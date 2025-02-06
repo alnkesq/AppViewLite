@@ -1266,6 +1266,10 @@ namespace AppViewLite
         {
             return GetPost(GetPostId(did, rkey));
         }
+        public BlueskyPost GetPost(Plc plc, Tid rkey)
+        {
+            return GetPost(new PostId(plc, rkey));
+        }
         public BlueskyPost GetPost(ATUri uri)
         {
             return GetPost(GetPostId(uri));
@@ -1461,9 +1465,9 @@ namespace AppViewLite
             return GetPostId(uri.Did!.ToString(), uri.Rkey);
         }
 
-        public BlueskyProfile[] GetFollowers(string did, Relationship continuation, int limit)
+        public BlueskyProfile[] GetFollowers(Plc plc, Relationship continuation, int limit)
         {
-            return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
+            return Follows.GetRelationshipsSorted(plc, continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
         public BlueskyFullProfile GetFullProfile(Plc plc, RequestContext ctx, int followersYouFollowToLoad)

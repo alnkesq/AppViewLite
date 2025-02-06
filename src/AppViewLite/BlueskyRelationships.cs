@@ -338,9 +338,9 @@ namespace AppViewLite
             }
             finally
             {
+                
                 Lock.ExitWriteLock();
-                Lock.Dispose();
-                Lock = null!;
+                // Lock.Dispose(); // non-trivial to synchronize correctly
             }
 
 

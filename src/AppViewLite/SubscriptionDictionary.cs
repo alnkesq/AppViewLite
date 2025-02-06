@@ -15,7 +15,9 @@ namespace AppViewLite
         public void MaybeNotify(TKey key, Action<TDelegate> invoke)
         {
             if (subscriptions.TryGetValue(key, out var handler))
-                invoke(handler);
+            {
+                Task.Run(() => invoke(handler)); // gets out of the lock
+            }
         }
         public void Unsubscribe(TKey key, TDelegate? handler)
         {

@@ -38,7 +38,7 @@ namespace AppViewLite
 
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
         {
-            WithRelationshipsLock(relationships =>
+            WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 var sw = Stopwatch.StartNew();
@@ -127,7 +127,7 @@ namespace AppViewLite
         
 
             ContinueOutsideLock? continueOutsideLock = null;
-            WithRelationshipsLock(relationships =>
+            WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 try
@@ -281,7 +281,7 @@ namespace AppViewLite
             {
                 
                 continueOutsideLock.Value.OutsideLock();
-                WithRelationshipsLock(relationships =>
+                WithRelationshipsWriteLock(relationships =>
                 {
                     var sw = Stopwatch.StartNew();
                     continueOutsideLock.Value.Complete(relationships);
@@ -586,7 +586,7 @@ namespace AppViewLite
 
 
                 Log("Flushing " + entries.Count + " PLC directory entries (" + lastRetrievedDidDoc.ToString("yyyy-MM-dd") + ")");
-                WithRelationshipsLock(rels =>
+                WithRelationshipsWriteLock(rels =>
                 {
                     rels.AvoidFlushes++; // We'll perform many writes, avoid frequent intermediate flushes.
                     var didResumeWrites = false;
@@ -619,7 +619,7 @@ namespace AppViewLite
 
 
 
-                WithRelationshipsLock(rels =>
+                WithRelationshipsWriteLock(rels =>
                 {
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;

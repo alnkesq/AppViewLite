@@ -203,9 +203,8 @@ namespace AppViewLite.Web
                     string? did = null;
                     BlueskyProfile? bskyProfile = null;
 
-                    apis.WithRelationshipsLock(rels =>
+                    apis.WithRelationshipsLockForDid(unverifiedDid, (unverifiedPlc, rels) =>
                     {
-                        var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
                         var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
                         sessionProto = TryGetAppViewLiteSession(unverifiedProfile, sessionId);
                         if (sessionProto != null)
@@ -266,7 +265,7 @@ namespace AppViewLite.Web
             };
 
             Plc plc = default;
-            apis.WithRelationshipsLock(rels => 
+            apis.WithRelationshipsWriteLock(rels => 
             {
                 plc = rels.SerializeDid(did);
                 session.LoggedInUser = plc;
@@ -322,7 +321,7 @@ namespace AppViewLite.Web
             {
                 SessionDictionary.Remove(id, out var unverifiedAppViewLiteSession);
 
-                BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels =>
+                BlueskyEnrichedApis.Instance.WithRelationshipsWriteLock(rels =>
                 {
                     var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
                     var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);

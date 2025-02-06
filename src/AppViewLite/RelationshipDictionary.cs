@@ -22,6 +22,8 @@ namespace AppViewLite
         private Func<TTarget, bool, UInt24?>? targetToApproxTarget;
         public event EventHandler BeforeFlush;
         public event EventHandler<CancelEventArgs> ShouldFlush;
+        public event EventHandler BeforeWrite;
+
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -32,26 +34,34 @@ namespace AppViewLite
             this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
             this.deletionCounts = CreateMultiDictionary<TTarget, int>("-deletion-counts", PersistentDictionaryBehavior.SortedValues);
             this.deletionCounts.OnCompactation = z => new[] { z.Max() };
+            SetUpEventHandlers(creations);
+            SetUpEventHandlers(deletions);
+            SetUpEventHandlers(deletionCounts);
 
             this.targetToApproxTarget = targetToApproxTarget;
             if (targetToApproxTarget != null)
             {
                 this.relationshipIdHashToApproxTarget = CreateMultiDictionary<RelationshipHash, UInt24>("-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
-                this.relationshipIdHashToApproxTarget.BeforeFlush += OnBeforeFlush;
-                this.relationshipIdHashToApproxTarget.ShouldFlush += OnShouldFlush;
+                SetUpEventHandlers(relationshipIdHashToApproxTarget);
             }
-            this.creations.BeforeFlush += OnBeforeFlush;
-            this.deletions.BeforeFlush += OnBeforeFlush;
-            this.deletionCounts.BeforeFlush += OnBeforeFlush;
 
-            this.creations.ShouldFlush += OnShouldFlush;
-            this.deletions.ShouldFlush += OnShouldFlush;
-            this.deletionCounts.ShouldFlush += OnShouldFlush;
+        }
+
+        private void SetUpEventHandlers(IFlushable inner)
+        {
+            inner.BeforeFlush += OnBeforeFlush;
+            inner.BeforeWrite += OnBeforeWrite;
+            inner.ShouldFlush += OnShouldFlush;
         }
 
         private void OnBeforeFlush(object? sender, EventArgs e)
         {
             BeforeFlush?.Invoke(this, e);
+        }
+
+        private void OnBeforeWrite(object? sender, EventArgs e)
+        {
+            BeforeWrite?.Invoke(this, e);
         }
         private void OnShouldFlush(object? sender, CancelEventArgs e)
         {

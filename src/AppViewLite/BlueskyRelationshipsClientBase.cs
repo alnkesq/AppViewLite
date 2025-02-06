@@ -1,6 +1,8 @@
+using AppViewLite.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -16,25 +18,134 @@ namespace AppViewLite
         {
             this.relationshipsUnlocked = relationshipsUnlocked;
         }
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
+
+        public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func)
         {
-            lock (relationshipsUnlocked)
+            return WithRelationshipsLockWithPreamble(rels => rels.SerializeDid(did), func);
+        }
+        public void WithRelationshipsLockForDid(string did, Action<Plc, BlueskyRelationships> func)
+        {
+            WithRelationshipsLockWithPreamble(rels => rels.SerializeDid(did), func);
+        }
+
+        public T WithRelationshipsLockWithPreamble<T>(Action<BlueskyRelationships> preamble, Func<BlueskyRelationships, T> func)
+        {
+            return WithRelationshipsLockWithPreamble(rels =>
             {
-                var sw = Stopwatch.StartNew();
-                var gc = GC.CollectionCount(0);
-                relationshipsUnlocked.EnsureNotDisposed();
+                preamble(rels);
+                return false;
+            }, (_, rels) => func(rels));
+        }
+
+        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, TPreamble> preamble, Func<TPreamble, BlueskyRelationships, T> func)
+        {
+            return WithRelationshipsUpgradableLock(rels =>
+            {
+                var preambleResult = preamble(rels);
+                rels.ForbidUpgrades++;
                 try
                 {
-                    var result = func(relationshipsUnlocked);
-                    relationshipsUnlocked.MaybeGlobalFlush();
-                    return result;
+                    return func(preambleResult, rels);
                 }
                 finally
                 {
-                    
-                    MaybeLogLongLockUsage(sw, gc);
+                    rels.ForbidUpgrades--;
                 }
+            });
+        }
+
+
+        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, TPreamble> preamble, Action<TPreamble, BlueskyRelationships> func)
+        {
+            WithRelationshipsLockWithPreamble(preamble, (p, rels) =>
+            {
+                func(p, rels);
+                return false;
+            });
+        }
+
+
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
+        {
+            BlueskyRelationships.VerifyNotEnumerable<T>();
+
+            Stopwatch? sw = null;
+            int gc = 0;
+
+            relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            relationshipsUnlocked.Lock.EnterReadLock();
+            try
+            {
+                relationshipsUnlocked.EnsureNotDisposed();
+                sw = Stopwatch.StartNew();
+                gc = GC.CollectionCount(0);
+
+                var result = func(relationshipsUnlocked);
+                return result;
             }
+            finally
+            {
+                relationshipsUnlocked.Lock.ExitReadLock();
+
+                MaybeLogLongLockUsage(sw, gc, isWriteLock: false);
+            }
+
+        }
+
+
+
+        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func)
+        {
+            BlueskyRelationships.VerifyNotEnumerable<T>();
+
+            Stopwatch? sw = null;
+            int gc = 0;
+
+            relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            relationshipsUnlocked.Lock.EnterWriteLock();
+            try
+            {
+                relationshipsUnlocked.EnsureNotDisposed();
+                sw = Stopwatch.StartNew();
+                gc = GC.CollectionCount(0);
+
+                var result = func(relationshipsUnlocked);
+                relationshipsUnlocked.MaybeGlobalFlush();
+                return result;
+            }
+            finally
+            {
+                relationshipsUnlocked.Lock.ExitWriteLock();
+
+                MaybeLogLongLockUsage(sw, gc, isWriteLock: true);
+            }
+
+        }
+
+        public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func)
+        {
+            BlueskyRelationships.VerifyNotEnumerable<T>();
+
+            Stopwatch? sw = null;
+            int gc = 0;
+
+            relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
+            try
+            {
+                relationshipsUnlocked.EnsureNotDisposed();
+                sw = Stopwatch.StartNew();
+                gc = GC.CollectionCount(0);
+
+                var result = func(relationshipsUnlocked);
+                return result;
+            }
+            finally
+            {
+                relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
+                MaybeLogLongLockUsage(sw, gc, false);
+            }
+
         }
 
         public void WithRelationshipsLock(Action<BlueskyRelationships> func)
@@ -45,10 +156,27 @@ namespace AppViewLite
                 return false;
             });
         }
+        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func)
+        {
+            WithRelationshipsWriteLock(rels =>
+            {
+                func(rels);
+                return false;
+            });
+        }
+        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func)
+        {
+            WithRelationshipsUpgradableLock(rels =>
+            {
+                func(rels);
+                return false;
+            });
+        }
 
         public readonly static int PrintLongLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_LOCKS_MS) ?? 30;
-        private static void MaybeLogLongLockUsage(Stopwatch sw, int prevGcCount)
+        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, bool isWriteLock)
         {
+            if (sw == null) return;
             if (sw.ElapsedMilliseconds > PrintLongLocksThreshold)
             {
                 sw.Stop();
@@ -66,7 +194,7 @@ namespace AppViewLite
                     else
                         break;
                 }
-                Console.Error.WriteLine("Time spent inside the lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null));
+                Console.Error.WriteLine("Time spent inside the "+ (isWriteLock ? "WRITE" : "READ") +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null));
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();

@@ -22,11 +22,13 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Diagnostics.CodeAnalysis;
 
 namespace AppViewLite
 {
     public class BlueskyRelationships : IDisposable
     {
+        public int ForbidUpgrades;
         private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
         public CombinedPersistentMultiDictionary<DuckDbUuid, Plc> DidHashToUserId;
         public RelationshipDictionary<PostIdTimeFirst> Likes;
@@ -87,12 +89,12 @@ namespace AppViewLite
         private List<ICheckpointable> disposables = new();
         public const int DefaultBufferedItems = 16 * 1024;
         public int AvoidFlushes;
-
+        public ReaderWriterLockSlim Lock;
         public BlueskyRelationships()
             : this(
                   AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"), 
                   AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
-        { 
+        {
         }
 
         public string BaseDirectory { get; }
@@ -124,6 +126,7 @@ namespace AppViewLite
         public bool IsReadOnly { get; private set; }
         public BlueskyRelationships(string basedir, bool isReadOnly)
         {
+            Lock = new ReaderWriterLockSlim();
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
             ProtoBuf.Serializer.PrepareSerializer<RepositoryImportEntry>();
             ProtoBuf.Serializer.PrepareSerializer<ListData>();
@@ -235,6 +238,7 @@ namespace AppViewLite
                 {
                     item.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
                     item.ShouldFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
+                    item.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
                 }
             }
             else
@@ -246,8 +250,11 @@ namespace AppViewLite
                     {
                         if (AvoidFlushes > 0 && !(table == Follows || table == PostData || table == Likes /* big tables unrelated to PLC directory indexing */))
                             e.Cancel = true;
-
-
+                    };
+                    item.BeforeWrite += (table, e) =>
+                    {
+                        if (!Lock.IsWriteLockHeld)
+                            throw ThrowIncorrectLockUsageException("Cannot perform writes without holding the write lock.");
                     };
                 }
 
@@ -306,9 +313,14 @@ namespace AppViewLite
         }
 
         public bool IsDisposed => _disposed;
+
+
+
         public void Dispose()
         {
-            lock (this)
+            if (Lock == null) return;
+            Lock.EnterWriteLock();
+            try
             {
                 if (!_disposed)
                 {
@@ -322,8 +334,15 @@ namespace AppViewLite
                     lockFile.Dispose();
                     _disposed = true;
                 }
-                
+
             }
+            finally
+            {
+                Lock.ExitWriteLock();
+                Lock.Dispose();
+                Lock = null!;
+            }
+
 
             lock (recordTypeDurations)
             {
@@ -446,22 +465,54 @@ namespace AppViewLite
                 return plc;
             }
 
-            plc = new Plc(checked(LastAssignedPlc.PlcValue + 1));
-            LastAssignedPlc = plc;
-
-            if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+            WithWriteUpgrade(() =>
             {
-                PlcToDidPlc.Add(plc, SerializeDidPlcToUInt128(did));
-            }
-            else
-            {
-                PlcToDidOther.AddRange(plc, Encoding.UTF8.GetBytes(did));
-            }
+                plc = new Plc(checked(LastAssignedPlc.PlcValue + 1));
+                LastAssignedPlc = plc;
 
-            DidHashToUserId.Add(hash, plc);
+                if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+                {
+                    PlcToDidPlc.Add(plc, SerializeDidPlcToUInt128(did));
+                }
+                else
+                {
+                    PlcToDidOther.AddRange(plc, Encoding.UTF8.GetBytes(did));
+                }
+
+                DidHashToUserId.Add(hash, plc);
+            });
+
+
 
             return plc;
 
+        }
+
+        public void WithWriteUpgrade(Action value)
+        {
+            if (ForbidUpgrades != 0) throw ThrowIncorrectLockUsageException("Cannot upgrade to write lock after the upgradable preamble.");
+            if (Lock.IsWriteLockHeld)
+            {
+                value();
+            }
+            else
+            {
+                if (Lock.IsReadLockHeld) throw ThrowIncorrectLockUsageException("Lock should've been entered in upgradable mode, but read mode was used.");
+                Lock.EnterWriteLock();
+                try
+                {
+                    value();
+                }
+                finally
+                {
+                    Lock.ExitWriteLock();
+                }
+            }
+        }
+
+        public PostId GetPostId(Plc Plc, string rkey)
+        {
+            return new PostId(Plc, Tid.Parse(rkey));
         }
         public PostId GetPostId(StrongRef subject, bool ignoreIfNotPost = false)
         {
@@ -1185,17 +1236,17 @@ namespace AppViewLite
         }
 
 
-        public BlueskyProfile[] GetPostLikers(string profile, string rkey, Relationship continuation, int limit)
+        public BlueskyProfile[] GetPostLikers(Plc plc, string rkey, Relationship continuation, int limit)
         {
-            return Likes.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
+            return Likes.GetRelationshipsSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
-        public BlueskyProfile[] GetPostReposts(string profile, string rkey, Relationship continuation, int limit)
+        public BlueskyProfile[] GetPostReposts(Plc plc, string rkey, Relationship continuation, int limit)
         {
-            return Reposts.GetRelationshipsSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
+            return Reposts.GetRelationshipsSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
-        public BlueskyPost[] GetPostQuotes(string profile, string rkey, PostId continuation, int limit)
+        public BlueskyPost[] GetPostQuotes(Plc plc, string rkey, PostId continuation, int limit)
         {
-            return Quotes.GetValuesSorted(GetPostId(profile, rkey), continuation).Take(limit).Select(GetPost).ToArray();
+            return Quotes.GetValuesSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(GetPost).ToArray();
         }
 
         public BlueskyPost GetPost(string did, string rkey)
@@ -1402,9 +1453,8 @@ namespace AppViewLite
             return Follows.GetRelationshipsSorted(SerializeDid(did), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
-        public BlueskyFullProfile GetFullProfile(string did, RequestContext ctx, int followersYouFollowToLoad)
+        public BlueskyFullProfile GetFullProfile(Plc plc, RequestContext ctx, int followersYouFollowToLoad)
         {
-            var plc = SerializeDid(did);
             return new BlueskyFullProfile
             {
                 Profile = GetProfile(plc),
@@ -1455,11 +1505,8 @@ namespace AppViewLite
         private CancellationTokenSource ShutdownRequested = new CancellationTokenSource();
         public void NotifyShutdownRequested()
         {
-            lock (this)
-            {
-                ShutdownRequested.Cancel();
-                Dispose();
-            }
+            ShutdownRequested.Cancel();
+            Dispose();
         }
 
         internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst maxPostIdExlusive)
@@ -2246,6 +2293,23 @@ namespace AppViewLite
             var result = AtProtoS32.TryDecode128(did.Substring(8))!.Value;
             if (DeserializeDidPlcFromUInt128(result) != did) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             return result;
+        }
+
+
+        internal void EnsureLockNotAlreadyHeld()
+        {
+            if (Lock.IsReadLockHeld || Lock.IsWriteLockHeld || Lock.IsUpgradeableReadLockHeld)
+                ThrowIncorrectLockUsageException("Attempted to re-enter lock, perhaps due to callback reentrancy.");
+
+        }
+
+        [DoesNotReturn]
+        public static Exception ThrowIncorrectLockUsageException(string v)
+        {
+            var ex = new Exception(v);
+            Console.Error.WriteLine(ex);
+            Environment.FailFast(v);
+            throw ex;
         }
     }
 

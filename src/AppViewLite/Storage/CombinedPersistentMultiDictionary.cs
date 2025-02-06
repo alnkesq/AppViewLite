@@ -148,6 +148,7 @@ namespace AppViewLite.Storage
 
         public event EventHandler BeforeFlush;
         public event EventHandler<CancelEventArgs> ShouldFlush;
+        public event EventHandler BeforeWrite;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
         public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader, long KeyCount, long ValueCount)
@@ -600,6 +601,7 @@ namespace AppViewLite.Storage
 
         public void Add(TKey key, TValue value)
         {
+            OnBeforeWrite();
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
@@ -611,8 +613,15 @@ namespace AppViewLite.Storage
             }
             MaybeFlush();
         }
+
+        private void OnBeforeWrite()
+        {
+            BeforeWrite?.Invoke(this, EventArgs.Empty);
+        }
+
         public void AddRange(TKey key, ReadOnlySpan<TValue> values)
         {
+            OnBeforeWrite();
             if (behavior == PersistentDictionaryBehavior.PreserveOrder)
             {
                 if (values.Length == 0) throw new ArgumentException();

@@ -1,0 +1,20 @@
+@page "/ErrorHttpStatus"
+@using System.Diagnostics
+@inject IHttpContextAccessor ContextAccessor
+@code{
+    private string errorMessage;
+    protected override void OnInitialized()
+    {
+        var code = int.Parse(ContextAccessor.HttpContext!.Request.Query["code"]!);
+        errorMessage = code == 404 ? "404 Not found" : (code + " " + (System.Net.HttpStatusCode)code);
+    }
+}
+<PageTitle>@errorMessage</PageTitle>
+
+
+<div class="page-error">
+    ❌
+    @errorMessage
+</div>
+
+

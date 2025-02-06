@@ -15,8 +15,22 @@
 </head>
 
 <body>
-    <Routes /> 
-    @* <script src="_framework/blazor.web.js"></script> *@
+
+    <ErrorBoundary>
+        <ChildContent>
+            <Routes />
+        </ChildContent>
+        <ErrorContent Context="exception">
+            <AppViewLite.Web.Components.Layout.MainLayout>
+                <Body>
+                    <div class="page-error">
+                        ❌
+                        @Program.GetExceptionDisplayText(exception)
+                    </div>
+                </Body>
+            </AppViewLite.Web.Components.Layout.MainLayout>
+        </ErrorContent>
+    </ErrorBoundary>
     <script src="/lib/microsoft/signalr/dist/browser/signalr.js"></script>
     <script src="/lib/twemoji.min.js"></script>
     <script src="/app.js"></script>

@@ -10,6 +10,8 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Builder;
 
 namespace AppViewLite.Web
 {
@@ -43,6 +45,7 @@ namespace AppViewLite.Web
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Services.AddRazorComponents();
+            builder.Services.AddRazorPages();
             builder.Services.AddSingleton<BlueskyEnrichedApis>(_ => apis);
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
@@ -75,6 +78,7 @@ namespace AppViewLite.Web
             app.Lifetime.ApplicationStopping.Register(Relationships.NotifyShutdownRequested);
 
 
+
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
@@ -89,10 +93,10 @@ namespace AppViewLite.Web
 
             app.UseHttpsRedirection();
 
+            app.UseStatusCodePagesWithReExecute("/ErrorHttpStatus", "?code={0}");
             app.UseAntiforgery();
 
             
-
             app.MapStaticAssets();
             app.MapRazorComponents<App>();
 
@@ -398,7 +402,17 @@ namespace AppViewLite.Web
             var html = await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<T>(parameters)).ToHtmlString());
             return html;
         }
-        
+        public static string GetExceptionDisplayText(Exception exception)
+        {
+            var message = exception.Message;
+            if (string.IsNullOrEmpty(message))
+            {
+                message = "Error: " + exception.GetType().Name;
+            }
+            return message;
+        }
+
+
     }
 }
 

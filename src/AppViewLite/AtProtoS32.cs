@@ -15,8 +15,8 @@ namespace AppViewLite
             var sb = new StringBuilder();
             do
             {
-                sb.Append(S32_CHAR[(int)(i % 32)]);
-                i /= 32;
+                sb.Append(S32_CHAR[(int)(i & 0b11111)]);
+                i >>= 5;
             } while (i > 0);
 
             for (int j = 0; j < sb.Length / 2; j++)
@@ -38,8 +38,8 @@ namespace AppViewLite
             var sb = new StringBuilder();
             do
             {
-                sb.Append(S32_CHAR[(int)(i % 32)]);
-                i /= 32;
+                sb.Append(S32_CHAR[(int)(i & 0b11111)]);
+                i >>= 5;
             } while (i > 0);
 
             for (int j = 0; j < sb.Length / 2; j++)

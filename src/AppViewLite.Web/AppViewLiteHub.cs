@@ -90,7 +90,7 @@ namespace AppViewLite.Web
             var ctx = HubContext;
 
             var dangerousRels = apis.DangerousUnlockedRelationships;
-            var (postIdsToSubscribe, postIdsToUnsubscribe) = apis.WithRelationshipsLock(rels =>
+            var (postIdsToSubscribe, postIdsToUnsubscribe) = apis.WithRelationshipsUpgradableLock(rels =>
             {
                 return (
                     toSubscribe.Select(x => PostIdString.Deserialize(x)).Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray(),

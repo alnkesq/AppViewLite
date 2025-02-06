@@ -2105,13 +2105,31 @@ namespace AppViewLite
             else throw new Exception("Invalid did: " + did);
         }
 
-        private static void EnsureValidDomain(ReadOnlySpan<char> domain)
+
+        public static bool IsValidDomain(ReadOnlySpan<char> domain)
         {
-            if (domain.IsEmpty) throw new Exception("Empty domain or handle.");
-            if (domain.ContainsAnyExcept(DidWebAllowedChars)) throw new Exception("Domain or handle contains invalid characters.");
-            if (domain[0] == '.' || domain[^1] == '.') throw new Exception("Domain or handle starts or ends with a dot.");
-            if (!domain.Contains('.')) throw new Exception("Domain or handle should contain at least one dot.");
-            if (domain.Contains("..", StringComparison.Ordinal)) throw new Exception("Domain or handle contains multiple consecutive dots.");
+            if (domain.IsEmpty || !domain.Contains('.')) return false; // fast path
+            try
+            {
+                EnsureValidDomain(domain);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+
+        }
+        public static void EnsureValidDomain(ReadOnlySpan<char> domain)
+        {
+            if (domain.IsEmpty) throw new ArgumentException("Empty domain or handle.");
+            if (domain.Length > 253) throw new ArgumentException("Domain or handle is too long.");
+            if (domain.ContainsAnyExcept(DidWebAllowedChars)) throw new ArgumentException("Domain or handle contains invalid characters.");
+            if (domain[0] == '.' || domain[^1] == '.') throw new ArgumentException("Domain or handle starts or ends with a dot.");
+            if (!domain.Contains('.')) throw new ArgumentException("Domain or handle should contain at least one dot.");
+            if (domain.Contains("..", StringComparison.Ordinal)) throw new ArgumentException("Domain or handle contains multiple consecutive dots.");
+            if (domain[0] == '-' || domain[^1] == '-' || domain.Contains(".-", StringComparison.Ordinal) || domain.Contains("_.", StringComparison.Ordinal))
+                throw new ArgumentException("Domain or handle contains parts that start or end with dashes.");
         }
 
         internal async Task<DidDocProto> GetDidDocCoreNoOverrideAsync(string did)

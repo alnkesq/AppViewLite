@@ -98,6 +98,31 @@ namespace AppViewLite.Web
 
             
             app.MapStaticAssets();
+            app.Use(async (ctx, req) => 
+            {
+                var path = ctx.Request.Path.Value?.ToString();
+                if (path != null)
+                {
+                    var s = path.AsSpan(1);
+                    var slash = s.IndexOf('/');
+                    var firstSegment = slash != -1 ? s.Slice(0, slash) : s;
+                    if (!firstSegment.StartsWith('@'))
+                    {
+                        if (
+                            firstSegment.StartsWith("did:") ||
+                            (
+                                !IsKnownFileTypeAsOpposedToTld(firstSegment.Slice(firstSegment.LastIndexOf('.') + 1)) &&
+                                BlueskyEnrichedApis.IsValidDomain(firstSegment)
+                            )
+                        )
+                        {
+                            ctx.Response.Redirect(string.Concat("/@", path.AsSpan(1)) + ctx.Request.QueryString.Value);
+                            return;
+                        }
+                    }
+                }
+                await req(ctx);
+            });
             app.MapRazorComponents<App>();
 
             app.UseRouting();
@@ -180,6 +205,18 @@ namespace AppViewLite.Web
             RequestContext.SendSignalrImpl = (signalrSessionId, method, args) => AppViewLiteHubContext.Clients.Client(signalrSessionId).SendCoreAsync(method, args);
             app.Run();
             
+        }
+
+        private static bool IsKnownFileTypeAsOpposedToTld(ReadOnlySpan<char> ext)
+        {
+            return
+                ext.SequenceEqual("js") ||
+                ext.SequenceEqual("css") ||
+                ext.SequenceEqual("txt") ||
+                ext.SequenceEqual("html") ||
+                ext.SequenceEqual("gif") ||
+                ext.SequenceEqual("jpg") ||
+                ext.SequenceEqual("ico");
         }
 
         internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext;

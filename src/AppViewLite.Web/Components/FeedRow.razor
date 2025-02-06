@@ -4,7 +4,7 @@
 }
 
 <div class="feed-metadata-row">
-    <a href="@Feed.BaseUrl" class="feed-metadata-avatar">
+    <a href="@Feed.BaseUrl" class="feed-metadata-avatar" tabindex="-1">
         <img src="@(Feed.AvatarUrl ?? "/assets/default-feed-avatar.svg")" />
     </a>
     <div class="feed-metadata-row-name feed-indented"><a class="underline-on-hover" href="@Feed.BaseUrl">@Feed.DisplayNameOrFallback</a></div>

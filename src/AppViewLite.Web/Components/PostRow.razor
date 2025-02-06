@@ -253,7 +253,7 @@
     data-repostrkey="@Post.IsRepostedBySelf?.ToString()"
     data-renderflags="@RenderFlags"
     data-pendingload="@(Post.Data == null || Post.Author.BasicData == null ? 1 : 0)">
-    <a href="@Post.BaseUrl" class="post-background-link"></a>
+    <a href="@Post.BaseUrl" class="post-background-link" tabindex="-1"></a>
 
     @if (ShowRestOfThreadLink)
     {
@@ -284,7 +284,7 @@
     }
 
     <div class="post-author-image-link-container">
-        <a href="@Post.Author.BaseUrl" class="post-author-image-link">
+        <a href="@Post.Author.BaseUrl" class="post-author-image-link" tabindex="-1">
             <img src="@Post.Author.AvatarUrl" class="post-author-image">
         </a>
     </div>

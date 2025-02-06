@@ -1915,6 +1915,8 @@ namespace AppViewLite
                 return handle;
             }
 
+
+            EnsureValidDomain(handle);
             var handleUuid = StringUtils.HashUnicodeToUuid(handle);
 
             var (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
@@ -2095,16 +2097,21 @@ namespace AppViewLite
             else if (did.StartsWith("did:web:", StringComparison.Ordinal))
             {
                 var domain = did.AsSpan(8);
-                if (domain.IsEmpty) throw new Exception("Empty did:web: did.");
-                if (domain.ContainsAnyExcept(DidWebAllowedChars)) throw new Exception("did:web: contains invalid characters.");
-                if (domain[0] == '.' || domain[^1] == '.') throw new Exception("did:web: starts or ends with dot.");
-                if (did.Contains("..", StringComparison.Ordinal)) throw new Exception("did:web: contains multiple consecutive dots.");
-              
+                EnsureValidDomain(domain);
                 //var domain2 = did.Substring(8);
                 // this is actually ok
                 //if (domain != domain2) throw new Exception("Mismatching domain for did:web: and .well-known/TXT");
             }
             else throw new Exception("Invalid did: " + did);
+        }
+
+        private static void EnsureValidDomain(ReadOnlySpan<char> domain)
+        {
+            if (domain.IsEmpty) throw new Exception("Empty domain or handle.");
+            if (domain.ContainsAnyExcept(DidWebAllowedChars)) throw new Exception("Domain or handle contains invalid characters.");
+            if (domain[0] == '.' || domain[^1] == '.') throw new Exception("Domain or handle starts or ends with a dot.");
+            if (!domain.Contains('.')) throw new Exception("Domain or handle should contain at least one dot.");
+            if (domain.Contains("..", StringComparison.Ordinal)) throw new Exception("Domain or handle contains multiple consecutive dots.");
         }
 
         internal async Task<DidDocProto> GetDidDocCoreNoOverrideAsync(string did)

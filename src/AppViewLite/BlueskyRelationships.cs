@@ -454,6 +454,14 @@ namespace AppViewLite
 
         public Plc SerializeDid(string did)
         {
+
+            var plc = TrySerializeDidMaybeReadOnly(did);
+            if (plc == default)
+                throw ThrowIncorrectLockUsageException("Cannot serialize new did, because a write or upgradable lock is not held.");
+            return plc;
+        }
+        public Plc TrySerializeDidMaybeReadOnly(string did)
+        {
             BlueskyEnrichedApis.EnsureValidDid(did);
             var hash = StringUtils.HashUnicodeToUuid(did);
 
@@ -464,6 +472,8 @@ namespace AppViewLite
             {
                 return plc;
             }
+
+            if (!CanUpgradeToWrite) return default;
 
             WithWriteUpgrade(() =>
             {
@@ -487,6 +497,9 @@ namespace AppViewLite
             return plc;
 
         }
+
+
+        public bool CanUpgradeToWrite => Lock.IsWriteLockHeld || (Lock.IsUpgradeableReadLockHeld && ForbidUpgrades == 0);
 
         public void WithWriteUpgrade(Action value)
         {

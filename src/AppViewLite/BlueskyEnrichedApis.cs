@@ -836,7 +836,7 @@ namespace AppViewLite
                 var results = await ListRecordsAsync(did, Post.RecordType, 50, null);
                 postRecords = results!.Records!.ToArray();
             }
-            var posts = WithRelationshipsLockWithPreamble(rels => 
+            WithRelationshipsUpgradableLock(rels =>
             {
                 foreach (var record in postRecords)
                 {
@@ -846,10 +846,10 @@ namespace AppViewLite
                         rels.WithWriteUpgrade(() => rels.StorePostInfo(postId, (Post)record.Value!));
                     }
                 }
-            },
-            rels =>
-            {
+            });
 
+            var posts = WithRelationshipsLock(rels =>
+            {
                 var p = postRecords.Select(x => rels.GetPost(x.Uri!));
                 if (!includeReplies) p = p.Where(x => x.IsRootPost);
                 return p.ToArray();
@@ -986,7 +986,18 @@ namespace AppViewLite
             var postsJson = JsonConvert.DeserializeObject<AtFeedSkeletonResponse>(await DefaultHttpClient.GetStringAsync(skeletonUrl))!;
             var postsJsonParsed = postsJson.feed.Select(x => new ATUri(x.post)).ToArray();
             var posts = WithRelationshipsLockWithPreamble(
-                rels => postsJsonParsed.Select(x => rels.GetPostId(x)).ToArray(), 
+                rels => 
+                {
+                    var postIds = new List<PostId>();
+                    foreach (var item in postsJsonParsed)
+                    {
+                        if (item.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Incorrect collection for feed skeleton entry");
+                        var author = rels.TrySerializeDidMaybeReadOnly(item.Did!.Handler);
+                        if (author == default) return default;
+                        postIds.Add(new PostId(author, Tid.Parse(item.Rkey)));
+                    }
+                    return PreambleResult.Create(postIds);
+                }, 
                 (p, rels) =>
                 {
                     return p.Select(x => rels.GetPost(x)).ToArray();
@@ -2090,8 +2101,8 @@ namespace AppViewLite
         {
             if (did.StartsWith("did:plc:", StringComparison.Ordinal))
             {
-                if (did.Length != 32) throw new Exception("Invalid did:plc: length.");
-                if (did.AsSpan(8).ContainsAnyExcept(AtProtoS32.Base32SearchValues)) throw new Exception("did:plc: contains invalid base32 characters.");
+                if (did.Length != 32) throw new UnexpectedFirehoseDataException("Invalid did:plc: length.");
+                if (did.AsSpan(8).ContainsAnyExcept(AtProtoS32.Base32SearchValues)) throw new UnexpectedFirehoseDataException("did:plc: contains invalid base32 characters.");
 
             }
             else if (did.StartsWith("did:web:", StringComparison.Ordinal))

@@ -21,31 +21,62 @@ namespace AppViewLite
 
         public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func)
         {
-            return WithRelationshipsLockWithPreamble(rels => rels.SerializeDid(did), func);
+            return WithRelationshipsLockWithPreamble(rels =>
+            {
+                var plc = rels.TrySerializeDidMaybeReadOnly(did);
+                if (plc == default) return PreambleResult<Plc>.NeedsWrite;
+                return plc;
+            }, func);
         }
         public void WithRelationshipsLockForDid(string did, Action<Plc, BlueskyRelationships> func)
         {
-            WithRelationshipsLockWithPreamble(rels => rels.SerializeDid(did), func);
+            WithRelationshipsLockWithPreamble(rels =>
+            {
+                var plc = rels.TrySerializeDidMaybeReadOnly(did);
+                if (plc == default) return PreambleResult<Plc>.NeedsWrite;
+                return plc;
+            }, func);
         }
 
-        public T WithRelationshipsLockWithPreamble<T>(Action<BlueskyRelationships> preamble, Func<BlueskyRelationships, T> func)
+        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
-                preamble(rels);
-                return false;
+                var preambleResult = preamble(rels);
+                return preambleResult.Succeeded ? new PreambleResult<int>(1) : PreambleResult<int>.NeedsWrite;
             }, (_, rels) => func(rels));
         }
 
-        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, TPreamble> preamble, Func<TPreamble, BlueskyRelationships, T> func)
+ 
+        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Func<TPreamble, BlueskyRelationships, T> func)
         {
+            // Preamble might be executed twice, if the first attempt in readonly mode fails.
+
+            // We avoid entering upgradable, because only 1 thread can be upgradable at any given time.
+
+            bool succeeded = false;
+            var result = WithRelationshipsLock(rels =>
+            {
+                var preambleResult = preamble(rels);
+                if (preambleResult.Succeeded)
+                {
+                    succeeded = true;
+                    return func(preambleResult.Value, rels);
+                }
+                return default!;
+            });
+
+            if (succeeded) return result;
+
+
             return WithRelationshipsUpgradableLock(rels =>
             {
                 var preambleResult = preamble(rels);
                 rels.ForbidUpgrades++;
                 try
                 {
-                    return func(preambleResult, rels);
+
+                    return func(preambleResult.Value, rels);
                 }
                 finally
                 {
@@ -55,12 +86,12 @@ namespace AppViewLite
         }
 
 
-        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, TPreamble> preamble, Action<TPreamble, BlueskyRelationships> func)
+        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Action<TPreamble, BlueskyRelationships> func)
         {
             WithRelationshipsLockWithPreamble(preamble, (p, rels) =>
             {
                 func(p, rels);
-                return false;
+                return 1;
             });
         }
 
@@ -87,7 +118,7 @@ namespace AppViewLite
             {
                 relationshipsUnlocked.Lock.ExitReadLock();
 
-                MaybeLogLongLockUsage(sw, gc, isWriteLock: false);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Read, PrintLongReadLocksThreshold);
             }
 
         }
@@ -117,7 +148,7 @@ namespace AppViewLite
             {
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
-                MaybeLogLongLockUsage(sw, gc, isWriteLock: true);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold);
             }
 
         }
@@ -143,7 +174,7 @@ namespace AppViewLite
             finally
             {
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
-                MaybeLogLongLockUsage(sw, gc, false);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Upgradeable, PrintLongUpgradeableLocksThreshold);
             }
 
         }
@@ -173,11 +204,14 @@ namespace AppViewLite
             });
         }
 
-        public readonly static int PrintLongLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_LOCKS_MS) ?? 30;
-        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, bool isWriteLock)
+        public readonly static int PrintLongReadLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS) ?? 30;
+        public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
+        public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
+        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold)
         {
             if (sw == null) return;
-            if (sw.ElapsedMilliseconds > PrintLongLocksThreshold)
+
+            if (sw.ElapsedMilliseconds > threshold)
             {
                 sw.Stop();
                 var hadGcs = GC.CollectionCount(0) - prevGcCount;
@@ -194,7 +228,7 @@ namespace AppViewLite
                     else
                         break;
                 }
-                Console.Error.WriteLine("Time spent inside the "+ (isWriteLock ? "WRITE" : "READ") +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null));
+                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null));
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();
@@ -205,6 +239,7 @@ namespace AppViewLite
                             if (method.Name is 
                                 nameof(MaybeLogLongLockUsage) or
                                 nameof(WithRelationshipsLock) or
+                                nameof(WithRelationshipsWriteLock) or
                                 nameof(WithRelationshipsLockForDid) or
                                 nameof(WithRelationshipsLockWithPreamble) or
                                 nameof(WithRelationshipsUpgradableLock)
@@ -225,6 +260,14 @@ namespace AppViewLite
             }
         }
 
+    }
+
+    public enum LockKind
+    { 
+        None,
+        Read,
+        Write,
+        Upgradeable,
     }
 }
 

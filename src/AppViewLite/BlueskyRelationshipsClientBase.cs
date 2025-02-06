@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -207,6 +209,7 @@ namespace AppViewLite
         public readonly static int PrintLongReadLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS) ?? 30;
         public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
         public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
+
         private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold)
         {
             if (sw == null) return;
@@ -220,8 +223,7 @@ namespace AppViewLite
                 var frames = stack.GetFrames().ToList();
                 while (frames.Count != 0)
                 {
-                    var ns = frames[^1].GetMethod()?.DeclaringType?.Namespace;
-                    if (ns == null || !(ns.StartsWith("AppViewLite", StringComparison.Ordinal)))
+                    if (!IsAppViewLiteStackFrame(frames[^1].GetMethod()))
                     {
                         frames.RemoveAt(frames.Count - 1);
                     }
@@ -260,6 +262,29 @@ namespace AppViewLite
             }
         }
 
+        private static bool IsAppViewLiteStackFrame(MethodBase? method)
+        {
+            if (method == null) return false;
+
+            var ns = method.DeclaringType?.Namespace;
+            if (ns == null) return false;
+
+            if (ns.StartsWith("AppViewLite", StringComparison.Ordinal))
+            {
+                var fullName = method.DeclaringType.ToString() + "::" + method.Name;
+                if (fullName.Contains("Main", StringComparison.Ordinal) && fullName.Contains("Program"))
+                {
+                    // very noisy ASP.NET stacks
+                    // ...
+                    //Microsoft.AspNetCore.Cors.Infrastructure.CorsMiddleware.Invoke
+                    //AppViewLite.Web.Program+<>c+<<Main>b__5_5>d.MoveNext
+                    //AppViewLite.Web.Program+<>c.<Main>b__5_5
+                    return false;
+                }
+                return true;
+            }
+            return false;
+        }
     }
 
     public enum LockKind

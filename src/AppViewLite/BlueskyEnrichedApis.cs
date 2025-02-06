@@ -452,6 +452,7 @@ namespace AppViewLite
                         keysToLookup.Add(key);
                 }
 
+                Console.Error.WriteLine("  Firing " + keysToLookup.Count + " lookups for " + collection);
                 allTasksToAwait.AddRange(keysToLookup.Select(key =>
                 {
                     async Task RunAsync()
@@ -459,13 +460,13 @@ namespace AppViewLite
                         await Task.Yield();
                         try
                         {
-                            Console.Error.WriteLine("  Firing request for " + key);
+                            //Console.Error.WriteLine("  Firing request for " + key);
                             try
                             {
                                 var response = await GetRecordAsync(key.Did, collection, key.RKey, ct);
                                 var obj = (TValue)response.Value!;
                                 onItemSuccess(key, obj);
-                                Console.Error.WriteLine("     > Completed: " + key);
+                                //Console.Error.WriteLine("     > Completed: " + key);
                                 ctx.TriggerStateChange();
                             }
                             catch (Exception)

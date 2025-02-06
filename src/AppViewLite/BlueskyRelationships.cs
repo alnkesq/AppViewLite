@@ -1742,7 +1742,7 @@ namespace AppViewLite
             if (!IsRegisteredForNotifications(destination)) return;
             if (UsersHaveBlockRelationship(destination, actor) != default) return;
             Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
-            UserNotificationSubscribersThreadSafe.MaybeNotify(destination, handler => handler(GetNotificationCount(destination)));
+            UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination), (data, handler) => handler(data));
         }
 
         public int SuppressNotificationGeneration;
@@ -2026,7 +2026,9 @@ namespace AppViewLite
 
         internal void NotifyPostStatsChange(PostId postId, Plc commitPlc)
         {
-            PostLiveSubscribersThreadSafe.MaybeNotify(postId, (handler) => handler(new PostStatsNotification(postId, GetDid(postId.Author), postId.PostRKey.ToString(), Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)), commitPlc));
+            PostLiveSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(postId,
+                () => new PostStatsNotification(postId, GetDid(postId.Author), postId.PostRKey.ToString()!, Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)),
+                (data, handler) => handler(data, commitPlc));
         }
 
         //private Dictionary<PostId, int> notifDebug = new();
@@ -2295,10 +2297,11 @@ namespace AppViewLite
             return result;
         }
 
+        public bool IsLockHeld => Lock.IsReadLockHeld || Lock.IsWriteLockHeld || Lock.IsUpgradeableReadLockHeld;
 
         internal void EnsureLockNotAlreadyHeld()
         {
-            if (Lock.IsReadLockHeld || Lock.IsWriteLockHeld || Lock.IsUpgradeableReadLockHeld)
+            if (IsLockHeld)
                 ThrowIncorrectLockUsageException("Attempted to re-enter lock, perhaps due to callback reentrancy.");
 
         }

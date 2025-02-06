@@ -75,8 +75,8 @@ namespace AppViewLite.Web
             var notification = Notification.Deserialize(notificationId.NotificationId);
             if (notification != default)
             {
-                apis.WithRelationshipsLock(rels => rels.LastSeenNotifications.Add(ctx.LoggedInUser, notification));
-                apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotify(ctx.LoggedInUser, handler => handler(0));
+                apis.WithRelationshipsWriteLock(rels => rels.LastSeenNotifications.Add(ctx.LoggedInUser, notification));
+                apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
             }
         }
 

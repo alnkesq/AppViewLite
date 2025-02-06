@@ -172,7 +172,7 @@ namespace AppViewLite
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
 
                     if (onProfileDataAvailable != null)
-                        Task.Run(() => onProfileDataAvailable.Invoke(profile));
+                        DispatchOutsideTheLock(() => onProfileDataAvailable.Invoke(profile));
                     
                 }
             }
@@ -338,7 +338,7 @@ namespace AppViewLite
                     if (onPostDataAvailable != null)
                     {
                         // The user callback must run outside the lock.
-                        Task.Run(() => onPostDataAvailable.Invoke(post));
+                        DispatchOutsideTheLock(() => onPostDataAvailable.Invoke(post));
                     }
                     
 
@@ -417,6 +417,14 @@ namespace AppViewLite
                 }
             }
             return posts;
+        }
+
+        public void DispatchOutsideTheLock(Action value)
+        {
+            if (DangerousUnlockedRelationships.IsLockHeld)
+                Task.Run(value);
+            else
+                value();
         }
 
         private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, Action<RelationshipStr> onPreexistingTaskCompleted, RequestContext ctx) where TValue : ATObject

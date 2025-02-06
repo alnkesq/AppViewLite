@@ -12,11 +12,19 @@ namespace AppViewLite
     {
         private readonly ConcurrentDictionary<TKey, TDelegate> subscriptions = new();
 
-        public void MaybeNotify(TKey key, Action<TDelegate> invoke)
+        public void MaybeNotifyOutsideLock(TKey key, Action<TDelegate> invoke)
         {
             if (subscriptions.TryGetValue(key, out var handler))
             {
-                Task.Run(() => invoke(handler)); // gets out of the lock
+                BlueskyEnrichedApis.Instance.DispatchOutsideTheLock(() => invoke(handler));
+            }
+        }
+        public void MaybeFetchDataAndNotifyOutsideLock<TDataToFetch>(TKey key, Func<TDataToFetch> fetchData, Action<TDataToFetch, TDelegate> invoke)
+        {
+            if (subscriptions.TryGetValue(key, out var handler))
+            {
+                var data = fetchData();
+                BlueskyEnrichedApis.Instance.DispatchOutsideTheLock(() => invoke(data, handler));
             }
         }
         public void Unsubscribe(TKey key, TDelegate? handler)

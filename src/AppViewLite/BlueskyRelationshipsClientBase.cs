@@ -200,7 +200,17 @@ namespace AppViewLite
                     var method = frame.GetMethod();
                     if (method != null)
                     {
-                        if (method.Name is nameof(MaybeLogLongLockUsage) or nameof(WithRelationshipsLock)) continue;
+                        if (method.DeclaringType == typeof(BlueskyRelationshipsClientBase))
+                        {
+                            if (method.Name is 
+                                nameof(MaybeLogLongLockUsage) or
+                                nameof(WithRelationshipsLock) or
+                                nameof(WithRelationshipsLockForDid) or
+                                nameof(WithRelationshipsLockWithPreamble) or
+                                nameof(WithRelationshipsUpgradableLock)
+                                ) continue;
+                        }
+
                         var type = method.DeclaringType;
                         var typeName = type?.ToString();
                         if (typeName is

@@ -39,7 +39,7 @@ namespace AppViewLite.Models
 
         public Tid? IsLikedBySelf;
         public Tid? IsRepostedBySelf;
-        public bool IsRepost => RepostDate != null;
+        public bool IsRepost => RepostedBy != null;
         public object? EmbedRecord;
 
 

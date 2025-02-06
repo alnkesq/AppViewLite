@@ -452,46 +452,48 @@ namespace AppViewLite
                         keysToLookup.Add(key);
                 }
 
-                Console.Error.WriteLine("  Firing " + keysToLookup.Count + " lookups for " + collection);
-                allTasksToAwait.AddRange(keysToLookup.Select(key =>
+                if (keysToLookup.Count != 0)
                 {
-                    async Task RunAsync()
+                    Console.Error.WriteLine("  Firing " + keysToLookup.Count + " lookups for " + collection);
+                    allTasksToAwait.AddRange(keysToLookup.Select(key =>
                     {
-                        await Task.Yield();
-                        try
+                        async Task RunAsync()
                         {
-                            //Console.Error.WriteLine("  Firing request for " + key);
+                            await Task.Yield();
                             try
                             {
-                                var response = await GetRecordAsync(key.Did, collection, key.RKey, ct);
-                                var obj = (TValue)response.Value!;
-                                onItemSuccess(key, obj);
-                                //Console.Error.WriteLine("     > Completed: " + key);
-                                ctx.TriggerStateChange();
+                                //Console.Error.WriteLine("  Firing request for " + key);
+                                try
+                                {
+                                    var response = await GetRecordAsync(key.Did, collection, key.RKey, ct);
+                                    var obj = (TValue)response.Value!;
+                                    onItemSuccess(key, obj);
+                                    //Console.Error.WriteLine("     > Completed: " + key);
+                                    ctx.TriggerStateChange();
+                                }
+                                catch (Exception)
+                                {
+                                    onItemFailure(key);
+                                    Console.Error.WriteLine("     > Failure: " + key);
+                                    ctx.TriggerStateChange();
+                                }
+
+
                             }
-                            catch (Exception)
+                            catch (Exception ex)
                             {
-                                onItemFailure(key);
-                                Console.Error.WriteLine("     > Failure: " + key);
-                                ctx.TriggerStateChange();
+                                // Should we cache network errors? Maybe we should save the error code to the failure dictionary
+                                Console.Error.WriteLine("     > Exception: " + key);
                             }
-                
+
 
                         }
-                        catch (Exception ex)
-                        {
-                            // Should we cache network errors? Maybe we should save the error code to the failure dictionary
-                            Console.Error.WriteLine("     > Exception: " + key);
-                        }
 
-
-                    }
-
-                    var task = RunAsync();
-                    pendingRetrievals[key] = (task, DateTime.UtcNow);
-                    return task;
-                }));
-
+                        var task = RunAsync();
+                        pendingRetrievals[key] = (task, DateTime.UtcNow);
+                        return task;
+                    }));
+                }
 
                 var fullTask = Task.WhenAll(allTasksToAwait);
 
@@ -2052,7 +2054,7 @@ namespace AppViewLite
             try
             {
                 // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
-                Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
+                //Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
                 
                 if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {

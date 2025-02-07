@@ -1847,18 +1847,7 @@ namespace AppViewLite
                 {
                     return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix, out _), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
                     .Select(x => rels.GetProfile(x))
-                    .Where(x =>
-                    {
-                        var words = StringUtils.GetAllWords(x.BasicData?.DisplayName).Concat(StringUtils.GetAllWords(x.PossibleHandle));
-                        if (parsedContinuation.AlsoSearchDescriptions)
-                        {
-                            words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
-                        }
-                        var wordsHashset = words.ToHashSet();
-                        return
-                            queryWords.All(x => wordsHashset.Contains(x)) &&
-                            (wordPrefix == null || wordsHashset.Any(x => x.StartsWith(wordPrefix, StringComparison.Ordinal)));
-                    })
+                    .Where(x => ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix))
                     .Where(x => alreadyReturned.Add(x.Plc))
                     .Select(x => 
                     {
@@ -1880,12 +1869,59 @@ namespace AppViewLite
                 }
             }
 
-            await EnrichAsync(profiles.ToArray(), ctx, onProfileDataAvailable: onProfileDataAvailable);
+
+
             var result = GetPageAndNextPaginationFromLimitPlus1(profiles.ToArray(), limit, x => new ProfileSearchContinuation(x.Plc, parsedContinuation.AlsoSearchDescriptions).Serialize());
+            if (continuation == null)
+            {
+                var wordCount = queryWords.Length + (wordPrefix != null ? 1 : 0);
+                if (wordCount >= 2)
+                {
+                    // we might not have display names for every user. retry by guessing handle.
+                    var concatenated = string.Join(null, queryWords) + wordPrefix;
+                    var (updatedSearchTerms, updatedWordPrefix) = wordPrefix != null ? 
+                        (Array.Empty<string>(), concatenated) :
+                        ([concatenated], null);
+                    alreadyReturned = result.Items.Select(x => x.Plc).ToHashSet();
+                    var extra = WithRelationshipsLock(rels =>
+                    {
+                        return
+                            rels.SearchProfiles(updatedSearchTerms, SizeLimitedWord8.Create(updatedWordPrefix, out _), Plc.MaxValue, false)
+                            .Where(x => !alreadyReturned.Contains(x))
+                            .Select(x => rels.GetProfile(x))
+                            .Where(x => x.DisplayName == null) // otherwise should've matched earlier
+                            .Where(x => ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
+                            .Select(x => 
+                            {
+                                followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);
+                                return x;
+                            })
+                            .Take(limit)
+                            .Where(x => alreadyReturned.Add(x.Plc))
+                            .ToArray();
+                    });
+                    result.Items = result.Items.Concat(extra).ToArray();
+                }
+            }
+
+            await EnrichAsync(result.Items, ctx, onProfileDataAvailable: onProfileDataAvailable);
+            
 
             return (result.Items.OrderByDescending(x => followerCount[x.Plc]).ToArray(), result.NextContinuation);
         }
-        
+
+        private static bool ProfileMatchesSearchTerms(BlueskyProfile x, bool alsoSearchDescriptions, string[] queryWords, string? wordPrefix)
+        {
+            var words = StringUtils.GetAllWords(x.BasicData?.DisplayName).Concat(StringUtils.GetAllWords(x.PossibleHandle));
+            if (alsoSearchDescriptions)
+            {
+                words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
+            }
+            var wordsHashset = words.ToHashSet();
+            return
+                queryWords.All(x => wordsHashset.Contains(x)) &&
+                (wordPrefix == null || wordsHashset.Any(x => x.StartsWith(wordPrefix, StringComparison.Ordinal)));
+        }
 
         private static (T[] Items, string? NextContinuation) GetPageAndNextPaginationFromLimitPlus1<T>(T[] itemsPlusOne, int limit, Func<T, string> serialize)
         {

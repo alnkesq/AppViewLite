@@ -125,7 +125,7 @@ namespace AppViewLite
 
             var actor = notification.Actor;
 
-            // Notifications don't support DOM dynamic refresh (they would be bad UX anyways). Prefetch post and profile data now.
+            // Notifications don't support DOM dynamic refresh (it would be bad UX anyways). Prefetch post and profile data now.
             if (actor != default && !rels.Profiles.ContainsKey(actor) && !rels.FailedProfileLookups.ContainsKey(actor))
             {
                 var profile = rels.GetProfile(actor);

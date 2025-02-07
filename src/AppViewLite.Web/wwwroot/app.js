@@ -46,6 +46,23 @@ function getPostSelector(did, rkey) {
     return '.post[data-postrkey="' + rkey + '"][data-postdid="' + did + '"]'
 }
 
+var recentHandleVerifications = new Map();
+
+function updateHandlesForDid(did) { 
+    var handle = recentHandleVerifications.get(did);
+    if (handle === undefined) return;
+    for (const a of document.querySelectorAll('.handle-generic[data-handledid="' + did + '"]')) {
+        a.textContent = handle ?? 'handle.invalid';
+        a.classList.remove('handle-uncertain');
+        a.classList.toggle('handle-invalid', !handle);
+    }
+    if (handle) {
+        for (const a of document.querySelectorAll('.profile-badge-pending[data-badgedid="' + did + '"][data-badgehandle="' + handle.toLowerCase() + '"]')) {
+            a.classList.remove('profile-badge-pending');
+        }
+    }
+}
+
 var liveUpdatesConnection = null;
 var liveUpdatesConnectionFuture = (async () => {
 
@@ -76,7 +93,9 @@ var liveUpdatesConnectionFuture = (async () => {
             if (oldnoderef) pendingProfileLoads.delete(nodeid);
             return;
         }
-        oldnode.replaceWith(parseHtmlAsElement(html));
+        var newnode = parseHtmlAsElement(html);
+        oldnode.replaceWith(newnode);
+        updateHandlesForDid(newnode.dataset.profiledid);
     });
     connection.on('PostRendered', (nodeid, html) => { 
         var oldnoderef = pendingPostLoads.get(nodeid);
@@ -85,20 +104,16 @@ var liveUpdatesConnectionFuture = (async () => {
             if (oldnoderef) pendingPostLoads.delete(nodeid);
             return;
         }
-        oldnode.replaceWith(parseHtmlAsElement(html));
+        var newnode = parseHtmlAsElement(html);
+        oldnode.replaceWith(newnode);
         //if (newnode.querySelector(".post-quoted[data-pendingload='1']"))
 
+        updateHandlesForDid(newnode.dataset.postdid);
         updateLiveSubscriptions();
     });
     connection.on('HandleVerificationResult', (did, handle) => {
-        for (const a of document.querySelectorAll('.handle-generic[data-handledid="' + did + '"]')) {
-            a.textContent = handle;
-            a.classList.remove('handle-uncertain');
-            a.classList.toggle('handle-invalid', handle == 'handle.invalid');
-        }
-        for (const a of document.querySelectorAll('.profile-badge-pending[data-badgedid="' + did + '"][data-badgehandle="'+ handle.toLowerCase() +'"]')) {
-            a.classList.remove('profile-badge-pending');
-        }
+        recentHandleVerifications.set(did, handle);
+        updateHandlesForDid(did);
         updateSearchAutoComplete();
     });
 

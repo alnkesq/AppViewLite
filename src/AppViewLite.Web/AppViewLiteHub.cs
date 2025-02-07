@@ -52,11 +52,7 @@ namespace AppViewLite.Web
             });
             foreach (var pair in pairs)
             {
-                if (pair.PossibleHandle != null)
-                {
-                    apis.VerifyHandleAndNotifyAsync(pair.Did, pair.PossibleHandle, ctx);
-                }
-
+                apis.VerifyHandleAndNotifyAsync(pair.Did, pair.PossibleHandle, ctx).FireAndForget();
             }
         }
 

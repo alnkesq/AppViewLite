@@ -52,6 +52,10 @@ namespace AppViewLite
             {
                 return await ResolveHandleAsync(handle);
             });
+            FetchAndStoreDidDoc = new(async pair => 
+            {
+                return await FetchAndStoreDidDocNoOverrideAsync(pair.Did, pair.Plc);
+            });
             var didDocOverridesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES);
             if (didDocOverridesPath == null) 
             {
@@ -124,6 +128,7 @@ namespace AppViewLite
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingListRetrievals = new();
         public TaskDictionary<string, string> PendingHandleVerifications;
+        public TaskDictionary<(Plc Plc, string Did), DidDocProto> FetchAndStoreDidDoc;
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
         {
@@ -141,9 +146,9 @@ namespace AppViewLite
 
             foreach (var profile in profiles)
             {
-                if (profile.HandleIsUncertain && profile.PossibleHandle != null && profile.PossibleHandle != "handle.invalid")
+                if (profile.HandleIsUncertain)
                 {
-                    VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx);
+                    VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx).FireAndForget();
                 }
             }
 
@@ -207,11 +212,21 @@ namespace AppViewLite
             return profiles;
         }
 
-        public void VerifyHandleAndNotifyAsync(string did, string handle, RequestContext ctx)
+        public async Task VerifyHandleAndNotifyAsync(string did, string? handle, RequestContext ctx)
         {
+            if (handle == null)
+            {
+                // happens when the PLC directory is not synced.
+                // Note that handle-based badges won't be live-updated.
+                var diddoc = await GetDidDocAsync(did);
+                handle = diddoc.Handle;
+                if (handle == null) return;
+            }
+            
             PendingHandleVerifications.StartAsync(handle, task =>
             {
-                ctx.SendSignalrAsync("HandleVerificationResult", did, task.IsCompletedSuccessfully && task.Result == did ? handle : "handle.invalid");
+                var k = task.IsCompletedSuccessfully && task.Result == did ? handle : null;
+                ctx.SendSignalrAsync("HandleVerificationResult", did, k);
             });
         }
 
@@ -2226,7 +2241,7 @@ namespace AppViewLite
             });
             if (IsDidDocStale(did, doc))
             {
-                doc = await FetchAndStoreDidDocNoOverrideAsync(did, plc);
+                doc = await FetchAndStoreDidDoc.GetValueAsync((plc, did));
             }
 
             return doc!;

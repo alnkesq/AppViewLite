@@ -12,7 +12,7 @@
             <b>@profile.DisplayNameOrFallback</b>
             <ProfileBadges Profile="@profile" NoLink="true" />
         </div>
-        <div data-handledid="@profile.Did" class="handle-generic @(profile.PossibleHandle == "handle.invalid" ? "handle-invalid" : profile.HandleIsUncertain ? "handle-uncertain" : null)">@profile.PossibleHandle</div>
+        <div data-handledid="@profile.Did" class="handle-generic @(profile.HandleIsUncertain ? "handle-uncertain" : profile.PossibleHandle == null ? "handle-invalid" : null)">@(profile.PossibleHandle ?? "handle.invalid")</div>
     </a>
 }
 @if (Profiles.Length == 0 && !string.IsNullOrEmpty(SearchQuery))

@@ -1417,12 +1417,14 @@ namespace AppViewLite
             var didDoc = TryGetLatestDidDoc(plc);
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
-            if (possibleHandle != null && HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(possibleHandle)), out var lastVerification) && (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
+            if (possibleHandle != null &&
+                HandleToDidVerifications.TryGetLatestValue(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(possibleHandle)), out var lastVerification) &&
+                (DateTime.UtcNow - lastVerification.VerificationDate) < BlueskyEnrichedApis.HandleToDidMaxStale)
             {
                 if (lastVerification.Plc == plc) handleIsCertain = true;
                 else possibleHandle = null;
             }
-            if (possibleHandle == null)
+            if (possibleHandle == null && didDoc != null)
                 handleIsCertain = true;
 
             return new BlueskyProfile()
@@ -1431,7 +1433,7 @@ namespace AppViewLite
                 Did = did,
                 BasicData = basic,
                 RelationshipRKey = relationshipRKey,
-                PossibleHandle = possibleHandle ?? "handle.invalid",
+                PossibleHandle = possibleHandle,
                 Pds = didDoc?.Pds,
                 HandleIsUncertain = !handleIsCertain,
                 Badges = Badges.GetBadges(plc, did, possibleHandle)

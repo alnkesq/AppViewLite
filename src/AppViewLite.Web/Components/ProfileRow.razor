@@ -30,7 +30,7 @@
         </a>
         <ProfileBadges Profile="@Profile" />
     </div>
-    
+
     <ProfileHandle Profile="@Profile" />
 
     @if (Profile.BlockReason != default)
@@ -40,6 +40,9 @@
     <div class="profile-row-description profile-indented">
         <TextWithFacets Text="@Profile.BasicData?.Description" Facets="@GuessedFacets"></TextWithFacets>
     </div>
+
+    <LabelBadges Labels="@Profile.Labels" ExtraClass="profile-indented" />
+
     @if (RequestContext.IsLoggedIn && Profile.Plc != RequestContext.LoggedInUser)
     {
         <FollowButton Profile="@Profile" />

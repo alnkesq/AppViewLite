@@ -48,14 +48,10 @@ namespace AppViewLite
         public BlueskyEnrichedApis(BlueskyRelationships relationships)
             : base(relationships)
         {
-            PendingHandleVerifications = new(async handle => 
-            {
-                return await ResolveHandleAsync(handle);
-            });
-            FetchAndStoreDidDoc = new(async pair => 
-            {
-                return await FetchAndStoreDidDocNoOverrideAsync(pair.Did, pair.Plc);
-            });
+            PendingHandleVerifications = new(handle => ResolveHandleAsync(handle));
+            FetchAndStoreDidDoc = new(pair => FetchAndStoreDidDocNoOverrideAsync(pair.Did, pair.Plc));
+            FetchAndStoreLabelerServiceMetadata = new(did => FetchAndStoreLabelerServiceMetadataAsync(did));
+
             var didDocOverridesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES);
             if (didDocOverridesPath == null) 
             {
@@ -94,7 +90,7 @@ namespace AppViewLite
                                 };
                                 indexer.FirehoseUrl = new Uri(newpds);
                                 Console.Error.WriteLine("Starting secondary firehose: " + newpds);
-                                indexer.StartListeningToAtProtoFirehose(cts.Token).FireAndForget();
+                                indexer.StartListeningToAtProtoFirehoseRepos(cts.Token).FireAndForget();
                                 SecondaryFirehoses.Add(newpds, cts);
                             }
                         }
@@ -158,6 +154,40 @@ namespace AppViewLite
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingListRetrievals = new();
         public TaskDictionary<string, string> PendingHandleVerifications;
         public TaskDictionary<(Plc Plc, string Did), DidDocProto> FetchAndStoreDidDoc;
+        public TaskDictionary<string> FetchAndStoreLabelerServiceMetadata;
+
+  
+
+        private async Task FetchAndStoreLabelerServiceMetadataAsync(string did)
+        {
+            var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self")).Value;
+
+            var defs = (record.Policies?.LabelValueDefinitions ?? [])?.ToDictionary(x => x.Identifier);
+
+            WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                foreach (var policy in record.Policies?.LabelValues ?? [])
+                {
+                    defs!.TryGetValue(policy, out var def);
+
+                    var locale = def?.Locales?.FirstOrDefault(x => x.Lang == "en" || x.Lang == "en-US") ?? def?.Locales?.FirstOrDefault();
+                    var labelInfo = new BlueskyLabelData
+                    {
+                        ReuseDefaultDefinition = def == null,
+
+                        DisplayName = locale?.Name,
+                        Description = locale?.Description,
+                        AdultOnly = def?.AdultOnly ?? false,
+                        Severity = def?.Severity != null ? Enum.Parse<BlueskyLabelSeverity>(def.Severity, ignoreCase: true) : default,
+                        Blur = def?.Blurs != null ? Enum.Parse<BlueskyLabelBlur>(def.Blurs, ignoreCase: true) : default,
+                        DefaultSetting = def?.DefaultSetting != null ? Enum.Parse<BlueskyLabelDefaultSetting>(def.DefaultSetting, ignoreCase: true) : default,
+
+                    };
+                    rels.LabelData.AddRange(new LabelId(plc, BlueskyRelationships.HashLabelName(policy)), BlueskyRelationships.SerializeProto(labelInfo, x => x.Dummy = true));
+                }
+            });
+        }
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
         {
@@ -170,6 +200,7 @@ namespace AppViewLite
                     profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
                     profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
                     profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
+                    profile.Labels = rels.GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
             });
 
@@ -180,6 +211,8 @@ namespace AppViewLite
                     VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx).FireAndForget();
                 }
             }
+
+            await EnrichAsync(profiles.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
 
             if (onProfileDataAvailable != null)
             {
@@ -293,6 +326,7 @@ namespace AppViewLite
                         if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
                             post.IsRepostedBySelf = repostTid.RelationshipRKey;
                     }
+                    post.Labels = rels.GetPostLabels(post.PostId, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
             });
 
@@ -301,8 +335,6 @@ namespace AppViewLite
 
             var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
             toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray());
-
-
 
             WithRelationshipsLock(rels =>
             {
@@ -424,7 +456,7 @@ namespace AppViewLite
                 ctx);
 
 
-
+            await EnrichAsync(posts.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
             await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx, ct: ct);
             
             if (loadQuotes)
@@ -462,6 +494,8 @@ namespace AppViewLite
             }
             return posts;
         }
+
+        
 
         public void DispatchOutsideTheLock(Action value)
         {
@@ -1695,6 +1729,27 @@ namespace AppViewLite
             await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx, ct: ct);
             return feeds;
         }
+
+        public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
+        {
+            var toLookup = labels.Where(x => x.Data == null).GroupBy(x => (x.LabelerPlc, x.LabelerDid)).ToArray();
+            if (toLookup.Length == 0) return labels;
+            var all = Task.WhenAll(toLookup.Select(async x =>
+            {
+                await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(x.Key.LabelerDid);
+                foreach (var label in x)
+                {
+                    var data = WithRelationshipsLock(rels => rels.TryGetLabelData(label.LabelId));
+                    label.Data = data;
+                }
+            }));
+            if (ctx.ShortDeadline != null)
+                all = Task.WhenAny(all, ctx.ShortDeadline);
+
+            await all;
+            return labels;
+        }
+
         private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
         {
 

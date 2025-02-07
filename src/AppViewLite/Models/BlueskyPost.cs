@@ -54,6 +54,8 @@ namespace AppViewLite.Models
         public BlueskyThreadgate? Threadgate;
         public bool ViolatesThreadgate;
 
+        public BlueskyLabel[]? Labels;
+
         public bool IsSelfRepost => RepostedBy?.Plc == PostId.Author;
         public bool IsNonSelfRepost => RepostedBy != null && !IsSelfRepost;
         public bool IsImagePost => Data?.Media != null;

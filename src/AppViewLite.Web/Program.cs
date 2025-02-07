@@ -133,16 +133,18 @@ namespace AppViewLite.Web
 
             if (ListenToFirehose && !Relationships.IsReadOnly)
             {
-                
-                
- 
+
+
+
                 await Task.Delay(1000);
                 app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
 
-                var firehoses = (AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ??
-                    "jet:jetstream.atproto.tools"
-                    //"bsky.network"
-                    ).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var firehoses = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ??
+                    [
+                        "jet:jetstream.atproto.tools",
+                        //"bsky.network"
+                    ];
+
                 foreach (var firehose in firehoses)
                 {
                     bool isJetStream;
@@ -163,7 +165,7 @@ namespace AppViewLite.Web
                     var indexer = new Indexer(apis)
                     {
                         FirehoseUrl = new Uri(firehoseUrl),
-                        VerifyValidForCurrentRelay = did => 
+                        VerifyValidForCurrentRelay = did =>
                         {
                             if (apis.DidDocOverrides.CustomDidDocs.ContainsKey(did))
                             {
@@ -175,13 +177,31 @@ namespace AppViewLite.Web
                     if (isJetStream)
                         indexer.StartListeningToJetstreamFirehose();
                     else
-                        indexer.StartListeningToAtProtoFirehose();
-                    
+                        indexer.StartListeningToAtProtoFirehoseRepos();
+
                     //await indexer.ListenJetStreamFirehoseAsync();
-               
+
                 }
 
- 
+                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES) ?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])
+                    .Select(x => x.Split('/'))
+                    .Select(x => (Endpoint: "https://" + x[0], Did: x[1]))
+                    .ToArray();
+                foreach (var labelFirehose in labelFirehoses)
+                {
+                    var indexer = new Indexer(apis)
+                    {
+                        FirehoseUrl = new(labelFirehose.Endpoint),
+                        VerifyValidForCurrentRelay = did =>
+                        {
+                            if (did != labelFirehose.Did)
+                                throw new Exception($"Ignoring label from {did} because it didn't come from {labelFirehose.Endpoint}");
+                        }
+                    };
+                    indexer.StartListeningToAtProtoFirehoseLabels().FireAndForget();
+                }
+
+
             }
 
 

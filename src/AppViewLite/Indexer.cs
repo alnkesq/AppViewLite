@@ -23,6 +23,9 @@ using System.Reflection.Metadata;
 using DuckDbSharp;
 using System.Runtime.CompilerServices;
 using DuckDbSharp.Types;
+using FishyFlip.Lexicon.Com.Atproto.Label;
+using System.Buffers;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
@@ -363,8 +366,15 @@ namespace AppViewLite
 
 
 
-
-        public async Task StartListeningToAtProtoFirehose(CancellationToken ct = default)
+        public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
+        {
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(), OnRepoFirehoseEvent, ct);
+        }
+        public Task StartListeningToAtProtoFirehoseLabels(CancellationToken ct = default)
+        {
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(), OnLabelFirehoseEvent, ct);
+        }
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<SubscribedRepoEventArgs> handler, CancellationToken ct = default)
         {
             await Task.Yield();
             var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
@@ -381,18 +391,18 @@ namespace AppViewLite
                 {
                     Console.Error.WriteLine("CONNECTION DROPPED! Reconnecting soon...");
                     await Task.Delay(5000);
-                    await firehose.StartSubscribeReposAsync();
+                    await subscribeKind(firehose);
                 }
             };
             firehose.OnSubscribedRepoMessage += (s, e) =>
             {
                 ct.ThrowIfCancellationRequested();
-                TryProcessRecord(() => OnFirehoseEvent(e), e.Message.Commit?.Repo.Handler);
+                TryProcessRecord(() => handler(e), e.Message.Commit?.Repo.Handler);
             };
-            await firehose.StartSubscribeReposAsync(ct);
+            await subscribeKind(firehose);
         }
 
-        private void OnFirehoseEvent(SubscribedRepoEventArgs e)
+        private void OnRepoFirehoseEvent(SubscribedRepoEventArgs e)
         {
             var record = e.Message.Record;
             var commitAuthor = e.Message.Commit?.Repo!.Handler;
@@ -410,6 +420,55 @@ namespace AppViewLite
             {
                 OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record, generateNotifications: true, ignoreIfDisposing: true);
             }
+        }
+
+        private void OnLabelFirehoseEvent(SubscribedRepoEventArgs e)
+        {
+            throw new NotImplementedException("Requires unmerged FishyFlip PR");
+
+            //var labels = e.Message.Labels.LabelsValue;
+            var labels = new List<Label>();
+            if (labels == null) return;
+
+            foreach (var label in labels)
+            {
+                VerifyValidForCurrentRelay(label.Src.Handler);
+                OnLabelCreated(label.Src.Handler, label);
+            }
+
+
+        }
+
+        private void OnLabelCreated(string labeler, Label label)
+        {
+            var uri = new ATUri(label.Uri);
+            if (string.IsNullOrEmpty(label.Val))
+                throw new ArgumentException();
+
+            WithRelationshipsWriteLock(rels =>
+            {
+
+                var entry = new LabelEntry(rels.SerializeDid(labeler), (ApproximateDateTime32)(label.Cts ?? DateTime.UtcNow), BlueskyRelationships.HashLabelName(label.Val), label.Neg ?? false);
+
+                if (!rels.LabelNames.ContainsKey(entry.KindHash))
+                {
+                    rels.LabelNames.AddRange(entry.KindHash, System.Text.Encoding.UTF8.GetBytes(label.Val));
+                }
+
+                if (!string.IsNullOrEmpty(uri.Pathname) && uri.Pathname != "/")
+                {
+                    if (uri.Collection == Post.RecordType)
+                    {
+                        rels.PostLabels.Add(rels.GetPostId(uri), entry);
+                    }
+                }
+                else
+                {
+                    rels.ProfileLabels.Add(rels.SerializeDid(uri.Did!.Handler), entry);
+                }
+                
+
+            });
         }
 
         public Action<string> VerifyValidForCurrentRelay;

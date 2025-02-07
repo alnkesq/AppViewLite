@@ -24,6 +24,8 @@ namespace AppViewLite.Models
             }
         }
 
+        public BlueskyLabel[]? Labels;
+
         public string BaseUrl => "/@" + Did;
         public string BlueskyUrl => $"https://bsky.app/profile/{Did}";
         public string? AvatarCid => BasicData?.AvatarCid;

@@ -13,6 +13,14 @@ namespace AppViewLite
             if (parameter == default) throw new ArgumentException();
             return Environment.GetEnvironmentVariable(parameter.ToString());
         }
+
+        public static string[]? GetStringList(AppViewLiteParameter parameter)
+        {
+            var s = GetString(parameter);
+            if (s == null) return null;
+            return s.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        }
+
         public static int? GetInt32(AppViewLiteParameter parameter)
         {
             var s = GetString(parameter);
@@ -56,6 +64,7 @@ namespace AppViewLite
         APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS,
         APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS,
         APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS,
+        APPVIEWLITE_LABEL_FIREHOSES,
     }
 }
 

@@ -1,0 +1,17 @@
+@code {
+    [Parameter] public BlueskyLabel[]? Labels { get; set; }
+    [Parameter] public string? ExtraClass { get; set; }
+}
+
+@if(Labels != null && Labels.Length != 0)
+{
+    <div class="label-badge-list @ExtraClass">
+        @foreach (var label in Labels)
+        {
+            <a class="label-badge" href="/@(label.LabelerDid)" title="@(label.Data?.Description ?? "No description available")">
+                @label.DisplayNameOrFallback
+            </a>
+        }
+    </div>
+
+}

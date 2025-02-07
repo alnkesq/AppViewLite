@@ -2,6 +2,7 @@ using FishyFlip.Models;
 using AppViewLite.Models;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace AppViewLite
 {
@@ -23,6 +24,8 @@ namespace AppViewLite
         public string? Did => Profile?.Did;
 
         public Session? PdsSession;
+
+        public HashSet<LabelId> NeedLabels;
     }
 
 }

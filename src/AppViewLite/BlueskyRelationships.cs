@@ -79,6 +79,10 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, Pds> PdsHashToPdsId;
         public CombinedPersistentMultiDictionary<DateTime, int> LastRetrievedPlcDirectoryEntry;
         public CombinedPersistentMultiDictionary<DuckDbUuid, HandleVerificationResult> HandleToDidVerifications;
+        public CombinedPersistentMultiDictionary<PostId, LabelEntry> PostLabels;
+        public CombinedPersistentMultiDictionary<Plc, LabelEntry> ProfileLabels;
+        public CombinedPersistentMultiDictionary<ulong, byte> LabelNames;
+        public CombinedPersistentMultiDictionary<LabelId, byte> LabelData;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -212,7 +216,11 @@ namespace AppViewLite
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications");
-            
+
+            PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
+            ProfileLabels = RegisterDictionary<Plc, LabelEntry>("profile-label");
+            LabelNames = RegisterDictionary<ulong, byte>("label-name", PersistentDictionaryBehavior.PreserveOrder);
+            LabelData = RegisterDictionary<LabelId, byte>("label-data", PersistentDictionaryBehavior.PreserveOrder);
            
 
             
@@ -2337,6 +2345,49 @@ namespace AppViewLite
             Console.Error.WriteLine(ex);
             Environment.FailFast(v);
             throw ex;
+        }
+
+        public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(label));
+        public BlueskyLabel GetLabel(LabelId x)
+        {
+            return new BlueskyLabel
+            {
+                LabelId = x,
+                LabelerDid = GetDid(x.Labeler),
+                Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
+                Data = TryGetLabelData(x)
+            };
+        }
+
+        public BlueskyLabelData? TryGetLabelData(LabelId x)
+        {
+            var data = LabelData.TryGetPreserveOrderSpanLatest(x, out var bytes) ? DeserializeProto<BlueskyLabelData>(bytes.AsSmallSpan()) : null;
+            if (data != null && data.ReuseDefaultDefinition)
+            { 
+                if (DefaultLabels.DefaultLabelData.TryGetValue(x.NameHash, out var defaults))
+                    return defaults;
+            }
+            return data;
+        }
+        public LabelId[] GetPostLabels(PostId postId, HashSet<LabelId>? onlyLabels = null)
+        {
+            return PostLabels.GetValuesSorted(postId)
+                .GroupAssumingOrderedInput(x => x.Labeler)
+                .Select(x => x.Values[x.Values.Count - 1])
+                .Where(x => !x.Neg)
+                .Select(x => new LabelId(x.Labeler, x.KindHash))
+                .Where(x => onlyLabels?.Contains(x) ?? true)
+                .ToArray();
+        }
+        public LabelId[] GetProfileLabels(Plc plc, HashSet<LabelId>? onlyLabels = null)
+        {
+            return ProfileLabels.GetValuesSorted(plc)
+                .GroupAssumingOrderedInput(x => x.Labeler)
+                .Select(x => x.Values[x.Values.Count - 1])
+                .Where(x => !x.Neg)
+                .Select(x => new LabelId(x.Labeler, x.KindHash))
+                .Where(x => onlyLabels?.Contains(x) ?? true)
+                .ToArray();
         }
     }
 

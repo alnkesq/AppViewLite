@@ -351,7 +351,9 @@ ul {
 
 
 .post-focal > .post-body {
+    margin-top: 5px;
     font-size: 16pt;
+    margin-bottom: 5px;
 }
 
 .post-focal > .post-meta > .handle-generic{
@@ -1075,7 +1077,7 @@ button[disabled], input[type=submit][disabled] {
     }
 
 .post-focal > .post-meta {
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     
     margin-left: 70px;
 }
@@ -1441,4 +1443,31 @@ h1 .profile-badge img{
 .page-error {
     margin: 60px;
     font-size: 18pt;
+}
+
+.label-badge {
+    background-color: rgb(241, 243, 245);
+    color: rgb(66, 87, 108);
+    border-radius: 1000px;
+    padding: 3px 10px 6px 10px;
+    font-size: 10pt;
+}
+
+.profile-labels{
+    margin-top: 20px;
+}
+
+.post > .label-badge-list {
+    margin-bottom: 5px;
+}
+
+
+.post-focal > .label-badge-list {
+    margin-top: 0px;
+    margin-bottom: 4px;
+}
+
+.post:not(.post-focal) > .label-badge-list {
+    margin-top: 4px;
+    margin-bottom: 2px;
 }

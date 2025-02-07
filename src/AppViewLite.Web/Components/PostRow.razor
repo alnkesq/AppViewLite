@@ -40,6 +40,8 @@
     private bool RepostMenuVisible;
     private bool PostMenuVisible;
 
+    private string? externalDomainForMute;
+
 #if false
 
     private PostId notificationsRegisteredForPostId;
@@ -130,7 +132,12 @@
 
         blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView, IsQuoteList);
 
-        isSelfRepost = Post.IsRepost && Post.RepostedBy.Plc == Post.Author.Plc;
+        isSelfRepost = Post.IsRepost && Post.RepostedBy!.Plc == Post.Author.Plc;
+
+        externalDomainForMute = (TryParseUrl(Post.Data?.ExternalUrl) ?? Post.Data?.Facets?.Where(x => x.Link != null).Select(x => new Uri(x.Link)).Where(x => x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
+        if (externalDomainForMute != null && externalDomainForMute.StartsWith("www.", StringComparison.Ordinal))
+            externalDomainForMute = externalDomainForMute.Substring(4);
+
 #if false
     if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
     {
@@ -159,6 +166,7 @@
 #endif
     }
 
+    private static Uri? TryParseUrl(string? uri) => uri != null && Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
     public async Task DeletePostAsync()
     {
@@ -529,9 +537,9 @@
                                 }
                             }
 
-                            if (Post.Data?.ExternalUrl != null)
+                            if (externalDomainForMute != null)
                             {
-                                <button actionkind="muteDomain" class="menu-item">Mute links to @(new Uri(Post.Data.ExternalUrl).Host)</button>
+                                <button actionkind="muteDomain" class="menu-item">Mute links to @externalDomainForMute</button>
                             }
 
                             if (Post.Data?.Text != null)

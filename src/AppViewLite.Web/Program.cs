@@ -216,6 +216,8 @@ namespace AppViewLite.Web
                 ext.SequenceEqual("html") ||
                 ext.SequenceEqual("gif") ||
                 ext.SequenceEqual("jpg") ||
+                ext.SequenceEqual("png") ||
+                ext.SequenceEqual("xml") ||
                 ext.SequenceEqual("ico");
         }
 

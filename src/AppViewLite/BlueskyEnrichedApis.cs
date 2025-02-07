@@ -113,6 +113,35 @@ namespace AppViewLite
                     }
                 }))();
             }
+
+            relationships.NotificationGenerated += Relationships_NotificationGenerated;
+        }
+
+        private void Relationships_NotificationGenerated(Plc destination, Notification notification)
+        {
+            // Here we're inside the lock.
+            var rels = relationshipsUnlocked;
+
+
+            var actor = notification.Actor;
+
+            // Notifications don't support DOM dynamic refresh (they would be bad UX anyways). Prefetch post and profile data now.
+            if (actor != default && !rels.Profiles.ContainsKey(actor) && !rels.FailedProfileLookups.ContainsKey(actor))
+            {
+                var profile = rels.GetProfile(actor);
+                DispatchOutsideTheLock(() => EnrichAsync([profile], RequestContext.Create()).FireAndForget());
+            }
+
+            // These notifications can reference posts from the past that we don't have.
+            if (notification.Kind is NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost)
+            {
+                var postId = new PostId(destination, notification.RKey);
+                if (!rels.PostData.ContainsKey(postId) && !rels.FailedPostLookups.ContainsKey(postId)) 
+                {
+                    var post = rels.GetPost(postId);
+                    DispatchOutsideTheLock(() => EnrichAsync([post], RequestContext.Create()).FireAndForget());
+                }
+            }
         }
 
         private Dictionary<string, CancellationTokenSource> SecondaryFirehoses = new();

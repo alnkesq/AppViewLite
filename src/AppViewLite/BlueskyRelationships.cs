@@ -1760,12 +1760,17 @@ namespace AppViewLite
             if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
             if (UsersHaveBlockRelationship(destination, actor) != default) return;
-            Notifications.Add(destination, new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind));
+            var notification = new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind);
+            Notifications.Add(destination, notification);
             UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination), (data, handler) => handler(data));
+
+            // Callback must stay inside the lock.
+            NotificationGenerated?.Invoke(destination, notification);
         }
 
         public int SuppressNotificationGeneration;
 
+        public event Action<Plc, Notification> NotificationGenerated;
 
 
 

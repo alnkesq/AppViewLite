@@ -217,6 +217,12 @@ function fastNavigateIfLink(event) {
 
     if (!url) return false;
 
+    if (a.parentElement?.classList?.contains('pagination-button')) { 
+        event.preventDefault();
+        loadNextPage(true);
+        return true;
+    }
+
     if (a.classList.contains('post-image-for-threater')) { 
         var index = [...a.parentElement.children].indexOf(a) + 1;
         var post = a.closest('.post');
@@ -370,6 +376,8 @@ function applyPageElements() {
         document.querySelector('.theater-alt').textContent = alt;
         document.querySelector('.theater-alt').classList.toggle('display-none', !alt);
     }
+
+    maybeLoadNextPage();
 }
 
 function tryTrimMediaSegments(href) { 
@@ -396,7 +404,7 @@ async function fetchOrReusePageAsync(href, token) {
     if (p) {
         return p;
     } else { 
-        var response = await fetch(href);
+        var response = await fetch(href, { signal: AbortSignal.timeout(15000) });
         if (response.status != 200) { 
             throw ('HTTP ' + response.status);
         }
@@ -536,6 +544,59 @@ function focusPostForKeyboardNavigation(post, isFirst) {
     else post.scrollIntoView();
 }
 
+async function loadNextPage(allowRetry) { 
+    var paginationButton = document.querySelector('.pagination-button');
+    if (!paginationButton) return;
+    if (!allowRetry && paginationButton.classList.contains('pagination-button-retry')) return;
+    if (paginationButton.querySelector('.spinner')) return;
+    var oldList = document.querySelector('.main-paginated-list');
+
+
+    paginationButton.classList.add('spinner-visible')
+    paginationButton.insertAdjacentHTML('beforeend', SPINNER_HTML)
+
+    try {
+        var nextPage = await fetch(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(10000) });
+        if (nextPage.status != 200) throw ('HTTP ' + nextPage.status);
+        var temp = parseHtmlAsWrapper(await nextPage.text());
+        var pageError = temp.querySelector('.page-error')?.textContent;
+        if (pageError) throw pageError
+    } catch (e) { 
+        paginationButton.querySelector('a').textContent = 'Retry'
+        paginationButton.classList.add('pagination-button-retry');
+        paginationButton.classList.remove('spinner-visible');
+        paginationButton.querySelector('.spinner').remove();
+        return;
+    }
+
+    var newList = temp.querySelector('.main-paginated-list');
+    var anyChildren = false;
+    if (newList) {
+        for (const child of [...newList.childNodes]) {
+            child.remove();
+            if (child instanceof Element) anyChildren = true;
+            oldList.appendChild(child);
+        }
+    }
+    var newPagination = temp.querySelector('.pagination-button');
+    if (!newPagination || !anyChildren) paginationButton.remove();
+    else paginationButton.replaceWith(newPagination);
+
+    if (anyChildren) {
+        updateLiveSubscriptions();
+        maybeLoadNextPage();
+    }
+}
+
+function maybeLoadNextPage() { 
+    var scrollingElement = document.scrollingElement;
+    var scrollTop = scrollingElement.scrollTop
+    var scrollTopMax = scrollingElement.scrollHeight - scrollingElement.clientHeight;
+    var remainingToBottom = scrollTopMax - scrollTop;
+    if (remainingToBottom >= 500) return;
+    loadNextPage(false);
+}
+
 function onInitialLoad() {
     window.addEventListener('popstate', e => {
         var popped = historyStack.pop();
@@ -554,41 +615,9 @@ function onInitialLoad() {
     };
     recentPages.push(appliedPageObj);
     
-    window.addEventListener('scroll', async e => {
+    window.addEventListener('scroll', e => {
         updateSidebarButtonScrollVisibility();
-        var scrollingElement = document.scrollingElement;
-        var scrollTop = scrollingElement.scrollTop
-        if (scrollTop <= 0) return;
-        var scrollTopMax = scrollingElement.scrollHeight - scrollingElement.clientHeight;
-        var remainingToBottom = scrollTopMax - scrollTop;
-        if (remainingToBottom >= 500) return;
-        var paginationButton = document.querySelector('.pagination-button');
-        if (!paginationButton) return;
-        if (paginationButton.querySelector('.spinner')) return;
-        var oldList = document.querySelector('.main-paginated-list');
-
-
-        paginationButton.classList.add('spinner-visible')
-        paginationButton.insertAdjacentHTML('beforeend', SPINNER_HTML)
-
-        var nextPage = await fetch(paginationButton.querySelector('a').href);
-        if (nextPage.status != 200) throw ('HTTP ' + nextPage.status);
-        var temp = parseHtmlAsWrapper(await nextPage.text());
-
-        var newList = temp.querySelector('.main-paginated-list');
-        var anyChildren = false;
-        if (newList) {
-            for (const child of [...newList.childNodes]) {
-                child.remove();
-                if (child instanceof Element) anyChildren = true;
-                oldList.appendChild(child);
-            }
-        }
-        var newPagination = temp.querySelector('.pagination-button');
-        if (!newPagination || !anyChildren) paginationButton.remove();
-        else paginationButton.replaceWith(newPagination);
-
-        if (anyChildren) updateLiveSubscriptions();
+        maybeLoadNextPage();
     }, { passive: true });
 
     document.addEventListener('keydown', e => {
@@ -834,7 +863,8 @@ async function httpPost(method, args) {
             'Content-Type': 'application/json',
             'X-AppViewLiteSignalrId': liveUpdatesConnection?.connectionId
         },
-        method: 'POST'
+        method: 'POST',
+        signal: AbortSignal.timeout(5000)
     })
     if (response.status != 200) throw 'HTTP ' + response.status;
     var text = await response.text();
@@ -847,7 +877,8 @@ async function httpGet(method, args) {
         method: 'GET',
         headers: {
             'X-AppViewLiteSignalrId': liveUpdatesConnection?.connectionId
-        }
+        },
+        signal: AbortSignal.timeout(5000)
     })
     if (response.status != 200) throw 'HTTP ' + response.status;
     var text = await response.text();

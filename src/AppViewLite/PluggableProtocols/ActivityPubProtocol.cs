@@ -3,6 +3,7 @@ using AppViewLite.Models;
 using DuckDbSharp.Types;
 using System;
 using System.Buffers;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -58,7 +59,13 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             }
         }
 
-        [MethodImpl(MethodImplOptions.Synchronized)]
+
+        private readonly FrozenSet<string> ExcludedInstances =
+            (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES) ?? [
+                "rss-parrot.net"
+            ]).ToFrozenSet();
+
+        
         private void OnPostReceived(ActivityPubPostJson post)
         {
             if (post.reblog != null) return;
@@ -66,6 +73,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             var author = ParseActivityPubUserId(post.account, post.url).Normalize();
             if (author == default) return;
             if (author.Instance == "bsky.brid.gy") return;
+            if (ExcludedInstances.Contains(author.Instance)) return;
 
             var url = new Uri(post.url);
 

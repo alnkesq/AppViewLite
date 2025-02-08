@@ -9,7 +9,7 @@ You can set the following environment variables:
 * `APPVIEWLITE_LISTEN_TO_FIREHOSE`: Whether to listen to the firehose. Defaults to `1`.
 * `APPVIEWLITE_LISTEN_TO_PLC_DIRECTORY`: Periodically fetches updates to the PLC directory. Defaults to `1`.
 * `APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN`: For debugging only, will allow you to "log in" to any account (but obviously you won't be able to perform PDS writes). Defaults to `0`.
-* `APPVIEWLITE_PRINT_LONG_LOCKS_MS`: Print a stacktrace when we spend more than this amount of time while holding a lock.
+* `APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS`, `APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS`, `APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS`: Print a stacktrace when we spend more than this amount of time while holding a lock.
 * `APPVIEWLITE_READONLY`: Forbids database writes (useful for debugging data issues without the firehose interfering).
 
 ## Handle and DID doc resolution
@@ -19,6 +19,10 @@ You can set the following environment variables:
 * `APPVIEWLITE_DID_DOC_MAX_STALE_HOURS`: For how many hours we cache DID docs. If the PLC directory is up to date (by this amount), we cache indefinitely. Defaults to 2 days.
 * `APPVIEWLITE_PLC_DIRECTORY`: Alternate PLC directory prefix. Defaults to `https://plc.directory`
 * `APPVIEWLITE_DID_DOC_OVERRIDES`: Path to an optional text file, where each line is `did:plc:example pds.example handle.example`. Will be reloaded dynamically if it changes. The listed PDSes will be listened from directly, without relaying on the main firehose.
+
+## ActivityPub
+* `APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS`: listens to the specified ActivityPub relays. Defaults to none.
+* `APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES`: ignores the specified ActivityPub instances.
 
 ## Image proxying and caching
 * `APPVIEWLITE_SERVE_IMAGES`: Enables image serving, instead of relying on an external CDN.

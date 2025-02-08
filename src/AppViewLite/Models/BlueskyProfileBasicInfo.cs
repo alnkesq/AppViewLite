@@ -24,6 +24,7 @@ namespace AppViewLite.Models
         [ProtoMember(20)] public bool? HasExplicitFacets;
 
         [ProtoMember(21)] public CustomFieldProto[]? CustomFields;
+        [ProtoMember(22)] public FacetData[]? DisplayNameFacets;
 
         public string? Error;
         

@@ -1,15 +1,22 @@
 @using System.Text.RegularExpressions
+@inject BlueskyEnrichedApis Apis
+
 @code {
     [Parameter] public string? Text { get; set; }
     [Parameter] public FacetData?[] Facets { get; set; }
     [Parameter] public string? LinkRestToThread { get; set; }
 
-    private List<(string Text, string? Link)> Parts;
+    private List<(string Text, string? Link, string? CustomEmojiUrl)> Parts;
     private bool HasLinks;
 
-    private void AddPart(ReadOnlySpan<byte> utf8, string? link)
+    private void AddPart(string text, string? link, string? customEmojiUrl)
     {
-        Parts.Add((System.Text.Encoding.UTF8.GetString(utf8), link));
+        Parts.Add((text, link, customEmojiUrl));
+    }
+
+    private void AddPart(ReadOnlySpan<byte> utf8, string? link, string? customEmojiUrl)
+    {
+        AddPart(System.Text.Encoding.UTF8.GetString(utf8), link, customEmojiUrl);
     }
 
     protected override void OnParametersSet()
@@ -24,7 +31,7 @@
 
         if (Facets == null && !Text.Contains('#'))
         {
-            Parts = [(Text, null)];
+            Parts = [(Text, null, null)];
             return;
         }
 
@@ -45,40 +52,58 @@
 
             var textBetween = textBytes.AsSpan(processedText, facet.Start - processedText);
             if (textBetween.Length != 0)
-                AddPart(textBetween, null);
+                AddPart(textBetween, null, null);
 
-            var link = facet.Did != null ? "/@" + facet.Did : facet.GetLink(textBytes);
-            if (link.StartsWith("https://bsky.app/"))
+            string? customEmojiUrl = null;
+            string? link = null;
+            if (facet.CustomEmojiHashHi != null)
             {
-                var url = new Uri(link);
-                var segments = url.AbsolutePath.Split('/').Where(x => x.Length != 0).ToArray();
-                if (segments.Length >= 2 && segments[0] == "profile")
-                {
-                    var profileBaseUrl = link = "/@" + segments[1];
-                    if (segments.Length == 4)
-                    {
-                        var collection = segments[2];
-                        var rkey = segments[3];
-                        if (collection == "post")
-                        {
-                            link = profileBaseUrl + "/" + rkey;
-                        }
-                    }
-                    else if (segments.Length == 2)
-                    {
-                        link = profileBaseUrl;
-                    }
-
-
-                }
+                customEmojiUrl = Apis.TryGetCustomEmojiUrl(facet.CustomEmojiHash.Value);
             }
-            AddPart(textBytes.AsSpan(facet.Start, facet.Length), link);
+            else 
+            {
+                link = facet.Did != null ? "/@" + facet.Did : facet.GetLink(textBytes);
+                if (link != null && link.StartsWith("https://bsky.app/"))
+                {
+                    var url = new Uri(link);
+                    var segments = url.AbsolutePath.Split('/').Where(x => x.Length != 0).ToArray();
+                    if (segments.Length >= 2 && segments[0] == "profile")
+                    {
+                        var profileBaseUrl = link = "/@" + segments[1];
+                        if (segments.Length == 4)
+                        {
+                            var collection = segments[2];
+                            var rkey = segments[3];
+                            if (collection == "post")
+                            {
+                                link = profileBaseUrl + "/" + rkey;
+                            }
+                        }
+                        else if (segments.Length == 2)
+                        {
+                            link = profileBaseUrl;
+                        }
+
+
+                    }
+                }
+
+            }
+            if (facet.Did != null && BlueskyRelationships.TryGetPluggableProtocolForDid(facet.Did) is { } pluggable && pluggable.TryGetHandleFromDid(facet.Did) is {} handle)
+            {
+                if (!handle.StartsWith('@')) handle = "@" + handle;
+                AddPart(handle, link, null);
+            }
+            else
+            {
+                AddPart(textBytes.AsSpan(facet.Start, facet.Length), link, customEmojiUrl);
+            }
             processedText = facet.End;
         }
 
         var rest = textBytes.AsSpan(processedText);
         if (rest.Length != 0)
-            AddPart(rest, null);
+            AddPart(rest, null, null);
         HasLinks = Parts.Any(x => x.Link != null);
 
     }
@@ -89,6 +114,10 @@
     if (part.Link != null)
     {
         <a href="@part.Link" target="@(part.Link[0] != '/' ? "_blank" : null)" class="blue-link" rel="noreferrer nofollow">@part.Text</a>
+    }
+    else if(part.CustomEmojiUrl != null)
+    {
+        <img src="@part.CustomEmojiUrl" class="custom-emoji" alt="@part.Text" rel="noreferrer" >
     }
     else
     {

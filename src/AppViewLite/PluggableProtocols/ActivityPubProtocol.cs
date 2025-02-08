@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
+using DuckDbSharp.Types;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -92,12 +93,36 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 Language = BlueskyRelationships.ParseLanguage(post.language),
                 Media = post.media_attachments != null && post.media_attachments.Length != 0 ? post.media_attachments.Select(x => ConvertMediaAttachment(x)).ToArray() : null
             };
+
+            var customEmojis = post.account?.emojis?.Select(x => new CustomEmoji
+            {
+                ShortCode = x.shortcode,
+                Url = x.url ?? x.static_url,
+            }).DistinctBy(x => x.ShortCode).ToDictionary(x => x.ShortCode, x => x);
+
+            Apis.MaybeAddCustomEmojis(customEmojis?.Values.ToArray());
+
+            GuessCustomEmojiFacets(data.Text, ref data.Facets, customEmojis);
+
             OnPostDiscovered(postId, null, null, data, shouldIndex: shouldIndex);
 
-            OnProfileReceived(did, author, post.account, url, shouldIndex);
+            OnProfileReceived(did, author, post.account, url, shouldIndex, customEmojis);
         }
 
-        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, bool shouldIndex)
+        private static void GuessCustomEmojiFacets(string? text, ref FacetData[]? facets, Dictionary<string, CustomEmoji>? customEmojis)
+        {
+            if (text != null && customEmojis != null && customEmojis.Count != 0)
+            {
+                var emojiFacets = StringUtils.GuessCustomEmojiFacets(text, shortname =>
+                {
+                    return customEmojis.TryGetValue(shortname, out var hash) ? hash.Hash : null;
+                });
+                if (emojiFacets.Count == 0) return;
+                facets = (facets ?? []).Concat(emojiFacets).ToArray();
+            }
+        }
+
+        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, bool shouldIndex, Dictionary<string, CustomEmoji>? customEmojis)
         {
 
 
@@ -130,6 +155,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             };
             if (proto.CustomFields != null && proto.CustomFields.Length == 0)
                 proto.CustomFields = null;
+
+            GuessCustomEmojiFacets(proto.Description, ref proto.DescriptionFacets, customEmojis);
+            GuessCustomEmojiFacets(proto.DisplayName, ref proto.DisplayNameFacets, customEmojis);
+
             OnProfileDiscovered(did, proto, shouldIndex: shouldIndex);
             
         }
@@ -424,9 +453,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             if (this == default) return default;
             string instance = this.Instance.ToLowerInvariant();
-            if (!BlueskyEnrichedApis.IsValidDomain(Instance) && !Instance.AsSpan().ContainsAny("/@:% "))
+            if (!BlueskyEnrichedApis.IsValidDomain(instance) && !instance.AsSpan().ContainsAny("/@:% "))
             {
-                if (Uri.TryCreate("https://" + Instance + "/", UriKind.Absolute, out var url) && url.PathAndQuery == "/")
+                if (Uri.TryCreate("https://" + instance + "/", UriKind.Absolute, out var url) && url.PathAndQuery == "/")
                 {
                     instance = url.IdnHost;
                 }

@@ -83,6 +83,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, LabelEntry> ProfileLabels;
         public CombinedPersistentMultiDictionary<ulong, byte> LabelNames;
         public CombinedPersistentMultiDictionary<LabelId, byte> LabelData;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, byte> CustomEmojis;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -221,7 +222,8 @@ namespace AppViewLite
             ProfileLabels = RegisterDictionary<Plc, LabelEntry>("profile-label");
             LabelNames = RegisterDictionary<ulong, byte>("label-name", PersistentDictionaryBehavior.PreserveOrder);
             LabelData = RegisterDictionary<LabelId, byte>("label-data", PersistentDictionaryBehavior.PreserveOrder);
-           
+
+            CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
 
             
 

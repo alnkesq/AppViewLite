@@ -1,4 +1,5 @@
 using ProtoBuf;
+using DuckDbSharp.Types;
 using System;
 using System.Text;
 
@@ -9,10 +10,31 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public int Start;
         [ProtoMember(2)] public int Length;
-        [ProtoMember(3)] public string Did;
-        [ProtoMember(4)] public string Link;
-        [ProtoMember(5)] public byte[] LinkBpe;
+        [ProtoMember(3)] public string? Did;
+        [ProtoMember(4)] public string? Link;
+        [ProtoMember(5)] public byte[]? LinkBpe;
         [ProtoMember(6)] public bool? SameLinkAsText;
+
+        [ProtoMember(7)] public ulong? CustomEmojiHashHi;
+        [ProtoMember(8)] public ulong? CustomEmojiHashLo;
+
+        public DuckDbUuid? CustomEmojiHash
+        {
+            get => CustomEmojiHashHi != null ? DuckDbUuid.FromUpperLowerFlat(CustomEmojiHashHi.Value, CustomEmojiHashLo!.Value) : null;
+            set 
+            {
+                if (value != null)
+                {
+                    CustomEmojiHashHi = value!.Value.GetUpperFlat();
+                    CustomEmojiHashLo = value.Value.GetLower();
+                }
+                else
+                {
+                    CustomEmojiHashHi = null;
+                    CustomEmojiHashLo = null;
+                }
+            }
+        }
 
         public bool IsLink => Link != null || SameLinkAsText == true;
         public int End => Start + Length;

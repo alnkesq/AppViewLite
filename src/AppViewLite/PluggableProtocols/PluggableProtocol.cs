@@ -33,6 +33,13 @@ namespace AppViewLite.PluggableProtocols
             EnsureOwnDid(did);
             var didWords = StringUtils.GetDistinctWords(GetIndexableDidText(did));
 
+            if (data.DisplayNameFacets != null && data.DisplayNameFacets.Length == 0) data.DisplayNameFacets = null;
+            if (data.DescriptionFacets != null && data.DescriptionFacets.Length == 0) data.DescriptionFacets = null;
+            if (string.IsNullOrWhiteSpace(data.Description) && data.DescriptionFacets == null)
+                data.Description = null;
+            if (string.IsNullOrWhiteSpace(data.DisplayName))
+                data.DisplayName = null;
+
             Apis.WithRelationshipsWriteLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
@@ -56,6 +63,10 @@ namespace AppViewLite.PluggableProtocols
             EnsureOwnDid(postId.Did);
             if(inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
             EnsureOwnDid(rootPostId.Value.Did);
+
+            if (data.Facets != null && data.Facets.Length == 0) data.Facets = null;
+            if (string.IsNullOrWhiteSpace(data.Text) && data.Facets == null)
+                data.Text = null;
 
             Apis.WithRelationshipsWriteLock(rels =>
             {

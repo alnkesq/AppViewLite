@@ -2425,6 +2425,32 @@ namespace AppViewLite
             protocol.Apis = this;
         }
 
+        public void MaybeAddCustomEmojis(CustomEmoji[]? emojis)
+        {
+            if (emojis == null || emojis.Length == 0) return;
+
+            var missingEmojis = WithRelationshipsLock(rels => emojis.Where(x => !rels.CustomEmojis.ContainsKey(x.Hash)).ToArray());
+
+            if (missingEmojis.Length == 0) return;
+            WithRelationshipsWriteLock(rels =>
+            {
+                foreach (var emoji in missingEmojis)
+                {
+                    rels.CustomEmojis.AddRange(emoji.Hash, BlueskyRelationships.SerializeProto(emoji));
+                }
+            });
+        }
+
+        public string? TryGetCustomEmojiUrl(DuckDbUuid hash)
+        {
+            return WithRelationshipsLock(rels =>
+            {
+                if (rels.CustomEmojis.TryGetPreserveOrderSpanAny(hash, out var bytes))
+                    return BlueskyRelationships.DeserializeProto<CustomEmoji>(bytes.AsSmallSpan()).Url;
+                return null;
+            });
+        }
+
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         public readonly static HttpClient DefaultHttpClient;
 

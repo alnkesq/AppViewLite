@@ -47,7 +47,7 @@
             if (textBetween.Length != 0)
                 AddPart(textBetween, null);
 
-            var link = facet.Did != null ? "/@" + facet.Did : facet.Link;
+            var link = facet.Did != null ? "/@" + facet.Did : facet.GetLink(textBytes);
             if (link.StartsWith("https://bsky.app/"))
             {
                 var url = new Uri(link);

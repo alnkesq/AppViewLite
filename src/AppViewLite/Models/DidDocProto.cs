@@ -70,18 +70,14 @@ namespace AppViewLite.Models
                 if (CustomDomain != null)
                 {
                     format |= DidDocEncoding.HasCustomDomain;
-                    lock (BlueskyRelationships.textCompressorUnlocked)
-                    {
-                        bw.Write(BlueskyRelationships.textCompressorUnlocked.Compress(CustomDomain));
-                    }
+                    bw.Write(BlueskyRelationships.CompressBpe(CustomDomain));
                 }
                 else if (BskySocialUserName != null)
                 {
                     format |= DidDocEncoding.HasBskySocialUserName;
-                    lock (BlueskyRelationships.textCompressorUnlocked)
-                    {
-                        bw.Write(BlueskyRelationships.textCompressorUnlocked.Compress(BskySocialUserName));
-                    }
+                    
+                    bw.Write(BlueskyRelationships.CompressBpe(BskySocialUserName));
+                    
                 }
             }
             var result = ms.ToArray();
@@ -109,18 +105,12 @@ namespace AppViewLite.Models
             if ((format & DidDocEncoding.HasCustomDomain) != 0)
             {
                 var length = (int)(bytes.Length - br.BaseStream.Position);
-                lock (BlueskyRelationships.textCompressorUnlocked)
-                {
-                    result.CustomDomain = BlueskyRelationships.textCompressorUnlocked.Decompress(br.ReadBytes(length));
-                }
+                result.CustomDomain = BlueskyRelationships.DecompressBpe(br.ReadBytes(length));
             }
             if ((format & DidDocEncoding.HasBskySocialUserName) != 0)
             {
                 var length = (int)(bytes.Length - br.BaseStream.Position);
-                lock (BlueskyRelationships.textCompressorUnlocked)
-                {
-                    result.BskySocialUserName = BlueskyRelationships.textCompressorUnlocked.Decompress(br.ReadBytes(length));
-                }
+                result.BskySocialUserName = BlueskyRelationships.DecompressBpe(br.ReadBytes(length));
             }
 
             return result;

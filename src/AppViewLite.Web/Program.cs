@@ -1,5 +1,4 @@
 using FishyFlip.Models;
-using Ipfs;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.WebUtilities;
@@ -10,8 +9,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Builder;
 
 namespace AppViewLite.Web
 {
@@ -41,6 +38,8 @@ namespace AppViewLite.Web
         {
             Relationships = new();
             var apis = new BlueskyEnrichedApis(Relationships);
+            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
+
             BlueskyEnrichedApis.Instance = apis;
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
@@ -201,6 +200,10 @@ namespace AppViewLite.Web
                     indexer.StartListeningToAtProtoFirehoseLabels().FireAndForget();
                 }
 
+                foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)
+                {
+                    Task.Run(() => pluggableProtocol.DiscoverAsync(Relationships.ShutdownRequested));
+                }
 
             }
 

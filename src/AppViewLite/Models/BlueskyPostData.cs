@@ -1,5 +1,8 @@
 using ProtoBuf;
 using AppViewLite.Numerics;
+using System;
+using System.Text;
+using System.Linq;
 
 namespace AppViewLite.Models
 {
@@ -39,7 +42,12 @@ namespace AppViewLite.Models
         [ProtoMember(19)] public byte[]? ExternalDescriptionBpe;
         [ProtoMember(20)] public byte[]? ExternalUrlBpe;
 
+        [ProtoMember(21)] public NonQualifiedPluggablePostId? PluggablePostId;
+        [ProtoMember(22)] public NonQualifiedPluggablePostId? PluggableInReplyToPostId;
+        [ProtoMember(23)] public NonQualifiedPluggablePostId? PluggableRootPostId;
+
         // UPDATE IsSlimCandidate if you add fields!
+
 
         public bool IsSlimCandidate() 
         {
@@ -50,9 +58,16 @@ namespace AppViewLite.Models
                 EmbedRecordUri == null &&
                 Facets == null &&
                 TextBpe != null &&
-                (Language == null || (short)Language <= byte.MaxValue);
+                (Language == null || (short)Language <= byte.MaxValue) &&
+                PluggablePostId == null &&
+                PluggableInReplyToPostId == null &&
+                PluggableRootPostId == null;
         }
 
+        public byte[]? GetUtf8IfNeededByCompactFacets()
+        {
+            return Facets != null && Facets.Any(x => x.SameLinkAsText == true) ? Encoding.UTF8.GetBytes(Text) : default;
+        }
 
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;
 

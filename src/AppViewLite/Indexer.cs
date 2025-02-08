@@ -212,7 +212,7 @@ namespace AppViewLite
                         
 
                         byte[]? postBytes = null;
-                        continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto), relationships =>
+                        continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto, commitAuthor), relationships =>
                         {
                             relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
                         });

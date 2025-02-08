@@ -272,7 +272,7 @@ namespace AppViewLite
             GarbageCollectOldSlices(allowTempFileDeletion: true);
         }
 
-        private static ApproximateDateTime32 GetApproxTime32(Tid tid)
+        public static ApproximateDateTime32 GetApproxTime32(Tid tid)
         {
             return (ApproximateDateTime32)tid.Date;
         }
@@ -557,7 +557,6 @@ namespace AppViewLite
                     textCompressorUnlocked.DecompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
                     textCompressorUnlocked.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
                 }
-                proto.AvatarCid = proto.AvatarCidBytes != null ? Cid.Read(proto.AvatarCidBytes).ToString() : null;
                 return proto;
 
             }
@@ -589,30 +588,15 @@ namespace AppViewLite
                 RootPostPlc = postId.Author.PlcValue,
                 RootPostRKey = postId.PostRKey.TidValue,
             };
-            var approxPostDate = GetApproxTime32(postId.PostRKey);
-
             var lang = p.Langs?.FirstOrDefault();
 
             var langEnum = ParseLanguage(lang);
 
             proto.Language = langEnum;
 
-            if (/*langEnum != LanguageEnum.en &&*/ langEnum != LanguageEnum.Unknown)
-                AddToSearchIndex("%lang-" + langEnum.ToString(), approxPostDate);
             proto.Facets = GetFacetsAsProtos(p.Facets);
 
-
-
-            PostTextSearch.Add(HashPlcForTextSearch(postId.Author), approxPostDate);
-
-            if (proto.Text != null)
-            {
-                var words = StringUtils.GetDistinctWords(proto.Text);
-                foreach (var word in words)
-                {
-                    AddToSearchIndex(word, approxPostDate);
-                }
-            }
+            IndexPost(proto);
 
             if (p.Facets != null)
             {
@@ -623,13 +607,11 @@ namespace AppViewLite
                         var tag = feature.TagValue;
                         if (!string.IsNullOrEmpty(tag))
                         {
-                            AddToSearchIndex("#" + tag.ToLowerInvariant(), approxPostDate);
+                            AddToSearchIndex("#" + tag.ToLowerInvariant(), GetApproxTime32(proto.PostId.PostRKey));
                         }
                     }
                 }
             }
-
-
 
             if (p.Reply?.Root is { } root)
             {
@@ -707,8 +689,27 @@ namespace AppViewLite
             UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, new Plc(proto.InReplyToPlc.GetValueOrDefault())));
 
             if (proto.QuotedRKey != null)
-                NotifyPostStatsChange(postId, postId.Author);
+                NotifyPostStatsChange(proto.QuotedPostId!.Value, postId.Author);
             return proto;
+        }
+
+        public void IndexPost(BlueskyPostData proto)
+        {
+            var postId = proto.PostId;
+            var approxPostDate = GetApproxTime32(postId.PostRKey);
+
+            if (proto.Language != LanguageEnum.Unknown)
+                AddToSearchIndex("%lang-" + proto.Language.Value.ToString(), approxPostDate);
+            PostTextSearch.Add(HashPlcForTextSearch(postId.Author), approxPostDate);
+
+            if (proto.Text != null)
+            {
+                var words = StringUtils.GetDistinctWords(proto.Text);
+                foreach (var word in words)
+                {
+                    AddToSearchIndex(word, approxPostDate);
+                }
+            }
         }
 
         private static FacetData[]? GetFacetsAsProtos(List<Facet>? facets)
@@ -753,7 +754,7 @@ namespace AppViewLite
             return langEnum;
         }
 
-        private void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
+        public void AddToSearchIndex(ReadOnlySpan<char> word, ApproximateDateTime32 approxPostDate)
         {
             PostTextSearch.Add(HashWord(word), approxPostDate);
         }
@@ -1040,18 +1041,18 @@ namespace AppViewLite
 
         internal readonly static EfficientTextCompressor textCompressorUnlocked = new();
 
-        internal void StorePostInfo(PostId postId, Post p)
+        internal void StorePostInfo(PostId postId, Post p, string did)
         {
             // PERF: This method performs the slow brotli compression while holding the lock. Avoid if possible.
 
             var proto = StorePostInfoExceptData(p, postId);
-            this.PostData.AddRange(postId, SerializePostData(proto));
+            this.PostData.AddRange(postId, SerializePostData(proto, did));
         }
 
-        internal static byte[] SerializePostData(BlueskyPostData proto)
+        internal static byte[] SerializePostData(BlueskyPostData proto, string did)
         {
             // var (a, b, c) = (proto.PostId, proto.InReplyToPostId, proto.RootPostId);
-            Compress(proto);
+            Compress(proto, did);
 
             var slim = TryCompressSlim(proto);
             if (slim != null)
@@ -1143,8 +1144,31 @@ namespace AppViewLite
             return arr;
         }
 
-        internal static void Compress(BlueskyPostData proto)
+        public static AppViewLite.PluggableProtocols.PluggableProtocol? TryGetPluggableProtocolForDid(string did) => AppViewLite.PluggableProtocols.PluggableProtocol.TryGetPluggableProtocolForDid(did);
+
+        internal static void Compress(BlueskyPostData proto, string did)
         {
+
+            if (proto.PluggablePostId != null)
+            {
+                var pluggable = TryGetPluggableProtocolForDid(did)!;
+
+                if (!pluggable.RequiresExplicitPostIdStorage(proto.PluggablePostId.Value))
+                {
+                    proto.PluggablePostId = null;
+                }
+                if (!pluggable.RequiresExplicitPostIdStorage(proto.PluggableInReplyToPostId))
+                {
+                    proto.PluggableInReplyToPostId = null;
+                }
+                if (proto.RootPostId == proto.InReplyToPostId ||
+                    proto.RootPostId == proto.PostId ||
+                    !pluggable.RequiresExplicitPostIdStorage(proto.PluggableRootPostId))
+                {
+                    proto.PluggableRootPostId = null;
+                }
+            }
+
             lock (textCompressorUnlocked)
             {
                 textCompressorUnlocked.CompressInPlace(ref proto.Text, ref proto.TextBpe);
@@ -1247,6 +1271,9 @@ namespace AppViewLite
                 proto.RootPostRKey = rootPostId.PostRKey.TidValue;
             }
 
+
+            //var pluggable = PluggableProtocol.TryGetPluggableProtocolForDid();
+
         }
 
 
@@ -1287,6 +1314,7 @@ namespace AppViewLite
         {
             var post = GetPostWithoutData(id);
             (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id);
+            DecompressPluggablePostData(id.PostRKey, post.Data, post.Author.Did);
             return post;
         }
 
@@ -1294,7 +1322,26 @@ namespace AppViewLite
         {
             var post = GetPostWithoutData(id);
             post.Data = data;
+            DecompressPluggablePostData(id.PostRKey, data, post.Author.Did);
             return post;
+        }
+        
+
+        private static void DecompressPluggablePostData(Tid tid, BlueskyPostData? data, string did)
+        {
+            if (data == null) return;
+            var pluggable = TryGetPluggableProtocolForDid(did);
+            if (pluggable == null) return;
+
+
+            pluggable.DecompressPluggablePostId(ref data.PluggablePostId, tid, null);
+            if (data.InReplyToRKey != null)
+            {
+                pluggable.DecompressPluggablePostId(ref data.PluggableInReplyToPostId, new Tid(data.InReplyToRKey.Value), null);
+            }
+
+            pluggable.DecompressPluggablePostId(ref data.PluggableRootPostId, data.RootPostId.PostRKey, data.PluggableInReplyToPostId ?? data.PluggablePostId);
+            
         }
 
         public BlueskyPost GetPostWithoutData(PostId id)
@@ -1422,6 +1469,9 @@ namespace AppViewLite
         {
             var basic = GetProfileBasicInfo(plc);
             var did = GetDid(plc);
+            if (basic == null && !IsNativeAtProtoDid(did))
+                basic = new BlueskyProfileBasicInfo();
+
             var didDoc = TryGetLatestDidDoc(plc);
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
@@ -1434,6 +1484,12 @@ namespace AppViewLite
             }
             if (possibleHandle == null && didDoc != null)
                 handleIsCertain = true;
+
+            if (possibleHandle == null && TryGetPluggableProtocolForDid(did) is { } pluggable)
+            {
+                possibleHandle = pluggable.TryGetHandleFromDid(did) ?? did;
+                handleIsCertain = true;
+            }
 
             return new BlueskyProfile()
             {
@@ -1523,16 +1579,17 @@ namespace AppViewLite
         {
             if (_disposed)
             {
-                ShutdownRequested.Token.ThrowIfCancellationRequested();
+                ShutdownRequested.ThrowIfCancellationRequested();
                 throw new ObjectDisposedException(nameof(BlueskyRelationships));
             }
         }
 
 
-        private CancellationTokenSource ShutdownRequested = new CancellationTokenSource();
+        private CancellationTokenSource ShutdownRequestedCts = new CancellationTokenSource();
+        public CancellationToken ShutdownRequested => ShutdownRequestedCts.Token;
         public void NotifyShutdownRequested()
         {
-            ShutdownRequested.Cancel();
+            ShutdownRequestedCts.Cancel();
             Dispose();
         }
 
@@ -2388,6 +2445,34 @@ namespace AppViewLite
                 .Select(x => new LabelId(x.Labeler, x.KindHash))
                 .Where(x => onlyLabels?.Contains(x) ?? true)
                 .ToArray();
+        }
+
+
+
+        public static byte[]? CompressBpe(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            lock (textCompressorUnlocked)
+            {
+                return textCompressorUnlocked.Compress(text);
+            }
+        }
+
+        public static string? DecompressBpe(byte[]? bpe)
+        {
+            if (bpe == null || bpe.Length == 0) return null;
+            lock (textCompressorUnlocked)
+            {
+                return textCompressorUnlocked.Decompress(bpe);
+            }
+        }
+
+
+        public static bool IsNativeAtProtoDid(string did)
+        {
+            return
+                did.StartsWith("did:plc:", StringComparison.Ordinal) ||
+                did.StartsWith("did:web:", StringComparison.Ordinal);
         }
     }
 

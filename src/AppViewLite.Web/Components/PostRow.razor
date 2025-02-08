@@ -37,36 +37,12 @@
     private AsyncStateToggler IsLiked;
     private AsyncStateToggler IsReposted;
 
-    private bool RepostMenuVisible;
-    private bool PostMenuVisible;
 
     private string? externalDomainForMute;
+    private string? originalPostUrl;
+    private string baseUrlPreferExternal;
+    private string? targetForBaseUrlPreferExternal;
 
-#if false
-
-    private PostId notificationsRegisteredForPostId;
-    private LiveNotificationDelegate? PostStatsNotificationHandler;
-    private void UnregisterNotifications()
-    {
-    Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Unsubscribe(notificationsRegisteredForPostId, PostStatsNotificationHandler);
-    PostStatsNotificationHandler = null;
-    notificationsRegisteredForPostId = default;
-    }
-    public void Dispose()
-    {
-    Dispose(true);
-    GC.SuppressFinalize(this);
-    }
-    public void Dispose(bool disposing)
-    {
-    if(!disposing && PostStatsNotificationHandler != null)
-        {
-
-
-    }
-    UnregisterNotifications();
-    }
-#endif
     public string RenderFlags;
 
 
@@ -109,13 +85,7 @@
         }.Select(x => x ? "1" : "0"));
 
 
-#if false
-    if (notificationsRegisteredForPostId != default && notificationsRegisteredForPostId != Post.PostId)
-    {
-    UnregisterNotifications();    
-    }
-    notificationsRegisteredForPostId = Post.PostId;
-#endif
+
         IsLiked = new AsyncStateToggler(
             Post.LikeCount, 
             Post.IsLikedBySelf, 
@@ -134,102 +104,21 @@
 
         isSelfRepost = Post.IsRepost && Post.RepostedBy!.Plc == Post.Author.Plc;
 
-        externalDomainForMute = (TryParseUrl(Post.Data?.ExternalUrl) ?? Post.Data?.Facets?.Where(x => x.Link != null).Select(x => new Uri(x.Link)).Where(x => x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
+        var postUtf8 = Post.Data?.GetUtf8IfNeededByCompactFacets();
+        externalDomainForMute = (TryParseUrl(Post.Data?.ExternalUrl) ?? Post.Data?.Facets?.Select(x => x.GetLink(postUtf8)).Where(x => x != null).Select(x => new Uri(x)).Where(x => x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
         if (externalDomainForMute != null && externalDomainForMute.StartsWith("www.", StringComparison.Ordinal))
             externalDomainForMute = externalDomainForMute.Substring(4);
 
-#if false
-    if (PostStatsNotificationHandler == null && RendererInfo.IsInteractive)
-    {
-    static LiveNotificationDelegate CreateLambda(WeakReference<PostRow> weakref, PostId postId)
-    {
-    return (h, commitPlc) =>
-    {
-    if (weakref.TryGetTarget(out var page))
-    {
-    page.InvokeAsync(() =>
-    {
-    if (page.Post.PostId != postId) return;
-    page.IsLiked.ActorCount = h.LikeCount;
-    page.IsReposted.ActorCount = h.RepostCount;
-    page.Post.ReplyCount = h.ReplyCount;
-    page.Post.QuoteCount = h.QuoteCount;
-    page.StateHasChanged();
-    });
-            }
-                };
+        originalPostUrl = Post.OriginalPostUrl;
+        baseUrlPreferExternal = originalPostUrl ?? Post.BaseUrl;
+        targetForBaseUrlPreferExternal = originalPostUrl != null ? "_blank" : null;
 
-    }
-    PostStatsNotificationHandler = CreateLambda(new WeakReference<PostRow>(this), this.Post.PostId);
-    Apis.DangerousUnlockedRelationships.PostLiveSubscribersThreadSafe.Subscribe(Post.PostId, PostStatsNotificationHandler);
-        }
-#endif
     }
 
     private static Uri? TryParseUrl(string? uri) => uri != null && Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
-    public async Task DeletePostAsync()
-    {
-        if (Post.Author.Plc != RequestContext.LoggedInUser) throw new Exception();
-        PostMenuVisible = false;
-        string? navigateTo = "/";
-        if (Post.InReplyToPostId != null)
-        {
-            var inReplyToDid = Apis.WithRelationshipsLock(rels => rels.GetDid(Post.InReplyToPostId.Value.Author));
-            navigateTo = "/@" + inReplyToDid + "/" + Post.InReplyToPostId.Value.PostRKey;
-        }
-        await Apis.DeletePostAsync(Post.PostId.PostRKey, RequestContext);
-        NavigationManager.NavigateTo(navigateTo);
-    }
 
-    public void ViewOnBluesky()
-    {
-        PostMenuVisible = false;
-        NavigationManager.NavigateTo(Post.BlueskyUrl);
-    }
-    public void NavigateToWriteReply()
-    {
-        if (RequestContext.IsLoggedIn)
-        {
-            NavigationManager.NavigateTo($"/compose?replyDid={Post.Did}&replyRkey={Post.RKey}");
-        }
-        else
-        {
-            NavigationManager.NavigateTo(Post.BaseUrl);
-        }
-    }
 
-    public void NavigateToQuotePost()
-    {
-        if (RequestContext.IsLoggedIn)
-        {
-            NavigationManager.NavigateTo($"/compose?quoteDid={Post.Did}&quoteRkey={Post.RKey}");
-        }
-        else
-        {
-            NavigationManager.NavigateTo(Post.BaseUrl);
-        }
-    }
-
-    public void ToggleRepostMenu()
-    {
-        if (!RequestContext.IsLoggedIn) return;
-        RepostMenuVisible = !RepostMenuVisible;
-        PostMenuVisible = false;
-    }
-
-    public void TogglePostMenu()
-    {
-        PostMenuVisible = !PostMenuVisible;
-        RepostMenuVisible = false;
-    }
-
-    public void ToggleRepostAndCloseMenu()
-    {
-
-        RepostMenuVisible = false;
-        IsReposted.ToggleIfNotBusyAsync().FireAndForget();
-    }
     private bool IsBusy;
     private async Task PerformActionIfNotBusyAsync(Func<Task> func)
     {
@@ -266,7 +155,7 @@
     @if (ShowRestOfThreadLink)
     {
         <div class="post-thread-continuation-line"></div>
-        <a class="post-rest-of-thread post-indented blue-link" href="@Post.BaseUrl">View full thread</a>
+        <a class="post-rest-of-thread post-indented blue-link" href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal">View full thread</a>
     }
 
     @if (ShowThreadLine && !IsLastOfGroup && !IsFocalPost)
@@ -311,7 +200,7 @@
         @if(!this.IsFocalPost)
         {
             <text> ·</text>
-            <a class="post-date" href="@Post.BaseUrl" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
+            <a class="post-date" href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
         }
     </div>
 
@@ -425,7 +314,7 @@
 
     @if (IsFocalPost)
     {
-        <a href="@Post.BaseUrl" class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</a>
+        <a href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</a>
 
         <div class="post-focal-stats post-indented @(Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0 ? null : "display-none")">
 
@@ -442,7 +331,7 @@
     {
         <div class="post-action-bar post-indented">
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
-                <button actionkind="composeReply" @onclick="NavigateToWriteReply" class="post-action-bar-button post-action-bar-button-comment">
+                <button actionkind="composeReply" class="post-action-bar-button post-action-bar-button-comment">
                     <svg fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159); pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2.002 6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H12.28l-4.762 2.858A1 1 0 0 1 6.002 21v-2h-1a3 3 0 0 1-3-3V6Zm3-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h2a1 1 0 0 1 1 1v1.234l3.486-2.092a1 1 0 0 1 .514-.142h7a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-14Z"></path></svg>
                     <span  class="post-stats-animated">
                         @(Post.ReplyCount != 0 ? @StringUtils.FormatEngagementCount(Post.ReplyCount) : null)
@@ -452,11 +341,11 @@
 
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
 
-                <div class="post-repost-menu menu @(RepostMenuVisible ? "menu-visible" : null)">
-                    <button actionkind="toggleRepost" class="menu-item post-toggle-repost-menu-item" @onclick="ToggleRepostAndCloseMenu">@(IsReposted.HaveRelationship ? "Undo repost" : "Repost")</button>
-                    <button actionkind="composeQuote" class="menu-item" @onclick="NavigateToQuotePost">Quote post</button>
+                <div class="post-repost-menu menu">
+                    <button actionkind="toggleRepost" class="menu-item post-toggle-repost-menu-item">@(IsReposted.HaveRelationship ? "Undo repost" : "Repost")</button>
+                    <button actionkind="composeQuote" class="menu-item">Quote post</button>
                 </div>
-                <button @onclick="ToggleRepostMenu" class="post-action-bar-button post-action-bar-button-repost @(IsReposted.HaveRelationship ? "post-action-bar-button-checked" : null)">
+                <button class="post-action-bar-button post-action-bar-button-repost @(IsReposted.HaveRelationship ? "post-action-bar-button-checked" : null)">
                     <svg class="if-have-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(19, 195, 113);"><path fill="hsl(152, 82%, 42%)" fill-rule="evenodd" clip-rule="evenodd" d="M17.957 2.293a1 1 0 1 0-1.414 1.414L17.836 5H6a3 3 0 0 0-3 3v3a1 1 0 1 0 2 0V8a1 1 0 0 1 1-1h11.836l-1.293 1.293a1 1 0 0 0 1.414 1.414l2.47-2.47a1.75 1.75 0 0 0 0-2.474l-2.47-2.47ZM20 12a1 1 0 0 1 1 1v3a3 3 0 0 1-3 3H6.164l1.293 1.293a1 1 0 1 1-1.414 1.414l-2.47-2.47a1.75 1.75 0 0 1 0-2.474l2.47-2.47a1 1 0 0 1 1.414 1.414L6.164 17H18a1 1 0 0 0 1-1v-3a1 1 0 0 1 1-1Z"></path></svg>
                     <svg class="if-have-not-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159);"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M17.957 2.293a1 1 0 1 0-1.414 1.414L17.836 5H6a3 3 0 0 0-3 3v3a1 1 0 1 0 2 0V8a1 1 0 0 1 1-1h11.836l-1.293 1.293a1 1 0 0 0 1.414 1.414l2.47-2.47a1.75 1.75 0 0 0 0-2.474l-2.47-2.47ZM20 12a1 1 0 0 1 1 1v3a3 3 0 0 1-3 3H6.164l1.293 1.293a1 1 0 1 1-1.414 1.414l-2.47-2.47a1.75 1.75 0 0 1 0-2.474l2.47-2.47a1 1 0 0 1 1.414 1.414L6.164 17H18a1 1 0 0 0 1-1v-3a1 1 0 0 1 1-1Z"></path></svg>
                     <span class="post-stats-animated">
@@ -465,7 +354,7 @@
                 </button>
             </div>
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">
-                <button actionkind="toggleLike" @onclick="IsLiked.ToggleIfNotBusyAsync" class="post-action-bar-button post-action-bar-button-like @(IsLiked.HaveRelationship ? "post-action-bar-button-checked" : null)">
+                <button actionkind="toggleLike" class="post-action-bar-button post-action-bar-button-like @(IsLiked.HaveRelationship ? "post-action-bar-button-checked" : null)">
                     <svg class="if-have-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18"><path fill="#ec4899" fill-rule="evenodd" clip-rule="evenodd" d="M12.489 21.372c8.528-4.78 10.626-10.47 9.022-14.47-.779-1.941-2.414-3.333-4.342-3.763-1.697-.378-3.552.003-5.169 1.287-1.617-1.284-3.472-1.665-5.17-1.287-1.927.43-3.562 1.822-4.34 3.764-1.605 4 .493 9.69 9.021 14.47a1 1 0 0 0 .978 0Z"></path></svg>
                     <svg class="if-have-not-relationship" fill="none" width="18" viewBox="0 0 24 24" height="18" style="color: rgb(111, 134, 159); pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M16.734 5.091c-1.238-.276-2.708.047-4.022 1.38a1 1 0 0 1-1.424 0C9.974 5.137 8.504 4.814 7.266 5.09c-1.263.282-2.379 1.206-2.92 2.556C3.33 10.18 4.252 14.84 12 19.348c7.747-4.508 8.67-9.168 7.654-11.7-.541-1.351-1.657-2.275-2.92-2.557Zm4.777 1.812c1.604 4-.494 9.69-9.022 14.47a1 1 0 0 1-.978 0C2.983 16.592.885 10.902 2.49 6.902c.779-1.942 2.414-3.334 4.342-3.764 1.697-.378 3.552.003 5.169 1.286 1.617-1.283 3.472-1.664 5.17-1.286 1.927.43 3.562 1.822 4.34 3.764Z"></path></svg>
                     <span class="post-stats-animated">
@@ -476,7 +365,7 @@
 
             <div class="post-action-bar-spacer">
 
-                <div class="post-post-menu menu @(PostMenuVisible ? "menu-visible" : null)">
+                <div class="post-post-menu menu">
                     <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                     @if (RequestContext.IsLoggedIn)
                     {

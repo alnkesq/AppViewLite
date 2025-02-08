@@ -1,3 +1,7 @@
+using AngleSharp;
+using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using AngleSharp.Html.Parser;
 using AppViewLite.Models;
 using DuckDbSharp.Types;
 using System;
@@ -247,19 +251,19 @@ namespace AppViewLite
                 if (facets.All(x => x.IsDisjoint(f)))
                     facets.Add(f);
             }
-            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+@[\w\.\-]+")) // @example@mastodon.social
+            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+@[\w\.\-]+\w+")) // @example@mastodon.social
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
                 var v = m.Value.Substring(1).Split('@');
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "https://" + v[1] + "/@" + v[0]));
             }
-            foreach (Match m in Regex.Matches(text, @"[\w\.\-]+@[\w\.\-]+")) // example@gmail.com
+            foreach (Match m in Regex.Matches(text, @"[\w\.\-]+@[\w\.\-]+\w+")) // example@gmail.com
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "mailto:" + m.Value));
             }
 
-            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+")) // @example.bsky.social
+            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+\w+")) // @example.bsky.social
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, null, m.Value.Substring(1)));
@@ -274,8 +278,14 @@ namespace AppViewLite
             foreach (Match m in Regex.Matches(text, @"\b[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // example.com or // example.com/path
             {
                 if (m.Index != 0 && (!char.IsWhiteSpace(text[m.Index - 1]) || text[m.Index - 1] == '/')) continue;
+                var len = m.Length;
                 var link = m.Value;
-                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "https://" + link));
+                if (link.EndsWith('.') || link.EndsWith(')'))
+                {
+                    len--;
+                    link = link.Substring(0, len);
+                }
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, len, "https://" + link));
             }
             foreach (var item in GuessHashtagFacets(text))
             {
@@ -286,18 +296,33 @@ namespace AppViewLite
         }
 
 
-        public static List<FacetData> GuessHashtagFacets(string text)
+        public static List<FacetData> GuessHashtagFacets(string? text)
         {
+            if (string.IsNullOrEmpty(text) || !text.Contains('#')) return [];
             var hashtags = new List<FacetData>();
             foreach (Match m in Regex.Matches(text, @"#\w+"))
             {
-                if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
-                var value = m.ValueSpan.Slice(1);
-                if (!value.ContainsAnyExceptInRange('0', '9')) continue; // e.g. #1
-                hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null));
+                if (IsValidHashtagFacet(text, m)) 
+                    hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null));
             }
             return hashtags;
         }
+
+        public static string[] GuessHashtags(string? text)
+        {
+            if (string.IsNullOrEmpty(text) || !text.Contains('#')) return [];
+            return Regex.Matches(text, @"#\w+").Where(m => IsValidHashtagFacet(text, m)).Select(x => x.Value).ToArray();
+
+        }
+
+        private static bool IsValidHashtagFacet(string fullText, Match m)
+        {
+            if (m.Index != 0 && !char.IsWhiteSpace(fullText[m.Index - 1])) return false;
+            var value = m.ValueSpan.Slice(1);
+            if (!value.ContainsAnyExceptInRange('0', '9')) return false; // e.g. #1
+            return true;
+        }
+
         private static FacetData CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link, string? did = null)
         {
             var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(0, index));
@@ -308,6 +333,120 @@ namespace AppViewLite
         public static string NormalizeHandle(string handle)
         {
             return handle.ToLowerInvariant();
+        }
+
+        public static (string? text, FacetData[]? facets) HtmlToFacets(IHtmlDocument dom, Uri baseUrl, Func<IElement, FacetData?> getFacet)
+        {
+            var sb = new StringBuilder();
+            var utf8length = 0;
+            var facets = new List<FacetData>();
+            void AppendText(string? text)
+            {
+                if (string.IsNullOrEmpty(text)) return;
+                sb.Append(text);
+                utf8length += Encoding.UTF8.GetByteCount(text);
+            }
+            void AppendChar(char ch)
+            {
+                sb.Append(ch);
+                utf8length += new Rune(ch).Utf8SequenceLength;
+            }
+            void AppendRune(Rune rune)
+            {
+                Span<char> buffer = stackalloc char[2];
+                var len = rune.EncodeToUtf16(buffer);
+                sb.Append(buffer.Slice(0, len));
+                utf8length += rune.Utf8SequenceLength;
+            }
+            void AppendNewLineIfNecessary()
+            {
+                if (sb.Length != 0 && sb[sb.Length - 1] != '\n')
+                    AppendChar('\n');
+            }
+
+
+            void Recurse(INode node, bool pre)
+            {
+                if (node.NodeType == NodeType.Text)
+                {
+                    var text = node.TextContent;
+                    if (pre)
+                    {
+                        AppendText(text);
+                    }
+                    else
+                    {
+
+                        for (int i = 0; i < text.Length; i++)
+                        {
+                            var ch = text[i];
+                            if (char.IsWhiteSpace(ch))
+                            {
+                                if (sb.Length != 0 && !char.IsWhiteSpace(sb[sb.Length - 1]))
+                                {
+                                    AppendChar(' ');
+                                }
+                            }
+                            else if (char.IsHighSurrogate(ch))
+                            {
+                                if (i != text.Length - 1)
+                                    AppendRune(new Rune(ch, text[++i]));
+                            }
+                            else
+                            {
+                                AppendChar(ch);
+                            }
+
+                        }
+                    }
+                }
+                else if (node.NodeType == NodeType.Element)
+                {
+                    var element = (IElement)node;
+                    var tagName = element.TagName;
+                    var isBlockElement = tagName is "P" or "DIV" or "BLOCKQUOTE";
+                    if (isBlockElement) AppendNewLineIfNecessary();
+
+                    if (tagName is "PRE" or "CODE")
+                        pre = true;
+
+                    var startIndex = utf8length;
+                    foreach (var child in node.ChildNodes)
+                    {
+                        Recurse(child, pre);
+                    }
+
+                    var facet = getFacet(element);
+                    if (facet != null)
+                    {
+                        facet.Start = startIndex;
+                        facet.Length = utf8length - startIndex;
+                        facets.Add(facet);
+                    }
+                    
+                    
+
+                    if (isBlockElement) AppendNewLineIfNecessary();
+                    if (tagName is "BR") AppendText("\n");
+
+                }
+            }
+
+            foreach (var child in dom.ChildNodes)
+            {
+                Recurse(child, pre: false);
+            }
+
+
+            if (facets.Count == 0) facets = null;
+            if (sb.Length == 0 && facets == null) return (null, null);
+            return (sb.ToString(), facets?.ToArray());
+        }
+
+        public static IHtmlDocument ParseHtml(string? html)
+        {
+            var parser = new HtmlParser();
+            return parser.ParseDocument(html ?? string.Empty);
         }
     }
 }

@@ -35,6 +35,7 @@ using System.IO;
 using System.Diagnostics.CodeAnalysis;
 using System.Buffers;
 using Ipfs;
+using DuckDbSharp;
 
 namespace AppViewLite
 {
@@ -431,7 +432,7 @@ namespace AppViewLite
                         try
                         {
                             var postId = rels.GetPostId(key.Did, key.RKey);
-                            rels.StorePostInfo(postId, postRecord);
+                            rels.StorePostInfo(postId, postRecord, key.Did);
                             OnRecordReceived(rels, postId);
                         }
                         finally
@@ -505,6 +506,8 @@ namespace AppViewLite
                 value();
         }
 
+
+
         private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, Action<RelationshipStr> onPreexistingTaskCompleted, RequestContext ctx) where TValue : ATObject
         {
             if (relationshipsUnlocked.IsReadOnly) return Task.CompletedTask;
@@ -517,6 +520,7 @@ namespace AppViewLite
                 var allTasksToAwait = new List<Task>();
                 foreach (var key in keys)
                 {
+                    if (!BlueskyRelationships.IsNativeAtProtoDid(key.Did)) continue;
                     if (pendingRetrievals.TryGetValue(key, out var task))
                     {
                         task.Task.GetAwaiter().OnCompleted(() => 
@@ -924,7 +928,7 @@ namespace AppViewLite
                     var postId = rels.GetPostId(record.Uri!);
                     if (!rels.PostData.ContainsKey(postId))
                     {
-                        rels.WithWriteUpgrade(() => rels.StorePostInfo(postId, (Post)record.Value!));
+                        rels.WithWriteUpgrade(() => rels.StorePostInfo(postId, (Post)record.Value!, record.Uri.Did!.Handler));
                     }
                 }
             });
@@ -1351,21 +1355,21 @@ namespace AppViewLite
             return coalescedList.ToArray();
         }
 
-        internal string? GetAvatarUrl(string did, string? avatarCid, string? pds)
+        internal string? GetAvatarUrl(string did, byte[]? avatarCid, string? pds)
         {
-            return GetImageUrl("avatar_thumbnail", did, avatarCid, pds);
+            return GetImageUrl(ThumbnailSize.avatar_thumbnail, did, avatarCid, pds);
         }
         public string GetImageThumbnailUrl(string did, byte[] cid, string? pds)
         {
-            return GetImageUrl("feed_thumbnail", did, Cid.Read(cid).ToString(), pds);
+            return GetImageUrl(ThumbnailSize.feed_thumbnail, did, cid, pds);
         }
         public string GetImageBannerUrl(string did, byte[] cid, string? pds)
         {
-            return GetImageUrl("banner", did, Cid.Read(cid).ToString(), pds)!;
+            return GetImageUrl(ThumbnailSize.banner, did, cid, pds)!;
         }
         public string GetImageFullUrl(string did, byte[] cid, string? pds)
         {
-            return GetImageUrl("feed_fullsize", did, Cid.Read(cid).ToString(), pds);
+            return GetImageUrl(ThumbnailSize.feed_fullsize, did, cid, pds);
         }
 
 
@@ -1373,18 +1377,25 @@ namespace AppViewLite
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
         [return: NotNullIfNotNull(nameof(cid))]
-        public string? GetImageUrl(string size, string did, string? cid, string? pds)
+        public string? GetImageUrl(ThumbnailSize size, string did, byte[]? cid, string? pds)
         {
             if (cid == null) return null;
             var cdn = CdnPrefix;
 
-            if (!ServeImages && cdn == null && !DidDocOverrides.CustomDidDocs.ContainsKey(did)) cdn = "https://cdn.bsky.app";
+            var isNativeAtProto = BlueskyRelationships.IsNativeAtProtoDid(did);
+
+            if (!ServeImages)
+            {
+                if (isNativeAtProto && cdn == null && !DidDocOverrides.CustomDidDocs.ContainsKey(did)) cdn = "https://cdn.bsky.app";
+            }
+
+            var cidString = isNativeAtProto ? Cid.Read(cid).ToString() : Ipfs.Base32.ToBase32(cid);
 
             if (cdn != null) pds = null;
 
             if (pds != null && pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
 
-            return $"{cdn}/img/{size}/plain/{did}/{cid}@jpeg" + (pds != null ? "?pds=" + Uri.EscapeDataString(pds) : null);
+            return $"{cdn}/img/{size}/plain/{did}/{cidString}@jpeg" + (pds != null ? "?pds=" + Uri.EscapeDataString(pds) : null);
         }
 
         public long GetNotificationCount(AppViewLiteSession ctx)
@@ -1605,6 +1616,11 @@ namespace AppViewLite
             return session;
         }
 
+        public async Task<ATProtocol?> TryCreateProtocolForDidAsync(string did)
+        {
+            if (!BlueskyRelationships.IsNativeAtProtoDid(did)) return null;
+            return await CreateProtocolForDidAsync(did)!;
+        }
         public async Task<ATProtocol> CreateProtocolForDidAsync(string did)
         {
             var diddoc = await GetDidDocAsync(did);
@@ -1835,7 +1851,8 @@ namespace AppViewLite
 
         public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, CancellationToken ct = default)
         {
-            using var proto = await CreateProtocolForDidAsync(did);
+            using var proto = await TryCreateProtocolForDidAsync(did);
+            if (proto == null) return new ListRecordsOutput(null, []);
             return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, cancellationToken: ct)).HandleResult()!;
         }
 
@@ -2076,6 +2093,11 @@ namespace AppViewLite
                 return handle;
             }
 
+            foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)
+            {
+                if (pluggableProtocol.TryHandleToDid(handle) is { } pluggableDid)
+                    return pluggableDid;
+            }
 
             EnsureValidDomain(handle);
             var handleUuid = StringUtils.HashUnicodeToUuid(handle);
@@ -2263,7 +2285,21 @@ namespace AppViewLite
                 // this is actually ok
                 //if (domain != domain2) throw new Exception("Mismatching domain for did:web: and .well-known/TXT");
             }
-            else throw new Exception("Invalid did: " + did);
+            else
+            {
+                var colon = did.IndexOf(':', 4);
+                if (colon != -1)
+                {
+                    var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
+                    if (pluggable != null)
+                    {
+                        pluggable.EnsureValidDid(did);
+                        return;
+                    }
+                    throw new UnexpectedFirehoseDataException("Invalid did or no pluggable protocol registered for " + did.Substring(0, colon));
+                }
+                throw new UnexpectedFirehoseDataException("Invalid did.");
+            }
         }
 
 
@@ -2323,20 +2359,15 @@ namespace AppViewLite
             return didDoc.Handle;
         }
 
-        public async Task<byte[]> GetBlobAsBytesAsync(string did, string cid, string? pds)
+
+        public async Task<byte[]> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
         {
-            var response = await GetBlobResponseAsync(did, cid, pds);
-            if (!response.IsSuccessStatusCode)
+            var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
+            if (pluggable != null)
             {
-                using (response)
-                {
-                    response.EnsureSuccessStatusCode();
-                }
+                return await pluggable.GetBlobAsync(did, Ipfs.Base32.FromBase32(cid), preferredSize);
             }
-            return await response.Content.ReadAsByteArrayAsync();
-        }
-        public async Task<HttpResponseMessage> GetBlobResponseAsync(string did, string cid, string? pds)
-        {
+
             if (pds != null && !pds.Contains(':'))
             {
                 pds = "https://" + pds;
@@ -2346,7 +2377,7 @@ namespace AppViewLite
                 pds = (await GetDidDocAsync(did)).Pds;
             }
             var url = $"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}";
-            return await DefaultHttpClient.GetAsync(url);
+            return await DefaultHttpClient.GetByteArrayAsync(url);
         }
 
         private async Task<DidDocProto> GetDidDocAsync(string did)
@@ -2373,6 +2404,12 @@ namespace AppViewLite
 
             var did = await ResolveHandleAsync(aturi.Handle!.Handle);
             return new ATUri("at://" + did + aturi.Pathname + aturi.Hash);
+        }
+
+        public void RegisterPluggableProtocol(Type type)
+        {
+            var protocol = AppViewLite.PluggableProtocols.PluggableProtocol.Register(type);
+            protocol.Apis = this;
         }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();

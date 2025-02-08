@@ -16,6 +16,8 @@ namespace AppViewLite.Models
                 if (DisplayName != null) return DisplayName;
                 if (PossibleHandle != null)
                 {
+                    var at = PossibleHandle.IndexOf('@');
+                    if (at != -1) return PossibleHandle.Substring(0, at);
                     var dot = PossibleHandle.IndexOf('.');
                     if (dot != -1) return PossibleHandle.Substring(0, dot);
                     else return PossibleHandle;
@@ -28,7 +30,6 @@ namespace AppViewLite.Models
 
         public string BaseUrl => "/@" + Did;
         public string BlueskyUrl => $"https://bsky.app/profile/{Did}";
-        public string? AvatarCid => BasicData?.AvatarCid;
 
         public BlueskyProfileBasicInfo? BasicData;
         public string? AvatarUrl
@@ -36,7 +37,7 @@ namespace AppViewLite.Models
             get
             {
                 if (BasicData == null) return null; // still loading. Blank is better than generic avatar.
-                return BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, AvatarCid, Pds) ?? "/assets/default-user-avatar.svg";
+                return BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, BasicData.AvatarCidBytes, Pds) ?? "/assets/default-user-avatar.svg";
             }
         }
 

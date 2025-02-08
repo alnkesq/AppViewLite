@@ -1,13 +1,9 @@
+using AppViewLite.Models;
 using Ipfs;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using System;
 using System.Buffers;
-using System.Net.Http.Headers;
-using System.Text;
 
 namespace AppViewLite.Web.Controllers
 {
@@ -34,19 +30,25 @@ namespace AppViewLite.Web.Controllers
         public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds)
         {
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
+            var sizeEnum = Enum.Parse<ThumbnailSize>(size);
 
             BlueskyEnrichedApis.EnsureValidDid(did);
 
-            if (cid.Length != 59) throw new Exception("Invalid CID length.");
-            if (cid.AsSpan().ContainsAnyExcept(CidChars)) throw new Exception("CID contains invalid characters.");
+            var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
 
-            var sizePixels = size switch
+            if (pluggable == null)
             {
-                "feed_thumbnail" => 1000,
-                "feed_fullsize" => 2000,
-                "avatar" => 1000,
-                "avatar_thumbnail" => 150,
-                "banner" => 1000,
+                if (cid.Length != 59) throw new Exception("Invalid CID length.");
+                if (cid.AsSpan().ContainsAnyExcept(CidChars)) throw new Exception("CID contains invalid characters.");
+            }
+
+            var sizePixels = sizeEnum switch
+            {
+                ThumbnailSize.feed_thumbnail => 1000,
+                ThumbnailSize.feed_fullsize => 2000,
+                ThumbnailSize.avatar => 1000,
+                ThumbnailSize.avatar_thumbnail => 150,
+                ThumbnailSize.banner => 1000,
                 _ => throw new ArgumentException("Unrecognized image size.")
             };
 
@@ -58,25 +60,40 @@ namespace AppViewLite.Web.Controllers
             if (storeToDisk)
             {
                 ReadOnlySpan<char> shortDid;
-                int cut = 3;
+                const int PAYLOAD_CUT = 3;
+                int shortDidCut;
                 if (did.StartsWith("did:plc:", StringComparison.Ordinal))
                 {
+                    // did:plc:aaaaaaaaaa -> aaa/aaaaaaa
                     shortDid = did.AsSpan(8);
+                    shortDidCut = PAYLOAD_CUT; 
                 }
                 else
                 {
-                    shortDid = did.Replace(':', '_').AsSpan(4);
-                    cut = 5;
+                    // did:other:aaaaaaaaaa -> did:other:aaa/aaaaaaa
+                    shortDid = did;
+                    var secondColon = did.IndexOf(':', 4);
+                    shortDidCut = secondColon + 1 + PAYLOAD_CUT;
                 }
+
+                shortDidCut = Math.Min(shortDidCut, shortDid.Length);
+
+                if (shortDid.ContainsAny('/', '\\')) throw new Exception();
+                var escapedPart1 = EscapeDidForFileSystem(shortDid.Slice(0, shortDidCut));
+                var escapedPart2 = EscapeDidForFileSystem(shortDid.Slice(shortDidCut));
 
 
                 var cacheDirectory = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IMAGE_CACHE_DIRECTORY) ?? apis.DangerousUnlockedRelationships.BaseDirectory + "/image-cache";
-                var cachePath = Path.Combine(cacheDirectory, size, shortDid.Slice(0, cut).ToString(), shortDid.Slice(cut).ToString() + "_" + cid + ".jpg");
+                var ext = ".jpg";
+                var filename = escapedPart2 + "_" + cid + ext;
+                if (filename.Length + 4 >= 255)
+                    filename = escapedPart2 + "_-" + Base32.ToBase32(System.Security.Cryptography.SHA256.HashData(Base32.FromBase32(cid))) + ext;
+                var cachePath = Path.Combine(cacheDirectory, size, escapedPart1, filename);
 
 
                 if (!System.IO.File.Exists(cachePath))
                 {
-                    using Image image = await GetImageAsync(did, cid, pds, sizePixels);
+                    using Image image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
                     try
@@ -104,15 +121,20 @@ namespace AppViewLite.Web.Controllers
             }
             else
             {
-                using Image image = await GetImageAsync(did, cid, pds, sizePixels);
+                using Image image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
                 SetMediaHeaders(cid);
                 await image.SaveAsJpegAsync(Response.Body, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 80 });
             }
         }
 
-        private async Task<Image> GetImageAsync(string did, string cid, string? pds, int sizePixels)
+        private static string EscapeDidForFileSystem(ReadOnlySpan<char> did)
         {
-            var bytes = await apis.GetBlobAsBytesAsync(did, cid, pds);
+            return did.ToString().Replace("_", "__").Replace(':', '_');
+        }
+
+        private async Task<Image> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)
+        {
+            var bytes = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
             if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
             var image = SixLabors.ImageSharp.Image.Load(bytes);
 
@@ -135,11 +157,20 @@ namespace AppViewLite.Web.Controllers
 
         private static ReadOnlySpan<byte> Magic_JPG => [0xff, 0xd8, 0xff];
         private static ReadOnlySpan<byte> Magic_PNG => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-        private bool StartsWithAllowlistedMagicNumber(ReadOnlySpan<byte> bytes)
+        private static ReadOnlySpan<byte> Magic_RIFF => "RIFF"u8;
+        private static ReadOnlySpan<byte> Magic_WEBP => [0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38];
+        private static ReadOnlySpan<byte> Magic_GIF87a => "GIF87a"u8;
+        private static ReadOnlySpan<byte> Magic_GIF89a => "GIF89a"u8;
+        private static bool StartsWithAllowlistedMagicNumber(ReadOnlySpan<byte> bytes)
         {
             return 
                 bytes.StartsWith(Magic_JPG) ||
-                bytes.StartsWith(Magic_PNG);
+                bytes.StartsWith(Magic_PNG) ||
+                bytes.StartsWith(Magic_WEBP) ||
+                bytes.StartsWith(Magic_GIF87a) ||
+                bytes.StartsWith(Magic_GIF89a) ||
+                (bytes.StartsWith(Magic_RIFF) && bytes.Slice(8).StartsWith(Magic_WEBP))
+                ;
         }
     }
 }

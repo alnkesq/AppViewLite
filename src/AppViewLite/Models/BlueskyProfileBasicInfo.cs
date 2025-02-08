@@ -17,8 +17,6 @@ namespace AppViewLite.Models
         [ProtoMember(15)] public string Description;
         [ProtoMember(16)] public bool? Dummy;
 
-        public string? AvatarCid;
-        public string? BannerCid;
         public string? Error;
         
     }

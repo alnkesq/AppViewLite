@@ -1003,6 +1003,25 @@ namespace AppViewLite
                 PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Rkey).TidValue : null,
             };
 
+            IndexProfile(plc, proto);
+            StoreProfileBasicInfo(plc, proto);
+        }
+
+        public void StoreProfileBasicInfo(Plc plc, BlueskyProfileBasicInfo proto)
+        {
+            lock (textCompressorUnlocked)
+            {
+                textCompressorUnlocked.CompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
+                textCompressorUnlocked.CompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
+            }
+
+
+
+            Profiles.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
+        }
+
+        internal void IndexProfile(Plc plc, BlueskyProfileBasicInfo proto)
+        {
             var nameWords = StringUtils.GetDistinctWords(proto.DisplayName);
             var descriptionWords = StringUtils.GetDistinctWords(proto.Description);
 
@@ -1015,19 +1034,9 @@ namespace AppViewLite
                 var hash = HashWord(word);
                 ProfileSearchDescriptionOnly.AddIfMissing(hash, plc);
             }
-
-            lock (textCompressorUnlocked)
-            {
-                textCompressorUnlocked.CompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
-                textCompressorUnlocked.CompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
-            }
-
-            
-
-            Profiles.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
         }
 
-        private void IndexProfileWord(string word, Plc plc)
+        internal void IndexProfileWord(string word, Plc plc)
         {
             var hash = HashWord(word);
             
@@ -2341,7 +2350,7 @@ namespace AppViewLite
             throw new Exception("Unknown PDS id:" + pds);
         }
 
-        internal void IndexHandleCore(string? handle, string did, Plc plc)
+        internal void IndexHandleCore(string? handle, Plc plc)
         {
             if (handle == null) return;
 
@@ -2356,13 +2365,13 @@ namespace AppViewLite
         internal void IndexHandle(string? handle, string did)
         {
             var plc = SerializeDid(did);
-            IndexHandleCore(handle, did, plc);
+            IndexHandleCore(handle, plc);
 
             if (did.StartsWith("did:web:", StringComparison.Ordinal)) 
             {
                 var domain = did.Substring(8);
                 if (domain != handle)
-                    IndexHandleCore(domain, did, plc);
+                    IndexHandleCore(domain, plc);
             }
         }
 

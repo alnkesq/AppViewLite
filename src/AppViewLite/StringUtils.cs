@@ -335,7 +335,7 @@ namespace AppViewLite
             return handle.ToLowerInvariant();
         }
 
-        public static (string? text, FacetData[]? facets) HtmlToFacets(IHtmlDocument dom, Uri baseUrl, Func<IElement, FacetData?> getFacet)
+        public static (string? Text, FacetData[]? Facets) HtmlToFacets(IHtmlElement dom, Func<IElement, FacetData?> getFacet)
         {
             var sb = new StringBuilder();
             var utf8length = 0;

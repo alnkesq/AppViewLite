@@ -22,9 +22,40 @@ namespace AppViewLite.PluggableProtocols
         public string DidPrefix { get; private set; }
         internal BlueskyEnrichedApis Apis;
 
+        private void EnsureOwnDid(string did)
+        {
+            if (!did.StartsWith(DidPrefix, StringComparison.Ordinal))
+                throw new ArgumentException();
+        }
+
+        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex)
+        {
+            EnsureOwnDid(did);
+            var didWords = StringUtils.GetDistinctWords(GetIndexableDidText(did));
+
+            Apis.WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                if (shouldIndex)
+                {
+                    rels.IndexProfile(plc, data);
+                    foreach (var word in didWords)
+                    {
+                        rels.IndexProfileWord(word, plc);
+                    }
+                    
+                }
+                
+                rels.StoreProfileBasicInfo(plc, data);
+            });
+        }
+
         public void OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex)
         {
             rootPostId ??= inReplyTo ?? postId;
+            EnsureOwnDid(postId.Did);
+            if(inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
+            EnsureOwnDid(rootPostId.Value.Did);
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
@@ -179,9 +210,19 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
+        public virtual string? TryGetOriginalProfileUrl(string did)
+        {
+            return null;
+        }
+
         public virtual Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
         {
             throw new NotSupportedException();
+        }
+
+        public virtual string? GetIndexableDidText(string did)
+        {
+            return null;
         }
     }
 }

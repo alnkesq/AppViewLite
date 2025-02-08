@@ -2267,8 +2267,21 @@ namespace AppViewLite
 
 
         private readonly static SearchValues<char> DidWebAllowedChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz-.");
-        
 
+
+        public static bool IsValidDid(string? did)
+        {
+            if (string.IsNullOrEmpty(did)) return false;
+            try
+            {
+                EnsureValidDid(did);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
         public static void EnsureValidDid(string did)
         {
             if (did.StartsWith("did:plc:", StringComparison.Ordinal))

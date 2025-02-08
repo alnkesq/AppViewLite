@@ -25,11 +25,21 @@
     private BlueskyPost[] Posts = [];
     const int MaxFollowersYouFollowNames = 3; // A, B and C    *or*   A, B and 2 others
     const int MaxFollowersYouFollowAvatars = 3;
+    private BlueskyProfileBasicInfo? data;
+    private AppViewLite.PluggableProtocols.PluggableProtocol? pluggable;
+    private string? pluggableExternalUrl;
+    private string? anchorTargetForProfileUrl;
     protected override async Task OnParametersSetAsync()
     {
         Did = (await Apis.ResolveHandleAsync(Did));
         Profile = await Apis.GetFullProfileAsync(Did, RequestContext, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
-        GuessedFacets = StringUtils.GuessFacets(Profile.Profile?.BasicData?.Description);
+        data = Profile.Profile?.BasicData;
+        pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Did);
+        pluggableExternalUrl = pluggable?.TryGetOriginalProfileUrl(Did);
+        anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
+        GuessedFacets =
+            data?.HasExplicitFacets == true ? data.DescriptionFacets :
+            StringUtils.GuessFacets(data?.Description);
         (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
             Did,
             includePosts: !ShowLikes,
@@ -75,8 +85,8 @@
         }
 
         <div class="profile-follow-links main-padding">
-            <a href="@Profile.Profile.BaseUrl/following" class="underline-on-hover">Following</a> ·
-            <a href="@Profile.Profile.BaseUrl/followers" class="underline-on-hover">Followers</a>
+            <a href="@(pluggable != null ? pluggableExternalUrl : Profile.Profile.BaseUrl + "/following")" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowingCount Following</a> ·
+            <a href="@(pluggable != null ? pluggableExternalUrl : Profile.Profile.BaseUrl + "/followers")" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowerCount Followers</a>
             @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == Profile.Profile.Plc)
             {
                 <text> ·</text>
@@ -134,6 +144,13 @@
                 <a class="search-link" href="/search?q= from:@Did" title="Search"><img src="/assets/search.png"></a>
             </div>
         </div>
+
+        @if (pluggableExternalUrl != null)
+        {
+            <div class="profile-link-to-full-profile">
+                <a href="@pluggableExternalUrl" target="_blank">See full profile on @(new Uri(pluggableExternalUrl).Host)</a>
+            </div>
+        }
         <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
     </div>
 }

@@ -45,27 +45,27 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public string acct;
         public string avatar_static;
         public string avatar;
-        public bool bot;
+        public bool? bot;
         public DateTime created_at;
-        public bool discoverable;
+        public bool? discoverable;
         public string display_name;
         public ActivityPubEmojiJson[] emojis;
         public ActivityPubAccountFieldJson[] fields;
         public long? followers_count;
         public long? following_count;
         public string fqn;
-        public bool group;
+        public bool? group;
         public string header_static;
         public string header;
         public string id;
         public string last_status_at;
-        public bool locked;
-        public bool noindex;
+        public bool? locked;
+        public bool? noindex;
         public ActivityPubNostrJson? nostr;
         public string? note;
         public ActivityPubRoleJson[] roles;
         public long? statuses_count;
-        public string uri;
+        public string? uri;
         public string? url;
         public string? username;
     }
@@ -119,7 +119,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public string shortcode;
         public string static_url;
         public string url;
-        public bool visible_in_picker;
+        public bool? visible_in_picker;
     }
 
 }

@@ -1471,3 +1471,12 @@ h1 .profile-badge img{
     margin-top: 4px;
     margin-bottom: 2px;
 }
+
+.profile-link-to-full-profile a {
+    padding: 10px;
+    background: #eee;
+    text-align: center;
+    margin: 50px 20%;
+    display: block;
+
+}

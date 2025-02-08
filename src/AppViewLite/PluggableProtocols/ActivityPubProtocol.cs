@@ -1,13 +1,13 @@
 using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
-using AngleSharp.Html.Parser;
 using AppViewLite.Models;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +17,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
     public class ActivityPubProtocol : PluggableProtocol
     {
         new const string DidPrefix = "did:fedi:";
+
+        private Stopwatch? RecentlyStoredProfilesLastReset;
+        private HashSet<UInt128> RecentlyStoredProfiles = new();
+
         public ActivityPubProtocol() : base(DidPrefix)
         {
         }
@@ -72,10 +76,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             var postId = new QualifiedPluggablePostId(did, nonQualifiedPostId);
 
             var card = post.card;
-            var dom = StringUtils.ParseHtml(post.content);
-            var (text, facets) = StringUtils.HtmlToFacets(dom, url, x => ElementToFacet(x, url));
+            var dom = StringUtils.ParseHtml(post.content).Body;
+            var (text, facets) = StringUtils.HtmlToFacets(dom, x => ElementToFacet(x, url));
 
-            if (card != null) { }
+            var shouldIndex = !(post.account.noindex == true);
 
             var data = new BlueskyPostData
             {
@@ -88,8 +92,84 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 Language = BlueskyRelationships.ParseLanguage(post.language),
                 Media = post.media_attachments != null && post.media_attachments.Length != 0 ? post.media_attachments.Select(x => ConvertMediaAttachment(x)).ToArray() : null
             };
-            OnPostDiscovered(postId, null, null, data, shouldIndex: true);
+            OnPostDiscovered(postId, null, null, data, shouldIndex: shouldIndex);
 
+            OnProfileReceived(did, author, post.account, url, shouldIndex);
+        }
+
+        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, bool shouldIndex)
+        {
+
+
+            lock (RecentlyStoredProfiles)
+            {
+                RecentlyStoredProfilesLastReset ??= Stopwatch.StartNew();
+                if (RecentlyStoredProfilesLastReset.Elapsed.TotalHours >= 6 || RecentlyStoredProfiles.Count >= 500_000)
+                {
+                    RecentlyStoredProfiles.Clear();
+                    RecentlyStoredProfilesLastReset.Restart();
+                }
+
+                if (!RecentlyStoredProfiles.Add(System.IO.Hashing.XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(did))))
+                    return;
+            }
+
+            var descriptionDom = StringUtils.ParseHtml(account.note).Body;
+            var description = StringUtils.HtmlToFacets(descriptionDom, x => ElementToFacet(x, baseUrl));
+            var proto = new BlueskyProfileBasicInfo
+            {
+                DisplayName = account.display_name,
+                HasExplicitFacets = true,
+                DescriptionFacets = description.Facets,
+                Description = description.Text,
+                PluggableProtocolFollowerCount = account.followers_count,
+                PluggableProtocolFollowingCount = account.following_count,
+                AvatarCidBytes = MediaUrlsToBytes(account.avatar_static ?? account.avatar, null),
+                BannerCidBytes = MediaUrlsToBytes(account.header_static ?? account.header, null),
+                CustomFields = account.fields?.Select(x => ConvertFieldToProto(x, baseUrl)).Where(x => x != null).ToArray()
+            };
+            if (proto.CustomFields != null && proto.CustomFields.Length == 0)
+                proto.CustomFields = null;
+            OnProfileDiscovered(did, proto, shouldIndex: shouldIndex);
+            
+        }
+
+        private CustomFieldProto? ConvertFieldToProto(ActivityPubAccountFieldJson x, Uri baseUrl)
+        {
+            var dom = StringUtils.ParseHtml(x.value).Body!;
+            while (ShouldTrimEmptyNode(dom.FirstChild))
+                dom.FirstChild!.RemoveFromParent();
+            while (ShouldTrimEmptyNode(dom.LastChild))
+                dom.LastChild!.RemoveFromParent();
+
+            string? value;
+            if (dom.ChildNodes.Length == 1 && dom.FirstElementChild != null && TryGetAnchorUrl(dom.FirstElementChild, baseUrl) is { } url)
+            {
+                value = url.AbsoluteUri;
+            }
+            else
+            {
+                (value, _) = StringUtils.HtmlToFacets(dom, x => null);
+            }
+
+            if (value == null) return null;
+            return new CustomFieldProto
+            {
+                Name = x.name,
+                VerifiedAt = x.verified_at,
+                Value = value,
+            };
+        }
+
+        private static Uri? TryGetAnchorUrl(IElement a, Uri baseUrl)
+        {
+            if (a.TagName != "A") return null;
+            return Uri.TryCreate(baseUrl, a.GetAttribute("href"), out var result) ? result : null;
+        }
+
+        private bool ShouldTrimEmptyNode(INode? node)
+        {
+            return node != null && node.NodeType == NodeType.Text && string.IsNullOrWhiteSpace(node.TextContent);
         }
 
         private static BlueskyMediaData ConvertMediaAttachment(ActivityPubMediaAttachmentJson x)
@@ -98,10 +178,17 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return new BlueskyMediaData
             {
                  AltText = x.description,
-                 Cid = BlueskyRelationships.CompressBpe(x.remote_url + "\n" + x.preview_url)!,
+                 Cid = MediaUrlsToBytes(x.remote_url, x.preview_url)!,
                  IsVideo = x.type?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
             };
         }
+
+        private static byte[]? MediaUrlsToBytes(string? fullUrl, string? previewUrl)
+        {
+            if (fullUrl == null && previewUrl == null) return null;
+            return BlueskyRelationships.CompressBpe(fullUrl + "\n" + previewUrl);
+        }
+
         public async override Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
         {
             var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n');
@@ -114,13 +201,12 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         private static FacetData? ElementToFacet(IElement element, Uri baseUrl)
         {
             
-            var href = element.TagName == "A" ? element.GetAttribute("href") : null;
 
-            if (Uri.TryCreate(baseUrl, href, out var url))
+            if (TryGetAnchorUrl(element, baseUrl) is { } url)
             {
                 var segments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                if (element.ClassList.Contains("hashtag"))
+                if (element.ClassList.Contains("hashtag") || element.GetAttribute("rel") == "tag")
                 {
                     // don't care
                 }
@@ -130,18 +216,56 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                     "hashtag" or
                     "hashtags" or
                     "topic" or
-                    "topics" && element.Text().Equals(("#" + segments[1]), StringComparison.InvariantCultureIgnoreCase))
+                    "topics" && element.Text().Equals(("#" + Uri.UnescapeDataString(segments[1])), StringComparison.InvariantCultureIgnoreCase))
                 {
                     // don't care
+                }
+                else if (element.ClassList.Contains("mention") && TryGetDidFromUrl(url) is { } did)
+                {
+                    return new FacetData { Did = did };
+                }
+                else if (url.Host == "bsky.brid.gy" && url.AbsolutePath.StartsWith("/ap/did:", StringComparison.Ordinal) && segments.Length == 2 && BlueskyEnrichedApis.IsValidDid(segments[1]))
+                {
+                    return new FacetData { Did = segments[1] };
                 }
                 else
                 {
                     var link = url.AbsoluteUri;
-                    if (link == element.Text())
+                    if (Uri.TryCreate(element.Text(), UriKind.Absolute, out var textLink) && textLink.AbsoluteUri == link)
                         return new FacetData { SameLinkAsText = true };
-                    else
-                        return new FacetData { Link = link };
+
+                    return new FacetData { Link = link };
+                    
                 }
+            }
+            return null;
+        }
+
+        private static string? TryGetDidFromUrl(Uri url)
+        {
+
+            try
+            {
+                var segments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (segments.Length == 1 && segments[0].StartsWith('@') && string.IsNullOrEmpty(url.Query))
+                {
+                    var username = segments[0];
+                    if (username.StartsWith('@'))
+                        username = username.Substring(1);
+                    var at = username.IndexOf('@');
+                    if (at != -1)
+                        return GetDid(new ActivityPubUserId(username.Substring(at + 1), username.Substring(0, at)));
+                    else
+                    {
+                        var host = url.Host;
+                        if (host.StartsWith("www.", StringComparison.Ordinal))
+                            host = host.Substring(4);
+                        return GetDid(new ActivityPubUserId(host, username));
+                    }
+                }
+            }
+            catch
+            {
             }
             return null;
         }
@@ -257,10 +381,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         public override string? TryGetHandleFromDid(string did)
         {
-            return GetUserFromDid(did).ToString().Substring(1);
+            return ParseDid(did).ToString().Substring(1);
         }
 
-        public static ActivityPubUserId GetUserFromDid(string did)
+        public static ActivityPubUserId ParseDid(string did)
         {
             var parts = did.Substring(DidPrefix.Length).Split(':');
             return new ActivityPubUserId(parts[0], parts[1]);
@@ -268,7 +392,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
         {
-            var user = GetUserFromDid(postId.Did);
+            var user = ParseDid(postId.Did);
             var postIdStr = postId.PostId.AsString;
             if (postIdStr.StartsWith('/'))
                 return "https://" + user.Instance + postIdStr;
@@ -278,6 +402,18 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 return "https://" + user.Instance + "/@" + user.UserName + "/" + postIdStr;
         }
 
+
+        public override string? TryGetOriginalProfileUrl(string did)
+        {
+            var user = ParseDid(did);
+            return "https://" + user.Instance + "/@" + user.UserName;
+        }
+
+        public override string GetIndexableDidText(string did)
+        {
+            var user = ParseDid(did);
+            return user.Instance + " " + user.UserName;
+        }
     }
 
 
@@ -287,7 +423,15 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public ActivityPubUserId Normalize()
         {
             if (this == default) return default;
-            return new ActivityPubUserId(Instance.ToLowerInvariant(), UserName.ToLowerInvariant());
+            string instance = this.Instance.ToLowerInvariant();
+            if (!BlueskyEnrichedApis.IsValidDomain(Instance) && !Instance.AsSpan().ContainsAny("/@:% "))
+            {
+                if (Uri.TryCreate("https://" + Instance + "/", UriKind.Absolute, out var url) && url.PathAndQuery == "/")
+                {
+                    instance = url.IdnHost;
+                }
+            }
+            return new ActivityPubUserId(instance.ToLowerInvariant(), UserName.ToLowerInvariant());
         }
         public static ActivityPubUserId Parse(string userAtHost, string? defaultDomain = null)
         {

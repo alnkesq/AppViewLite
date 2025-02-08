@@ -73,6 +73,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             var author = ParseActivityPubUserId(post.account, post.url).Normalize();
             if (author == default) return;
             if (author.Instance == "bsky.brid.gy") return;
+            if (author.Instance.EndsWith(".mostr.pub", StringComparison.Ordinal)) return;
             if (ExcludedInstances.Contains(author.Instance)) return;
 
             var url = new Uri(post.url);

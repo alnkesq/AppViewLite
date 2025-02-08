@@ -44,11 +44,14 @@ namespace AppViewLite.PluggableProtocols
                 data.RootPostRKey = rootPostId.Value.PostId.Tid.TidValue;
                 data.PluggableRootPostId = rootPostId.Value.PostId;
 
-                rels.IndexPost(data);
-
-                foreach (var hashtag in StringUtils.GuessHashtags(data.Text))
+                if (shouldIndex)
                 {
-                    rels.AddToSearchIndex(hashtag.ToLowerInvariant(), BlueskyRelationships.GetApproxTime32(data.PostId.PostRKey));
+                    rels.IndexPost(data);
+
+                    foreach (var hashtag in StringUtils.GuessHashtags(data.Text))
+                    {
+                        rels.AddToSearchIndex(hashtag.ToLowerInvariant(), BlueskyRelationships.GetApproxTime32(data.PostId.PostRKey));
+                    }
                 }
 
                 if (inReplyTo != null)

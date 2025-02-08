@@ -88,7 +88,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 Language = BlueskyRelationships.ParseLanguage(post.language),
                 Media = post.media_attachments != null && post.media_attachments.Length != 0 ? post.media_attachments.Select(x => ConvertMediaAttachment(x)).ToArray() : null
             };
-            OnPostDiscovered(postId, null, null, data, shouldIndex: false);
+            OnPostDiscovered(postId, null, null, data, shouldIndex: true);
 
         }
 

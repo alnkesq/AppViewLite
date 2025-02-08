@@ -1,5 +1,7 @@
+using Google.Protobuf.WellKnownTypes;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,7 +14,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
     public class ActivityPubPostJson
     {
         public ActivityPubAccountJson account;
-        public ActivityPubCard card;
+        public ActivityPubCardJson card;
         public string content;
         public DateTime created_at;
         public string? in_reply_to_account_id;
@@ -21,12 +23,14 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public ActivityPubMentionJson[] mentions;
         public ActivityPubPostJson reblog;
         public string spoiler_text;
-        public ActivityPubTag[] tags;
+        public ActivityPubTagJson[] tags;
         public string url;
     }
     public class ActivityPubMentionJson
     {
         public string acct;
+        public string id;
+        public string url;
         public string username;
     }
     public class ActivityPubMediaAttachmentJson
@@ -39,26 +43,40 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
     public class ActivityPubAccountJson
     {
         public string acct;
-        public string? created_at;
+        public string avatar_static;
+        public string avatar;
+        public bool bot;
+        public DateTime created_at;
+        public bool discoverable;
         public string display_name;
-        public ActivityPubAccountField[] fields;
+        public ActivityPubEmojiJson[] emojis;
+        public ActivityPubAccountFieldJson[] fields;
         public long? followers_count;
         public long? following_count;
         public string fqn;
-        public ActivityPubNostr? nostr;
+        public bool group;
+        public string header_static;
+        public string header;
+        public string id;
+        public string last_status_at;
+        public bool locked;
+        public bool noindex;
+        public ActivityPubNostrJson? nostr;
         public string? note;
+        public ActivityPubRoleJson[] roles;
         public long? statuses_count;
+        public string uri;
         public string? url;
         public string? username;
     }
-    public class ActivityPubNostr
+    public class ActivityPubNostrJson
     {
     }
-    public class ActivityPubTag
+    public class ActivityPubTagJson
     {
         public string name;
     }
-    public class ActivityPubAccountField
+    public class ActivityPubAccountFieldJson
     {
         public string name;
         public string value;
@@ -66,7 +84,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
     }
 
 
-    public class ActivityPubCard
+    public class ActivityPubCardJson
     {
         public string author_name;
         public string author_url;
@@ -89,7 +107,20 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
     }
 
 
+    public class ActivityPubRoleJson
+    {
+        public string color;
+        public string id;
+        public string name;
+    }
 
+    public class ActivityPubEmojiJson
+    {
+        public string shortcode;
+        public string static_url;
+        public string url;
+        public bool visible_in_picker;
+    }
 
 }
 

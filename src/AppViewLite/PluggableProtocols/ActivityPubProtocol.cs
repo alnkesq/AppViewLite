@@ -227,7 +227,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public async override Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
         {
             var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n');
-            var url = (preferredSize == ThumbnailSize.feed_fullsize || preferredSize == ThumbnailSize.avatar) ? urls[1] : urls[0];
+            var url = (preferredSize == ThumbnailSize.feed_fullsize || preferredSize == ThumbnailSize.avatar) ? urls[0] : urls[1];
             if(string.IsNullOrEmpty(url))
                  url = urls.First(x => !string.IsNullOrEmpty(x));
             return await BlueskyEnrichedApis.DefaultHttpClient.GetByteArrayAsync(url);

@@ -25,6 +25,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public string spoiler_text;
         public ActivityPubTagJson[] tags;
         public string url;
+        public ActivityPubEmojiJson[] emojis;
     }
     public class ActivityPubMentionJson
     {

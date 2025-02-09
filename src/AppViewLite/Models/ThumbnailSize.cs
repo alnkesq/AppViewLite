@@ -14,6 +14,8 @@ namespace AppViewLite.Models
         avatar,
         avatar_thumbnail,
         banner,
+        emoji,
+        emoji_profile_name,
     }
 }
 

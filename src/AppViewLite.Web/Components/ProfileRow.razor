@@ -26,7 +26,7 @@
     </a>
     <div class="profile-indented profile-row-meta">
         <a href="@Profile.BaseUrl" class="profile-row-name">
-            <TextWithFacets Text="@Profile.DisplayNameOrFallback" Facets="@Profile.BasicData?.DisplayNameFacets"></TextWithFacets>
+            <TextWithFacets Text="@Profile.DisplayNameOrFallback" Facets="@Profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets>
         </a>
         <ProfileBadges Profile="@Profile" />
     </div>

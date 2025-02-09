@@ -5,18 +5,19 @@
     [Parameter] public string? Text { get; set; }
     [Parameter] public FacetData?[] Facets { get; set; }
     [Parameter] public string? LinkRestToThread { get; set; }
+    [Parameter] public bool IsProfileDisplayName { get; set; }
 
-    private List<(string Text, string? Link, string? CustomEmojiUrl)> Parts;
+    private List<(string Text, string? Link, CustomEmoji? CustomEmoji)> Parts;
     private bool HasLinks;
 
-    private void AddPart(string text, string? link, string? customEmojiUrl)
+    private void AddPart(string text, string? link, CustomEmoji? customEmoji)
     {
-        Parts.Add((text, link, customEmojiUrl));
+        Parts.Add((text, link, customEmoji));
     }
 
-    private void AddPart(ReadOnlySpan<byte> utf8, string? link, string? customEmojiUrl)
+    private void AddPart(ReadOnlySpan<byte> utf8, string? link, CustomEmoji? customEmoji)
     {
-        AddPart(System.Text.Encoding.UTF8.GetString(utf8), link, customEmojiUrl);
+        AddPart(System.Text.Encoding.UTF8.GetString(utf8), link, customEmoji);
     }
 
     protected override void OnParametersSet()
@@ -54,11 +55,11 @@
             if (textBetween.Length != 0)
                 AddPart(textBetween, null, null);
 
-            string? customEmojiUrl = null;
+            CustomEmoji? customEmojiUrl = null;
             string? link = null;
             if (facet.CustomEmojiHashHi != null)
             {
-                customEmojiUrl = Apis.TryGetCustomEmojiUrl(facet.CustomEmojiHash.Value);
+                customEmojiUrl = Apis.TryGetCustomEmoji(facet.CustomEmojiHash.Value);
             }
             else 
             {
@@ -115,9 +116,9 @@
     {
         <a href="@part.Link" target="@(part.Link[0] != '/' ? "_blank" : null)" class="blue-link" rel="noreferrer nofollow">@part.Text</a>
     }
-    else if(part.CustomEmojiUrl != null)
+    else if(part.CustomEmoji != null)
     {
-        <img src="@part.CustomEmojiUrl" class="custom-emoji" alt="@part.Text" title="@part.Text" rel="noreferrer" >
+        <img src="@Apis.GetCustomEmojiUrl(part.CustomEmoji, IsProfileDisplayName ? ThumbnailSize.emoji_profile_name : ThumbnailSize.emoji)" class="custom-emoji" alt="@part.Text.Replace(":", null)" rel="noreferrer">
     }
     else
     {

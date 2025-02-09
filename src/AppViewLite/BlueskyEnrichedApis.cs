@@ -1355,7 +1355,13 @@ namespace AppViewLite
             return coalescedList.ToArray();
         }
 
-        internal string? GetAvatarUrl(string did, byte[]? avatarCid, string? pds)
+        public string GetCustomEmojiUrl(CustomEmoji emoji, ThumbnailSize size)
+        {
+            var url = new Uri(emoji.Url);
+            return GetImageUrl(size, "host:" + url.Host, Encoding.UTF8.GetBytes(url.PathAndQuery), null);
+        }
+
+        public string? GetAvatarUrl(string did, byte[]? avatarCid, string? pds)
         {
             return GetImageUrl(ThumbnailSize.avatar_thumbnail, did, avatarCid, pds);
         }
@@ -1371,7 +1377,6 @@ namespace AppViewLite
         {
             return GetImageUrl(ThumbnailSize.feed_fullsize, did, cid, pds);
         }
-
 
         public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
@@ -2375,6 +2380,11 @@ namespace AppViewLite
 
         public async Task<byte[]> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
         {
+            if (did.StartsWith("host:", StringComparison.Ordinal))
+            {
+                return await DefaultHttpClient.GetByteArrayAsync("https://" + did.Substring(5) + Encoding.UTF8.GetString(Base32.FromBase32(cid)));
+            }
+
             var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
             if (pluggable != null)
             {
@@ -2441,12 +2451,12 @@ namespace AppViewLite
             });
         }
 
-        public string? TryGetCustomEmojiUrl(DuckDbUuid hash)
+        public CustomEmoji? TryGetCustomEmoji(DuckDbUuid hash)
         {
             return WithRelationshipsLock(rels =>
             {
                 if (rels.CustomEmojis.TryGetPreserveOrderSpanAny(hash, out var bytes))
-                    return BlueskyRelationships.DeserializeProto<CustomEmoji>(bytes.AsSmallSpan()).Url;
+                    return BlueskyRelationships.DeserializeProto<CustomEmoji>(bytes.AsSmallSpan());
                 return null;
             });
         }

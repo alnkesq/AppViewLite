@@ -118,7 +118,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             if (post.in_reply_to_account_id != null)
                 data.IsReplyToUnspecifiedPost = true;
 
-            var customEmojis = post.account?.emojis?.Select(x => new CustomEmoji(x.shortcode, x.url ?? x.static_url)).ToArray();
+            var customEmojis = (post.emojis ?? []).Concat(post.account?.emojis ?? []).Select(x => new CustomEmoji(x.shortcode, x.static_url ?? x.url)).ToArray();
 
             Apis.MaybeAddCustomEmojis(customEmojis);
 
@@ -227,7 +227,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public async override Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
         {
             var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n');
-            var url = (preferredSize == ThumbnailSize.feed_fullsize || preferredSize == ThumbnailSize.avatar) ? urls[0] : urls[1];
+            var url = (preferredSize == ThumbnailSize.feed_fullsize || preferredSize == ThumbnailSize.avatar) ? urls[0] : urls[^1];
             if(string.IsNullOrEmpty(url))
                  url = urls.First(x => !string.IsNullOrEmpty(x));
             return await BlueskyEnrichedApis.DefaultHttpClient.GetByteArrayAsync(url);

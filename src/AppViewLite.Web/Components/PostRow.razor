@@ -193,7 +193,7 @@
 
     <div class="post-meta post-indented">
         <a class="post-author underline-on-hover" href="@Post.Author.BaseUrl">
-            <TextWithFacets Text="@Post.Author.DisplayNameOrFallback" Facets="@Post.Author.BasicData?.DisplayNameFacets"></TextWithFacets>
+            <TextWithFacets Text="@Post.Author.DisplayNameOrFallback" Facets="@Post.Author.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets>
         </a>
         <ProfileBadges Profile="@Post.Author" />
         <ProfileHandle Profile="@Post.Author" />

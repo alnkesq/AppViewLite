@@ -2,7 +2,9 @@ using AppViewLite.Models;
 using Ipfs;
 using Microsoft.AspNetCore.Mvc;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Transforms;
 using System.Buffers;
 
 namespace AppViewLite.Web.Controllers
@@ -32,14 +34,18 @@ namespace AppViewLite.Web.Controllers
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
             var sizeEnum = Enum.Parse<ThumbnailSize>(size);
 
-            BlueskyEnrichedApis.EnsureValidDid(did);
-
-            var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
-
-            if (pluggable == null)
+            var isRawUrl = did.StartsWith("host:", StringComparison.Ordinal);
+            if (!isRawUrl)
             {
-                if (cid.Length != 59) throw new Exception("Invalid CID length.");
-                if (cid.AsSpan().ContainsAnyExcept(CidChars)) throw new Exception("CID contains invalid characters.");
+                BlueskyEnrichedApis.EnsureValidDid(did);
+
+                var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
+
+                if (pluggable == null)
+                {
+                    if (cid.Length != 59) throw new Exception("Invalid CID length.");
+                    if (cid.AsSpan().ContainsAnyExcept(CidChars)) throw new Exception("CID contains invalid characters.");
+                }
             }
 
             var sizePixels = sizeEnum switch
@@ -49,12 +55,14 @@ namespace AppViewLite.Web.Controllers
                 ThumbnailSize.avatar => 1000,
                 ThumbnailSize.avatar_thumbnail => 150,
                 ThumbnailSize.banner => 1000,
+                ThumbnailSize.emoji or ThumbnailSize.emoji_profile_name => 64,
                 _ => throw new ArgumentException("Unrecognized image size.")
             };
 
             var storeToDisk =
-                size == "avatar_thumbnail" ? CacheAvatars :
-                size is "feed_thumbnail" or "banner" ? CacheFeedThumbs : 
+                sizeEnum is ThumbnailSize.emoji or ThumbnailSize.emoji_profile_name ? true :
+                sizeEnum is ThumbnailSize.avatar_thumbnail ? CacheAvatars :
+                sizeEnum is ThumbnailSize.feed_thumbnail or ThumbnailSize.banner ? CacheFeedThumbs : 
                 false;
 
             if (storeToDisk)
@@ -62,11 +70,17 @@ namespace AppViewLite.Web.Controllers
                 ReadOnlySpan<char> shortDid;
                 const int PAYLOAD_CUT = 3;
                 int shortDidCut;
-                if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+                if (isRawUrl)
+                {
+                    // host:example.com -> host:exa/mple.com
+                    shortDid = did;
+                    shortDidCut = 8;
+                }
+                else if (did.StartsWith("did:plc:", StringComparison.Ordinal))
                 {
                     // did:plc:aaaaaaaaaa -> aaa/aaaaaaa
                     shortDid = did.AsSpan(8);
-                    shortDidCut = PAYLOAD_CUT; 
+                    shortDidCut = PAYLOAD_CUT;
                 }
                 else
                 {
@@ -90,17 +104,20 @@ namespace AppViewLite.Web.Controllers
                 var filename = escapedPart2 + "_" + cid + ext;
                 if (filename.Length + 4 >= 255)
                     filename = escapedPart2 + "_-" + Base32.ToBase32(System.Security.Cryptography.SHA256.HashData(Base32.FromBase32(cid))) + ext;
-                var cachePath = Path.Combine(cacheDirectory, size, escapedPart1, filename);
+                var cachePath = Path.Combine(cacheDirectory, sizeEnum.ToString(), escapedPart1, filename);
 
 
                 if (!System.IO.File.Exists(cachePath))
                 {
-                    using Image image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
                     try
                     {
-                        await image.SaveAsJpegAsync(cachePath + ".tmp", new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 70 });
+                        using (var cacheStream = new System.IO.FileStream(cachePath + ".tmp", FileMode.Create, FileAccess.Write))
+                        {
+                            await WriteImageAsync(image, cacheStream, sizeEnum);
+                        }
                         System.IO.File.Move(cachePath + ".tmp", cachePath);
                     }
                     catch when (System.IO.File.Exists(cachePath)) 
@@ -123,9 +140,18 @@ namespace AppViewLite.Web.Controllers
             }
             else
             {
-                using Image image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
                 SetMediaHeaders(cid);
-                await image.SaveAsJpegAsync(Response.Body, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 80 });
+                await WriteImageAsync(image, Response.Body, sizeEnum);
+            }
+        }
+
+        private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream, ThumbnailSize size)
+        {
+            EnsureNotConfusableWithVerifiedBadge(ref image);
+            using (image)
+            {
+                await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 70 });
             }
         }
 
@@ -137,17 +163,158 @@ namespace AppViewLite.Web.Controllers
                 .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
-        private async Task<Image> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)
+        private async Task<Image<Rgba32>> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)
         {
             var bytes = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
             if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
-            var image = SixLabors.ImageSharp.Image.Load(bytes);
+            var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
 
             if (Math.Max(image.Width, image.Height) > sizePixels)
             {
                 image.Mutate(m => m.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new SixLabors.ImageSharp.Size(sizePixels, sizePixels) }));
             }
+
+            if (sizeEnum == ThumbnailSize.emoji_profile_name)
+            {
+                EnsureNotConfusableWithVerifiedBadge(ref image);
+            }
             return image;
+        }
+
+        private readonly static Rgba32 Color_VerifiedGeneric = new Rgba32(0x1D, 0xA1, 0xF2);
+        private readonly static Rgba32 Color_VerifiedOrganization = new Rgba32(0xE2, 0xB7, 0x19);
+        private readonly static Rgba32 Color_VerifiedGovernment = new Rgba32(0x82, 0x9A, 0xAB);
+        private const double VerifiedBadgeThreshold = 0.9;
+        private const int ColorComponentDeltaThreshold = 30;
+        private static bool AreColorsSimilar(Rgba32 a, Rgba32 b)
+        {
+            var deltaR = Math.Abs((int)a.R - b.R);
+            var deltaG = Math.Abs((int)a.G - b.G);
+            var deltaB = Math.Abs((int)a.B - b.B);
+            return
+                deltaR < ColorComponentDeltaThreshold &&
+                deltaG < ColorComponentDeltaThreshold &&
+                deltaB < ColorComponentDeltaThreshold;
+        }
+        private static Rgba32 BlendWithWhiteBackground(Rgba32 color)
+        {
+            byte alpha = color.A;
+
+            if (alpha == 255) return new Rgba32(color.R, color.G, color.B, 255);
+            if (alpha == 0) return new Rgba32(255, 255, 255, 255);
+
+            float alphaFactor = alpha / 255f;
+
+            byte r = (byte)(color.R * alphaFactor + 255 * (1 - alphaFactor));
+            byte g = (byte)(color.G * alphaFactor + 255 * (1 - alphaFactor));
+            byte b = (byte)(color.B * alphaFactor + 255 * (1 - alphaFactor));
+
+            return new Rgba32(r, g, b, 255);
+        }
+        public static void EnsureNotConfusableWithVerifiedBadge(ref Image<Rgba32> image)
+        {
+            using var small = image.Clone(m => m.Resize(new ResizeOptions 
+            {
+                Mode = ResizeMode.Max,
+                Size = new SixLabors.ImageSharp.Size(48, 48),
+                Sampler = new NearestNeighborResampler(),
+            }));
+            int pixelsTotal = 0;
+            var pixelsVerifiedGeneric = 0;
+            var pixelsVerifiedOrganization = 0;
+            var pixelsVerifiedGovernment = 0;
+            var pixelsWhite = 0;
+            var pixelsNonWhite = 0;
+
+            small.ProcessPixelRows(x =>
+            {
+                for (int row = 0; row < x.Height; row++)
+                {
+                    var rowSpan = x.GetRowSpan(row);
+                    for (int col = 0; col < rowSpan.Length; col++)
+                    {
+                        var pixel = rowSpan[col];
+                        Rgba32 debugColor;
+                        if (pixel.A < 48)
+                        {
+                            debugColor = Color.Gray;
+                        }
+                        else
+                        {
+                            pixelsTotal++;
+                            var opaque = BlendWithWhiteBackground(pixel);
+                            
+
+                            if (AreColorsSimilar(opaque, Color.White))
+                            {
+
+                                pixelsWhite++;
+                                debugColor = Color.Red;
+                            }
+                            else
+                            {
+                                pixelsNonWhite++;
+
+                                if (AreColorsSimilar(opaque, Color_VerifiedGeneric))
+                                {
+                                    pixelsVerifiedGeneric++;
+                                    debugColor = Color.Green;
+                                }
+                                else if (AreColorsSimilar(opaque, Color_VerifiedOrganization))
+                                {
+                                    pixelsVerifiedOrganization++;
+                                    debugColor = Color.Blue;
+                                }
+                                else if (AreColorsSimilar(opaque, Color_VerifiedGovernment))
+                                {
+                                    pixelsVerifiedGovernment++;
+                                    debugColor = Color.DeepPink;
+                                }
+                                else
+                                {
+                                    debugColor = opaque;
+                                }
+                            }
+                        }
+
+                        //small[col, row] = debugColor;
+                    }
+
+                }
+            });
+
+            if (pixelsNonWhite < 10) return;
+
+            // 0.087 for verified badge
+            var whitePixelsRatio = (float)pixelsWhite / pixelsTotal; 
+
+            // 0.996 for verified badge
+            var verifiedGenericRatio = (float)pixelsVerifiedGeneric / pixelsNonWhite;
+            var verifiedOrganizationRatio = (float)pixelsVerifiedOrganization / pixelsNonWhite;
+            var verifiedGovernmentRatio = (float)pixelsVerifiedGovernment / pixelsNonWhite;
+
+            if (verifiedGenericRatio > VerifiedBadgeThreshold ||
+                verifiedOrganizationRatio > VerifiedBadgeThreshold)
+            {
+                image.Mutate(m => m.Saturate(0.3f).Opacity(0.3f));
+                RemoveOldPalette(ref image);
+            }
+            else if (verifiedGovernmentRatio > VerifiedBadgeThreshold)
+            {
+                image.Mutate(m => m.Brightness(0.3f));
+                RemoveOldPalette(ref image);
+            }
+
+        }
+
+        private static void RemoveOldPalette(ref Image<Rgba32> image)
+        {
+            // https://github.com/SixLabors/ImageSharp/issues/2865
+            var other = new Image<Rgba32>(image.Width, image.Height);
+            var image_ = image;
+            other.Mutate(m => m.DrawImage(image_, 1));
+            image.Dispose();
+            image = other;
         }
 
         private void SetMediaHeaders(string cid)

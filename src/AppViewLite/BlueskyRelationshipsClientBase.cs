@@ -39,6 +39,24 @@ namespace AppViewLite
                 return plc;
             }, func);
         }
+        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func)
+        {
+            WithRelationshipsLockForDids(dids, (plcs, rels) => { func(plcs, rels); return 0; });
+        }
+        public T WithRelationshipsLockForDids<T>(string[] dids, Func<Plc[], BlueskyRelationships, T> func)
+        {
+            return WithRelationshipsLockWithPreamble(rels =>
+            {
+                var result = new Plc[dids.Length];
+                for (int i = 0; i < dids.Length; i++)
+                {
+                    var plc = rels.TrySerializeDidMaybeReadOnly(dids[i]);
+                    if(plc == default) return PreambleResult<Plc[]>.NeedsWrite;
+                    result[i] = plc;
+                }
+                return result;
+            }, func);
+        }
 
         public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func)
         {

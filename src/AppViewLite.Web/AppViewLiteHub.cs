@@ -46,9 +46,10 @@ namespace AppViewLite.Web
         public void VerifyUncertainHandlesForDids(string[] dids)
         {
             var ctx = RequestContext;
-            var pairs = apis.WithRelationshipsLock(rels =>
+            
+            var pairs = apis.WithRelationshipsLockForDids(dids, (plcs, rels) =>
             {
-                return dids.Select(did => (Did: did, PossibleHandle: rels.TryGetLatestDidDoc(rels.SerializeDid(did))?.Handle)).ToArray();
+                return plcs.Select((plc, i) => (Did: dids[i], PossibleHandle: rels.TryGetLatestDidDoc(plc)?.Handle)).ToArray();
             });
             foreach (var pair in pairs)
             {

@@ -68,6 +68,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
                 // RSS mirrors
                 "rss-parrot.net",
+                "flipboard.com",
 
                 // nostr mirrors
                 "cash.app",

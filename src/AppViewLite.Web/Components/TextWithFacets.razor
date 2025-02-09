@@ -12,6 +12,27 @@
 
     private void AddPart(string text, string? link, CustomEmoji? customEmoji)
     {
+        if (link != null && (text.StartsWith("http://") || text.StartsWith("https://")) && link.StartsWith("http"))
+        {
+            if (Uri.TryCreate(link, UriKind.Absolute, out var url))
+            {
+                if (text == url.AbsoluteUri || text == url.ToString())
+                {
+                    var authority = url.Authority;
+                    if (authority.StartsWith("www.", StringComparison.Ordinal))
+                        authority = authority.Substring(4);
+                    var pathAndQuery = url.ToString(); // minimal escaping
+                    var slash = pathAndQuery.IndexOf('/', 8);
+                    pathAndQuery = pathAndQuery.Substring(slash);
+
+                    if (pathAndQuery.Length >= 25)
+                        pathAndQuery = pathAndQuery.Substring(0, 20) + "…";
+                    text = authority + pathAndQuery;
+
+                }
+
+            }
+        }
         Parts.Add((text, link, customEmoji));
     }
 

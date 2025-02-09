@@ -998,72 +998,94 @@ namespace AppViewLite
 
             ];
 
-            var nextPages = await Task.WhenAll(mergeableEnumerators.Select(x => x.GetNextPageAsync()));
-            if (nextPages.All(x => x.Length == 0)) return ([], null);
-            var safeOldest = nextPages.Where(x => x.Length != 0).Max(x => x[^1].RKey);
-
-            var merged = nextPages
-                .SelectMany(x => x)
-                .Where(x => x.RKey.CompareTo(safeOldest) >= 0)
-                .DistinctBy(x => x.PostId)
-                .OrderByDescending(x => x.RKey)
-                .ToArray();
-
-
-            for (int i = 0; i < mergeableEnumerators.Length; i++)
+            var iterationCount = 0;
+            while (true)
             {
-                var enumerator = mergeableEnumerators[i];
-                var lastPage = nextPages[i];
-                var hasMore = 
-                    enumerator.LastReturnedTid != default &&
-                    (
-                        (lastPage.Length != 0 && lastPage[^1].RKey.CompareTo(safeOldest) < 0) ||
-                        lastPage.Length == limit
-                    );
-                if (hasMore)
-                    enumerator.LastReturnedTid = safeOldest;
-                else
-                    enumerator.LastReturnedTid = default;
+                iterationCount++;
+
+                var nextPages = await Task.WhenAll(mergeableEnumerators.Select(x => x.GetNextPageAsync()));
+                if (nextPages.All(x => x.Length == 0)) return ([], null);
+                var safeOldest = nextPages.Where(x => x.Length != 0).Max(x => x[^1].RKey);
+
+                var merged = nextPages
+                    .SelectMany(x => x)
+                    .Where(x => x.RKey.CompareTo(safeOldest) >= 0)
+                    .DistinctBy(x => x.PostId)
+                    .OrderByDescending(x => x.RKey)
+                    .ToArray();
+
+
+                for (int i = 0; i < mergeableEnumerators.Length; i++)
+                {
+                    var enumerator = mergeableEnumerators[i];
+                    var lastPage = nextPages[i];
+                    var hasMore =
+                        enumerator.LastReturnedTid != default &&
+                        (
+                            (lastPage.Length != 0 && lastPage[^1].RKey.CompareTo(safeOldest) < 0) ||
+                            !enumerator.RemoteEnumerationExhausted
+                        );
+                    if (hasMore)
+                        enumerator.LastReturnedTid = safeOldest;
+                    else
+                        enumerator.LastReturnedTid = default;
+                }
+
+
+                var posts = WithRelationshipsWriteLock(rels =>
+                {
+                    var plc = rels.SerializeDid(did);
+                    BlueskyProfile? profile = null;
+                    return merged.Select(x =>
+                    {
+                        var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey);
+                        if (x.PostRecord != null && !rels.PostData.ContainsKey(postId))
+                        {
+                            rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did);
+                        }
+
+                        var post = GetPostIfRelevant(rels, postId, x.Kind);
+                        if (post != null)
+                        {
+                            if (fastReturnedPostsSet.Contains(post.PostIdStr)) return null;
+                            if (x.Kind == CollectionKind.Reposts)
+                            {
+                                return null;
+                                post.RepostedBy = (profile ??= rels.GetProfile(plc));
+                                post.RepostDate = x.RKey.Date;
+                            }
+                            else if (x.Kind == CollectionKind.Likes)
+                            {
+                                post.RepostDate = x.RKey.Date;
+                            }
+                        }
+                        
+                        return post;
+                    }).Where(x => x != null).ToArray();
+                });
+
+
+                var exceededIterations = iterationCount >= 5;
+
+                if (posts.Length != 0 || mergeableEnumerators.All(x => x.LastReturnedTid == default) || exceededIterations)
+                {
+                    ProfilePostsContinuation? nextContinuation = mergeableEnumerators.Any(x => x.LastReturnedTid != default) ? new ProfilePostsContinuation(
+                            mergeableEnumerators[0].LastReturnedTid,
+                            mergeableEnumerators[1].LastReturnedTid,
+                            mergeableEnumerators[2].LastReturnedTid,
+                            parsedContinuation.FastReturnedPosts
+                            ) : null;
+
+                    if (posts.Length == 0 && exceededIterations)
+                        nextContinuation = null;
+
+                    await EnrichAsync(posts, ctx);
+                    return (posts, nextContinuation?.Serialize());
+                }
             }
 
 
-            var posts = WithRelationshipsWriteLock(rels =>
-            {
-                var plc = rels.SerializeDid(did);
-                BlueskyProfile? profile = null;
-                return merged.Select(x =>
-                {
-                    var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey);
-                    if (x.PostRecord != null && !rels.PostData.ContainsKey(postId))
-                    {
-                        rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did);
-                    }
 
-                    var post = GetPostIfRelevant(rels, postId, x.Kind);
-                    if (post != null)
-                    {
-                        if (fastReturnedPostsSet.Contains(post.PostIdStr)) return null;
-                        if (x.Kind == CollectionKind.Reposts)
-                        {
-                            post.RepostedBy = profile ??= rels.GetProfile(plc);
-                            post.RepostDate = x.RKey.Date;
-                        }
-                        else if (x.Kind == CollectionKind.Likes)
-                        {
-                            post.RepostDate = x.RKey.Date;
-                        }
-                    }
-                    return post;
-                }).Where(x => x != null).ToArray();
-            });
-
-            await EnrichAsync(posts, ctx);
-            return (posts, mergeableEnumerators.Any(x => x.LastReturnedTid != default) ? new ProfilePostsContinuation(
-                    mergeableEnumerators[0].LastReturnedTid,
-                    mergeableEnumerators[1].LastReturnedTid,
-                    mergeableEnumerators[2].LastReturnedTid,
-                    parsedContinuation.FastReturnedPosts
-                    ).Serialize() : null );
 
         }
 

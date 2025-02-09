@@ -1128,7 +1128,7 @@ namespace AppViewLite
             return result!;
         }
 
-        public async Task<PostsAndContinuation> GetRecentPostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetFirehosePostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)
         {
             var limit = 30;
             var maxPostIdExclusive = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : new PostIdTimeFirst(Tid.FromDateTime(maxDate, 0), default);

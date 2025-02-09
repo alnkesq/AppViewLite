@@ -9,7 +9,7 @@
     private PostsAndContinuation Posts = new();
     protected override async Task OnParametersSetAsync()
     {
-        Posts = await Apis.GetRecentPostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
+        Posts = await Apis.GetFirehosePostsAsync(DateTime.UtcNow, includeReplies: false, Continuation, RequestContext);
     }
 }
 

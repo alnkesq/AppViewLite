@@ -210,9 +210,19 @@ namespace AppViewLite.PluggableProtocols.Nostr
             foreach (var data in tag.Data)
             {
                 var space = data.IndexOf(' ');
-                if (space == -1) throw new ArgumentException();
-                var k = data.Substring(0, space);
-                var v = data.Substring(space + 1);
+                string k;
+                string v;
+                if (space == -1)
+                {
+                    k = data;
+                    v = string.Empty;
+                }
+                else
+                {
+                    k = data.Substring(0, space);
+                    v = data.Substring(space + 1);
+
+                }
                 if (!dict.ContainsKey(k))
                     dict[k] = new();
                 dict[k].Add(v);

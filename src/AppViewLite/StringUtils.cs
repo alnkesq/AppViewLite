@@ -246,9 +246,9 @@ namespace AppViewLite
         {
             if (string.IsNullOrEmpty(text)) return null;
             var facets = new List<FacetData>();
-            void AddFacetIfNoOverlap(FacetData f)
+            void AddFacetIfNoOverlap(FacetData? f)
             {
-                if (facets.All(x => x.IsDisjoint(f)))
+                if (f != null && facets.All(x => x.IsDisjoint(f)))
                     facets.Add(f);
             }
             foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+@[\w\.\-]+\w+")) // @example@mastodon.social
@@ -272,6 +272,7 @@ namespace AppViewLite
             foreach (Match m in Regex.Matches(text, @"\bhttps?\:\/\/[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // http://example.com or // http://example.com/path
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
+                if (!IsValidUrl(m.Value)) continue;
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, sameLinkAsText: true));
             }
             foreach (Match m in Regex.Matches(text, @"\b[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // example.com or // example.com/path
@@ -297,6 +298,11 @@ namespace AppViewLite
 
         }
 
+        private static bool IsValidUrl(string value)
+        {
+            return Uri.TryCreate(value, UriKind.Absolute, out _);
+        }
+
         public static List<FacetData> GuessCustomEmojiFacets(string? text, Func<string, DuckDbUuid?> getEmojiHash, Func<string, Match, bool>? isValidCandidate = null)
         {
             if (string.IsNullOrEmpty(text) || !text.Contains(':')) return [];
@@ -307,7 +313,7 @@ namespace AppViewLite
                 {
                     var hash = getEmojiHash(m.Value.Substring(1, m.Value.Length - 2));
                     if (hash != null)
-                        result.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, customEmojiHash: hash));
+                        result.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, customEmojiHash: hash)!);
                 }
             }
             return result;
@@ -354,7 +360,7 @@ namespace AppViewLite
             foreach (Match m in Regex.Matches(text, @"#\w+"))
             {
                 if (IsValidHashtagFacet(text, m)) 
-                    hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null));
+                    hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null, verifyLink: false)!);
             }
             return hashtags;
         }
@@ -374,10 +380,15 @@ namespace AppViewLite
             return true;
         }
 
-        private static FacetData CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link = null, string? did = null, DuckDbUuid? customEmojiHash = null, bool? sameLinkAsText = null)
+        private static FacetData? CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link = null, string? did = null, DuckDbUuid? customEmojiHash = null, bool? sameLinkAsText = null, bool verifyLink = true)
         {
             var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(0, index));
             var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(index, length));
+            if (verifyLink && link != null)
+            {
+                if (!IsValidUrl(link))
+                    return null;
+            }
             return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did, CustomEmojiHash = customEmojiHash, SameLinkAsText = sameLinkAsText };
         }
 

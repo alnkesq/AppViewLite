@@ -621,6 +621,8 @@ function onInitialLoad() {
     }, { passive: true });
 
     document.addEventListener('keydown', e => {
+        if (e.ctrlKey || e.shiftKey || e.altKey) return;
+        
         if (e.key == 'Escape') { 
             if (tryTrimMediaSegments(location.href)) {
                 closeTheater();

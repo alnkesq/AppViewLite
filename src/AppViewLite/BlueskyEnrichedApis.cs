@@ -1144,7 +1144,7 @@ namespace AppViewLite
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 //  .AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 if (!includeReplies)
-                    merged = merged.Where(x => x.IsRootPost);
+                    merged = merged.Where(x => x.IsRootPost && (x.Data?.IsReplyToUnspecifiedPost != true));
                 return merged
                     .Take(limit)
                     .ToArray();
@@ -2449,6 +2449,11 @@ namespace AppViewLite
                     return BlueskyRelationships.DeserializeProto<CustomEmoji>(bytes.AsSmallSpan()).Url;
                 return null;
             });
+        }
+
+        public bool ShouldExcludeDid(string did)
+        {
+            return DangerousUnlockedRelationships.DidsToExclude?.GetValue().Contains(did) == true;
         }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();

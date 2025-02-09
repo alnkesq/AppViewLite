@@ -32,9 +32,13 @@ namespace AppViewLite.Models
             : this(did, new NonQualifiedPluggablePostId(tid, postId))
         {
         }
+        public QualifiedPluggablePostId(string did, Tid tid, byte[] postId)
+            : this(did, new NonQualifiedPluggablePostId(tid, postId))
+        {
+        }
 
- 
-      
+
+
     }
 }
 

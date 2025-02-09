@@ -45,6 +45,7 @@ namespace AppViewLite.Models
         [ProtoMember(21)] public NonQualifiedPluggablePostId? PluggablePostId;
         [ProtoMember(22)] public NonQualifiedPluggablePostId? PluggableInReplyToPostId;
         [ProtoMember(23)] public NonQualifiedPluggablePostId? PluggableRootPostId;
+        [ProtoMember(24)] public bool? IsReplyToUnspecifiedPost;
 
         // UPDATE IsSlimCandidate if you add fields!
 
@@ -61,7 +62,9 @@ namespace AppViewLite.Models
                 (Language == null || (short)Language <= byte.MaxValue) &&
                 PluggablePostId == null &&
                 PluggableInReplyToPostId == null &&
-                PluggableRootPostId == null;
+                PluggableRootPostId == null &&
+                IsReplyToUnspecifiedPost == null
+                ;
         }
 
         public byte[]? GetUtf8IfNeededByCompactFacets()

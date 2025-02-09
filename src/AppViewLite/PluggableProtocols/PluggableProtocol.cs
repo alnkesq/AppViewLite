@@ -21,6 +21,7 @@ namespace AppViewLite.PluggableProtocols
         }
         public string DidPrefix { get; private set; }
         internal BlueskyEnrichedApis Apis;
+        protected int DidPrefixLength => DidPrefix.Length;
 
         private void EnsureOwnDid(string did)
         {
@@ -31,6 +32,9 @@ namespace AppViewLite.PluggableProtocols
         public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex)
         {
             EnsureOwnDid(did);
+
+            if (Apis.ShouldExcludeDid(did)) return;
+
             var didWords = StringUtils.GetDistinctWords(GetIndexableDidText(did));
 
             if (data.DisplayNameFacets != null && data.DisplayNameFacets.Length == 0) data.DisplayNameFacets = null;
@@ -39,6 +43,9 @@ namespace AppViewLite.PluggableProtocols
                 data.Description = null;
             if (string.IsNullOrWhiteSpace(data.DisplayName))
                 data.DisplayName = null;
+            if (data.CustomFields != null) data.CustomFields = data.CustomFields.Where(x => x.Name != null || x.Value != null).ToArray();
+            if (data.CustomFields != null && data.CustomFields.Length == 0)
+                data.CustomFields = null;
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
@@ -61,12 +68,18 @@ namespace AppViewLite.PluggableProtocols
         {
             rootPostId ??= inReplyTo ?? postId;
             EnsureOwnDid(postId.Did);
-            if(inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
+
+            if (Apis.ShouldExcludeDid(postId.Did)) return;
+
+            if (inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
             EnsureOwnDid(rootPostId.Value.Did);
 
             if (data.Facets != null && data.Facets.Length == 0) data.Facets = null;
             if (string.IsNullOrWhiteSpace(data.Text) && data.Facets == null)
                 data.Text = null;
+
+            if (data.Media != null && data.Media.Length == 0) data.Media = null;
+            data.Language ??= LanguageEnum.Unknown;
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
@@ -128,8 +141,6 @@ namespace AppViewLite.PluggableProtocols
         {
             return null;
         }
-
-        public abstract string? GetOriginalUrl(string did, BlueskyPostData postData);
 
         public abstract Task DiscoverAsync(CancellationToken ct);
 

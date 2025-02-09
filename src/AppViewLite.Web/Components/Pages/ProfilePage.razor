@@ -37,9 +37,7 @@
         pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Did);
         pluggableExternalUrl = pluggable?.TryGetOriginalProfileUrl(Did);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
-        GuessedFacets =
-            data?.HasExplicitFacets == true ? data.DescriptionFacets :
-            StringUtils.GuessFacets(data?.Description);
+        GuessedFacets = data?.GetOrGuessFacets();
         (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
             Did,
             includePosts: !ShowLikes,

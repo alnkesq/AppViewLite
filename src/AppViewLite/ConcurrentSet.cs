@@ -10,6 +10,7 @@ namespace AppViewLite
     internal class ConcurrentSet<T> where T : notnull
     {
         private ConcurrentDictionary<T, bool> dict = new();
+        public int Count => dict.Count;
         public bool TryAdd(T value)
         {
             return dict.TryAdd(value, false);

@@ -1,5 +1,6 @@
 using ProtoBuf;
 using System;
+using System.Linq;
 
 namespace AppViewLite.Models
 {
@@ -27,14 +28,35 @@ namespace AppViewLite.Models
         [ProtoMember(22)] public FacetData[]? DisplayNameFacets;
 
         public string? Error;
+
+        public FacetData[]? GetOrGuessFacets()
+        {
+            if (HasExplicitFacets == true) return DescriptionFacets;
+            
+            var guessed = StringUtils.GuessFacets(Description);
+
+            if (guessed != null && DescriptionFacets != null)
+                return guessed.Concat(DescriptionFacets).ToArray();
+
+            return guessed ?? DescriptionFacets;
+
+        }
         
     }
 
     [ProtoContract]
     public class CustomFieldProto
     {
-        [ProtoMember(1)] public string Name;
-        [ProtoMember(2)] public string Value;
+        private CustomFieldProto()
+        { 
+        }
+        public CustomFieldProto(string? name, string? value)
+        {
+            this.Name = name;
+            this.Value = value;
+        }
+        [ProtoMember(1)] public string? Name;
+        [ProtoMember(2)] public string? Value;
         [ProtoMember(3)] public DateTime? VerifiedAt;
     }
 }

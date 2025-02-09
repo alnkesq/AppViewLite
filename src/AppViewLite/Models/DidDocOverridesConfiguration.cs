@@ -17,13 +17,9 @@ namespace AppViewLite.Models
             var result = new DidDocOverridesConfiguration();
             result.date = File.GetLastWriteTimeUtc(path);
 
-            foreach (var line_ in File.ReadLines(path))
-            {
-                var line = line_.Trim();
-                var hash = line.IndexOf('#');
-                if (hash != -1)
-                    line = line.Substring(0, hash).Trim();
 
+            foreach (var line in StringUtils.ReadTextFile(path))
+            {
                 var fields = line.Split(' ', '\t').Select(x => x.Trim()).Where(x => !string.IsNullOrEmpty(x)).ToArray();
 
                 // Format: did pds handle1,handle2

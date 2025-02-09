@@ -242,7 +242,7 @@ namespace AppViewLite
             }
         }
 
-        public static FacetData[]? GuessFacets(string? text)
+        public static FacetData[]? GuessFacets(string? text, bool includeHashtags = true)
         {
             if (string.IsNullOrEmpty(text)) return null;
             var facets = new List<FacetData>();
@@ -272,8 +272,7 @@ namespace AppViewLite
             foreach (Match m in Regex.Matches(text, @"\bhttps?\:\/\/[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // http://example.com or // http://example.com/path
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
-                var link = m.Value;
-                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, link));
+                AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, sameLinkAsText: true));
             }
             foreach (Match m in Regex.Matches(text, @"\b[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // example.com or // example.com/path
             {
@@ -287,30 +286,52 @@ namespace AppViewLite
                 }
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, len, "https://" + link));
             }
-            foreach (var item in GuessHashtagFacets(text))
+            if (includeHashtags)
             {
-                AddFacetIfNoOverlap(item);
+                foreach (var item in GuessHashtagFacets(text))
+                {
+                    AddFacetIfNoOverlap(item);
+                }
             }
             return facets.OrderBy(x => x.Start).ToArray();
 
         }
 
-        public static List<FacetData> GuessCustomEmojiFacets(string? text, Func<string, DuckDbUuid?> getEmojiHash)
+        public static List<FacetData> GuessCustomEmojiFacets(string? text, Func<string, DuckDbUuid?> getEmojiHash, Func<string, Match, bool>? isValidCandidate = null)
         {
             if (string.IsNullOrEmpty(text) || !text.Contains(':')) return [];
             var result = new List<FacetData>();
             foreach (Match m in Regex.Matches(text, @":\w+:"))
             {
-                if (IsValidCustomEmojiFacet(text, m))
+                if (isValidCandidate == null || isValidCandidate(text, m))
                 {
                     var hash = getEmojiHash(m.Value.Substring(1, m.Value.Length - 2));
-                    result.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, customEmojiHash: hash));
+                    if (hash != null)
+                        result.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, customEmojiHash: hash));
                 }
             }
             return result;
         }
 
-        private static bool IsValidCustomEmojiFacet(string text, Match m)
+        public static void GuessCustomEmojiFacetsNoAdjacent(string? text, ref FacetData[]? facets, CustomEmoji[]? customEmojis)
+        {
+            GuessCustomEmojiFacets(text, ref facets, customEmojis, IsValidNonAdjacentCustomEmoji);
+        }
+        public static void GuessCustomEmojiFacets(string? text, ref FacetData[]? facets, CustomEmoji[]? customEmojis, Func<string, Match, bool>? isValidCandidate = null)
+        {
+            if (text != null && customEmojis != null && customEmojis.Length != 0)
+            {
+                var emojiFacets = StringUtils.GuessCustomEmojiFacets(text, shortname =>
+                {
+                    return customEmojis.FirstOrDefault(x => x.ShortCode == shortname)?.Hash;
+                }, isValidCandidate);
+                if (emojiFacets.Count == 0) return;
+                facets = (facets ?? []).Concat(emojiFacets).ToArray();
+            }
+        }
+
+
+        private static bool IsValidNonAdjacentCustomEmoji(string text, Match m)
         {
             return
                 IsValidAdjacentCharacterForCustomEmoji(text, m.Index - 1) &&
@@ -353,11 +374,11 @@ namespace AppViewLite
             return true;
         }
 
-        private static FacetData CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link = null, string? did = null, DuckDbUuid? customEmojiHash = null)
+        private static FacetData CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link = null, string? did = null, DuckDbUuid? customEmojiHash = null, bool? sameLinkAsText = null)
         {
             var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(0, index));
             var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(index, length));
-            return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did, CustomEmojiHash = customEmojiHash };
+            return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did, CustomEmojiHash = customEmojiHash, SameLinkAsText = sameLinkAsText };
         }
 
         public static string NormalizeHandle(string handle)
@@ -483,6 +504,21 @@ namespace AppViewLite
         {
             var parser = new HtmlParser();
             return parser.ParseDocument(html ?? string.Empty);
+        }
+
+        internal static IEnumerable<string> ReadTextFile(string path)
+        {
+            foreach (var line_ in System.IO.File.ReadLines(path))
+            {
+                var line = line_;
+                var hash = line.IndexOf('#');
+                if (hash != -1)
+                    line = line.Substring(0, hash);
+                line = line.Trim();
+                if (!string.IsNullOrEmpty(line))
+                    yield return line;
+
+            }
         }
     }
 }

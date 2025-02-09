@@ -1,0 +1,254 @@
+using AppViewLite.Models;
+using AppViewLite.Numerics;
+using NNostr.Client;
+using NNostr.Client.Protocols;
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.IO.Hashing;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AppViewLite.PluggableProtocols.Nostr
+{
+    public class NostrProtocol : PluggableProtocol
+    {
+        public NostrProtocol() : base("did:nostr:")
+        {
+
+        }
+
+        private ConcurrentSet<UInt128> RecentlyAddedPosts = new();
+
+        public override Task DiscoverAsync(CancellationToken ct)
+        {
+            foreach (var relay in AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LISTEN_NOSTR_RELAYS) ?? [])
+            {
+                RetryInfiniteLoopAsync(ct => ListenNostrRelayAsync(relay, ct), ct).FireAndForget();
+            }
+            return Task.CompletedTask;
+        }
+
+
+        public async Task ListenNostrRelayAsync(string relay, CancellationToken ct)
+        {
+            using var client = new NostrClient(new Uri("wss://" + relay));
+            await client.Connect(ct);
+            await client.WaitUntilConnected(ct);
+            var tcs = new TaskCompletionSource();
+            ct.Register(tcs.SetCanceled);
+
+            client.EventsReceived += (s, e) =>
+            {
+                foreach (var evt in e.events)
+                {
+                    try
+                    {
+                        OnEventReceived(evt);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine(ex);
+                    }
+                }
+            };
+            await client.CreateSubscription("main", [new NostrSubscriptionFilter {  }], ct);
+            await client.ListenForMessages();
+            await tcs.Task;
+        }
+
+        private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions { IncludeFields = true };
+
+        private void OnEventReceived(NostrEvent e)
+        {
+            var did = DidPrefix + e.GetPublicKey().ToNIP19();
+            var content = e.Content;
+            if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
+                return;
+            if (RecentlyAddedPosts.Count >= 10_000)
+                RecentlyAddedPosts = new();
+
+            var kind = (NostrEventKind)e.Kind;
+            if (kind == NostrEventKind.Short_Text_Note)
+            {
+                var tid = CreateSyntheticTid(e.CreatedAt!.Value.UtcDateTime, e.Id);
+                var postId = new QualifiedPluggablePostId(did, GetNonQualifiedPostId(tid, e.Id));
+                var data = new BlueskyPostData
+                {
+                    Text = e.Content,
+                };
+
+                var emojis = GetCustomEmojis(e);
+                Apis.MaybeAddCustomEmojis(emojis);
+
+                data.Facets = StringUtils.GuessFacets(data.Text, includeHashtags: false);
+
+
+                var images = e.Tags.Where(x => x.TagIdentifier == NostrTags.imeta)
+                    .Select(VariadicTagToMultiDictionary)
+                    .ToDictionary(x => GetSingleVariadicTag(x, "url")!, x => x);
+
+                var utf8Body = data.GetUtf8IfNeededByCompactFacets();
+                var media = new List<BlueskyMediaData>();
+                if (data.Facets != null)
+                {
+                    foreach (var facet in data.Facets)
+                    {
+                        if (facet.IsLink)
+                        {
+                            var url = facet.GetLink(utf8Body)!;
+                            var urlPath = new Uri(url).AbsolutePath;
+                            if (images.TryGetValue(url, out var kvs))
+                            {
+                                var alt = GetSingleVariadicTag(kvs, "alt");
+                                var mime = GetSingleVariadicTag(kvs, "m");
+
+                                media.Add(new BlueskyMediaData 
+                                { 
+                                    AltText = alt,
+                                    Cid = BlueskyRelationships.CompressBpe(url)!,
+                                    IsVideo = mime?.StartsWith("video", StringComparison.Ordinal) == true
+                                });
+                            }
+                            else if (
+                                urlPath.EndsWith(".jpg", StringComparison.Ordinal) ||
+                                urlPath.EndsWith(".jpeg", StringComparison.Ordinal) ||
+                                urlPath.EndsWith(".webp", StringComparison.Ordinal) ||
+                                urlPath.EndsWith(".png", StringComparison.Ordinal)
+                                )
+                            {
+                                media.Add(new BlueskyMediaData 
+                                { 
+                                    Cid = BlueskyRelationships.CompressBpe(url)!,
+                                });
+                            }
+                        }
+                    }
+                }
+                data.Media = media.ToArray();
+                StringUtils.GuessCustomEmojiFacets(data.Text, ref data.Facets, emojis);
+
+                
+
+                OnPostDiscovered(postId, null, null, data, true);
+            }
+            else if (kind == NostrEventKind.User_Metadata)
+            {
+                if (e.Content == "hello") return; // avoid noisy exceptions
+                var p = System.Text.Json.JsonSerializer.Deserialize<NostrProfileJson>(e.Content, JsonOptions)!;
+                var data = new BlueskyProfileBasicInfo
+                {
+                    DisplayName = p.name,
+                    AvatarCidBytes = BlueskyRelationships.CompressBpe(p.picture),
+                    BannerCidBytes = BlueskyRelationships.CompressBpe(p.banner),
+                    Description = p.about,
+                    CustomFields = [new CustomFieldProto(null, p.website)]
+                };
+
+                var emojis = GetCustomEmojis(e);
+                Apis.MaybeAddCustomEmojis(emojis);
+
+                StringUtils.GuessCustomEmojiFacets(data.Description, ref data.DescriptionFacets, emojis);
+
+                OnProfileDiscovered(did, data, true);
+            }
+            //else if (kind is NostrEventKind.Relay_List_Metadata or  NostrEventKind.Draft_Event) { } // noisy, uninteresting
+
+            //else if (kind == NostrEventKind.Follows) { } 
+            //else if (kind == NostrEventKind.Reaction) { }
+            //else if (kind == NostrEventKind.User_Metadata) { }
+            //else if (kind == NostrEventKind.Repost) { }
+            //else if (kind == NostrEventKind.Zap) { }
+            //else if (kind == NostrEventKind.Event_Deletion_Request) { }
+            //else
+            //{
+            //    Console.Error.WriteLine(kind);
+            //}
+
+
+        }
+
+        private static string? GetSingleVariadicTag(Dictionary<string, List<string>> kvs, string k)
+        {
+            if (kvs.TryGetValue(k, out var vals))
+            {
+                var val = vals.FirstOrDefault();
+                return string.IsNullOrEmpty(val) ? null : val;
+            }
+            return null;
+        }
+
+        private Dictionary<string, List<string>> VariadicTagToMultiDictionary(NostrEventTag tag)
+        {
+            var dict = new Dictionary<string, List<string>>();
+            foreach (var data in tag.Data)
+            {
+                var space = data.IndexOf(' ');
+                if (space == -1) throw new ArgumentException();
+                var k = data.Substring(0, space);
+                var v = data.Substring(space + 1);
+                if (!dict.ContainsKey(k))
+                    dict[k] = new();
+                dict[k].Add(v);
+            }
+            return dict;
+        }
+
+        private static CustomEmoji[] GetCustomEmojis(NostrEvent e)
+        {
+            return e.Tags.Where(x => x.TagIdentifier == NostrTags.emoji).Select(x => new CustomEmoji(x.Data[0], x.Data[1])).ToArray();
+        }
+
+        private static NonQualifiedPluggablePostId GetNonQualifiedPostId(Tid tid, string id)
+        {
+            if (id.Length != 64) throw new ArgumentException();
+            return new NonQualifiedPluggablePostId(tid, Convert.FromHexString(id));
+        }
+
+        protected internal override void EnsureValidDid(string did)
+        {
+            var payload = did.AsSpan(DidPrefixLength);
+            if (!payload.StartsWith("npub", StringComparison.Ordinal) || payload.ContainsAnyExcept(LettersAndDigits))
+                throw new UnexpectedFirehoseDataException("Invalid nostr did.");
+        }
+
+        //private readonly static SearchValues<char> HexDigits = SearchValues.Create("0123456789abcdef");
+        private readonly static SearchValues<char> LettersAndDigits = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
+
+        public override Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
+        {
+            var url = BlueskyRelationships.DecompressBpe(bytes);
+            return BlueskyEnrichedApis.DefaultHttpClient.GetByteArrayAsync(url);
+        }
+
+        public override string? TryGetOriginalProfileUrl(string did)
+        {
+            return "https://primal.net/p/" + GetNip19FromDid(did);
+        }
+
+        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
+        {
+            return "https://primal.net/e/" + GetNoteId(postId.PostId);
+        }
+
+
+        private readonly static MethodInfo EncodeMethod  = typeof(NIP19).Assembly.GetType("LNURL.Bech32Engine", true)!.GetMethod("Encode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string), typeof(byte[])])!;
+        private static string GetNoteId(NonQualifiedPluggablePostId postId)
+        {
+            var noteid = (string)EncodeMethod.Invoke(null, ["note", postId.Bytes])!;
+            return noteid;
+        }
+
+        private string GetNip19FromDid(string did)
+        {
+            return did.Substring(DidPrefixLength);
+        }
+
+    }
+}
+

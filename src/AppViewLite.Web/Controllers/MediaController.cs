@@ -74,6 +74,8 @@ namespace AppViewLite.Web.Controllers
                     shortDid = did;
                     var secondColon = did.IndexOf(':', 4);
                     shortDidCut = secondColon + 1 + PAYLOAD_CUT;
+                    if (did.StartsWith("did:nostr:npub", StringComparison.Ordinal))
+                        shortDidCut += 5; // "npub1" is constant
                 }
 
                 shortDidCut = Math.Min(shortDidCut, shortDid.Length);

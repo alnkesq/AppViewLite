@@ -62,7 +62,19 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private readonly FrozenSet<string> ExcludedInstances =
             (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES) ?? [
-                "rss-parrot.net"
+
+                "gleasonator.dev", // rewrites post URLs
+
+
+                // RSS mirrors
+                "rss-parrot.net",
+
+                // nostr mirrors
+                "cash.app",
+
+                
+
+                
             ]).ToFrozenSet();
 
         
@@ -103,35 +115,22 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 Media = post.media_attachments != null && post.media_attachments.Length != 0 ? post.media_attachments.Select(x => ConvertMediaAttachment(x)).ToArray() : null
             };
 
-            var customEmojis = post.account?.emojis?.Select(x => new CustomEmoji
-            {
-                ShortCode = x.shortcode,
-                Url = x.url ?? x.static_url,
-            }).DistinctBy(x => x.ShortCode).ToDictionary(x => x.ShortCode, x => x);
+            if (post.in_reply_to_account_id != null)
+                data.IsReplyToUnspecifiedPost = true;
 
-            Apis.MaybeAddCustomEmojis(customEmojis?.Values.ToArray());
+            var customEmojis = post.account?.emojis?.Select(x => new CustomEmoji(x.shortcode, x.url ?? x.static_url)).ToArray();
 
-            GuessCustomEmojiFacets(data.Text, ref data.Facets, customEmojis);
+            Apis.MaybeAddCustomEmojis(customEmojis);
+
+            StringUtils.GuessCustomEmojiFacetsNoAdjacent(data.Text, ref data.Facets, customEmojis);
 
             OnPostDiscovered(postId, null, null, data, shouldIndex: shouldIndex);
 
             OnProfileReceived(did, author, post.account, url, shouldIndex, customEmojis);
         }
 
-        private static void GuessCustomEmojiFacets(string? text, ref FacetData[]? facets, Dictionary<string, CustomEmoji>? customEmojis)
-        {
-            if (text != null && customEmojis != null && customEmojis.Count != 0)
-            {
-                var emojiFacets = StringUtils.GuessCustomEmojiFacets(text, shortname =>
-                {
-                    return customEmojis.TryGetValue(shortname, out var hash) ? hash.Hash : null;
-                });
-                if (emojiFacets.Count == 0) return;
-                facets = (facets ?? []).Concat(emojiFacets).ToArray();
-            }
-        }
 
-        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, bool shouldIndex, Dictionary<string, CustomEmoji>? customEmojis)
+        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, bool shouldIndex, CustomEmoji[] customEmojis)
         {
 
 
@@ -165,8 +164,8 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             if (proto.CustomFields != null && proto.CustomFields.Length == 0)
                 proto.CustomFields = null;
 
-            GuessCustomEmojiFacets(proto.Description, ref proto.DescriptionFacets, customEmojis);
-            GuessCustomEmojiFacets(proto.DisplayName, ref proto.DisplayNameFacets, customEmojis);
+            StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.Description, ref proto.DescriptionFacets, customEmojis);
+            StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.DisplayName, ref proto.DisplayNameFacets, customEmojis);
 
             OnProfileDiscovered(did, proto, shouldIndex: shouldIndex);
             
@@ -191,11 +190,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             }
 
             if (value == null) return null;
-            return new CustomFieldProto
+            return new CustomFieldProto(x.name, x.value)
             {
-                Name = x.name,
                 VerifiedAt = x.verified_at,
-                Value = value,
             };
         }
 
@@ -388,11 +385,6 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return null;
         }
 
-
-        public override string? GetOriginalUrl(string did, BlueskyPostData postData)
-        {
-            throw new NotImplementedException();
-        }
 
         protected internal override void EnsureValidDid(string did)
         {

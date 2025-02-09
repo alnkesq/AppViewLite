@@ -2485,6 +2485,15 @@ namespace AppViewLite
                 did.StartsWith("did:plc:", StringComparison.Ordinal) ||
                 did.StartsWith("did:web:", StringComparison.Ordinal);
         }
+
+        public ReloadableFile<FrozenSet<string>>? DidsToExclude = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_EXCLUSION_FILE) is { } s ? new ReloadableFile<FrozenSet<string>>(s, path => 
+        {
+            return StringUtils.ReadTextFile(path).Select(x =>
+            {
+                if (!BlueskyEnrichedApis.IsValidDid(x)) throw new Exception($"Invalid did in {path}: " + x);
+                return x;
+            }).ToFrozenSet();
+        }) : null;
     }
 
     public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);

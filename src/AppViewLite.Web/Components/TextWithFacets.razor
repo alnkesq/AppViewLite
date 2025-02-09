@@ -12,16 +12,25 @@
 
     private void AddPart(string text, string? link, CustomEmoji? customEmoji)
     {
-        if (link != null && (text.StartsWith("http://") || text.StartsWith("https://")) && link.StartsWith("http"))
+
+        if (link != null)
         {
-            if (Uri.TryCreate(link, UriKind.Absolute, out var url))
+            if (Uri.TryCreate(link, UriKind.Absolute, out var url) && (url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps))
             {
-                if (text == url.AbsoluteUri || text == url.ToString())
+                var urlNoTrackingParams = Program.RemoveTrackingParameters(url);
+                link = urlNoTrackingParams.AbsoluteUri;
+                if (
+                    string.Equals(text, url.AbsoluteUri, StringComparison.InvariantCultureIgnoreCase) ||
+                    string.Equals(text, url.ToString(), StringComparison.InvariantCultureIgnoreCase))
                 {
-                    var authority = url.Authority;
+                    
+
+                    var authority = urlNoTrackingParams.Authority;
                     if (authority.StartsWith("www.", StringComparison.Ordinal))
                         authority = authority.Substring(4);
-                    var pathAndQuery = url.ToString(); // minimal escaping
+
+                    
+                    var pathAndQuery = urlNoTrackingParams.ToString(); // minimal escaping
                     var slash = pathAndQuery.IndexOf('/', 8);
                     pathAndQuery = pathAndQuery.Substring(slash);
 

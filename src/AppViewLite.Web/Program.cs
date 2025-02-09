@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
+using System.Collections.Frozen;
 
 namespace AppViewLite.Web
 {
@@ -452,6 +453,26 @@ namespace AppViewLite.Web
             return new Uri(QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query));
         }
 
+        public static Uri RemoveTrackingParameters(this Uri url)
+        {
+            var modified = false;
+            var query = QueryHelpers.ParseQuery(url.Query);
+            foreach (var p in query.ToArray())
+            {
+                var name = p.Key;
+                if (name.StartsWith("utm_", StringComparison.Ordinal))
+                {
+                    modified = true;
+                    query.Remove(name);
+                }
+
+            }
+            if (modified)
+            {
+               return new Uri(QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query) + url.Fragment);
+            }
+            return url;
+        }
         internal static Task<string> RenderComponentAsync<T>(Dictionary<string, object?> parameters) where T : ComponentBase
         {
             return RenderComponentAsync<T>(ParameterView.FromDictionary(parameters));

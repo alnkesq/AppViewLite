@@ -116,7 +116,7 @@ namespace AppViewLite.Web.Controllers
                     {
                         using (var cacheStream = new System.IO.FileStream(cachePath + ".tmp", FileMode.Create, FileAccess.Write))
                         {
-                            await WriteImageAsync(image, cacheStream, sizeEnum);
+                            await WriteImageAsync(image, cacheStream);
                         }
                         System.IO.File.Move(cachePath + ".tmp", cachePath);
                     }
@@ -142,13 +142,12 @@ namespace AppViewLite.Web.Controllers
             {
                 using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
                 SetMediaHeaders(cid);
-                await WriteImageAsync(image, Response.Body, sizeEnum);
+                await WriteImageAsync(image, Response.Body);
             }
         }
 
-        private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream, ThumbnailSize size)
+        private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream)
         {
-            EnsureNotConfusableWithVerifiedBadge(ref image);
             using (image)
             {
                 await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 70 });

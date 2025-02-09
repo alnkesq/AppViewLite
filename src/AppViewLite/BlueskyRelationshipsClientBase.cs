@@ -237,6 +237,11 @@ namespace AppViewLite
                 sw.Stop();
                 var hadGcs = GC.CollectionCount(0) - prevGcCount;
                 if (hadGcs != 0) return;
+                
+                
+                if (Debugger.IsAttached) return; // would pollute stderr when stepping
+
+
                 var stack = new StackTrace(fNeedFileInfo: true);
                 var frames = stack.GetFrames().ToList();
                 while (frames.Count != 0)
@@ -248,6 +253,7 @@ namespace AppViewLite
                     else
                         break;
                 }
+ 
                 Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null));
                 foreach (var frame in frames)
                 {

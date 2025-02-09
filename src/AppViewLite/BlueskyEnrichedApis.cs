@@ -2187,7 +2187,7 @@ namespace AppViewLite
 
 
                 if ("did:web:" + handle != did)
-                    throw new Exception($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
+                    throw new UnexpectedFirehoseDataException($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
             }
 
             return did;

@@ -66,7 +66,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         private void OnEventReceived(NostrEvent e)
         {
-            var did = DidPrefix + e.GetPublicKey().ToNIP19();
+            var did = GetDidFromPubKey(e.PublicKey);
             var content = e.Content;
             if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
                 return;
@@ -88,6 +88,26 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 data.Facets = StringUtils.GuessFacets(data.Text, includeHashtags: false);
 
+
+                //var labelsNs = e.Tags.Where(x => x.TagIdentifier == NostrTags.label_label_namespace).Select(x => x.Data).ToArray();
+                //var labels = e.Tags.Where(x => x.TagIdentifier == NostrTags.label_namespace).Select(x => x.Data).ToArray();
+
+                //var allLabels = labelsNs.Concat(labels).ToArray();
+                //if (allLabels.Length != 0)
+                //{
+                //    if (allLabels.Any(x => x.Contains("en") || x.Contains("en-US"))) { }
+                //}
+
+                //var parent = e.Tags.Where(x => x.TagIdentifier == NostrTags.reply && x.Data[2] == "reply").FirstOrDefault();
+                //if (parent != null)
+                //{
+                //var root = e.Tags.Where(x => x.TagIdentifier == NostrTags.reply && x.Data[2] == "root").FirstOrDefault() ?? parent;
+
+                //var inReplyToPostId = new QualifiedPluggablePostId(GetDidFromPubKey(parent.Data[3]), new NonQualifiedPluggablePostId(default, Convert.FromHexString(parent.Data[0])));
+                //var rootPostId = new QualifiedPluggablePostId(GetDidFromPubKey(root.Data[3]), new NonQualifiedPluggablePostId(default, Convert.FromHexString(root.Data[0])));
+                //}
+
+                data.IsReplyToUnspecifiedPost = e.Tags.Any(x => x.TagIdentifier == NostrTags.reply);
 
                 var images = e.Tags.Where(x => x.TagIdentifier == NostrTags.imeta)
                     .Select(VariadicTagToMultiDictionary)
@@ -173,6 +193,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         }
 
+
         private static string? GetSingleVariadicTag(Dictionary<string, List<string>> kvs, string k)
         {
             if (kvs.TryGetValue(k, out var vals))
@@ -240,9 +261,23 @@ namespace AppViewLite.PluggableProtocols.Nostr
         private readonly static MethodInfo EncodeMethod  = typeof(NIP19).Assembly.GetType("LNURL.Bech32Engine", true)!.GetMethod("Encode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string), typeof(byte[])])!;
         private static string GetNoteId(NonQualifiedPluggablePostId postId)
         {
-            var noteid = (string)EncodeMethod.Invoke(null, ["note", postId.Bytes])!;
-            return noteid;
+            return Nip19Encode("note", postId.Bytes);
         }
+        private string GetDidFromPubKey(string publicKey)
+        {
+            return DidPrefix + GetNpubFromPubKey(publicKey);
+        }
+
+        private static string GetNpubFromPubKey(string publicKey)
+        {
+            return Nip19Encode("npub", Convert.FromHexString(publicKey));
+        }
+
+        private static string Nip19Encode(string prefix, byte[] data)
+        {
+            return (string)EncodeMethod.Invoke(null, [prefix, data])!;
+        }
+
 
         private string GetNip19FromDid(string did)
         {

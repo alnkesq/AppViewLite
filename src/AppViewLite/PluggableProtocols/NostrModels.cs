@@ -152,7 +152,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         public const string coordinates_to_an_event = "a";
         public const string root_address = "A";
         public const string identifier = "d";
-        public const string event_id_hex = "e";
+        public const string reply = "e";
         public const string root_event_id = "E";
         public const string currency_code = "f";
         public const string geohash = "g";

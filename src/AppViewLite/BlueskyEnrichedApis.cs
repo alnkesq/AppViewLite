@@ -909,29 +909,88 @@ namespace AppViewLite
             return false;
         }
 
-      
 
+        
         public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, int limit, string? continuation, RequestContext ctx)
         {
             EnsureLimit(ref limit);
-            var parsedContinuations = continuation != null ? continuation.Split('/').Select(x => new Tid(long.Parse(x))).ToArray() : [
-                includePosts ? Tid.MaxValue : default,
+
+            var defaultContinuation = new ProfilePostsContinuation(
+                includePosts ? Tid.MaxValue : default, 
                 includeReposts ? Tid.MaxValue : default,
                 includeLikes ? Tid.MaxValue : default,
-            ];
+                []);
+
+            BlueskyPost ? GetPostIfRelevant(BlueskyRelationships rels, PostId postId, CollectionKind kind)
+            {
+                var post = rels.GetPost(postId);
+
+                if (kind == CollectionKind.Posts)
+                {
+                    if (!includeReplies && !post.IsRootPost) return null;
+                }
+
+                if (mediaOnly && post.Data?.Media == null)
+                    return null;
+                return post;
+            }
+
+            var canFetchFromServer = BlueskyRelationships.IsNativeAtProtoDid(did);
+
+            if (continuation == null && (includePosts || includeReposts))
+            {
+                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(canFetchFromServer ? -7 : -90), 0);
+                var recentPosts = WithRelationshipsLock(rels =>
+                {
+                    var plc = rels.TrySerializeDidMaybeReadOnly(did);
+                    if (plc == default) return [];
+                    BlueskyProfile? profile = null;
+                    var recentPosts = includePosts ? rels.EnumerateRecentPosts(plc, recentThreshold, null).Select(x => (RKey: x.PostId.PostRKey, x.PostId, IsRepost: false)) : [];
+                    var recentReposts = includeReposts ? rels.EnumerateRecentReposts(plc, recentThreshold, null).Select(x => (RKey: x.RepostRKey, x.PostId, IsRepost: true)) : [];
+
+                    return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([recentPosts, recentReposts], x => x.RKey, new ReverseComparer<Tid>())
+                        .Select(x =>
+                        {
+                            var post = GetPostIfRelevant(rels, x.PostId, x.IsRepost ? CollectionKind.Reposts : CollectionKind.Posts);
+                            if (post != null && x.IsRepost)
+                            {
+                                post.RepostedBy = profile ??= rels.GetProfile(plc);
+                                post.RepostDate = x.RKey.Date;
+                            }
+                            return post;
+                        })
+                        .Where(x => x != null)
+                        .Take(canFetchFromServer ? 10 : 50)
+                        .ToArray();
+                });
+
+                await EnrichAsync(recentPosts, ctx);
+                if (recentPosts.Length != 0)
+                {
+
+                    return (recentPosts, canFetchFromServer ? (defaultContinuation with { FastReturnedPosts = recentPosts.Select(x => x.PostIdStr).ToArray() }).Serialize() : null);
+                }
+
+          
+            }
+
+
+            ProfilePostsContinuation parsedContinuation = continuation != null ? ProfilePostsContinuation.Deserialize(continuation) : defaultContinuation;
+            var fastReturnedPostsSet = parsedContinuation.FastReturnedPosts.ToHashSet();
+
             MergeablePostEnumerator[] mergeableEnumerators = [
 
-                new MergeablePostEnumerator(parsedContinuations[0], async max =>
+                new MergeablePostEnumerator(parsedContinuation.MaxTidPosts, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Post.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
                     return posts.Records.Select(x => new PostReference(x.Uri.Rkey, new PostIdString(did, x.Uri.Rkey), (Post)x.Value)).ToArray();
                 }, CollectionKind.Posts),
-                new MergeablePostEnumerator(parsedContinuations[1], async max =>
+                new MergeablePostEnumerator(parsedContinuation.MaxTidReposts, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
                     return posts.Records.Select(x => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!))).ToArray();
                 }, CollectionKind.Reposts),
-                new MergeablePostEnumerator(parsedContinuations[2], async max =>
+                new MergeablePostEnumerator(parsedContinuation.MaxTidLikes, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
                     return posts.Records.Select(x => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!))).ToArray();
@@ -971,39 +1030,40 @@ namespace AppViewLite
             var posts = WithRelationshipsWriteLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
-                var profile = rels.GetProfile(plc);
+                BlueskyProfile? profile = null;
                 return merged.Select(x =>
                 {
                     var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey);
-                    if (x.PostRecord != null)
+                    if (x.PostRecord != null && !rels.PostData.ContainsKey(postId))
                     {
                         rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did);
                     }
-                    var post = rels.GetPost(postId);
 
-                    if (x.Kind == CollectionKind.Posts)
+                    var post = GetPostIfRelevant(rels, postId, x.Kind);
+                    if (post != null)
                     {
-                        if (!includeReplies && !post.IsRootPost) return null;
+                        if (fastReturnedPostsSet.Contains(post.PostIdStr)) return null;
+                        if (x.Kind == CollectionKind.Reposts)
+                        {
+                            post.RepostedBy = profile ??= rels.GetProfile(plc);
+                            post.RepostDate = x.RKey.Date;
+                        }
+                        else if (x.Kind == CollectionKind.Likes)
+                        {
+                            post.RepostDate = x.RKey.Date;
+                        }
                     }
-                    if (x.Kind == CollectionKind.Reposts)
-                    {
-                        post.RepostedBy = profile;
-                        post.RepostDate = x.RKey.Date;
-                    }
-                    else if (x.Kind == CollectionKind.Likes)
-                    {
-                        post.RepostDate = x.RKey.Date;
-                    }
-
-                    if (mediaOnly && post.Data?.Media == null)
-                        return null;
-
                     return post;
                 }).Where(x => x != null).ToArray();
             });
 
             await EnrichAsync(posts, ctx);
-            return (posts, mergeableEnumerators.Any(x => x.LastReturnedTid != default) ? string.Join("/", mergeableEnumerators.Select(x => x.LastReturnedTid.TidValue)) : null );
+            return (posts, mergeableEnumerators.Any(x => x.LastReturnedTid != default) ? new ProfilePostsContinuation(
+                    mergeableEnumerators[0].LastReturnedTid,
+                    mergeableEnumerators[1].LastReturnedTid,
+                    mergeableEnumerators[2].LastReturnedTid,
+                    parsedContinuation.FastReturnedPosts
+                    ).Serialize() : null );
 
         }
 

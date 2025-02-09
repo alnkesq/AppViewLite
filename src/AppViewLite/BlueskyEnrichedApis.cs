@@ -1050,7 +1050,6 @@ namespace AppViewLite
                             if (fastReturnedPostsSet.Contains(post.PostIdStr)) return null;
                             if (x.Kind == CollectionKind.Reposts)
                             {
-                                return null;
                                 post.RepostedBy = (profile ??= rels.GetProfile(plc));
                                 post.RepostDate = x.RKey.Date;
                             }

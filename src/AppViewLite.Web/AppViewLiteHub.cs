@@ -67,7 +67,12 @@ namespace AppViewLite.Web
             Plc? focalPlc = null;
             apis.WithRelationshipsLock(rels =>
             {
-                posts = requests.Select(x => rels.GetPost(rels.GetPostId(x.did, x.rkey))).ToArray();
+                posts = requests.Select(x =>
+                {
+                    var post = rels.GetPost(rels.GetPostId(x.did, x.rkey));
+                    post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy)) : null;
+                    return post;
+                }).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
             });
             var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
@@ -198,7 +203,7 @@ namespace AppViewLite.Web
         private readonly static ConcurrentDictionary<string, ConnectionContext> connectionIdToCallback = new();
 
         public record struct ProfileRenderRequest(string nodeId, string did);
-        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags);
+        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy);
     }
 
     class ConnectionContext : IDisposable

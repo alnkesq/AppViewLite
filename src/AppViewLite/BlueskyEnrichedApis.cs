@@ -11,7 +11,6 @@ using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using System.Net.Http;
 using Newtonsoft.Json;
-using FishyFlip.Lexicon.Com.Atproto.Identity;
 using AppViewLite.Storage;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
@@ -26,16 +25,13 @@ using System.Globalization;
 using PeterO.Cbor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using DnsClient;
-using System.Reflection.Metadata;
-using DnsClient.Protocol;
 using System.Text;
 using System.Net.Http.Json;
 using AppViewLite;
-using System.IO;
 using System.Diagnostics.CodeAnalysis;
 using System.Buffers;
 using Ipfs;
-using DuckDbSharp;
+using AppViewLite;
 
 namespace AppViewLite
 {
@@ -913,79 +909,102 @@ namespace AppViewLite
             return false;
         }
 
-        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, string? continuation, RequestContext ctx)
+      
+
+        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, int limit, string? continuation, RequestContext ctx)
         {
-            Record[] postRecords = [];
-            if (includePosts)
-            {
-                var results = await ListRecordsAsync(did, Post.RecordType, 50, null);
-                postRecords = results!.Records!.ToArray();
-            }
-            WithRelationshipsUpgradableLock(rels =>
-            {
-                foreach (var record in postRecords)
+            EnsureLimit(ref limit);
+            var parsedContinuations = continuation != null ? continuation.Split('/').Select(x => new Tid(long.Parse(x))).ToArray() : [
+                includePosts ? Tid.MaxValue : default,
+                includeReposts ? Tid.MaxValue : default,
+                includeLikes ? Tid.MaxValue : default,
+            ];
+            MergeablePostEnumerator[] mergeableEnumerators = [
+
+                new MergeablePostEnumerator(parsedContinuations[0], async max =>
                 {
-                    var postId = rels.GetPostId(record.Uri!);
-                    if (!rels.PostData.ContainsKey(postId))
+                    var posts = await ListRecordsAsync(did, Post.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
+                    return posts.Records.Select(x => new PostReference(x.Uri.Rkey, new PostIdString(did, x.Uri.Rkey), (Post)x.Value)).ToArray();
+                }, CollectionKind.Posts),
+                new MergeablePostEnumerator(parsedContinuations[1], async max =>
+                {
+                    var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
+                    return posts.Records.Select(x => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!))).ToArray();
+                }, CollectionKind.Reposts),
+                new MergeablePostEnumerator(parsedContinuations[2], async max =>
+                {
+                    var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
+                    return posts.Records.Select(x => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!))).ToArray();
+                }, CollectionKind.Likes),
+
+            ];
+
+            var nextPages = await Task.WhenAll(mergeableEnumerators.Select(x => x.GetNextPageAsync()));
+            if (nextPages.All(x => x.Length == 0)) return ([], null);
+            var safeOldest = nextPages.Where(x => x.Length != 0).Max(x => x[^1].RKey);
+
+            var merged = nextPages
+                .SelectMany(x => x)
+                .Where(x => x.RKey.CompareTo(safeOldest) >= 0)
+                .DistinctBy(x => x.PostId)
+                .OrderByDescending(x => x.RKey)
+                .ToArray();
+
+
+            for (int i = 0; i < mergeableEnumerators.Length; i++)
+            {
+                var enumerator = mergeableEnumerators[i];
+                var lastPage = nextPages[i];
+                var hasMore = 
+                    enumerator.LastReturnedTid != default &&
+                    (
+                        (lastPage.Length != 0 && lastPage[^1].RKey.CompareTo(safeOldest) < 0) ||
+                        lastPage.Length == limit
+                    );
+                if (hasMore)
+                    enumerator.LastReturnedTid = safeOldest;
+                else
+                    enumerator.LastReturnedTid = default;
+            }
+
+
+            var posts = WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                var profile = rels.GetProfile(plc);
+                return merged.Select(x =>
+                {
+                    var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey);
+                    if (x.PostRecord != null)
                     {
-                        rels.WithWriteUpgrade(() => rels.StorePostInfo(postId, (Post)record.Value!, record.Uri.Did!.Handler));
+                        rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did);
                     }
-                }
+                    var post = rels.GetPost(postId);
+
+                    if (x.Kind == CollectionKind.Posts)
+                    {
+                        if (!includeReplies && !post.IsRootPost) return null;
+                    }
+                    if (x.Kind == CollectionKind.Reposts)
+                    {
+                        post.RepostedBy = profile;
+                        post.RepostDate = x.RKey.Date;
+                    }
+                    else if (x.Kind == CollectionKind.Likes)
+                    {
+                        post.RepostDate = x.RKey.Date;
+                    }
+
+                    if (mediaOnly && post.Data?.Media == null)
+                        return null;
+
+                    return post;
+                }).Where(x => x != null).ToArray();
             });
 
-            var posts = WithRelationshipsLock(rels =>
-            {
-                var p = postRecords.Select(x => rels.GetPost(x.Uri!));
-                if (!includeReplies) p = p.Where(x => x.IsRootPost);
-                return p.ToArray();
-            });
+            await EnrichAsync(posts, ctx);
+            return (posts, mergeableEnumerators.Any(x => x.LastReturnedTid != default) ? string.Join("/", mergeableEnumerators.Select(x => x.LastReturnedTid.TidValue)) : null );
 
-            List<Record> repostRecords = [];
-            if (includeReposts)
-            {
-                var result = await ListRecordsAsync(did, Repost.RecordType, 50, null);
-                repostRecords = result!.Records!.ToList();
-            }
-            var reposts = WithRelationshipsUpgradableLock(rels =>
-            {
-                var reposter = rels.GetProfile(rels.SerializeDid(did));
-                return repostRecords.Select(repostRecord =>
-                {
-                    var reposted = (Repost)repostRecord.Value!;
-                    var p = rels.GetPost(reposted.Subject!.Uri!);
-                    p.RepostedBy = reposter;
-                    p.RepostDate = reposted.CreatedAt!.Value;
-                    return p;
-                }).ToArray();
-            });
-
-            List<Record> likeRecords = [];
-            if (includeLikes)
-            {
-                var results = await ListRecordsAsync(did, Like.RecordType, 50, null);
-                likeRecords = results!.Records!.ToList();
-            }
-            var likes = WithRelationshipsUpgradableLock(rels =>
-            {
-                return likeRecords.Select(likeRecord =>
-                {
-                    var liked = (Like)likeRecord.Value!;
-                    var p = rels.GetPost(liked.Subject!.Uri!);
-                    p.RepostDate = liked.CreatedAt!.Value;
-                    return p;
-                }).ToArray();
-            });
-
-            var allPosts = reposts.Concat(posts).Concat(likes).OrderByDescending(x => x.RepostDate ?? x.Date).ToArray();
-
-            await EnrichAsync(allPosts, ctx);
-            if (!includeReplies) allPosts = allPosts.Where(x =>  x.IsRootPost || x.RepostDate != null).ToArray();
-
-            if (mediaOnly)
-                allPosts = allPosts.Where(x => x.Data?.Media != null).ToArray();
-            allPosts = allPosts.DistinctBy(x => (x.Author.Did, x.RKey)).ToArray();
-
-            return (allPosts, null);
         }
 
 

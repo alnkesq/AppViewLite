@@ -129,6 +129,7 @@ namespace AppViewLite.Web.ApiCompat
                 includeReposts: filter == GetUserPostsFilter.posts_no_replies,
                 includeLikes: false,
                 mediaOnly: filter == GetUserPostsFilter.posts_with_media,
+                limit: limit,
                 cursor,
                 ctx);
             await apis.PopulateFullInReplyToAsync(posts, ctx);

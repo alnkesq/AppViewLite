@@ -547,6 +547,18 @@ namespace AppViewLite
             }
             return new PostId(SerializeDid(uri.Did.Handler), Tid.Parse(uri.Rkey));
         }
+        public static PostIdString GetPostIdStr(StrongRef uri)
+        {
+            return GetPostIdStr(uri.Uri);
+        }
+        public static PostIdString GetPostIdStr(ATUri uri)
+        {
+            if (uri.Collection != Post.RecordType)
+            {
+                throw new ArgumentException("Unexpected URI type: " + uri.Collection);
+            }
+            return new PostIdString(uri.Did!.Handler, uri.Rkey);
+        }
 
         public BlueskyProfileBasicInfo? GetProfileBasicInfo(Plc plc)
         {

@@ -376,16 +376,6 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return ActivityPubUserId.Parse(id, hostFromAuthorUrl);
         }
 
-        private static DateTime? TryParseActivityPubDate(string created_at)
-        {
-            if (DateTime.TryParse(created_at, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var d))
-            {
-                return d;
-            }
-            return null;
-        }
-
-
         protected internal override void EnsureValidDid(string did)
         {
             var parts = did.Substring(DidPrefix.Length).Split(':');

@@ -129,7 +129,10 @@ namespace AppViewLite.Web.Controllers
 
         private static string EscapeDidForFileSystem(ReadOnlySpan<char> did)
         {
-            return did.ToString().Replace("_", "__").Replace(':', '_');
+            return did.ToString()
+                .Replace("_", "__")
+                .Replace(':', '_')
+                .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
         private async Task<Image> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)

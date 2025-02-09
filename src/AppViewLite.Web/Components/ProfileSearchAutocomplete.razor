@@ -9,7 +9,7 @@
     <a href="@profile.BaseUrl" data-did="@profile.Did">
         <img src="@profile.AvatarUrl" class="profile-image-small">
         <div>
-            <b>@profile.DisplayNameOrFallback</b>
+            <b><TextWithFacets Text="@profile.DisplayNameOrFallback" Facets="@profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets></b>
             <ProfileBadges Profile="@profile" NoLink="true" />
         </div>
         <div data-handledid="@profile.Did" class="handle-generic @(profile.HandleIsUncertain ? "handle-uncertain" : profile.PossibleHandle == null ? "handle-invalid" : null)">@(profile.PossibleHandle ?? "handle.invalid")</div>

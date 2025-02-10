@@ -2168,14 +2168,15 @@ namespace AppViewLite
             EnsureLimit(ref limit);
 
             var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation);
-            var feeds = WithRelationshipsLockForDid(did, (plc, rels) =>
+            var feeds = WithRelationshipsUpgradableLock(rels =>
             {
+                var plc = rels.SerializeDid(did);
                 return response!.Records!.Select(x =>
                 {
                     var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);
                     if (!rels.FeedGenerators.ContainsKey(feedId))
                     {
-                        rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value);
+                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value));
                     }
                     return rels.TryGetFeedGenerator(feedId)!;
                 }).ToArray();

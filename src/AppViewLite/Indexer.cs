@@ -371,16 +371,23 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(), OnRepoFirehoseEvent, ct);
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(), protocol => 
+            {
+                protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() => OnRepoFirehoseEvent(s, e), e.Message.Commit?.Repo?.Handler);
+            }, ct);
         }
-        public Task StartListeningToAtProtoFirehoseLabels(CancellationToken ct = default)
+        public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(), OnLabelFirehoseEvent, ct);
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(), protocol =>
+            {
+                protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() => OnLabelFirehoseEvent(s, e), nameForDebugging);
+            }, ct);
         }
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<SubscribedRepoEventArgs> handler, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
             var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
+            
             ct.Register(async () =>
             {
                 await firehose.StopSubscriptionAsync();
@@ -397,15 +404,11 @@ namespace AppViewLite
                     await subscribeKind(firehose);
                 }
             };
-            firehose.OnSubscribedRepoMessage += (s, e) =>
-            {
-                ct.ThrowIfCancellationRequested();
-                TryProcessRecord(() => handler(e), e.Message.Commit?.Repo.Handler);
-            };
+            setupHandler(firehose);
             await subscribeKind(firehose);
         }
 
-        private void OnRepoFirehoseEvent(SubscribedRepoEventArgs e)
+        private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
         {
             var record = e.Message.Record;
             var commitAuthor = e.Message.Commit?.Repo!.Handler;
@@ -425,12 +428,9 @@ namespace AppViewLite
             }
         }
 
-        private void OnLabelFirehoseEvent(SubscribedRepoEventArgs e)
+        private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e)
         {
-            throw new NotImplementedException("Requires unmerged FishyFlip PR");
-
-            //var labels = e.Message.Labels.LabelsValue;
-            var labels = new List<Label>();
+            var labels = e.Message.Labels.LabelsValue;
             if (labels == null) return;
 
             foreach (var label in labels)
@@ -498,7 +498,7 @@ namespace AppViewLite
             return importer.LargestSeenRev;
         }
 
-        private static void TryProcessRecord(Action action, string? did)
+        private static void TryProcessRecord(Action action, string? authorForDebugging)
         {
             try
             {
@@ -506,14 +506,14 @@ namespace AppViewLite
             }
             catch (UnexpectedFirehoseDataException ex)
             {
-                Console.Error.WriteLine(did + ": " + ex.Message);
+                Console.Error.WriteLine(authorForDebugging + ": " + ex.Message);
             }
             catch (OperationCanceledException)
             { 
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(did + ": " + ex);
+                Console.Error.WriteLine(authorForDebugging + ": " + ex);
             }
         }
 

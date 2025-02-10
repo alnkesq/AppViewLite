@@ -184,7 +184,7 @@ namespace AppViewLite.Web
 
                 }
 
-                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES) ?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])
+                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES) ?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])  
                     .Select(x => x.Split('/'))
                     .Select(x => (Endpoint: "https://" + x[0], Did: x[1]))
                     .ToArray();
@@ -199,7 +199,7 @@ namespace AppViewLite.Web
                                 throw new Exception($"Ignoring label from {did} because it didn't come from {labelFirehose.Endpoint}");
                         }
                     };
-                    indexer.StartListeningToAtProtoFirehoseLabels().FireAndForget();
+                    indexer.StartListeningToAtProtoFirehoseLabels(labelFirehose.Endpoint).FireAndForget();
                 }
 
                 foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)

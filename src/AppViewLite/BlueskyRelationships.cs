@@ -2419,14 +2419,26 @@ namespace AppViewLite
         }
 
         [DoesNotReturn]
-        public static Exception ThrowIncorrectLockUsageException(string v)
+        public static Exception ThrowIncorrectLockUsageException(string message)
         {
-            var ex = new Exception(v);
-            Console.Error.WriteLine(ex);
-            Environment.FailFast(v);
-            throw ex;
+            throw ThrowFatalError("ThrowIncorrectLockUsageException: " + message);
         }
 
+        [DoesNotReturn]
+        public static Exception ThrowFatalError(string message)
+        {
+            var stackTrace = new StackTrace();
+            Console.Error.WriteLine(message);
+            Console.Error.WriteLine(stackTrace.ToString());
+            var directory = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FATAL_ERROR_LOG_DIRECTORY);
+            if (directory != null)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".log"), message + "\n" + stackTrace.ToString());
+            }
+            Environment.FailFast(message);
+            throw new Exception(message);
+        }
         public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(label));
         public BlueskyLabel GetLabel(LabelId x)
         {

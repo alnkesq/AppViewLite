@@ -49,7 +49,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
                 try
                 {
-                    var post = System.Text.Json.JsonSerializer.Deserialize<ActivityPubPostJson>(evt.Data, JsonOptions)!;
+                    var post = System.Text.Json.JsonSerializer.Deserialize<ActivityPubPostJson>(evt.Data!, JsonOptions)!;
                     OnPostReceived(post);
                 }
                 catch (Exception ex)
@@ -99,7 +99,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             var postId = new QualifiedPluggablePostId(did, nonQualifiedPostId);
 
             var card = post.card;
-            var dom = StringUtils.ParseHtml(post.content).Body;
+            var dom = StringUtils.ParseHtml(post.content).Body!;
             var (text, facets) = StringUtils.HtmlToFacets(dom, x => ElementToFacet(x, url));
 
             var shouldIndex = !(post.account.noindex == true);
@@ -127,7 +127,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             OnPostDiscovered(postId, null, null, data, shouldIndex: shouldIndex);
 
-            OnProfileReceived(did, author, post.account, url, shouldIndex, customEmojis);
+            OnProfileReceived(did, author, post.account!, url, shouldIndex, customEmojis);
         }
 
 
@@ -148,7 +148,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                     return;
             }
 
-            var descriptionDom = StringUtils.ParseHtml(account.note).Body;
+            var descriptionDom = StringUtils.ParseHtml(account.note).Body!;
             var description = StringUtils.HtmlToFacets(descriptionDom, x => ElementToFacet(x, baseUrl));
             var proto = new BlueskyProfileBasicInfo
             {
@@ -203,7 +203,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return Uri.TryCreate(baseUrl, a.GetAttribute("href"), out var result) ? result : null;
         }
 
-        private bool ShouldTrimEmptyNode(INode? node)
+        private static bool ShouldTrimEmptyNode(INode? node)
         {
             return node != null && node.NodeType == NodeType.Text && string.IsNullOrWhiteSpace(node.TextContent);
         }
@@ -252,7 +252,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                     "hashtag" or
                     "hashtags" or
                     "topic" or
+#pragma warning disable CA1309 // Use ordinal string comparison
                     "topics" && element.Text().Equals(("#" + Uri.UnescapeDataString(segments[1])), StringComparison.InvariantCultureIgnoreCase))
+#pragma warning restore CA1309 // Use ordinal string comparison
                 {
                     // don't care
                 }
@@ -414,7 +416,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
         {
             var user = ParseDid(postId.Did);
-            var postIdStr = postId.PostId.AsString;
+            var postIdStr = postId.PostId.AsString!;
             if (postIdStr.StartsWith('/'))
                 return "https://" + user.Instance + postIdStr;
             else if (postIdStr.StartsWith("http://", StringComparison.Ordinal) || postIdStr.StartsWith("https://", StringComparison.Ordinal))

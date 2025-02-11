@@ -522,7 +522,6 @@ namespace AppViewLite
                         task.Task.GetAwaiter().OnCompleted(() => 
                         {
                             onPreexistingTaskCompleted?.Invoke(key);
-                            ctx.TriggerStateChange();
                         });
                         allTasksToAwait.Add(task.Task);
                     }
@@ -540,20 +539,16 @@ namespace AppViewLite
                             await Task.Yield();
                             try
                             {
-                                //Console.Error.WriteLine("  Firing request for " + key);
                                 try
                                 {
                                     var response = await GetRecordAsync(key.Did, collection, key.RKey, ct);
                                     var obj = (TValue)response.Value!;
                                     onItemSuccess(key, obj);
-                                    //Console.Error.WriteLine("     > Completed: " + key);
-                                    ctx.TriggerStateChange();
                                 }
                                 catch (Exception)
                                 {
                                     onItemFailure(key);
                                     Console.Error.WriteLine("     > Failure: " + key);
-                                    ctx.TriggerStateChange();
                                 }
 
 
@@ -2362,7 +2357,7 @@ namespace AppViewLite
                 });
                 return s;
             }
-            catch (Exception ex)
+            catch
             {
                 WithRelationshipsWriteLock(rels =>
                 {
@@ -2476,7 +2471,7 @@ namespace AppViewLite
         {
             var didDoc = await GetDidDocCoreNoOverrideAsync(did);
 
-            return didDoc.Handle;
+            return didDoc.Handle!;
         }
 
 
@@ -2484,7 +2479,7 @@ namespace AppViewLite
         {
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
-                return await DefaultHttpClient.GetByteArrayAsync("https://" + did.Substring(5) + Encoding.UTF8.GetString(Base32.FromBase32(cid)));
+                return await DefaultHttpClient.GetByteArrayAsync(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
             }
 
             var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);

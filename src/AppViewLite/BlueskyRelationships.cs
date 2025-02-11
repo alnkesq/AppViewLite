@@ -677,7 +677,7 @@ namespace AppViewLite
             if (embed is EmbedImages { } ei)
             {
                 if (ei.Images.Any(x => x.ImageValue?.Ref?.Link == null)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
-                proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref.Link.ToArray() }).ToArray();
+                proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref!.Link!.ToArray() }).ToArray();
             }
             else if (embed is EmbedExternal { } ext)
             {
@@ -713,7 +713,7 @@ namespace AppViewLite
             var approxPostDate = GetApproxTime32(postId.PostRKey);
 
             if (proto.Language != LanguageEnum.Unknown)
-                AddToSearchIndex("%lang-" + proto.Language.Value.ToString(), approxPostDate);
+                AddToSearchIndex("%lang-" + proto.Language!.Value.ToString(), approxPostDate);
             PostTextSearch.Add(HashPlcForTextSearch(postId.Author), approxPostDate);
 
             if (proto.Text != null)
@@ -825,7 +825,7 @@ namespace AppViewLite
             
         }
 
-        private List<ManagedOrNativeArray<Plc>> ConsolidatePrefixSearch(IEnumerable<ManagedOrNativeArray<Plc>> slices)
+        private static List<ManagedOrNativeArray<Plc>> ConsolidatePrefixSearch(IEnumerable<ManagedOrNativeArray<Plc>> slices)
         {
             var result = new List<ManagedOrNativeArray<Plc>>();
             var small = new List<Plc>();

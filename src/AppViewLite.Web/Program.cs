@@ -15,7 +15,7 @@ namespace AppViewLite.Web
 {
     public static class Program
     {
-        private static BlueskyRelationships Relationships;
+        private static BlueskyRelationships Relationships = null!;
 
         public static bool AllowPublicReadOnlyFakeLogin = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN) ?? false;
         public static bool ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
@@ -176,11 +176,9 @@ namespace AppViewLite.Web
                     };
 
                     if (isJetStream)
-                        indexer.StartListeningToJetstreamFirehose();
+                        indexer.StartListeningToJetstreamFirehose().FireAndForget();
                     else
-                        indexer.StartListeningToAtProtoFirehoseRepos();
-
-                    //await indexer.ListenJetStreamFirehoseAsync();
+                        indexer.StartListeningToAtProtoFirehoseRepos().FireAndForget();
 
                 }
 
@@ -246,7 +244,7 @@ namespace AppViewLite.Web
                 ext.SequenceEqual("ico");
         }
 
-        internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext;
+        internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext = null!;
         public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
         {
             return TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
@@ -267,7 +265,7 @@ namespace AppViewLite.Web
                     string? did = null;
                     BlueskyProfile? bskyProfile = null;
 
-                    apis.WithRelationshipsLockForDid(unverifiedDid, (unverifiedPlc, rels) =>
+                    apis.WithRelationshipsLockForDid(unverifiedDid!, (unverifiedPlc, rels) =>
                     {
                         var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
                         sessionProto = TryGetAppViewLiteSession(unverifiedProfile, sessionId);
@@ -283,7 +281,7 @@ namespace AppViewLite.Web
 
                     session = new AppViewLiteSession
                     {
-                        IsReadOnlySimulation = sessionProto.IsReadOnlySimulation,
+                        IsReadOnlySimulation = sessionProto!.IsReadOnlySimulation,
                         PdsSession = sessionProto.IsReadOnlySimulation ? null : BlueskyEnrichedApis.DeserializeAuthSession(profile.PdsSessionCbor).Session,
                         LoggedInUser = plc,
                         LastSeen = now,
@@ -395,8 +393,8 @@ namespace AppViewLite.Web
                         // now verified.
                         if (unverifiedAppViewLiteSession != null)
                             unverifiedAppViewLiteSession.PdsSession = null;
-                        unverifiedProfile.PdsSessionCbor = null;
-                        unverifiedProfile!.Sessions.Clear();
+                        unverifiedProfile!.PdsSessionCbor = null;
+                        unverifiedProfile!.Sessions?.Clear();
                         rels.StoreAppViewLiteProfile(unverifiedPlc, unverifiedProfile); 
                     }
                 });
@@ -404,9 +402,9 @@ namespace AppViewLite.Web
 
         }
         public static ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
-        public static IServiceProvider StaticServiceProvider;
+        public static IServiceProvider StaticServiceProvider = null!;
 
-        private static string? TryGetSessionIdFromCookie(string cookie, out string? unverifiedDid)
+        private static string? TryGetSessionIdFromCookie(string? cookie, out string? unverifiedDid)
         {
             if (cookie != null)
             {

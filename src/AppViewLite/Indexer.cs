@@ -630,7 +630,10 @@ namespace AppViewLite
                 });
             await RetrievePlcDirectoryAsync(AsAsyncEnumerable(rows));
         }
+
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         private static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(IEnumerable<T> input)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             foreach (var value in input)
             {

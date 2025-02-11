@@ -13,13 +13,8 @@ namespace AppViewLite
         public Task? LongDeadline { get; private set; }
         public Task? ShortDeadline { get; private set; }
         public AppViewLiteSession Session { get; set; }
-        private Action? _triggerStateChange;
         public string? SignalrConnectionId { get; set; }
 
-        public void TriggerStateChange()
-        {
-            _triggerStateChange?.Invoke();
-        }
 
 
         public static Func<string, string, object[], Task>? SendSignalrImpl;

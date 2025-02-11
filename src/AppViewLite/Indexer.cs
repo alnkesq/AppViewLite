@@ -770,6 +770,7 @@ namespace AppViewLite
             var operation = entry.operation;
             return DidDocToProto(
                 operation.service ?? operation.services?.atproto_pds?.endpoint,
+                operation.services?.atproto_labeler?.endpoint,
                 operation.handle != null ? ["at://" + operation.handle] : operation.alsoKnownAs,
                 entry.did,
                 entry.createdAt);
@@ -778,14 +779,18 @@ namespace AppViewLite
 
         public static DidDocProto DidDocToProto(DidWebRoot root)
         {
-            return DidDocToProto(root.service.FirstOrDefault(x => x.id == "#atproto_pds")?.serviceEndpoint, root.handle != null ? ["at://" + root.handle] : root.alsoKnownAs, null, default);
+            return DidDocToProto(
+                root.service.FirstOrDefault(x => x.id == "#atproto_pds")?.serviceEndpoint,
+                root.service.FirstOrDefault(x => x.id == "#atproto_labeler")?.serviceEndpoint,
+                root.handle != null ? ["at://" + root.handle] : root.alsoKnownAs, null, default);
         }
-        public static DidDocProto DidDocToProto(string? pds, string[] akas, string? trustedDid, DateTime date)
+        public static DidDocProto DidDocToProto(string? pds, string? labeler, string[] akas, string? trustedDid, DateTime date)
         {
             var proto = new DidDocProto
             {
                 Date = date,
-                TrustedDid = trustedDid
+                TrustedDid = trustedDid,
+                AtProtoLabeler = labeler,
             };
 
 

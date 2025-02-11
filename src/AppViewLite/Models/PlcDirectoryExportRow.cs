@@ -27,18 +27,19 @@ namespace AppViewLite.Models
         public string service { get; set; }
         public string signingKey { get; set; }
         public string recoveryKey { get; set; }
-        public PlcDirectoryService services { get; set; }
+        public PlcDirectoryServices services { get; set; }
         public string[] alsoKnownAs { get; set; }
         public string[] rotationKeys { get; set; }
         public PlcDirectoryVerificationMethod verificationMethods { get; set; }
     }
 
-    public class PlcDirectoryService
+    public class PlcDirectoryServices
     {
-        public PlcDirectoryPds atproto_pds { get; set; }
+        public PlcDirectoryServiceEntry atproto_pds { get; set; }
+        public PlcDirectoryServiceEntry atproto_labeler { get; set; }
     }
 
-    public class PlcDirectoryPds
+    public class PlcDirectoryServiceEntry
     {
         public string type { get; set; }
         public string endpoint { get; set; }

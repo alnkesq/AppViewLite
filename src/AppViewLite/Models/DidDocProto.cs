@@ -22,7 +22,7 @@ namespace AppViewLite.Models
         [ProtoMember(7)] public string? TrustedDid;
         [DuckDbInclude] public DuckDbUuid PlcAsUInt128;
         [ProtoMember(9)] public string[]? OtherUrls;
-        
+        [ProtoMember(10)] public string? AtProtoLabeler;
 
         public string? Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null)) ?? MultipleHandles?.FirstOrDefault();
 
@@ -51,7 +51,7 @@ namespace AppViewLite.Models
             DidDocEncoding format = default;
             bw.Write((byte)format); // will be overwritten later
 
-            if (MultipleHandles != null || OtherUrls != null)
+            if (MultipleHandles != null || OtherUrls != null || AtProtoLabeler != null)
             {
                 format = DidDocEncoding.Proto;
                 ProtoBuf.Serializer.Serialize(ms, this);

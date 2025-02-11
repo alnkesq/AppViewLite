@@ -6,10 +6,10 @@ namespace AppViewLite.Models
 {
     public class BlueskyPost
     {
-        public BlueskyProfile Author;
+        public required BlueskyProfile Author;
         public BlueskyProfile? RepostedBy;
         public DateTime? RepostDate;
-        public string RKey;
+        public required string RKey;
 
         public DateTime Date;
 

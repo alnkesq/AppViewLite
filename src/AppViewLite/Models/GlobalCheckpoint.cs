@@ -11,15 +11,15 @@ namespace AppViewLite.Models
     [ProtoContract]
     internal class GlobalCheckpoint
     {
-        [ProtoMember(1)] public List<GlobalCheckpointTable> Tables;
+        [ProtoMember(1)] public List<GlobalCheckpointTable>? Tables;
         [ProtoMember(2)] public bool Dummy;
     }
 
     [ProtoContract]
     internal class GlobalCheckpointTable
     {
-        [ProtoMember(1)] public string Name;
-        [ProtoMember(2)] public GlobalCheckpointSlice[] Slices;
+        [ProtoMember(1)] public required string Name;
+        [ProtoMember(2)] public GlobalCheckpointSlice[]? Slices;
 
         public override string ToString()
         {

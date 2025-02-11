@@ -1175,7 +1175,7 @@ namespace AppViewLite
         public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx)
         {
             var feedGenInfo = await GetFeedGeneratorAsync(did, rkey);
-            if (!feedGenInfo.Data.ImplementationDid.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
+            if (!feedGenInfo.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
             var domain = feedGenInfo.Data.ImplementationDid.Substring(8);
 
             var skeletonUrl = $"https://{domain}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}&limit=30";
@@ -1685,9 +1685,9 @@ namespace AppViewLite
 
             WithRelationshipsLock(rels =>
             {
-                var proto = rels.TryGetAppViewLiteProfile(session.LoggedInUser.Value);
-                proto.PdsSessionCbor = SerializeAuthSession(authSession);
-                ctx.Session.PdsSession = authSession.Session;
+                var proto = rels.TryGetAppViewLiteProfile(session.LoggedInUser!.Value)!;
+                proto.PdsSessionCbor = SerializeAuthSession(authSession!);
+                ctx.Session.PdsSession = authSession!.Session;
                 rels.StoreAppViewLiteProfile(ctx.LoggedInUser, proto);
             });
             
@@ -1695,7 +1695,7 @@ namespace AppViewLite
             return await func(sessionProtocol2);
         }
 
-        public static byte[] SerializeAuthSession(AuthSession? authSession)
+        public static byte[] SerializeAuthSession(AuthSession authSession)
         {
             return CBORObject.FromJSONString(authSession.ToString()).EncodeToBytes();
         }
@@ -1706,10 +1706,11 @@ namespace AppViewLite
 
         public async Task<ATProtocol> GetSessionProtocolAsync(RequestContext ctx)
         {
+            if (!ctx.IsLoggedIn) throw new ArgumentException();
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
-            var pdsSession = ctx.Session.PdsSession;
+            var pdsSession = ctx.Session.PdsSession!;
             var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler);
-            await sessionProtocol.AuthenticateWithPasswordSessionAsync(new AuthSession(pdsSession));
+            (await sessionProtocol.AuthenticateWithPasswordSessionResultAsync(new AuthSession(pdsSession))).HandleResult();
             return sessionProtocol;
 
         }
@@ -1802,7 +1803,7 @@ namespace AppViewLite
         private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post)
         {
             var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey);
-            return (new StrongRef(info.Uri, info.Cid), (Post)info.Value);
+            return (new StrongRef(info.Uri, info.Cid!), (Post)info.Value);
             
         }
 
@@ -2016,7 +2017,7 @@ namespace AppViewLite
             var feeds = WithRelationshipsLock(rels =>
             {
                 return rels.SearchFeeds(queryWords, parsedContinuation ?? RelationshipHashedRKey.MaxValue)
-                .Select(x => rels.TryGetFeedGenerator(x))
+                .Select(x => rels.TryGetFeedGenerator(x)!)
                 .Where(x => 
                 {
                     var words = StringUtils.GetAllWords(x.Data?.DisplayName).Concat(StringUtils.GetAllWords(x.Data?.Description)).Distinct().ToArray();
@@ -2254,13 +2255,13 @@ namespace AppViewLite
 
 
 
-            if (forceRefresh || IsDidDocStale(did, didDoc))
+            if (forceRefresh || IsDidDocStale(did!, didDoc))
             {
                 // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
                 // otherwise did:web, but they're in a different namespace
-                didDoc = DidDocOverrides.TryGetOverride(did) ?? await FetchAndStoreDidDocNoOverrideAsync(did, plc);
+                didDoc = DidDocOverrides.TryGetOverride(did!) ?? await FetchAndStoreDidDocNoOverrideAsync(did!, plc);
             }
-            if (!didDoc.HasHandle(handle))
+            if (!didDoc!.HasHandle(handle))
             {
                 if (!forceRefresh)
                 {
@@ -2272,7 +2273,7 @@ namespace AppViewLite
                     throw new UnexpectedFirehoseDataException($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
             }
 
-            return did;
+            return did!;
         }
 
         private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideAsync(string did, Plc plc)
@@ -2321,15 +2322,15 @@ namespace AppViewLite
                 
                 if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {
-                    string record;
+                    string? record;
                     if (DnsUseHttps)
                     {
-                        var request = new HttpRequestMessage(HttpMethod.Get, "https://" + DnsForTxtResolution + "/dns-query?name=_atproto." + Uri.EscapeDataString(handle) + "&type=TXT");
+                        using var request = new HttpRequestMessage(HttpMethod.Get, "https://" + DnsForTxtResolution + "/dns-query?name=_atproto." + Uri.EscapeDataString(handle) + "&type=TXT");
                         request.Headers.Accept.Clear();
                         request.Headers.Accept.ParseAdd("application/dns-json");
                         using var response = await DefaultHttpClient.SendAsync(request, ct);
                         var result = await response.Content.ReadFromJsonAsync<DnsOverHttpsResponse>(ct);
-                        record = result.Answer?.Where(x => x.type == 16).Select(x => Regex.Match(x.data, @"did=[^\\""]+").Value?.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x));
+                        record = result!.Answer?.Where(x => x.type == 16).Select(x => Regex.Match(x.data, @"did=[^\\""]+").Value?.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x));
                     }
                     else
                     {

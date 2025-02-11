@@ -48,9 +48,9 @@ namespace AppViewLite
 
     public class HttpEventStreamEvent
     {
-        public string Event;
-        public string Id;
-        public string Data;
+        public string? Event;
+        public string? Id;
+        public string? Data;
         public int? Retry;
     }
 }

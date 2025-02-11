@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable disable
+
 namespace AppViewLite.PluggableProtocols.ActivityPub
 {
     // Visual Studio -> Paste JSON as Classes

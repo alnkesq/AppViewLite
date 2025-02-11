@@ -116,7 +116,7 @@ namespace AppViewLite
         {
             return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(
                 BaseDirectory + "/" + name,
-                checkpointToLoad.TryGetValue(name, out var slices) ? slices : [],
+                checkpointToLoad!.TryGetValue(name, out var slices) ? slices : [],
                 behavior
             ) {
                 ItemsToBuffer = DefaultBufferedItems,
@@ -125,7 +125,7 @@ namespace AppViewLite
         }
         private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
         {
-            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad, targetToApproxTarget));
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget));
         }
 
         public bool IsReadOnly { get; private set; }
@@ -533,7 +533,7 @@ namespace AppViewLite
             }
         }
 
-        public PostId GetPostId(Plc Plc, string rkey)
+        public static PostId GetPostId(Plc Plc, string rkey)
         {
             return new PostId(Plc, Tid.Parse(rkey));
         }
@@ -545,7 +545,7 @@ namespace AppViewLite
                 if (ignoreIfNotPost) return default;
                 throw new ArgumentException("Unexpected URI type: " + uri.Collection);
             }
-            return new PostId(SerializeDid(uri.Did.Handler), Tid.Parse(uri.Rkey));
+            return new PostId(SerializeDid(uri.Did!.Handler), Tid.Parse(uri.Rkey));
         }
         public static PostIdString GetPostIdStr(StrongRef uri)
         {
@@ -1707,7 +1707,7 @@ namespace AppViewLite
                 AllowFollowing = threadGate.Allow?.Any(x => x is FollowingRule) ?? false,
                 AllowMentioned = threadGate.Allow?.Any(x => x is MentionRule) ?? false,
                 AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x => {
-                    return new RelationshipProto { Plc = SerializeDid(x.List.Did.Handler).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
+                    return new RelationshipProto { Plc = SerializeDid(x.List.Did!.Handler).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
                 }).ToArray()
             };
             return SerializeProto(proto, x => x.Dummy = true);
@@ -1858,7 +1858,7 @@ namespace AppViewLite
 
         public int SuppressNotificationGeneration;
 
-        public event Action<Plc, Notification> NotificationGenerated;
+        public event Action<Plc, Notification>? NotificationGenerated;
 
 
 

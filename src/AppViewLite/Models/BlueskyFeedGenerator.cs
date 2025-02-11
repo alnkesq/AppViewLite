@@ -13,14 +13,14 @@ namespace AppViewLite.Models
         public required string Did;
         public required string RKey;
         public BlueskyFeedGeneratorData? Data;
-        public BlueskyProfile Author;
+        public required BlueskyProfile Author;
         public RelationshipHashedRKey FeedId;
         public long LikeCount;
         public string DisplayNameOrFallback => Data?.DisplayName ?? (Did + "/" + RKey);
         public Plc Plc => FeedId.Plc;
         public string BaseUrl => $"/feed/{Did}/{RKey}";
 
-        public string AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data.AvatarCid, Author.Pds);
+        public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data?.AvatarCid, Author.Pds);
 
         public string DisplayName => Data?.DisplayName ?? RKey;
 

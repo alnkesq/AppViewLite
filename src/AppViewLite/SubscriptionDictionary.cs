@@ -32,7 +32,7 @@ namespace AppViewLite
             if (handler == null) return;
             if (!subscriptions.TryRemove(new(key, handler)))
             {
-                subscriptions.AddOrUpdate(key, handler, (_, prev) => (TDelegate)Delegate.Remove(prev, handler));
+                subscriptions.AddOrUpdate(key, handler, (_, prev) => (TDelegate)Delegate.Remove(prev, handler)!);
             }
         }
 

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-
+#nullable disable
     public class DnsOverHttpsResponse
     {
         public int Status { get; set; }

@@ -70,13 +70,13 @@ namespace AppViewLite.Models
                 if (CustomDomain != null)
                 {
                     format |= DidDocEncoding.HasCustomDomain;
-                    bw.Write(BlueskyRelationships.CompressBpe(CustomDomain));
+                    bw.Write(BlueskyRelationships.CompressBpe(CustomDomain)!);
                 }
                 else if (BskySocialUserName != null)
                 {
                     format |= DidDocEncoding.HasBskySocialUserName;
                     
-                    bw.Write(BlueskyRelationships.CompressBpe(BskySocialUserName));
+                    bw.Write(BlueskyRelationships.CompressBpe(BskySocialUserName)!);
                     
                 }
             }

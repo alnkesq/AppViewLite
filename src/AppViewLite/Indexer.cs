@@ -166,7 +166,7 @@ namespace AppViewLite
                         else if (l.Subject.Uri.Collection == Generator.RecordType)
                         {
                             // TODO: handle deletions for feed likes
-                            var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did.Handler), l.Subject.Uri.Rkey);
+                            var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did!.Handler), l.Subject.Uri.Rkey);
 
                             relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
@@ -181,7 +181,7 @@ namespace AppViewLite
                     else if (record is Follow f)
                     {
                         if (HasNumericRKey(path)) return;
-                        var followed = relationships.SerializeDid(f.Subject.Handler);
+                        var followed = relationships.SerializeDid(f.Subject!.Handler);
                         if (relationships.IsRegisteredForNotifications(followed))
                             relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
@@ -194,7 +194,7 @@ namespace AppViewLite
                     }
                     else if (record is Repost r)
                     {
-                        var postId = relationships.GetPostId(r.Subject);
+                        var postId = relationships.GetPostId(r.Subject!);
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
                         relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc);
                         relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));
@@ -204,7 +204,7 @@ namespace AppViewLite
                     }
                     else if (record is Block b)
                     {
-                        relationships.Blocks.Add(relationships.SerializeDid(b.Subject.Handler), new Relationship(commitPlc, GetMessageTid(path, Block.RecordType + "/")));
+                        relationships.Blocks.Add(relationships.SerializeDid(b.Subject!.Handler), new Relationship(commitPlc, GetMessageTid(path, Block.RecordType + "/")));
 
                     }
                     else if (record is Post p)
@@ -232,11 +232,11 @@ namespace AppViewLite
                     }
                     else if (record is Listitem listItem)
                     {
-                        if (commitAuthor != listItem.List.Did.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
+                        if (commitAuthor != listItem.List!.Did!.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
                         if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
                         var listRkey = Tid.Parse(listItem.List.Rkey);
                         var listItemRkey = GetMessageTid(path, Listitem.RecordType + "/");
-                        var member = relationships.SerializeDid(listItem.Subject.Handler);
+                        var member = relationships.SerializeDid(listItem.Subject!.Handler);
 
                         var listId = new Relationship(commitPlc, listRkey);
                         var entry = new ListEntry(member, listItemRkey);
@@ -247,7 +247,7 @@ namespace AppViewLite
                     else if (record is Threadgate threadGate)
                     {
                         var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
-                        if (threadGate.Post.Did.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
+                        if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
                         if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
                         if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
                         relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate));
@@ -255,7 +255,7 @@ namespace AppViewLite
                     else if (record is Postgate postgate)
                     {
                         var rkey = GetMessageTid(path, Postgate.RecordType + "/");
-                        if (postgate.Post.Did.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
+                        if (postgate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
                         if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
                         if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
                         relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate));
@@ -263,8 +263,8 @@ namespace AppViewLite
                     else if (record is Listblock listBlock)
                     {
                         var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
-                        if (listBlock.Subject.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
-                        var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did.Handler), Tid.Parse(listBlock.Subject.Rkey));
+                        if (listBlock.Subject!.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
+                        var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler), Tid.Parse(listBlock.Subject.Rkey));
 
                         relationships.ListBlocks.Add(blockId, listId);
                     }
@@ -318,7 +318,7 @@ namespace AppViewLite
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {
 
-            VerifyValidForCurrentRelay(e.Record.Did.ToString());
+            VerifyValidForCurrentRelay(e.Record.Did!.ToString());
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
             {
@@ -332,7 +332,7 @@ namespace AppViewLite
 
         public static string GetMessageRKey(SubscribeRepoMessage message, string prefix)
         {
-            var first = message.Commit.Ops[0].Path;
+            var first = message.Commit!.Ops![0].Path!;
             return GetMessageRKey(first, prefix);
         }
         public static string GetMessageRKey(string path, string prefix)
@@ -419,18 +419,18 @@ namespace AppViewLite
 
             foreach (var del in (message.Commit?.Ops ?? []).Where(x => x.Action == "delete"))
             {
-                OnRecordDeleted(commitAuthor, del.Path, ignoreIfDisposing: true);
+                OnRecordDeleted(commitAuthor, del.Path!, ignoreIfDisposing: true);
             }
 
             if (record != null)
             {
-                OnRecordCreated(commitAuthor, message.Commit.Ops[0].Path, record, generateNotifications: true, ignoreIfDisposing: true);
+                OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, generateNotifications: true, ignoreIfDisposing: true);
             }
         }
 
         private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e)
         {
-            var labels = e.Message.Labels.LabelsValue;
+            var labels = e.Message.Labels?.LabelsValue;
             if (labels == null) return;
 
             foreach (var label in labels)

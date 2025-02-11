@@ -218,11 +218,11 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
     public class NostrProfileJson
     {
-        public string picture;
-        public string banner;
-        public string about;
-        public string name;
-        public string website;
+        public string? picture;
+        public string? banner;
+        public string? about;
+        public string? name;
+        public string? website;
     }
 
 }

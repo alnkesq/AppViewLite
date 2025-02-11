@@ -53,8 +53,8 @@ namespace AppViewLite.Models
         }
 
         [ProtoMember(1)] public long Int64;
-        [ProtoMember(2)] public string String;
-        [ProtoMember(3)] public byte[] Bytes;
+        [ProtoMember(2)] public string? String;
+        [ProtoMember(3)] public byte[]? Bytes;
         [ProtoIgnore] public Tid Tid;
 
 

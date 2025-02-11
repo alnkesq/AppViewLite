@@ -18,11 +18,11 @@ namespace AppViewLite
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
         internal CombinedPersistentMultiDictionary<Relationship, DateTime> deletions;
         private CombinedPersistentMultiDictionary<TTarget, int> deletionCounts;
-        private CombinedPersistentMultiDictionary<RelationshipHash, UInt24> relationshipIdHashToApproxTarget;
+        private CombinedPersistentMultiDictionary<RelationshipHash, UInt24>? relationshipIdHashToApproxTarget;
         private Func<TTarget, bool, UInt24?>? targetToApproxTarget;
-        public event EventHandler BeforeFlush;
-        public event EventHandler<CancelEventArgs> ShouldFlush;
-        public event EventHandler BeforeWrite;
+        public event EventHandler? BeforeFlush;
+        public event EventHandler<CancelEventArgs>? ShouldFlush;
+        public event EventHandler? BeforeWrite;
 
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
@@ -277,7 +277,7 @@ namespace AppViewLite
             public int CompareTo(T other)
             {
                 var otherApprox = TargetToApproxTarget(other!);
-                return Approx.CompareTo(otherApprox.Value);
+                return Approx.CompareTo(otherApprox!.Value);
             }
         }
         public static RelationshipHash GetRelationshipHash(Relationship rel)

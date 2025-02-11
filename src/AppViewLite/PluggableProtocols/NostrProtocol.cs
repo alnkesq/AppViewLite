@@ -160,7 +160,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             else if (kind == NostrEventKind.User_Metadata)
             {
                 if (e.Content == "hello") return; // avoid noisy exceptions
-                var p = System.Text.Json.JsonSerializer.Deserialize<NostrProfileJson>(e.Content, JsonOptions)!;
+                var p = System.Text.Json.JsonSerializer.Deserialize<NostrProfileJson>(e.Content!, JsonOptions)!;
                 var data = new BlueskyProfileBasicInfo
                 {
                     DisplayName = p.name,

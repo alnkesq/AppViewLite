@@ -12,7 +12,7 @@ namespace AppViewLite.Models
         public static ProfileSearchContinuation Deserialize(string s)
         {
             var parts = s.Split('_');
-            return new ProfileSearchContinuation(new Plc(int.Parse(parts[0])), parts[0] == "1");
+            return new ProfileSearchContinuation(new Plc(int.Parse(parts[0])), parts[1] == "1");
         }
     }
 }

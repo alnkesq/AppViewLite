@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -300,7 +301,20 @@ namespace AppViewLite
 
         private static bool IsValidUrl(string value)
         {
-            return Uri.TryCreate(value, UriKind.Absolute, out var u) && (u.Host.Length == 0 || u.Host.Split('.')[^1].Length >= 2);
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var url)) return false;
+            
+            if (!string.IsNullOrEmpty(url.Host))
+            {
+                var tld = url.Host.Split('.')[^1];
+                if (tld.Length < 2) return false;
+                if (tld.AsSpan().ContainsAnyInRange('0', '9')) // raw IPs are ok, but numeric TLDs are not.
+                { 
+                    if(!IPAddress.TryParse(url.Host, out _))
+                        return false;
+                }
+            }
+
+            return true;
         }
 
         public static List<FacetData> GuessCustomEmojiFacets(string? text, Func<string, DuckDbUuid?> getEmojiHash, Func<string, Match, bool>? isValidCandidate = null)

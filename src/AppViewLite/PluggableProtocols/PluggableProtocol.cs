@@ -111,15 +111,15 @@ namespace AppViewLite.PluggableProtocols
 
                 if (inReplyTo != null)
                 {
-                    rels.DirectReplies.Add(data.InReplyToPostId!.Value, data.PostId);
+                    rels.DirectReplies.AddIfMissing(data.InReplyToPostId!.Value, data.PostId);
                 }
 
                 if (data.RootPostId != data.PostId)
                 {
-                    rels.RecursiveReplies.Add(data.RootPostId, data.PostId);
+                    rels.RecursiveReplies.AddIfMissing(data.RootPostId, data.PostId);
                 }
 
-                rels.UserToRecentPosts.Add(data.PostId.Author, new RecentPost(data.PostId.PostRKey, new Plc(data.InReplyToPlc.GetValueOrDefault())));
+                rels.UserToRecentPosts.AddIfMissing(data.PostId.Author, new RecentPost(data.PostId.PostRKey, new Plc(data.InReplyToPlc.GetValueOrDefault())));
 
 
                 rels.PostData.AddRange(new PostId(authorPlc, postId.PostId.Tid), BlueskyRelationships.SerializePostData(data, postId.Did));
@@ -246,6 +246,8 @@ namespace AppViewLite.PluggableProtocols
         {
             return null;
         }
+
+        public virtual bool UseSmallThumbnails => false;
     }
 }
 

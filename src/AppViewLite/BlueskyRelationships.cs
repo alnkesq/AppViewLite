@@ -589,10 +589,10 @@ namespace AppViewLite
 
 
         private List<BlueskyPostData> testDataForCompression = new();
-        public BlueskyPostData StorePostInfoExceptData(Post p, PostId postId)
+        public BlueskyPostData? StorePostInfoExceptData(Post p, PostId postId)
         {
             if (postId == default) throw new Exception();
-
+            if (PostData.ContainsKey(postId)) return null;
             var proto = new BlueskyPostData
             {
                 Text = string.IsNullOrEmpty(p.Text) ? null : p.Text,
@@ -1067,9 +1067,9 @@ namespace AppViewLite
         internal void StorePostInfo(PostId postId, Post p, string did)
         {
             // PERF: This method performs the slow brotli compression while holding the lock. Avoid if possible.
-
             var proto = StorePostInfoExceptData(p, postId);
-            this.PostData.AddRange(postId, SerializePostData(proto, did));
+            if (proto != null)
+                this.PostData.AddRange(postId, SerializePostData(proto, did));
         }
 
         internal static byte[] SerializePostData(BlueskyPostData proto, string did)
@@ -1337,6 +1337,13 @@ namespace AppViewLite
         {
             var post = GetPostWithoutData(id);
             (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id);
+            if (post.Data != null)
+            {
+                if (post.Data.PluggableReplyCount != null)
+                    post.ReplyCount = post.Data.PluggableReplyCount.Value;
+                if (post.Data.PluggableLikeCount != null)
+                    post.LikeCount = post.Data.PluggableLikeCount.Value;
+            }
             DecompressPluggablePostData(id.PostRKey, post.Data, post.Author.Did);
             return post;
         }

@@ -20,6 +20,8 @@ namespace AppViewLite
         {
             dict.TryRemove(value, out _);
         }
+
+        public bool Contains(T value) => dict.ContainsKey(value);
     }
 }
 

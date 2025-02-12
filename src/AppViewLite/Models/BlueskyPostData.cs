@@ -46,6 +46,8 @@ namespace AppViewLite.Models
         [ProtoMember(22)] public NonQualifiedPluggablePostId? PluggableInReplyToPostId;
         [ProtoMember(23)] public NonQualifiedPluggablePostId? PluggableRootPostId;
         [ProtoMember(24)] public bool? IsReplyToUnspecifiedPost;
+        [ProtoMember(25)] public int? PluggableLikeCount;
+        [ProtoMember(26)] public int? PluggableReplyCount;
 
         // UPDATE IsSlimCandidate if you add fields!
 
@@ -60,10 +62,14 @@ namespace AppViewLite.Models
                 Facets == null &&
                 TextBpe != null &&
                 (Language == null || (short)Language <= byte.MaxValue) &&
+
                 PluggablePostId == null &&
                 PluggableInReplyToPostId == null &&
                 PluggableRootPostId == null &&
-                IsReplyToUnspecifiedPost == null
+
+                IsReplyToUnspecifiedPost == null &&
+                PluggableLikeCount == null &&
+                PluggableReplyCount == null
                 ;
         }
 

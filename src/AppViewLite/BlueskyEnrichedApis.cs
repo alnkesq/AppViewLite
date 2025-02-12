@@ -2568,7 +2568,11 @@ namespace AppViewLite
 
         static BlueskyEnrichedApis()
         {
-            DefaultHttpClient = new HttpClient();
+            DefaultHttpClient = new HttpClient(new SocketsHttpHandler 
+            { 
+                AllowAutoRedirect = true,
+                AutomaticDecompression = System.Net.DecompressionMethods.All,
+            }, true);
             DefaultHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
             DefaultHttpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024;
         }

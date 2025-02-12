@@ -211,16 +211,16 @@ namespace AppViewLite
                     {
                         var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
                         var proto = relationships.StorePostInfoExceptData(p, postId);
-
-                        
-
-                        byte[]? postBytes = null;
-                        continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto, commitAuthor), relationships =>
+                        if (proto != null)
                         {
-                            relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
-                        });
+                            
 
-                        //relationships.StorePostInfo(postId, p);
+                            byte[]? postBytes = null;
+                            continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto, commitAuthor), relationships =>
+                            {
+                                relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
+                            });
+                        }
                     }
                     else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
                     {

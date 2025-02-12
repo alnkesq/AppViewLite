@@ -1485,6 +1485,13 @@ h1 .profile-badge img{
     display: block;
 
 }
+
+
+.post[data-postdid^='did:yotsuba:'] .post-image {
+    width: calc(20%);
+    pointer-events: none;
+}
+
 .post-body b{
     font-style: italic;
     font-weight: normal;

@@ -41,6 +41,7 @@ namespace AppViewLite.Web
             var apis = new BlueskyEnrichedApis(Relationships);
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
+            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));
 
             BlueskyEnrichedApis.Instance = apis;
             var builder = WebApplication.CreateBuilder(args);
@@ -202,7 +203,7 @@ namespace AppViewLite.Web
 
                 foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)
                 {
-                    Task.Run(() => pluggableProtocol.DiscoverAsync(Relationships.ShutdownRequested));
+                    Task.Run(() => pluggableProtocol.DiscoverAsync(Relationships.ShutdownRequested)).FireAndForget();
                 }
 
             }

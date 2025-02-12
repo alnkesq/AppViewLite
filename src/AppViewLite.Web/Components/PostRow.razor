@@ -114,11 +114,14 @@
         baseUrlPreferExternal = originalPostUrl ?? Post.BaseUrl;
         targetForBaseUrlPreferExternal = originalPostUrl != null ? "_blank" : null;
 
+        var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Post.Did);
+        UseSmallImages = Post?.Data?.Media?.Length > 1 || IsQuote || pluggable?.UseSmallThumbnails == true;
     }
+
 
     private static Uri? TryParseUrl(string? uri) => uri != null && Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
-
+    private bool UseSmallImages;
 
     private bool IsBusy;
     private async Task PerformActionIfNotBusyAsync(Func<Task> func)
@@ -275,7 +278,7 @@
 
     @if (Post.Data?.Media != null)
     {
-        <div class="post-image-list post-indented @(Post.Data.Media.Length > 1 || IsQuote ? "post-image-list-compact" : null)">
+        <div class="post-image-list post-indented @(UseSmallImages ? "post-image-list-compact" : null)">
 
             @foreach (var image in Post.Data.Media)
             {

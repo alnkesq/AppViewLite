@@ -22,13 +22,13 @@
                     string.Equals(text, url.AbsoluteUri, StringComparison.InvariantCultureIgnoreCase) ||
                     string.Equals(text, url.ToString(), StringComparison.InvariantCultureIgnoreCase))
                 {
-                    
+
 
                     var authority = urlNoTrackingParams.Authority;
                     if (authority.StartsWith("www.", StringComparison.Ordinal))
                         authority = authority.Substring(4);
 
-                    
+
                     var pathAndQuery = urlNoTrackingParams.ToString(); // minimal escaping
                     var slash = pathAndQuery.IndexOf('/', 8);
                     pathAndQuery = pathAndQuery.Substring(slash);
@@ -115,6 +115,16 @@
                         }
 
 
+                    }
+                }
+
+                if (link != null && link.Contains("/@") && AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols.Any(x => x is AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol))
+                {
+                    var linkedText = System.Text.Encoding.UTF8.GetString(textBytes.AsSpan(facet.Start, facet.Length));
+                    if (Regex.IsMatch(linkedText, @"^@[\w\-\.]+@[\w\-\.]+$"))
+                    {
+                        var userId = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(linkedText).Normalize();
+                        link = "/@did:fedi:" + userId.Instance + ":" + userId.UserName;
                     }
                 }
 

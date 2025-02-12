@@ -516,6 +516,11 @@ ul {
     width: 100%;
     max-height: 780px;
     object-fit: cover;
+    pointer-events: all;
+}
+
+.post-image-list{
+    pointer-events: none;
 }
 
 .post-image-list-compact {
@@ -1480,3 +1485,8 @@ h1 .profile-badge img{
     display: block;
 
 }
+.post-body b{
+    font-style: italic;
+    font-weight: normal;
+}
+

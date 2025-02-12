@@ -46,6 +46,7 @@
     public string RenderFlags;
 
 
+
     public static ParameterView CreateParametersForRenderFlags(BlueskyPost post, string renderFlags)
     {
         var flags = renderFlags.Select(x => x == '1').ToArray();
@@ -151,7 +152,7 @@
     data-repostedby="@Post.RepostedBy?.Did"
     data-renderflags="@RenderFlags"
     data-pendingload="@(Post.Data == null || Post.Author.BasicData == null ? 1 : 0)">
-    <a href="@Post.BaseUrl" class="post-background-link" tabindex="-1"></a>
+    <a href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" class="post-background-link" tabindex="-1"></a>
 
     @if (ShowRestOfThreadLink)
     {
@@ -222,18 +223,8 @@
 
         <div class="post-error post-indented">[@(Post.Data?.Error ?? "Reached post retrieval limit for page load, consider refreshing")]</div>
     }
-    <div class="post-body post-indented @(!IsFocalPost ? "post-body-link-to-thread" : null)">
-
-        @if (IsFocalPost)
-        {
-            <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
-        }
-        else
-        {
-            <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" LinkRestToThread="@Post.BaseUrl" />
-        }
-
-
+    <div class="post-body post-indented @(!IsFocalPost ? "post-body-link-to-thread" : null)" href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal">
+        <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
     </div>
 
     @if (Post.Data?.EmbedRecordUri != null)

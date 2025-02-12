@@ -191,16 +191,26 @@ function updateBottomBarSelectedTab() {
     }
 }
 
+var userSelectedTextSinceLastMouseDown = false;
+
+document.addEventListener("selectionchange", () => {
+    const selection = window.getSelection().toString();
+    if (selection.length > 0) {
+        userSelectedTextSinceLastMouseDown = true;
+    }
+});
+
 
 function fastNavigateIfLink(event) { 
     var url = null;
     var t = event.target;
     var a = null;
 
-    if (t instanceof HTMLElement && t.classList.contains('post-body-link-to-thread')) { 
-        var href = t.querySelector('.post-body-link-to-thread-text')?.href
-        if (href) {
-            fastNavigateTo(href);
+    if (t instanceof HTMLElement && t.classList.contains('post-body')) { 
+        var backgroundLink = t.parentElement.querySelector('.post-background-link');
+        if (backgroundLink.href && !userSelectedTextSinceLastMouseDown) {
+            if (backgroundLink.target == '_blank') window.open(backgroundLink.href);
+            else fastNavigateTo(backgroundLink.href);
             return true;
         }
     }
@@ -719,6 +729,19 @@ function onInitialLoad() {
 
 
     });
+
+    document.addEventListener('mousedown', e => { 
+        userSelectedTextSinceLastMouseDown = false;
+        if (e.button == 1) { 
+            if (e.target?.classList?.contains('post-body')) { 
+                var href = e.target.parentElement.querySelector('.post-background-link')?.href;
+                if (href) {
+                    window.open(href);
+                    e.preventDefault();
+                }
+            }
+        }
+    })
 
     document.addEventListener('click', e => {
         

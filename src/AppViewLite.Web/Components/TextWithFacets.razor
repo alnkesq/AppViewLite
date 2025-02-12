@@ -4,13 +4,12 @@
 @code {
     [Parameter] public string? Text { get; set; }
     [Parameter] public FacetData?[] Facets { get; set; }
-    [Parameter] public string? LinkRestToThread { get; set; }
     [Parameter] public bool IsProfileDisplayName { get; set; }
 
-    private List<(string Text, string? Link, CustomEmoji? CustomEmoji)> Parts;
+    private List<(string Text, string? Link, CustomEmoji? CustomEmoji, bool Bold)> Parts;
     private bool HasLinks;
 
-    private void AddPart(string text, string? link, CustomEmoji? customEmoji)
+    private void AddPart(string text, string? link, CustomEmoji? customEmoji, bool bold)
     {
 
         if (link != null)
@@ -42,12 +41,12 @@
 
             }
         }
-        Parts.Add((text, link, customEmoji));
+        Parts.Add((text, link, customEmoji, bold));
     }
 
-    private void AddPart(ReadOnlySpan<byte> utf8, string? link, CustomEmoji? customEmoji)
+    private void AddPart(ReadOnlySpan<byte> utf8, string? link, CustomEmoji? customEmoji, bool bold)
     {
-        AddPart(System.Text.Encoding.UTF8.GetString(utf8), link, customEmoji);
+        AddPart(System.Text.Encoding.UTF8.GetString(utf8), link, customEmoji, bold);
     }
 
     protected override void OnParametersSet()
@@ -62,7 +61,7 @@
 
         if (Facets == null && !Text.Contains('#'))
         {
-            Parts = [(Text, null, null)];
+            Parts = [(Text, null, null, false)];
             return;
         }
 
@@ -83,7 +82,7 @@
 
             var textBetween = textBytes.AsSpan(processedText, facet.Start - processedText);
             if (textBetween.Length != 0)
-                AddPart(textBetween, null, null);
+                AddPart(textBetween, null, null, false);
 
             CustomEmoji? customEmojiUrl = null;
             string? link = null;
@@ -123,18 +122,18 @@
             if (facet.Did != null && BlueskyRelationships.TryGetPluggableProtocolForDid(facet.Did) is { } pluggable && pluggable.TryGetHandleFromDid(facet.Did) is {} handle)
             {
                 if (!handle.StartsWith('@')) handle = "@" + handle;
-                AddPart(handle, link, null);
+                AddPart(handle, link, null, false);
             }
             else
             {
-                AddPart(textBytes.AsSpan(facet.Start, facet.Length), link, customEmojiUrl);
+                AddPart(textBytes.AsSpan(facet.Start, facet.Length), link, customEmojiUrl, facet.Bold ?? false);
             }
             processedText = facet.End;
         }
 
         var rest = textBytes.AsSpan(processedText);
         if (rest.Length != 0)
-            AddPart(rest, null, null);
+            AddPart(rest, null, null, false);
         HasLinks = Parts.Any(x => x.Link != null);
 
     }
@@ -146,20 +145,17 @@
     {
         <a href="@part.Link" target="@(part.Link[0] != '/' ? "_blank" : null)" class="blue-link" rel="noreferrer nofollow">@part.Text</a>
     }
+    else if (part.Bold)
+    {
+        <b>@part.Text</b>
+    }
     else if(part.CustomEmoji != null)
     {
         <img src="@Apis.GetCustomEmojiUrl(part.CustomEmoji, IsProfileDisplayName ? ThumbnailSize.emoji_profile_name : ThumbnailSize.emoji)" class="custom-emoji" alt="@part.Text.Replace(":", null)" rel="noreferrer">
     }
     else
     {
-        if (LinkRestToThread != null)
-        {
-            <a href="@LinkRestToThread" class="post-body-link-to-thread-text @(HasLinks ? null : "display-block")" tabindex="-1">@part.Text</a>
-        }
-        else
-        {
-            @part.Text
-        }
+        @part.Text
     }
 }
 

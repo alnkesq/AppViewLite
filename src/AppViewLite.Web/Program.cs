@@ -114,6 +114,7 @@ namespace AppViewLite.Web
                             firstSegment.StartsWith("did:") ||
                             (
                                 !IsKnownFileTypeAsOpposedToTld(firstSegment.Slice(firstSegment.LastIndexOf('.') + 1)) &&
+                                !firstSegment.SequenceEqual("bsky.app") &&
                                 BlueskyEnrichedApis.IsValidDomain(firstSegment)
                             )
                         )

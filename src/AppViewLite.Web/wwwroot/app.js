@@ -995,6 +995,13 @@ var postActions = {
         if (nextSeparator?.classList.contains('post-group-separator')) nextSeparator.remove();
         node.remove();
     },
+    copyPostUrl: async function (did, rkey) { 
+        navigator.clipboard.writeText(location.origin + '/@' + did + '/' + rkey)
+    },
+    translatePost: async function (did, rkey, postElement) { 
+        var text = postElement.querySelector('.post-body').textContent
+        window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(text) + '&op=translate');
+    }
 }
 
 var userActions = {

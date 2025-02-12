@@ -369,6 +369,13 @@
                     {
                         <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                     }
+
+                    <button actionkind="copyPostUrl" class="menu-item">Copy post URL</button>
+                    @if (Post.Data?.Text != null)
+                    {
+                        <button actionkind="translatePost" class="menu-item">Translate post</button>
+                    }
+
                     @if (RequestContext.IsLoggedIn)
                     {
                         @if (Post.Author.Plc == RequestContext.LoggedInUser)

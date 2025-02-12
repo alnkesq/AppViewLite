@@ -940,7 +940,11 @@ namespace AppViewLite
                     var plc = rels.TrySerializeDidMaybeReadOnly(did);
                     if (plc == default) return [];
                     BlueskyProfile? profile = null;
-                    var recentPosts = includePosts ? rels.EnumerateRecentPosts(plc, recentThreshold, null).Select(x => (RKey: x.PostId.PostRKey, x.PostId, IsRepost: false)) : [];
+
+                    var recentPosts = includePosts ? (
+                        mediaOnly ? rels.EnumerateRecentMediaPosts(plc, Tid.FromDateTime(DateTime.UtcNow.AddDays(-90), 0), null).Select(x => (RKey: x.PostRKey, PostId: x, IsRepost: false)) :
+                        rels.EnumerateRecentPosts(plc, recentThreshold, null).Select(x => (RKey: x.PostId.PostRKey, x.PostId, IsRepost: false))
+                    ) : [];
                     var recentReposts = includeReposts ? rels.EnumerateRecentReposts(plc, recentThreshold, null).Select(x => (RKey: x.RepostRKey, x.PostId, IsRepost: true)) : [];
 
                     return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([recentPosts, recentReposts], x => x.RKey, new ReverseComparer<Tid>())
@@ -955,7 +959,7 @@ namespace AppViewLite
                             return post;
                         })
                         .Where(x => x != null)
-                        .Take(canFetchFromServer ? 10 : 50)
+                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50)
                         .ToArray();
                 });
 

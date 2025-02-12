@@ -70,6 +70,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
         public CombinedPersistentMultiDictionary<Plc, ListEntry> RegisteredUserToFollowees;
         public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
+        public CombinedPersistentMultiDictionary<Plc, Tid> UserToRecentMediaPosts;
         public CombinedPersistentMultiDictionary<Plc, RecentRepost> UserToRecentReposts;
         public CombinedPersistentMultiDictionary<RepositoryImportKey, byte> CarImports;
         public CombinedPersistentMultiDictionary<Plc, byte> AppViewLiteProfiles;
@@ -203,6 +204,7 @@ namespace AppViewLite
 
             UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2") ;
             UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2") ;
+            UserToRecentMediaPosts = RegisterDictionary<Plc, Tid>("user-to-recent-media-posts");
 
             CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder) ;
 
@@ -700,6 +702,8 @@ namespace AppViewLite
                 proto.EmbedRecordUri = rec.Record!.Uri!.ToString();
             }
 
+            if (proto.Media != null)
+                UserToRecentMediaPosts.Add(postId.Author, postId.PostRKey);
             UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, new Plc(proto.InReplyToPlc.GetValueOrDefault())));
 
             if (proto.QuotedRKey != null)
@@ -1956,6 +1960,10 @@ namespace AppViewLite
         internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDate, Tid? maxDate)
         {
             return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDate, default), maxDate != null ? new RecentPost(maxDate.Value, default) : null).Select(x => (new PostId(author, x.RKey), x.InReplyTo));
+        }
+        internal IEnumerable<PostId> EnumerateRecentMediaPosts(Plc author, Tid minDate, Tid? maxDate)
+        {
+            return this.UserToRecentMediaPosts.GetValuesSortedDescending(author, minDate, maxDate).Select(x => new PostId(author, x));
         }
         internal IEnumerable<RecentRepost> EnumerateRecentReposts(Plc author, Tid minDate, Tid? maxDate)
         {

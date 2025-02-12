@@ -121,6 +121,8 @@ namespace AppViewLite.PluggableProtocols
 
                 rels.UserToRecentPosts.AddIfMissing(data.PostId.Author, new RecentPost(data.PostId.PostRKey, new Plc(data.InReplyToPlc.GetValueOrDefault())));
 
+                if (data.Media != null)
+                    rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
 
                 rels.PostData.AddRange(new PostId(authorPlc, postId.PostId.Tid), BlueskyRelationships.SerializePostData(data, postId.Did));
 

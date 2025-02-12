@@ -300,7 +300,7 @@ namespace AppViewLite
 
         private static bool IsValidUrl(string value)
         {
-            return Uri.TryCreate(value, UriKind.Absolute, out _);
+            return Uri.TryCreate(value, UriKind.Absolute, out var u) && (u.Host.Length == 0 || u.Host.Split('.')[^1].Length >= 2);
         }
 
         public static List<FacetData> GuessCustomEmojiFacets(string? text, Func<string, DuckDbUuid?> getEmojiHash, Func<string, Match, bool>? isValidCandidate = null)

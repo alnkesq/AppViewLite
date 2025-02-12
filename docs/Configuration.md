@@ -20,9 +20,17 @@ You can set the following environment variables:
 * `APPVIEWLITE_PLC_DIRECTORY`: Alternate PLC directory prefix. Defaults to `https://plc.directory`
 * `APPVIEWLITE_DID_DOC_OVERRIDES`: Path to an optional text file, where each line is `did:plc:example pds.example handle.example`. Will be reloaded dynamically if it changes. The listed PDSes will be listened from directly, without relaying on the main firehose.
 
-## ActivityPub
-* `APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS`: listens to the specified ActivityPub relays. Defaults to none.
-* `APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES`: ignores the specified ActivityPub instances.
+## Additional protocols
+
+### ActivityPub (Fediverse)
+* `APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS`: listens to the specified ActivityPub relays. Example: `fedi.buzz`. Defaults to none.
+* `APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES`: ignores posts hosted on the specified ActivityPub instances (useful to avoid mirrors and mirrors of mirrors). Defaults to `gleasonator.dev,rss-parrot.net,flipboard.com,cash.app`.
+
+### Yotsuba (Imageboards)
+* `APPVIEWLITE_YOTSUBA_HOSTS`: retrieves threads from the specified imageboards, optionally specifying API and image hosts. Example: `boards.4chan.org/i.4cdn.org/a.4cdn.org`. Defaults to none.
+
+### Nostr
+* `APPVIEWLITE_LISTEN_NOSTR_RELAYS`: listens to the specified Nostr relays. Example: `nos.lol,bostr.bitcointxoko.com`. Defaults to none.
 
 ## Image proxying and caching
 * `APPVIEWLITE_SERVE_IMAGES`: Enables image serving, instead of relying on an external CDN.

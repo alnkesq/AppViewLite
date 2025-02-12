@@ -31,7 +31,8 @@ namespace AppViewLite.Models
 
         public BlueskyPost? InReplyToFullPost;
         public BlueskyPost? RootFullPost;
-        public bool IsReply => Data?.InReplyToPlc != null;
+        public bool IsReply => Data?.InReplyToPlc != null || Data?.IsReplyToUnspecifiedPost == true;
+        public bool IsNativeReply => Data?.InReplyToPlc != null;
         public bool IsRootPost => !IsReply;
 
         public PostId? InReplyToPostId => Data?.InReplyToPostId;

@@ -704,7 +704,7 @@ namespace AppViewLite
 
             if (proto.Media != null)
                 UserToRecentMediaPosts.Add(postId.Author, postId.PostRKey);
-            UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, new Plc(proto.InReplyToPlc.GetValueOrDefault())));
+            UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, proto.IsReplyToUnspecifiedPost == true ? Plc.MaxValue : new Plc(proto.InReplyToPlc.GetValueOrDefault())));
 
             if (proto.QuotedRKey != null)
                 NotifyPostStatsChange(proto.QuotedPostId!.Value, postId.Author);

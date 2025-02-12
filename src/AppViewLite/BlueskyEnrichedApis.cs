@@ -831,7 +831,7 @@ namespace AppViewLite
                     })
                     .Select(x => 
                     {
-                        x.InReplyToUser = x.IsReply ? rels.GetProfile(x.InReplyToPostId.Value.Author) : null;
+                        x.InReplyToUser = x.InReplyToPostId != null ? rels.GetProfile(x.InReplyToPostId.Value.Author) : null;
                         return x;
                     })
                     .DistinctBy(x => x.PostId)

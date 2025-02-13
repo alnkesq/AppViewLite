@@ -10,6 +10,7 @@
     [Parameter] public string? FocalPostRKey { get; set; }
     [Parameter] public string? NextContinuation { get; set; }
     [Parameter] public bool IsQuoteList { get; set; }
+    [Parameter] public bool ShowAsGrid { get; set; }
     private Uri? continuationUrl;
     private Plc? focalPostPlc;
 
@@ -27,30 +28,48 @@
 
 }
 
-<ul class="post-list main-paginated-list" data-focalpostdid="@FocalPostDid">
+<ul class="post-list main-paginated-list @(ShowAsGrid ? "image-grid" : null)" data-focalpostdid="@FocalPostDid">
     @for (int i = 0; i < Posts.Length; i++)
     {
         var post = Posts[i];
-        var prev = i != 0 ? Posts[i - 1] : null;
-        var next = i != Posts.Length - 1 ? Posts[i + 1] : null;
-        var postId = post.PostId;
-        <PostRow 
-            Post="post"
-            ShowThreadLine="@(
-                (prev?.PostId == post.InReplyToPostId) ||
-                (prev?.PostId == post.RootPostId && post.IsNativeReply) || 
-                (postId == next?.RootPostId) ||
-                (postId == next?.InReplyToPostId))"
-            ShowInReplyTo="@(
-                (ShowInReplyTo && (prev?.RootPostId != post.RootPostId && prev?.PostId.Author != postId.Author)) || 
-                (post.IsNativeReply && ((prev == null || (IsLastOfGroup(prev, post) && post.InReplyToPostId!.Value.Author != focalPostPlc)))))"
-            IsLastOfGroup="@IsLastOfGroup(post, next)"
-            ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
-            IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
-            IsThreadView="@(focalPostPlc != null)"
-            IsQuoteList="@IsQuoteList"
-        />
+        @if (ShowAsGrid)
+        {
+            @foreach (var (index, media) in (post.Data?.Media ?? []).Index())
+            {
+                var preverExternalLink = post.Did.StartsWith("did:yotsuba:", StringComparison.Ordinal);
+                if(!media.IsVideo)
+                {
+                    <li class="image-grid-cell" data-postdid="@post.Did" data-postrkey="@post.RKey">
+                        <a class="image-grid-cell-link" href="@(preverExternalLink ? post.OriginalPostUrl : post.BaseUrl + "/media/" + (index + 1) )" target="@(preverExternalLink ? "_blank" : null)" rel="noreferrer" title="@((post.Data!.Text + "\n\n" + (media.AltText != null ? "Image description:\n" + media.AltText : null)).Trim())">
+                            <img src="@Apis.GetImageThumbnailUrl(post.Did, media.Cid, post.Author.Pds)" class="image-grid-cell-image" />
+                        </a>
+                    </li>
+                }
+            }
 
+        }
+        else
+        {
+            var prev = i != 0 ? Posts[i - 1] : null;
+            var next = i != Posts.Length - 1 ? Posts[i + 1] : null;
+            var postId = post.PostId;
+            <PostRow 
+                Post="post"
+                ShowThreadLine="@(
+                    (prev?.PostId == post.InReplyToPostId) ||
+                    (prev?.PostId == post.RootPostId && post.IsNativeReply) || 
+                    (postId == next?.RootPostId) ||
+                    (postId == next?.InReplyToPostId))"
+                ShowInReplyTo="@(
+                    (ShowInReplyTo && (prev?.RootPostId != post.RootPostId && prev?.PostId.Author != postId.Author)) || 
+                    (post.IsNativeReply && ((prev == null || (IsLastOfGroup(prev, post) && post.InReplyToPostId!.Value.Author != focalPostPlc)))))"
+                IsLastOfGroup="@IsLastOfGroup(post, next)"
+                ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
+                IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
+                IsThreadView="@(focalPostPlc != null)"
+                IsQuoteList="@IsQuoteList"
+            />
+        }
     }
 </ul>
 

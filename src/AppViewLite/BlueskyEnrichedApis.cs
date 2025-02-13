@@ -1464,7 +1464,7 @@ namespace AppViewLite
         {
             return GetImageUrl(ThumbnailSize.avatar_thumbnail, did, avatarCid, pds);
         }
-        public string GetImageThumbnailUrl(string did, byte[] cid, string? pds)
+        public string? GetImageThumbnailUrl(string did, byte[]? cid, string? pds)
         {
             return GetImageUrl(ThumbnailSize.feed_thumbnail, did, cid, pds);
         }

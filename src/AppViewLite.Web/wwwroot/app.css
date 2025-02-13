@@ -161,6 +161,40 @@ main {
     padding-top: 14px;
 }
 
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+
+}
+.image-grid-cell {
+
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+
+}
+
+.image-grid-cell-link {
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: relative;
+}
+
+.image-grid-cell-image {
+    width: 100%;
+    height: 100%;
+    
+    aspect-ratio: 1;
+    object-fit: cover;
+}
+
+@media (max-width: 700px){
+    .image-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 793px) {
     .page {
         flex-direction: row;

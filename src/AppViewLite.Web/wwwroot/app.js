@@ -207,7 +207,7 @@ function fastNavigateIfLink(event) {
     var t = event.target;
     var a = null;
 
-    if (t instanceof HTMLElement && t.classList.contains('post-body')) { 
+    if (t instanceof HTMLElement && t.classList.contains('post-body') && !t.parentElement.classList.contains('post-focal')) { 
         var backgroundLink = t.parentElement.querySelector('.post-background-link');
         if (backgroundLink.href && !userSelectedTextSinceLastMouseDown) {
             if (backgroundLink.target == '_blank') window.open(backgroundLink.href);

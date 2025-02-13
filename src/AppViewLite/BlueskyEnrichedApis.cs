@@ -2490,6 +2490,7 @@ namespace AppViewLite
         public async Task<byte[]> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
+            AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
 
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {

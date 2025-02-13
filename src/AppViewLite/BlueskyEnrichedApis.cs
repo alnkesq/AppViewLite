@@ -32,6 +32,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
+using DnsClient.Protocol;
 
 namespace AppViewLite
 {
@@ -1175,8 +1176,18 @@ namespace AppViewLite
             if (continuation != null)
                 skeletonUrl += "&cursor=" + Uri.EscapeDataString(continuation);
 
-            var postsJson = JsonConvert.DeserializeObject<AtFeedSkeletonResponse>(await DefaultHttpClient.GetStringAsync(skeletonUrl))!;
-            var postsJsonParsed = postsJson.feed.Select(x => new ATUri(x.post)).ToArray();
+            AtFeedSkeletonResponse postsJson;
+            ATUri[] postsJsonParsed;
+            try
+            {
+                postsJson = JsonConvert.DeserializeObject<AtFeedSkeletonResponse>(await DefaultHttpClient.GetStringAsync(skeletonUrl))!;
+                postsJsonParsed = postsJson.feed?.Select(x => new ATUri(x.post)).ToArray() ?? [];
+            }
+            catch (Exception ex)
+            {
+                throw CreateExceptionMessageForExternalServerError($"The feed provider", ex);
+            }
+
             var posts = WithRelationshipsLockWithPreamble(
                 rels => 
                 {
@@ -1194,9 +1205,44 @@ namespace AppViewLite
                 {
                     return p.Select(x => rels.GetPost(x)).ToArray();
                 });
+            if (continuation == null && posts.Length == 0)
+                throw new Exception("The feed provider didn't return any results." + (ctx.IsLoggedIn ? " Note that feeds that require a logged-in user are not currently supported." : null));
             return (await EnrichAsync(posts, ctx), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 
+
+        private static Exception CreateExceptionMessageForExternalServerError(string subjectDisplayText, Exception ex)
+        {
+            if (ex is PermissionException) return ex;
+            return new Exception(GetExceptionMessageForExternalServerError(subjectDisplayText, ex), ex);
+        }
+        private static string? GetExceptionMessageForExternalServerError(string subjectDisplayText, Exception ex)
+        {
+            if (ex is ATNetworkErrorException at)
+            {
+                var code = at.AtError.Detail?.Error;
+                if (code == "RecordNotFound")
+                    return "This record was not found.";
+
+                return subjectDisplayText + " returned error " + at.Message;
+            }
+            if (ex is TaskCanceledException)
+            {
+                return subjectDisplayText + " did not respond in a timely fashion.";
+            }
+            if (ex is HttpRequestException http)
+            {
+                if (http.StatusCode != null)
+                {
+                    return subjectDisplayText + " returned status code " + (int)http.StatusCode + " " + http.StatusCode;
+                }
+                else
+                {
+                    return subjectDisplayText + " could not be reached: " + http.HttpRequestError;
+                }
+            }
+            return subjectDisplayText + " could not be reached: " + ex.Message;
+        }
 
         private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey)
         {
@@ -1958,13 +2004,29 @@ namespace AppViewLite
         {
             using var proto = await TryCreateProtocolForDidAsync(did);
             if (proto == null) return new ListRecordsOutput(null, []);
-            return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, cancellationToken: ct)).HandleResult()!;
+            try
+            {
+                return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, cancellationToken: ct)).HandleResult()!;
+            }
+            catch (Exception ex)
+            {
+                throw CreateExceptionMessageForExternalServerError($"The PDS of this user", ex);
+            }
+            
         }
 
         public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, CancellationToken ct = default)
         {
             using var proto = await CreateProtocolForDidAsync(did);
-            return (await proto.GetRecordAsync(GetAtId(did), collection, rkey, cancellationToken: ct)).HandleResult()!;
+            try
+            {
+                return (await proto.GetRecordAsync(GetAtId(did), collection, rkey, cancellationToken: ct)).HandleResult()!;
+            }
+            catch (Exception ex)
+            {
+                throw CreateExceptionMessageForExternalServerError($"The PDS of this user", ex);
+            }
+            
         }
 
         public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> GetPopularFeedsAsync(string? continuation, int limit, RequestContext ctx)
@@ -2591,6 +2653,7 @@ namespace AppViewLite
             }, true), true);
             DefaultHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
             DefaultHttpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024;
+            DefaultHttpClient.Timeout = TimeSpan.FromSeconds(10);
         }
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();

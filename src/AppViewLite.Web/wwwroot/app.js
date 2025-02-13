@@ -391,7 +391,7 @@ function applyPageElements() {
         document.querySelector('.theater-image').src = ''; // ensure old image is never displayed
         document.querySelector('.theater-image').src = a.href;
         var alt = a.title;
-        var description = alt && postText ? alt + "\n\nImage description:\n" + postText : (alt || postText);
+        var description = alt && postText ? postText + "\n\nImage description:\n" + alt : (alt || postText);
 
         document.querySelector('.theater-alt').textContent = description;
         document.querySelector('.theater-alt').classList.toggle('display-none', !description);

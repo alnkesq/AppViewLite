@@ -819,6 +819,7 @@ namespace AppViewLite
                             posts = posts.Where(x => x.Data!.Language == options.Language);
 
                         posts = posts
+                            .Where(x => !x.Author.IsBlockedByAdministrativeRule)
                             .Where(x => x.Data!.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
@@ -1233,7 +1234,9 @@ namespace AppViewLite
                 .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key))))
                 .ToArray();
 
-                var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
+                var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)))
+                    .Where(x => !x.Author.IsBlockedByAdministrativeRule);
+
                 //  .AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 if (!includeReplies)
                     merged = merged.Where(x => x.IsRootPost && (x.Data?.IsReplyToUnspecifiedPost != true));

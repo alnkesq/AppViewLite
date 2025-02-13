@@ -53,6 +53,7 @@ namespace AppViewLite.Models
         public string? Pds;
         public bool HandleIsUncertain;
         public bool IsBlockedByAdministrativeRule;
+        public bool IsMediaBlockedByAdministrativeRule;
 
         public ProfileBadge[]? Badges;
         public DidDocProto? DidDoc;

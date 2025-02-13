@@ -1359,6 +1359,10 @@ namespace AppViewLite
             {
                 post.Data = new BlueskyPostData { Error = post.Author.BasicData!.Error };
             }
+            if (post.Author.IsMediaBlockedByAdministrativeRule && post.Data != null)
+            {
+                RemoveCustomEmojiFacets(ref post.Data.Facets);
+            }
         }
 
         public BlueskyPost GetPost(PostId id, BlueskyPostData? data)
@@ -1520,13 +1524,9 @@ namespace AppViewLite
             var didDoc = TryGetLatestDidDoc(plc);
 
 
-            var isBlockedByAdministrativeRule = false;
 
-            if (AdministrativeBlocklist.ShouldBlockDisplay(did, didDoc))
-            {
-                isBlockedByAdministrativeRule = true;
-            }
-
+            var isBlockedByAdministrativeRule = AdministrativeBlocklist.ShouldBlockDisplay(did, didDoc);
+            var isMediaBlockedByAdministrativeRule = AdministrativeBlocklist.ShouldBlockOutboundConnection(did, didDoc);
 
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
@@ -1550,10 +1550,20 @@ namespace AppViewLite
             }
 
             if (isBlockedByAdministrativeRule)
+            {
                 basic = new BlueskyProfileBasicInfo
                 {
                     Error = "This DID or domain is blocked by administrative rules."
                 };
+            }
+
+            if (isMediaBlockedByAdministrativeRule && basic != null)
+            {
+                RemoveCustomEmojiFacets(ref basic.DisplayNameFacets);
+                RemoveCustomEmojiFacets(ref basic.DescriptionFacets);
+                basic.AvatarCidBytes = null;
+                basic.BannerCidBytes = null;
+            }
 
             return new BlueskyProfile()
             {
@@ -1566,8 +1576,15 @@ namespace AppViewLite
                 Pds = didDoc?.Pds,
                 HandleIsUncertain = !handleIsCertain,
                 IsBlockedByAdministrativeRule = isBlockedByAdministrativeRule,
+                IsMediaBlockedByAdministrativeRule = isMediaBlockedByAdministrativeRule,
                 Badges = Badges.GetBadges(plc, did, possibleHandle)
             };
+        }
+
+        private static void RemoveCustomEmojiFacets(ref FacetData[]? facets)
+        {
+            if (facets == null || facets.Length == 0) return;
+            facets = facets.Where(x => x.CustomEmojiHash == null).ToArray();
         }
 
         public DidDocProto? TryGetLatestDidDoc(Plc plc)

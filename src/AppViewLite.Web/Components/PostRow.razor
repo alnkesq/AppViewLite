@@ -268,7 +268,7 @@
         else
         {
             <a class="post-external-preview post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
-                @if (Post.Data.ExternalThumbCid != null)
+                @if (Post.Data.ExternalThumbCid != null && !Post.Author.IsMediaBlockedByAdministrativeRule)
                 {
                     <img class="post-external-preview-image" src="@Apis.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid, Post.Author.Pds)" />
                 }
@@ -286,24 +286,31 @@
 
     @if (Post.Data?.Media != null)
     {
-        <div class="post-image-list post-indented @(UseSmallImages ? "post-image-list-compact" : null)">
+        @if (Post.Author.IsMediaBlockedByAdministrativeRule)
+        {
+            <div class="post-error post-indented">[Media blocked by administrative rules]</div>
+        }
+        else
+        {
+            <div class="post-image-list post-indented @(UseSmallImages ? "post-image-list-compact" : null)">
 
-            @foreach (var image in Post.Data.Media)
-            {
-                @if (image.IsVideo)
+                @foreach (var image in Post.Data.Media)
                 {
-                    <a href="@Post.BlueskyUrl" title="@image.AltText" class="post-image-link blue-link" target="_blank" rel="noreferrer">
-                        Watch video on bsky.app
-                    </a>
+                    @if (image.IsVideo)
+                    {
+                        <a href="@Post.BlueskyUrl" title="@image.AltText" class="post-image-link blue-link" target="_blank" rel="noreferrer">
+                            Watch video on bsky.app
+                        </a>
+                    }
+                    else
+                    {
+                        <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
+                            <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
+                        </a>
+                    }
                 }
-                else
-                {
-                    <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
-                        <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
-                    </a>
-                }
-            }
-        </div>
+            </div>
+        }
     }
 
 

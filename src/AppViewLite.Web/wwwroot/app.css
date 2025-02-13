@@ -115,7 +115,8 @@ main {
     position: fixed;
     bottom: 30px;
     left: calc(max(-220px - 140px + 50vw, 148px));
-    background: white;
+    backdrop-filter: blur(10px);
+    background-color: rgb(255 255 255 / 80%);
     border-radius: 100px;
     border: 1px solid rgb(197, 207, 217);
     z-index: 30;
@@ -126,6 +127,7 @@ main {
     align-items: center;
     justify-content: center;
     padding: 0px;
+    
     
 }
 
@@ -141,7 +143,8 @@ main {
 
 .bottom-bar {
     display: none;
-    background: white;
+    backdrop-filter: blur(10px);
+    background-color: rgb(255 255 255 / 80%);
     position: fixed;
     bottom: 0;
     height: 57px;
@@ -220,11 +223,13 @@ main {
         padding-left: 0px;
         padding-top: 5px;
         cursor: pointer;
-        background: white;
         z-index: 45;
         width: 50px;
         height: 45px;
         top: 0px;
+        backdrop-filter: blur(10px);
+        background-color: rgb(255 255 255 / 50%);
+        border-radius: 0px 0px 5px 0px;
     }
 
     .tabbed-lists-header{
@@ -1496,4 +1501,5 @@ h1 .profile-badge img{
     font-style: italic;
     font-weight: normal;
 }
+
 

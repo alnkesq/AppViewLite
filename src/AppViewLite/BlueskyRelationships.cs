@@ -1528,7 +1528,7 @@ namespace AppViewLite
             }
             if (didDoc != null)
             {
-                foreach (var handle in didDoc.AllHandlesAndDomans)
+                foreach (var handle in didDoc.AllHandlesAndDomains)
                 {
                     if (AdministrativeBlocklist.ShouldBlockDisplay(handle))
                         isBlockedByAdministrativeRule = true;

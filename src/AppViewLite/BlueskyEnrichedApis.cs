@@ -1725,6 +1725,10 @@ namespace AppViewLite
         public async Task<ATProtocol> CreateProtocolForDidAsync(string did)
         {
             var diddoc = await GetDidDocAsync(did);
+            foreach (var domain in diddoc.AllHandlesAndDomains)
+            {
+                AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(domain);
+            }
             var pds = diddoc.Pds;
             var builder = new ATProtocolBuilder();
             builder.WithInstanceUrl(new Uri(pds));
@@ -2275,7 +2279,7 @@ namespace AppViewLite
                     throw new UnexpectedFirehoseDataException($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
             }
 
-            foreach (var extraHandle in didDoc.AllHandlesAndDomans)
+            foreach (var extraHandle in didDoc.AllHandlesAndDomains)
             {
                 AdministrativeBlocklist.ThrowIfBlockedDisplay(extraHandle);
             }
@@ -2322,6 +2326,8 @@ namespace AppViewLite
 
         private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
         {
+            AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(handle);
+
             try
             {
                 // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.

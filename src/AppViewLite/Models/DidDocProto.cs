@@ -24,7 +24,7 @@ namespace AppViewLite.Models
         [DuckDbInclude] public DuckDbUuid PlcAsUInt128;
         [ProtoMember(9)] public string[]? OtherUrls;
         [ProtoMember(10)] public string? AtProtoLabeler;
-        public IEnumerable<string?> AllHandlesAndDomans => [GetDomainFromPds(Pds), Handle, ..MultipleHandles ?? []];
+        public IEnumerable<string?> AllHandlesAndDomains => [GetDomainFromPds(Pds), Handle, ..MultipleHandles ?? []];
 
         public static string? GetDomainFromPds(string? pds)
         {

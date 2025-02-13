@@ -446,9 +446,15 @@ function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
         window.location.href = href;
         return;
     }
+
     if (window.location.href == href) {
         window.scrollTo(0, 0);
     } else {
+
+        if (href == historyStack[historyStack.length - 1]) { 
+            history.back();
+            return;
+        }
         historyStack.push(location.href);
         window.history.pushState(null, null, href);
     }

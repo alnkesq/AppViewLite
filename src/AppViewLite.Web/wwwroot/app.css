@@ -77,13 +77,18 @@ main {
     height: 100%;
 }
 
-.theater-alt{
+.theater-alt, .theater-full-post-link{
     background: #333;
     color: white;
     max-height: 120px;
     padding: 10px;
     overflow-x: auto;
     font-size: 9pt;
+    white-space: pre-wrap;
+}
+
+.theater-full-post-link{
+    font-weight: bold;
 }
 
 .page {

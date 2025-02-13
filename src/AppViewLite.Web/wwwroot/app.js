@@ -11,6 +11,7 @@ var currentFeedHasNewPostsTimeout = null;
 
 var theaterReturnUrl = null;
 
+
 var historyStack = [];
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
@@ -242,6 +243,10 @@ function fastNavigateIfLink(event) {
         return true;
     }
 
+    if (a.classList.contains('image-grid-cell-link')) { 
+        theaterReturnUrl = location.href;
+    }
+
     if (a.id == 'bottom-bar-home-button') { 
         var previousPage = historyStack[historyStack.length - 1];
         if (previousPage == url) {
@@ -376,15 +381,22 @@ function applyPageElements() {
     theater.classList.toggle('display-none', !isTheater)
     if (isTheater) { 
         
-        var images = document.querySelectorAll(getPostSelector(theaterInfo.postdid, theaterInfo.postrkey) + ' .post-image-list')[0].children;
+        var postElement = document.querySelector(getPostSelector(theaterInfo.postdid, theaterInfo.postrkey));
+        var includePostText = theaterReturnUrl && theaterReturnUrl.includes('?media=1');
 
+        var images = [...postElement.children].filter(x => x.classList.contains('post-image-list'))[0].children;
+        var postText = includePostText ? [...postElement.children].filter(x => x.classList.contains('post-body'))[0]?.textContent : null;
         
         var a = images[theaterInfo.mediaId - 1]
         document.querySelector('.theater-image').src = ''; // ensure old image is never displayed
         document.querySelector('.theater-image').src = a.href;
         var alt = a.title;
-        document.querySelector('.theater-alt').textContent = alt;
-        document.querySelector('.theater-alt').classList.toggle('display-none', !alt);
+        var description = alt && postText ? alt + "\n\nImage description:\n" + postText : (alt || postText);
+
+        document.querySelector('.theater-alt').textContent = description;
+        document.querySelector('.theater-alt').classList.toggle('display-none', !description);
+        document.querySelector('.theater-full-post-link').classList.toggle('display-none', !includePostText);
+        document.querySelector('.theater-full-post-link').href = theaterInfo.href;
     }
 
     maybeLoadNextPage();

@@ -5,29 +5,46 @@
 @code {
     [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
-    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public int Media { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
 
     private BlueskyProfile? FeedAuthor;
     private BlueskyPost[] Posts = [];
     private BlueskyFeedGenerator? Info;
+    private bool ShowAsGrid => Media == 1;
     protected override async Task OnParametersSetAsync()
     {
         Did = await Apis.ResolveHandleAsync(Did);
         Info = await Apis.GetFeedGeneratorAsync(Did, RKey);
-        (Posts, Info, NextContinuation) = await Apis.GetFeedAsync(Did, RKey, Continuation, RequestContext);
-        FeedAuthor = await Apis.GetProfileAsync(Did, RequestContext);
+        var ctx = RequestContext;
+        if (ShowAsGrid)
+            ctx = new RequestContext(ctx.Session, null, TimeSpan.FromSeconds(3), ctx.SignalrConnectionId); // the grid doesn't support automatic refresh
+        (Posts, Info, NextContinuation) = await Apis.GetFeedAsync(Did, RKey, Continuation, ctx);
+        FeedAuthor = await Apis.GetProfileAsync(Did, ctx);
     }
 }
 
 <PageTitle>@Info?.DisplayName</PageTitle>
 
 <h1>@Info?.DisplayName</h1>
-@if (FeedAuthor != null)
-{
-    <div class="feed-author-link">
-        Feed provided by <a href="@FeedAuthor.BaseUrl" class="inline-profile-link blue-link">@FeedAuthor.DisplayNameOrFallback</a>
-    </div>
-}
 
-<PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+<div class="feed-author-link">
+    Feed provided by <a href="@FeedAuthor?.BaseUrl" class="inline-profile-link blue-link">@FeedAuthor?.DisplayNameOrFallback</a>
+    <div class="feed-grid-toggle">
+        @if (ShowAsGrid)
+        {
+            <a href="@Info?.BaseUrl">Posts</a>
+            <span> | <b>Grid</b></span>
+        }
+        else
+        {
+            <span><b>Posts</b> | </span>
+            <a href="@Info?.BaseUrl?media=1">Grid</a>
+
+        }
+    </div>
+</div>
+
+
+<PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowAsGrid" />

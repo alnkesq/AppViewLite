@@ -210,7 +210,7 @@ main {
     }
 
     .feed-author-link {
-        top: 70px !important; 
+        top: 60px !important; 
     }
 
     .top-spacer-mobile {
@@ -1058,9 +1058,12 @@ details:not([open]) .summary-when-open {
 .feed-author-link {
     position: absolute;
     right: 10px;
-    top: 40px;
+    top: 30px;
     font-size: 10pt;
+    text-align: right;
 }
+
+
 
 .compose-form {
     margin-right: 20px;

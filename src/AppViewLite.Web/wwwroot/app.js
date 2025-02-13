@@ -427,7 +427,7 @@ async function fetchOrReusePageAsync(href, token) {
     if (p) {
         return p;
     } else { 
-        var response = await fetch(href, { signal: AbortSignal.timeout(15000) });
+        var response = await fetch(href, { signal: AbortSignal.timeout(20000) });
         if (response.status != 200) { 
             throw ('HTTP ' + response.status);
         }
@@ -586,7 +586,7 @@ async function loadNextPage(allowRetry) {
     paginationButton.insertAdjacentHTML('beforeend', SPINNER_HTML)
 
     try {
-        var nextPage = await fetch(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(10000) });
+        var nextPage = await fetch(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(20000) });
         if (nextPage.status != 200) throw ('HTTP ' + nextPage.status);
         var temp = parseHtmlAsWrapper(await nextPage.text());
         var pageError = temp.querySelector('.page-error')?.textContent;
@@ -928,7 +928,7 @@ async function httpGet(method, args) {
         headers: {
             'X-AppViewLiteSignalrId': liveUpdatesConnection?.connectionId
         },
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(20000)
     })
     if (response.status != 200) throw 'HTTP ' + response.status;
     var text = await response.text();

@@ -757,6 +757,7 @@ ul {
 
 .pagination-button {
     position: relative;
+    margin-bottom: 30px;
 }
     .pagination-button a {
         box-sizing: border-box;
@@ -764,7 +765,6 @@ ul {
         display: block;
         text-align: center;
         padding: 20px;
-        margin-bottom: 30px;
         background-color: #eee;
     }
 
@@ -1541,4 +1541,11 @@ h1 .profile-badge img{
     font-weight: normal;
 }
 
+.pagination-button .spinner {
+    margin-top: 20px;
+}
 
+.pagination-button-error-details {
+    text-align: center;
+    margin-top: 10px;
+}

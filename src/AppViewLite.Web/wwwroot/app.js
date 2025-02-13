@@ -578,6 +578,7 @@ async function loadNextPage(allowRetry) {
     if (!allowRetry && paginationButton.classList.contains('pagination-button-retry')) return;
     if (paginationButton.querySelector('.spinner')) return;
     var oldList = document.querySelector('.main-paginated-list');
+    paginationButton.querySelector('.pagination-button-error-details')?.remove();
 
 
     paginationButton.classList.add('spinner-visible')
@@ -593,6 +594,11 @@ async function loadNextPage(allowRetry) {
         paginationButton.querySelector('a').textContent = 'Retry'
         paginationButton.classList.add('pagination-button-retry');
         paginationButton.classList.remove('spinner-visible');
+
+        var errorDetails = document.createElement('div');
+        errorDetails.classList.add('pagination-button-error-details');
+        errorDetails.textContent = e || 'Unknown error.';
+        paginationButton.appendChild(errorDetails);
         paginationButton.querySelector('.spinner').remove();
         return;
     }

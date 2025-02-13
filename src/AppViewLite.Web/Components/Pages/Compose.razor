@@ -5,10 +5,11 @@
 @inject BlueskyEnrichedApis Apis
 
 @code {
-    [SupplyParameterFromQuery] [Parameter] public string? ReplyDid { get; set; }
+    [SupplyParameterFromQuery][Parameter] public string? ReplyDid { get; set; }
     [SupplyParameterFromQuery][Parameter] public string? ReplyRkey { get; set; }
     [SupplyParameterFromQuery][Parameter] public string? QuoteDid { get; set; }
     [SupplyParameterFromQuery][Parameter] public string? QuoteRkey { get; set; }
+    [SupplyParameterFromQuery][Parameter] public string? Text { get; set; }
 
     public bool IsReply => ReplyRkey != null && ReplyDid != null;
     public bool IsQuote => QuoteRkey != null && QuoteDid != null;
@@ -29,6 +30,30 @@
     {
         ReplyToPost = IsReply ? await Apis.GetPostAsync(ReplyDid!, ReplyRkey!, RequestContext) : null;
         QuotedPost = IsQuote ? await Apis.GetPostAsync(QuoteDid!, QuoteRkey!, RequestContext) : null;
+
+        if (!string.IsNullOrEmpty(Text) && string.IsNullOrEmpty(Model!.Text))
+        {
+            Model!.Text = Text;    
+        }
+
+        if (IsQuote && BlueskyRelationships.TryGetPluggableProtocolForDid(QuoteDid!) != null)
+        {
+            Model!.Text += PostToInlineQuote(QuotedPost!) + "\n";
+            QuotedPost = null;
+        }
+        if (IsReply && BlueskyRelationships.TryGetPluggableProtocolForDid(ReplyDid!) != null)
+        {
+            Model!.Text += PostToInlineQuote(ReplyToPost!) + "\n";
+            ReplyToPost = null;
+        }
+
+        
+    }
+
+    private static string PostToInlineQuote(BlueskyPost post)
+    {
+        return string.Join(null, post.Data?.Text?.Split('\n').Select(x => "> " + x + "\n") ?? []) + (post.OriginalPostUrl != null ? post.OriginalPostUrl + "\n" : null);
+
     }
 
     private async Task Submit()
@@ -36,8 +61,8 @@
         if (!string.IsNullOrWhiteSpace(Model!.Text))
         {
             var rkey = await Apis.CreatePostAsync(Model.Text,
-                inReplyTo: IsReply ? new PostIdString(ReplyDid!, ReplyRkey!) : null, 
-                quotedPost: IsQuote ? new PostIdString(QuoteDid!, QuoteRkey!) : null,
+                inReplyTo: IsReply && BlueskyRelationships.TryGetPluggableProtocolForDid(ReplyDid!) == null ? new PostIdString(ReplyDid!, ReplyRkey!) : null, 
+                quotedPost: IsQuote && BlueskyRelationships.TryGetPluggableProtocolForDid(QuoteDid!) == null ? new PostIdString(QuoteDid!, QuoteRkey!) : null,
                 RequestContext);
             Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + rkey, true);
         }

@@ -1003,7 +1003,16 @@ var postActions = {
         getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
     },
     toggleRepost: async function (did, rkey, postElement) { 
-        getOrCreateRepostToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        if (did.startsWith('did:plc:') || did.startsWith('did:web:')) {
+            getOrCreateRepostToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        } else { 
+            var children = [...postElement.children];
+            var originalText = children.filter(x => x.classList.contains('post-body'))[0]?.textContent?.trim();
+            var url = children.filter(x => x.classList.contains('post-background-link'))[0]?.href;
+            var text = (originalText ? "\"" + originalText + "\"\n" : "\n") + (url ? url : '')
+            fastNavigateTo('/compose?text=' + encodeURIComponent(text.trim()));
+        }
+        
     },
     composeReply: async function (did, rkey) { 
         fastNavigateTo(`/compose?replyDid=${did}&replyRkey=${rkey}`)

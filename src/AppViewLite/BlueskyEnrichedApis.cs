@@ -1476,11 +1476,13 @@ namespace AppViewLite
         public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
-        [return: NotNullIfNotNull(nameof(cid))]
         public string? GetImageUrl(ThumbnailSize size, string did, byte[]? cid, string? pds)
         {
             if (cid == null) return null;
             var cdn = CdnPrefix;
+
+            if (AdministrativeBlocklist.ShouldBlockOutboundConnection(did)) return null;
+            if (AdministrativeBlocklist.ShouldBlockOutboundConnection(DidDocProto.GetDomainFromPds(pds))) return null;
 
             var isNativeAtProto = BlueskyRelationships.IsNativeAtProtoDid(did);
 

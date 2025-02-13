@@ -29,6 +29,7 @@ namespace AppViewLite.Models
         public static string? GetDomainFromPds(string? pds)
         {
             if (pds == null) return null;
+            if (!pds.Contains('/')) return pds;
             return new Uri(pds).Host;
         }
 

@@ -39,9 +39,10 @@
                 var preverExternalLink = post.Did.StartsWith("did:yotsuba:", StringComparison.Ordinal);
                 if(!media.IsVideo)
                 {
+                    var thumbUrl = @Apis.GetImageThumbnailUrl(post.Did, media.Cid, post.Author.Pds);
                     <li class="image-grid-cell" data-postdid="@post.Did" data-postrkey="@post.RKey">
-                        <a class="image-grid-cell-link" href="@(preverExternalLink ? post.OriginalPostUrl : post.BaseUrl + "/media/" + (index + 1) )" target="@(preverExternalLink ? "_blank" : null)" rel="noreferrer" title="@((post.Data!.Text + "\n\n" + (media.AltText != null ? "Image description:\n" + media.AltText : null)).Trim())">
-                            <img src="@Apis.GetImageThumbnailUrl(post.Did, media.Cid, post.Author.Pds)" class="image-grid-cell-image" />
+                        <a class="image-grid-cell-link" href="@(preverExternalLink ? post.OriginalPostUrl : post.BaseUrl + (thumbUrl != null ? "/media/" + (index + 1) : null))" target="@(preverExternalLink ? "_blank" : null)" rel="noreferrer" title="@((post.Data!.Text + "\n\n" + (media.AltText != null ? "Image description:\n" + media.AltText : null)).Trim())">
+                            <img src="@thumbUrl" class="image-grid-cell-image" />
                         </a>
                     </li>
                 }

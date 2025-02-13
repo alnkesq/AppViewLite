@@ -87,6 +87,11 @@ main {
     white-space: pre-wrap;
 }
 
+.theater-alt.theater-alt-reduced-max-height{
+
+    max-height: 84px; /* 120px - height of theater-full-post-link */
+}
+
 .theater-full-post-link{
     font-weight: bold;
 }

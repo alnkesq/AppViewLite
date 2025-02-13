@@ -1166,7 +1166,7 @@ namespace AppViewLite
 
         //private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
 
-        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx)
+        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx, bool forGrid = false)
         {
             var feedGenInfo = await GetFeedGeneratorAsync(did, rkey);
             if (!feedGenInfo.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
@@ -1207,6 +1207,9 @@ namespace AppViewLite
                 });
             if (continuation == null && posts.Length == 0)
                 throw new Exception("The feed provider didn't return any results." + (ctx.IsLoggedIn ? " Note that feeds that require a logged-in user are not currently supported." : null));
+
+            if (forGrid)
+                ctx = new RequestContext(ctx.Session, null, TimeSpan.FromSeconds(3), ctx.SignalrConnectionId); // the grid doesn't support automatic refresh
             return (await EnrichAsync(posts, ctx), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 

@@ -395,6 +395,7 @@ function applyPageElements() {
 
         document.querySelector('.theater-alt').textContent = description;
         document.querySelector('.theater-alt').classList.toggle('display-none', !description);
+        document.querySelector('.theater-alt').classList.toggle('theater-alt-reduced-max-height', includePostText);
         document.querySelector('.theater-full-post-link').classList.toggle('display-none', !includePostText);
         document.querySelector('.theater-full-post-link').href = theaterInfo.href;
     }

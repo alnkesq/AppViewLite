@@ -18,9 +18,7 @@
         Did = await Apis.ResolveHandleAsync(Did);
         Info = await Apis.GetFeedGeneratorAsync(Did, RKey);
         var ctx = RequestContext;
-        if (ShowAsGrid)
-            ctx = new RequestContext(ctx.Session, null, TimeSpan.FromSeconds(3), ctx.SignalrConnectionId); // the grid doesn't support automatic refresh
-        (Posts, Info, NextContinuation) = await Apis.GetFeedAsync(Did, RKey, Continuation, ctx);
+        (Posts, Info, NextContinuation) = await Apis.GetFeedAsync(Did, RKey, Continuation, ctx, forGrid: ShowAsGrid);
         FeedAuthor = await Apis.GetProfileAsync(Did, ctx);
     }
 }

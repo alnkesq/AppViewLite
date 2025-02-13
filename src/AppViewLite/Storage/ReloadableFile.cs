@@ -51,7 +51,7 @@ namespace AppViewLite.Storage
                     var size = new FileInfo(path).Length;
                     if (value == null || date != loadedLastWriteTime || size != loadedSize)
                     {
-
+                        Console.Error.WriteLine("Loading: " + path);
                         value = read(path);
                         loadedLastWriteTime = date;
                         loadedSize = size;

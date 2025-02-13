@@ -20,6 +20,8 @@ namespace AppViewLite.Web.Controllers
             this.apis = apis;
         }
 
+        public AdministrativeBlocklist AdministrativeBlocklist => apis.AdministrativeBlocklist;
+
         private readonly static SearchValues<char> CidChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
         private readonly static bool Enabled = 
             AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ??
@@ -34,17 +36,33 @@ namespace AppViewLite.Web.Controllers
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
             var sizeEnum = Enum.Parse<ThumbnailSize>(size);
 
+
+            AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
+
             var isRawUrl = did.StartsWith("host:", StringComparison.Ordinal);
-            if (!isRawUrl)
+            if (isRawUrl)
+            {
+                AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did.Substring(5));
+            }
+            else
             {
                 BlueskyEnrichedApis.EnsureValidDid(did);
 
+                AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
+
                 var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
 
-                if (pluggable == null)
+                if (pluggable != null)
+                {
+                    if (pluggable.TryGetDomainForDid(did) is { } domain)
+                        AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(domain);
+                }
+                else
                 {
                     if (cid.Length != 59) throw new Exception("Invalid CID length.");
                     if (cid.AsSpan().ContainsAnyExcept(CidChars)) throw new Exception("CID contains invalid characters.");
+                    if (did.StartsWith("did:web:", StringComparison.Ordinal))
+                        AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did.Substring(8));
                 }
             }
 

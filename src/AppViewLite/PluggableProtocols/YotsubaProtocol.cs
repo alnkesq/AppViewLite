@@ -248,6 +248,10 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         public override bool UseSmallThumbnails => true;
 
+        public override string? TryGetDomainForDid(string did)
+        {
+            return GetBoardIdFromDid(did).Host;
+        }
 
     }
 

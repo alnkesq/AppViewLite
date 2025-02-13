@@ -170,7 +170,7 @@ namespace AppViewLite.Web
                         FirehoseUrl = new Uri(firehoseUrl),
                         VerifyValidForCurrentRelay = did =>
                         {
-                            if (apis.DidDocOverrides.CustomDidDocs.ContainsKey(did))
+                            if (apis.DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did))
                             {
                                 throw new Exception($"Ignoring firehose record for {did} because a DID doc override was specified for such DID.");
                             }

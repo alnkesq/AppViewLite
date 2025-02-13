@@ -33,7 +33,7 @@ namespace AppViewLite.PluggableProtocols
         {
             EnsureOwnDid(did);
 
-            if (Apis.ShouldExcludeDid(did)) return;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(did)) return;
 
             var didWords = StringUtils.GetDistinctWords(GetIndexableDidText(did));
 
@@ -69,7 +69,7 @@ namespace AppViewLite.PluggableProtocols
             rootPostId ??= inReplyTo ?? postId;
             EnsureOwnDid(postId.Did);
 
-            if (Apis.ShouldExcludeDid(postId.Did)) return;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postId.Did)) return;
 
             if (inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
             EnsureOwnDid(rootPostId.Value.Did);
@@ -248,6 +248,8 @@ namespace AppViewLite.PluggableProtocols
         {
             return null;
         }
+
+        public virtual string? TryGetDomainForDid(string did) => null;
 
         public virtual bool UseSmallThumbnails => false;
     }

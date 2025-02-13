@@ -41,7 +41,7 @@ namespace AppViewLite
 
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
         {
-            if (Apis.ShouldExcludeDid(commitAuthor)) return;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
             WithRelationshipsWriteLock(relationships =>
             {
@@ -130,7 +130,7 @@ namespace AppViewLite
         private void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false)
         {
 
-            if (Apis.ShouldExcludeDid(commitAuthor)) return;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
             ContinueOutsideLock? continueOutsideLock = null;
             WithRelationshipsWriteLock(relationships =>

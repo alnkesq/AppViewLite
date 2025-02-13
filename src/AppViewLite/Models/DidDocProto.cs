@@ -6,6 +6,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 
 namespace AppViewLite.Models
 {
@@ -23,6 +24,7 @@ namespace AppViewLite.Models
         [DuckDbInclude] public DuckDbUuid PlcAsUInt128;
         [ProtoMember(9)] public string[]? OtherUrls;
         [ProtoMember(10)] public string? AtProtoLabeler;
+        public IEnumerable<string?> AllHandlesAndDomans => [Pds, Handle, ..MultipleHandles ?? []];
 
         public string? Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null)) ?? MultipleHandles?.FirstOrDefault();
 

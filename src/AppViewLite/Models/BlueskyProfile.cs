@@ -52,6 +52,7 @@ namespace AppViewLite.Models
         public string? PossibleHandle;
         public string? Pds;
         public bool HandleIsUncertain;
+        public bool IsBlockedByAdministrativeRule;
 
         public ProfileBadge[]? Badges;
 

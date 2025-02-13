@@ -1349,7 +1349,16 @@ namespace AppViewLite
                     post.LikeCount = post.Data.PluggableLikeCount.Value;
             }
             DecompressPluggablePostData(id.PostRKey, post.Data, post.Author.Did);
+            MaybePropagateAdministrativeBlockToPost(post);
             return post;
+        }
+
+        private static void MaybePropagateAdministrativeBlockToPost(BlueskyPost post)
+        {
+            if (post.Author.IsBlockedByAdministrativeRule)
+            {
+                post.Data = new BlueskyPostData { Error = post.Author.BasicData!.Error };
+            }
         }
 
         public BlueskyPost GetPost(PostId id, BlueskyPostData? data)
@@ -1357,6 +1366,7 @@ namespace AppViewLite
             var post = GetPostWithoutData(id);
             post.Data = data;
             DecompressPluggablePostData(id.PostRKey, data, post.Author.Did);
+            MaybePropagateAdministrativeBlockToPost(post);
             return post;
         }
         
@@ -1503,10 +1513,28 @@ namespace AppViewLite
         {
             var basic = GetProfileBasicInfo(plc);
             var did = GetDid(plc);
+
             if (basic == null && !IsNativeAtProtoDid(did))
                 basic = new BlueskyProfileBasicInfo();
 
             var didDoc = TryGetLatestDidDoc(plc);
+
+
+            var isBlockedByAdministrativeRule = false;
+
+            if (AdministrativeBlocklist.ShouldBlockDisplay(did))
+            {
+                isBlockedByAdministrativeRule = true;
+            }
+            if (didDoc != null)
+            {
+                foreach (var handle in didDoc.AllHandlesAndDomans)
+                {
+                    if (AdministrativeBlocklist.ShouldBlockDisplay(handle))
+                        isBlockedByAdministrativeRule = true;
+                }
+            }
+
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
             if (possibleHandle != null &&
@@ -1519,11 +1547,23 @@ namespace AppViewLite
             if (possibleHandle == null && didDoc != null)
                 handleIsCertain = true;
 
-            if (possibleHandle == null && TryGetPluggableProtocolForDid(did) is { } pluggable)
+            if (TryGetPluggableProtocolForDid(did) is { } pluggable)
             {
-                possibleHandle = pluggable.TryGetHandleFromDid(did) ?? did;
-                handleIsCertain = true;
+                if (possibleHandle == null)
+                {
+                    possibleHandle = pluggable.TryGetHandleFromDid(did) ?? did;
+                    handleIsCertain = true;
+                }
+
+                if (pluggable.TryGetDomainForDid(did) is { } domain && AdministrativeBlocklist.ShouldBlockDisplay(domain))
+                    isBlockedByAdministrativeRule = true;
             }
+
+            if (isBlockedByAdministrativeRule)
+                basic = new BlueskyProfileBasicInfo
+                {
+                    Error = "This DID or domain is blocked by administrative rules."
+                };
 
             return new BlueskyProfile()
             {
@@ -1534,6 +1574,7 @@ namespace AppViewLite
                 PossibleHandle = possibleHandle,
                 Pds = didDoc?.Pds,
                 HandleIsUncertain = !handleIsCertain,
+                IsBlockedByAdministrativeRule = isBlockedByAdministrativeRule,
                 Badges = Badges.GetBadges(plc, did, possibleHandle)
             };
         }
@@ -2525,14 +2566,7 @@ namespace AppViewLite
                 did.StartsWith("did:web:", StringComparison.Ordinal);
         }
 
-        public ReloadableFile<FrozenSet<string>>? DidsToExclude = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_EXCLUSION_FILE) is { } s ? new ReloadableFile<FrozenSet<string>>(s, path => 
-        {
-            return StringUtils.ReadTextFile(path).Select(x =>
-            {
-                if (!BlueskyEnrichedApis.IsValidDid(x)) throw new Exception($"Invalid did in {path}: " + x);
-                return x;
-            }).ToFrozenSet();
-        }) : null;
+        public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
     }
 
     public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);

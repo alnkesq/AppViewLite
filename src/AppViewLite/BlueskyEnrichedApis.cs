@@ -49,63 +49,57 @@ namespace AppViewLite
             FetchAndStoreDidDoc = new(pair => FetchAndStoreDidDocNoOverrideAsync(pair.Did, pair.Plc));
             FetchAndStoreLabelerServiceMetadata = new(did => FetchAndStoreLabelerServiceMetadataAsync(did));
 
-            var didDocOverridesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES);
-            if (didDocOverridesPath == null) 
+
+            DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
-                _staticDidDocOverrides = new();
-            }
-            else 
-            {
-                _didDocOverridesReloadableFile = new ReloadableFile<DidDocOverridesConfiguration>(didDocOverridesPath, path =>
+                var config = DidDocOverridesConfiguration.ReadFromFile(path);
+
+                var pdsesToDids = config.CustomDidDocs.GroupBy(x => x.Value.Pds).ToDictionary(x => x.Key, x => x.Select(x => x.Key).ToArray());
+
+                lock (SecondaryFirehoses)
                 {
-                    var config = DidDocOverridesConfiguration.ReadFromFile(path);
 
-                    var pdsesToDids = config.CustomDidDocs.GroupBy(x => x.Value.Pds).ToDictionary(x => x.Key, x => x.Select(x => x.Key).ToArray());
-
-                    lock (SecondaryFirehoses)
+                    var stopListening = SecondaryFirehoses.Where(x => !pdsesToDids.ContainsKey(x.Key));
+                    foreach (var oldpds in stopListening)
                     {
+                        Console.Error.WriteLine("Stopping secondary firehose: " + oldpds.Key);
+                        oldpds.Value.Cancel();
+                        SecondaryFirehoses.Remove(oldpds.Key);
+                    }
 
-                        var stopListening = SecondaryFirehoses.Where(x => !pdsesToDids.ContainsKey(x.Key));
-                        foreach (var oldpds in stopListening)
+                    foreach (var (newpds, dids) in pdsesToDids)
+                    {
+                        if (!SecondaryFirehoses.ContainsKey(newpds))
                         {
-                            Console.Error.WriteLine("Stopping secondary firehose: " + oldpds.Key);
-                            oldpds.Value.Cancel();
-                            SecondaryFirehoses.Remove(oldpds.Key);
-                        }
-
-                        foreach (var (newpds, dids) in pdsesToDids)
-                        {
-                            if (!SecondaryFirehoses.ContainsKey(newpds))
+                            var cts = new CancellationTokenSource();
+                            var indexer = new Indexer(this);
+                            var didsHashset = dids.ToHashSet();
+                            indexer.VerifyValidForCurrentRelay = did =>
                             {
-                                var cts = new CancellationTokenSource();
-                                var indexer = new Indexer(this);
-                                var didsHashset = dids.ToHashSet();
-                                indexer.VerifyValidForCurrentRelay = did =>
-                                {
-                                    if (!didsHashset.Contains(did))
-                                        throw new Exception($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
-                                };
-                                indexer.FirehoseUrl = new Uri(newpds);
-                                Console.Error.WriteLine("Starting secondary firehose: " + newpds);
-                                indexer.StartListeningToAtProtoFirehoseRepos(cts.Token).FireAndForget();
-                                SecondaryFirehoses.Add(newpds, cts);
-                            }
+                                if (!didsHashset.Contains(did))
+                                    throw new Exception($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
+                            };
+                            indexer.FirehoseUrl = new Uri(newpds);
+                            Console.Error.WriteLine("Starting secondary firehose: " + newpds);
+                            indexer.StartListeningToAtProtoFirehoseRepos(cts.Token).FireAndForget();
+                            SecondaryFirehoses.Add(newpds, cts);
                         }
                     }
+                }
 
-                    return config;
-                });
-                (new Func<Task>(async () =>
+                return config;
+            });
+            (new Func<Task>(async () =>
+            {
+                // in case there's no one else to call GetValue for us (only overrides, no main firehose)
+                while (true)
                 {
-                    // in case there's no one else to call GetValue for us (only overrides, no main firehose)
-                    while (true)
-                    {
-                        if (DangerousUnlockedRelationships.IsDisposed) return;
-                        _didDocOverridesReloadableFile.GetValue();
-                        await Task.Delay(TimeSpan.FromSeconds(10)); 
-                    }
-                }))();
-            }
+                    if (DangerousUnlockedRelationships.IsDisposed) return;
+                    DidDocOverrides.GetValue();
+                    await Task.Delay(TimeSpan.FromSeconds(10)); 
+                }
+            }))();
+            
 
             relationships.NotificationGenerated += Relationships_NotificationGenerated;
         }
@@ -139,9 +133,8 @@ namespace AppViewLite
 
         private Dictionary<string, CancellationTokenSource> SecondaryFirehoses = new();
 
-        private ReloadableFile<DidDocOverridesConfiguration>? _didDocOverridesReloadableFile;
-        private DidDocOverridesConfiguration? _staticDidDocOverrides;
-        public DidDocOverridesConfiguration DidDocOverrides => _staticDidDocOverrides ?? _didDocOverridesReloadableFile!.GetValue();
+
+        public ReloadableFile<DidDocOverridesConfiguration> DidDocOverrides;
 
 
 
@@ -1490,7 +1483,7 @@ namespace AppViewLite
 
             if (!ServeImages)
             {
-                if (isNativeAtProto && cdn == null && !DidDocOverrides.CustomDidDocs.ContainsKey(did)) cdn = "https://cdn.bsky.app";
+                if (isNativeAtProto && cdn == null && !DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did)) cdn = "https://cdn.bsky.app";
             }
 
             var cidString = isNativeAtProto ? Cid.Read(cid).ToString() : Ipfs.Base32.ToBase32(cid);
@@ -2118,6 +2111,7 @@ namespace AppViewLite
 
         private static bool ProfileMatchesSearchTerms(BlueskyProfile x, bool alsoSearchDescriptions, string[] queryWords, string? wordPrefix)
         {
+            if (x.IsBlockedByAdministrativeRule) return false;
             var words = StringUtils.GetAllWords(x.BasicData?.DisplayName).Concat(StringUtils.GetAllWords(x.PossibleHandle));
             if (alsoSearchDescriptions)
             {
@@ -2193,6 +2187,9 @@ namespace AppViewLite
         {
             handle = StringUtils.NormalizeHandle(handle);
             if (handle.StartsWith('@')) handle = handle.Substring(1);
+
+            AdministrativeBlocklist.ThrowIfBlockedDisplay(handle);
+
             if (handle.StartsWith("did:", StringComparison.Ordinal))
             {
                 EnsureValidDid(handle);
@@ -2202,7 +2199,10 @@ namespace AppViewLite
             foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)
             {
                 if (pluggableProtocol.TryHandleToDid(handle) is { } pluggableDid)
+                {
+                    AdministrativeBlocklist.ThrowIfBlockedDisplay(pluggableDid);
                     return pluggableDid;
+                }
             }
 
             EnsureValidDomain(handle);
@@ -2258,7 +2258,7 @@ namespace AppViewLite
             {
                 // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
                 // otherwise did:web, but they're in a different namespace
-                didDoc = DidDocOverrides.TryGetOverride(did!) ?? await FetchAndStoreDidDocNoOverrideAsync(did!, plc);
+                didDoc = DidDocOverrides.GetValue().TryGetOverride(did!) ?? await FetchAndStoreDidDocNoOverrideAsync(did!, plc);
             }
             if (!didDoc!.HasHandle(handle))
             {
@@ -2270,6 +2270,11 @@ namespace AppViewLite
 
                 if ("did:web:" + handle != did)
                     throw new UnexpectedFirehoseDataException($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
+            }
+
+            foreach (var extraHandle in didDoc.AllHandlesAndDomans)
+            {
+                AdministrativeBlocklist.ThrowIfBlockedDisplay(extraHandle);
             }
 
             return did!;
@@ -2481,6 +2486,8 @@ namespace AppViewLite
 
         public async Task<byte[]> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
         {
+            AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
+
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
                 return await DefaultHttpClient.GetByteArrayAsync(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
@@ -2506,7 +2513,7 @@ namespace AppViewLite
 
         private async Task<DidDocProto> GetDidDocAsync(string did)
         {
-            var didDocOverride = DidDocOverrides.TryGetOverride(did);
+            var didDocOverride = DidDocOverrides.GetValue().TryGetOverride(did);
             if (didDocOverride != null) return didDocOverride;
 
             DidDocProto? doc;
@@ -2562,24 +2569,21 @@ namespace AppViewLite
             });
         }
 
-        public bool ShouldExcludeDid(string did)
-        {
-            return DangerousUnlockedRelationships.DidsToExclude?.GetValue().Contains(did) == true;
-        }
-
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         public readonly static HttpClient DefaultHttpClient;
 
         static BlueskyEnrichedApis()
         {
-            DefaultHttpClient = new HttpClient(new SocketsHttpHandler 
+            DefaultHttpClient = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler 
             { 
                 AllowAutoRedirect = true,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
-            }, true);
+            }, true), true);
             DefaultHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
             DefaultHttpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024;
         }
+
+        public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
     }
 }
 

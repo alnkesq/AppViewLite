@@ -1,29 +1,42 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AppViewLite.Storage
 {
     public class ReloadableFile<T>
     {
-        private readonly string path;
-        private readonly Func<string, T> read;
+        private readonly string? path;
+        private readonly Func<string?, T> read;
         private DateTime lastChecked;
         private DateTime loadedLastWriteTime;
         private long loadedSize;
         private T? value;
-        public ReloadableFile(string path, Func<string, T> read)
+        public ReloadableFile(string? path, Func<string?, T> read)
         {
             this.path = path;
             this.read = read;
         }
 
-        private TimeSpan CheckInterval = TimeSpan.FromSeconds(10);
+        private TimeSpan CheckInterval = TimeSpan.FromSeconds(2);
         public T GetValue()
         {
+            if (path == null)
+            {
+                if (value == null)
+                {
+                    lock (this)
+                    {
+                        if (value == null)
+                        {
+                            value = read(null);
+                        }
+                    }
+                }
+                return value;
+            }
+
+
+
             var now = DateTime.UtcNow;
             if (value != null && (now - lastChecked) < CheckInterval)
             {

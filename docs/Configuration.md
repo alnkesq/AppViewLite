@@ -20,11 +20,22 @@ You can set the following environment variables:
 * `APPVIEWLITE_PLC_DIRECTORY`: Alternate PLC directory prefix. Defaults to `https://plc.directory`
 * `APPVIEWLITE_DID_DOC_OVERRIDES`: Path to an optional text file, where each line is `did:plc:example pds.example handle.example`. Will be reloaded dynamically if it changes. The listed PDSes will be listened from directly, without relaying on the main firehose.
 
+## Administrative rules
+* `APPVIEWLITE_BLOCKLIST_PATH`: path to an `.ini` file whose sections can be `[noinjest]`, `[nodisplay]`, `[nooutboundconnect]` (or combinations, like `[noinjest,nodisplay]`) to block specific DIDs or domains (and all their subdomains) of all types (PDSes, Mastodon instances, handles, Mastodon external media...)
+
+   * `[noinjest]` ignores all the posts coming from the various firehoses for the specified DIDs or domains. By default, it includes various cross-protocol mirrors (AppViewLite is already multi-protocol)
+   * `[nodisplay]` prevents post and profile data for the specified DIDs or domains from being displayed.
+   * `[nooutboundconnect]` prevents outbound HTTP traffic to the specified DIDs or domains. Image thumbnails and profile pictures won't be available.
+   * `[blockall]` is a shorthand for `[noinjest,nodisplay,nooutboundconnect]`
+   * `[allowall]` allows you to override the default rules for the specified domains.
+
+
 ## Additional protocols
+By default, only ATProto/Bluesky is enabled.<br>
+You can however enable additional protocols:
 
 ### ActivityPub (Fediverse)
 * `APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS`: listens to the specified ActivityPub relays. Example: `fedi.buzz`. Defaults to none.
-* `APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES`: ignores posts hosted on the specified ActivityPub instances (useful to avoid mirrors and mirrors of mirrors). Defaults to `gleasonator.dev,rss-parrot.net,flipboard.com,cash.app`.
 
 ### Yotsuba (Imageboards)
 * `APPVIEWLITE_YOTSUBA_HOSTS`: retrieves threads from the specified imageboards, optionally specifying API and image hosts. Example: `boards.4chan.org/i.4cdn.org/a.4cdn.org`. Defaults to none.
@@ -38,3 +49,5 @@ You can set the following environment variables:
 * `APPVIEWLITE_IMAGE_CACHE_DIRECTORY`: Where to cache the thumbnails. Defaults to `$APPVIEWLITE_DIRECTORY/image-cache`
 * `APPVIEWLITE_CACHE_AVATARS`: Whether avatar thumbnails should be cached to disk. Defaults to `1`.
 * `APPVIEWLITE_CACHE_FEED_THUMBS`: Whether feed image thumbnails and profile banners should be cached to disk. Defaults to `0`.
+
+You can also add a domain to the `[nooutboundconnect]` section of `APPVIEWLITE_BLOCKLIST_PATH` (see above).

@@ -60,34 +60,13 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         }
 
 
-        private readonly FrozenSet<string> ExcludedInstances =
-            (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ACTIVITYPUB_IGNORE_INSTANCES) ?? [
-
-                "gleasonator.dev", // rewrites post URLs
-
-
-                // RSS mirrors
-                "rss-parrot.net",
-                "flipboard.com",
-
-                // nostr mirrors
-                "cash.app",
-
-                
-
-                
-            ]).ToFrozenSet();
-
-        
         private void OnPostReceived(ActivityPubPostJson post)
         {
             if (post.reblog != null) return;
 
             var author = ParseActivityPubUserId(post.account, post.url).Normalize();
             if (author == default) return;
-            if (author.Instance == "bsky.brid.gy") return;
-            if (author.Instance.EndsWith(".mostr.pub", StringComparison.Ordinal)) return;
-            if (ExcludedInstances.Contains(author.Instance)) return;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(author.Instance)) return;
 
             var url = new Uri(post.url);
 
@@ -436,6 +415,12 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             var user = ParseDid(did);
             return user.Instance + " " + user.UserName;
+        }
+
+
+        public override string? TryGetDomainForDid(string did)
+        {
+            return ParseDid(did).Instance;
         }
     }
 

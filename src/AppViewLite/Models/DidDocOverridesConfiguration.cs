@@ -12,10 +12,10 @@ namespace AppViewLite.Models
         public Dictionary<string, (string Pds, string[] Handles)> CustomDidDocs = new();
         private DateTime date;
 
-        internal static DidDocOverridesConfiguration ReadFromFile(string path)
+        internal static DidDocOverridesConfiguration ReadFromFile(string? path)
         {
             var result = new DidDocOverridesConfiguration();
-            result.date = File.GetLastWriteTimeUtc(path);
+            result.date = path != null ? File.GetLastWriteTimeUtc(path) : default;
 
 
             foreach (var line in StringUtils.ReadTextFile(path))

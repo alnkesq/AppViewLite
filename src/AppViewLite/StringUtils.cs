@@ -531,8 +531,9 @@ namespace AppViewLite
             return parser.ParseDocument(html ?? string.Empty);
         }
 
-        internal static IEnumerable<string> ReadTextFile(string path)
+        internal static IEnumerable<string> ReadTextFile(string? path)
         {
+            if (path == null) yield break;
             foreach (var line_ in System.IO.File.ReadLines(path))
             {
                 var line = line_;

@@ -1727,10 +1727,8 @@ namespace AppViewLite
         public async Task<ATProtocol> CreateProtocolForDidAsync(string did)
         {
             var diddoc = await GetDidDocAsync(did);
-            foreach (var domain in diddoc.AllHandlesAndDomains)
-            {
-                AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(domain);
-            }
+            AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
+            
             var pds = diddoc.Pds;
             var builder = new ATProtocolBuilder();
             builder.WithInstanceUrl(new Uri(pds));

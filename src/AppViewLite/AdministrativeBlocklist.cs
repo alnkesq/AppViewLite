@@ -4,6 +4,7 @@ using AppViewLite.Storage;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -141,10 +142,12 @@ namespace AppViewLite
 
 
 
-        public bool ShouldBlockDisplay(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockDisplay, domainOrDid, didDoc);
-        public bool ShouldBlockIngestion(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockIngestion, domainOrDid, didDoc);
-        public bool ShouldBlockOutboundConnection(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockOutboundConnections, domainOrDid, didDoc);
 
+        [Pure] public bool ShouldBlockDisplay(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockDisplay, domainOrDid, didDoc);
+        [Pure] public bool ShouldBlockIngestion(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockIngestion, domainOrDid, didDoc);
+        [Pure] public bool ShouldBlockOutboundConnection(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockOutboundConnections, domainOrDid, didDoc);
+
+        [Pure]
         private static bool ShouldBlock(FrozenSetAndRegexList set, string? domainOrDid, DidDocProto? didDoc)
         {
             if (ShouldBlock(set, domainOrDid)) return true;

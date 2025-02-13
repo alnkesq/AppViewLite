@@ -1522,18 +1522,11 @@ namespace AppViewLite
 
             var isBlockedByAdministrativeRule = false;
 
-            if (AdministrativeBlocklist.ShouldBlockDisplay(did))
+            if (AdministrativeBlocklist.ShouldBlockDisplay(did, didDoc))
             {
                 isBlockedByAdministrativeRule = true;
             }
-            if (didDoc != null)
-            {
-                foreach (var handle in didDoc.AllHandlesAndDomains)
-                {
-                    if (AdministrativeBlocklist.ShouldBlockDisplay(handle))
-                        isBlockedByAdministrativeRule = true;
-                }
-            }
+
 
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
@@ -1554,9 +1547,6 @@ namespace AppViewLite
                     possibleHandle = pluggable.TryGetHandleFromDid(did) ?? did;
                     handleIsCertain = true;
                 }
-
-                if (pluggable.TryGetDomainForDid(did) is { } domain && AdministrativeBlocklist.ShouldBlockDisplay(domain))
-                    isBlockedByAdministrativeRule = true;
             }
 
             if (isBlockedByAdministrativeRule)
@@ -1570,6 +1560,7 @@ namespace AppViewLite
                 PlcId = plc.PlcValue,
                 Did = did,
                 BasicData = basic,
+                DidDoc = didDoc,
                 RelationshipRKey = relationshipRKey,
                 PossibleHandle = possibleHandle,
                 Pds = didDoc?.Pds,

@@ -52,17 +52,10 @@ namespace AppViewLite.Web.Controllers
 
                 var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
 
-                if (pluggable != null)
-                {
-                    if (pluggable.TryGetDomainForDid(did) is { } domain)
-                        AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(domain);
-                }
-                else
+                if (pluggable == null)
                 {
                     if (cid.Length != 59) throw new Exception("Invalid CID length.");
                     if (cid.AsSpan().ContainsAnyExcept(CidChars)) throw new Exception("CID contains invalid characters.");
-                    if (did.StartsWith("did:web:", StringComparison.Ordinal))
-                        AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did.Substring(8));
                 }
             }
 

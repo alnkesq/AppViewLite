@@ -1,3 +1,4 @@
+using AppViewLite.Models;
 using AppViewLite.PluggableProtocols;
 using AppViewLite.Storage;
 using System;
@@ -138,17 +139,33 @@ namespace AppViewLite
             return new AdministrativeBlocklist(DefaultBlocklist.Concat(StringUtils.ReadTextFile(path)));
         });
 
-        public bool ShouldBlockDisplay(string? domainOrDid) => ShouldBlock(BlockDisplay, domainOrDid);
-        public bool ShouldBlockIngestion(string? domainOrDid) => ShouldBlock(BlockIngestion, domainOrDid);
-        public bool ShouldBlockOutboundConnection(string? domainOrDid) => ShouldBlock(BlockOutboundConnections, domainOrDid);
 
-        public void ThrowIfBlockedDisplay(string? domainOrDid) => ThrowIfBlocked(BlockDisplay, domainOrDid);
-        public void ThrowIfBlockedIngestion(string? domainOrDid) => ThrowIfBlocked(BlockIngestion, domainOrDid);
-        public void ThrowIfBlockedOutboundConnection(string? domainOrDid) => ThrowIfBlocked(BlockOutboundConnections, domainOrDid);
 
-        private static void ThrowIfBlocked(FrozenSetAndRegexList set, string? domainOrDid)
+        public bool ShouldBlockDisplay(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockDisplay, domainOrDid, didDoc);
+        public bool ShouldBlockIngestion(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockIngestion, domainOrDid, didDoc);
+        public bool ShouldBlockOutboundConnection(string? domainOrDid, DidDocProto? didDoc = null) => ShouldBlock(BlockOutboundConnections, domainOrDid, didDoc);
+
+        private static bool ShouldBlock(FrozenSetAndRegexList set, string? domainOrDid, DidDocProto? didDoc)
         {
-            if (ShouldBlock(set, domainOrDid))
+            if (ShouldBlock(set, domainOrDid)) return true;
+            if (didDoc != null)
+            {
+                foreach (var domain in didDoc.AllHandlesAndDomains)
+                {
+                    if (ShouldBlock(set, domain)) return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void ThrowIfBlockedDisplay(string? domainOrDid, DidDocProto? didDoc = null) => ThrowIfBlocked(BlockDisplay, domainOrDid);
+        public void ThrowIfBlockedIngestion(string? domainOrDid, DidDocProto? didDoc = null) => ThrowIfBlocked(BlockIngestion, domainOrDid);
+        public void ThrowIfBlockedOutboundConnection(string? domainOrDid, DidDocProto? didDoc = null) => ThrowIfBlocked(BlockOutboundConnections, domainOrDid);
+
+        private static void ThrowIfBlocked(FrozenSetAndRegexList set, string? domainOrDid, DidDocProto? didDoc = null)
+        {
+            if (ShouldBlock(set, domainOrDid, didDoc))
                 throw new PermissionException("The specified DID or domain has been blocked by administrative rules.");
         }
 

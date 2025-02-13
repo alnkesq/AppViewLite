@@ -55,6 +55,7 @@ namespace AppViewLite.Models
         public bool IsBlockedByAdministrativeRule;
 
         public ProfileBadge[]? Badges;
+        public DidDocProto? DidDoc;
 
         public override string ToString()
         {

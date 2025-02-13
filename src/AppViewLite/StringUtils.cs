@@ -264,7 +264,7 @@ namespace AppViewLite
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "mailto:" + m.Value));
             }
 
-            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+\w+")) // @example.bsky.social
+            foreach (Match m in Regex.Matches(text, @"@[\w\.\-]+\.\w+")) // @example.bsky.social
             {
                 if (m.Index != 0 && !char.IsWhiteSpace(text[m.Index - 1])) continue;
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, did: m.Value.Substring(1)));

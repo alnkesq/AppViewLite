@@ -29,6 +29,7 @@ You can set the following environment variables:
    * `[blockall]` is a shorthand for `[noinjest,nodisplay,nooutboundconnect]`
    * `[allowall]` allows you to override the default rules for the specified domains.
 
+You can also use regular expressions (e.g. `regex:^example$`), but for best performance you should minimize the number of such rules (you can use the `|` regex operator to consolidate them).
 
 ## Additional protocols
 By default, only ATProto/Bluesky is enabled.<br>

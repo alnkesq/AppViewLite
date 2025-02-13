@@ -4,21 +4,27 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace AppViewLite
 {
     public class AdministrativeBlocklist
     {
 
-        private FrozenSet<string> BlockDisplay;
-        private FrozenSet<string> BlockIngestion;
-        private FrozenSet<string> BlockOutboundConnections;
+        private FrozenSetAndRegexList BlockDisplay;
+        private FrozenSetAndRegexList BlockIngestion;
+        private FrozenSetAndRegexList BlockOutboundConnections;
 
         public AdministrativeBlocklist(IEnumerable<string> preprocessedLines)
         {
             var blockDisplay = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var blockIngestion = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var blockOutboundConnections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var blockDisplayRegex = new List<Regex>();
+            var blockIngestionRegex = new List<Regex>();
+            var blockOutboundConnectionsRegex = new List<Regex>();
+
 
             var flags = BlocklistKind.AllowAll;
             var seenFirstSection = false;
@@ -34,6 +40,26 @@ namespace AppViewLite
                 if (!seenFirstSection)
                     throw new ArgumentException("Blocklist file must start with a section name, for example [noinjest,nodisplay,nooutboundconnect]");
 
+
+                if (line.StartsWith("regex:", StringComparison.Ordinal))
+                {
+                    Regex regex;
+                    try
+                    {
+                        regex = new Regex(line.Substring(6).Trim(), RegexOptions.IgnoreCase);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new ArgumentException("Regex rule in blocklist file could not be parsed: " + line + ": " + ex.Message);
+                    }
+
+                    if ((flags & BlocklistKind.NoDisplay) != 0) blockDisplayRegex.Add(regex);
+                    if ((flags & BlocklistKind.NoIngest) != 0) blockIngestionRegex.Add(regex);
+                    if ((flags & BlocklistKind.NoOutboundConnect) != 0) blockOutboundConnectionsRegex.Add(regex);
+
+                    continue;
+                }
+                
                 if (line.StartsWith("did:", StringComparison.Ordinal))
                 {
                     try
@@ -56,7 +82,7 @@ namespace AppViewLite
                         throw new ArgumentException("Invalid domain in blocklist file: " + line);
                     }
                 }
-                else throw new ArgumentException("Unrecognized line in blocklist file. Only domains and DIDs are supported. Line: " + line);
+                else throw new ArgumentException(@"Unrecognized line in blocklist file. Only domains, DIDs, and ""regex:""-prefixed regexes are supported. Line: " + line);
 
                 if ((flags & BlocklistKind.NoDisplay) != 0) blockDisplay.Add(line);
                 if ((flags & BlocklistKind.NoIngest) != 0) blockIngestion.Add(line);
@@ -69,9 +95,9 @@ namespace AppViewLite
                     blockOutboundConnections.Remove(line);
                 }
             }
-            this.BlockDisplay = blockDisplay.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
-            this.BlockIngestion = blockIngestion.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
-            this.BlockOutboundConnections = blockOutboundConnections.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+            this.BlockDisplay = new(blockDisplay.ToFrozenSet(StringComparer.OrdinalIgnoreCase), blockDisplayRegex.ToArray());
+            this.BlockIngestion = new(blockIngestion.ToFrozenSet(StringComparer.OrdinalIgnoreCase), blockIngestionRegex.ToArray());
+            this.BlockOutboundConnections = new(blockOutboundConnections.ToFrozenSet(StringComparer.OrdinalIgnoreCase), blockOutboundConnectionsRegex.ToArray());
         }
 
 
@@ -120,27 +146,27 @@ namespace AppViewLite
         public void ThrowIfBlockedIngestion(string? domainOrDid) => ThrowIfBlocked(BlockIngestion, domainOrDid);
         public void ThrowIfBlockedOutboundConnection(string? domainOrDid) => ThrowIfBlocked(BlockOutboundConnections, domainOrDid);
 
-        private static void ThrowIfBlocked(FrozenSet<string> set, string? domainOrDid)
+        private static void ThrowIfBlocked(FrozenSetAndRegexList set, string? domainOrDid)
         {
             if (ShouldBlock(set, domainOrDid))
                 throw new PermissionException("The specified DID or domain has been blocked by administrative rules.");
         }
 
-        private static bool ShouldBlock(FrozenSet<string> set, string? domainOrDid)
+        private static bool ShouldBlock(FrozenSetAndRegexList rules, string? domainOrDid)
         {
             if (string.IsNullOrEmpty(domainOrDid)) return false;
 
             if (domainOrDid.StartsWith("did:", StringComparison.OrdinalIgnoreCase))
             {
-                if (set.Contains(domainOrDid))
+                if (rules.IsMatch(domainOrDid))
                     return true;
 
-                if (domainOrDid.StartsWith("did:web:", StringComparison.Ordinal) && ShouldBlock(set, domainOrDid.Substring(8)))
+                if (domainOrDid.StartsWith("did:web:", StringComparison.Ordinal) && ShouldBlock(rules, domainOrDid.Substring(8)))
                     return true;
 
                 if (PluggableProtocol.TryGetPluggableProtocolForDid(domainOrDid) is { } pluggable)
                 {
-                    if (pluggable.TryGetDomainForDid(domainOrDid) is { } domain && ShouldBlock(set, domain))
+                    if (pluggable.TryGetDomainForDid(domainOrDid) is { } domain && ShouldBlock(rules, domain))
                         return true;
                 }
 
@@ -149,7 +175,7 @@ namespace AppViewLite
 
             while (true)
             {
-                if (set.Contains(domainOrDid)) return true;
+                if (rules.IsMatch(domainOrDid)) return true;
                 var dot = domainOrDid.IndexOf('.');
                 if (dot == -1) break;
 
@@ -157,6 +183,14 @@ namespace AppViewLite
             }
 
             return false;
+        }
+
+        readonly record struct FrozenSetAndRegexList(FrozenSet<string> Set, Regex[] Regexes)
+        {
+            public bool IsMatch(string domainOrDid)
+            {
+                return Set.Contains(domainOrDid) || Regexes.Any(x => x.IsMatch(domainOrDid));
+            }
         }
     }
 }

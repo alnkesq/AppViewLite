@@ -663,22 +663,31 @@ function onInitialLoad() {
     document.addEventListener('keydown', e => {
         if (e.ctrlKey || e.shiftKey || e.altKey) return;
         
-        if (currentlyOpenMenu) { 
+        if (e.target?.id == 'search-box' && e.key == 'ArrowDown') { 
+            document.querySelector('.search-form-suggestion')?.focus();
+            e.preventDefault();
+            return;
+        }
+
+        if (currentlyOpenMenu || document.querySelector('.search-form-suggestions')?.firstElementChild) { 
             var currentMenuItem = document.activeElement;
-            if (currentMenuItem && currentMenuItem.classList.contains('menu-item')) {
+            if (currentMenuItem && (currentMenuItem.classList.contains('menu-item') || currentMenuItem.classList.contains('search-form-suggestion'))) {
                 if (e.key == 'ArrowUp') {
                     
-                    if (currentMenuItem.previousElementSibling)
+                    if (currentMenuItem.previousElementSibling) {
                         currentMenuItem.previousElementSibling.focus();
-                    else
-                        currentMenuItem.parentElement.lastElementChild.focus();
+                    } else {
+                        if (currentMenuItem.classList.contains('search-form-suggestion')) document.querySelector('#search-box').focus();
+                        else currentMenuItem.parentElement.lastElementChild.focus();
+                    }
                     e.preventDefault();
                     return;
                 } else if (e.key == 'ArrowDown') {
-                    if (currentMenuItem.nextElementSibling)
+                    if (currentMenuItem.nextElementSibling) {
                         currentMenuItem.nextElementSibling.focus();
-                    else
+                    } else {
                         currentMenuItem.parentElement.firstElementChild.focus();
+                    }
                     e.preventDefault();
                     return;
                 }
@@ -784,10 +793,11 @@ function onInitialLoad() {
 
     document.addEventListener('mousemove', e => {
         var target = e.target;
-        if (target && target.classList?.contains('menu-item')) { 
-            target.focus();
+        if (target && target instanceof Element) { 
+            var menuItem = target.closest('.menu-item,.search-form-suggestion');
+            menuItem?.focus();
         }
-    }, { passive: true });
+    });
 
     document.addEventListener('mousedown', e => { 
         userSelectedTextSinceLastMouseDown = false;
@@ -1213,7 +1223,10 @@ async function searchBoxAutocomplete(forceResults) {
 
     var result = text ? await httpGet('searchAutoComplete', forceResults ? { forceResults: lastAutocompleteDids.join(',') } : { q: text }) : { profiles: [] };
     if (autocomplete.lastSearchToken != token) return;
+    var focusedIndex = [...autocomplete.children].findIndex(x => x == document.activeElement);
     autocomplete.innerHTML = result.html;
+    if (focusedIndex != -1)
+        autocomplete.children[focusedIndex]?.focus();
     lastAutocompleteDids = [...autocomplete.querySelectorAll('a[data-did]')].map(x => x.dataset.did)
 
 

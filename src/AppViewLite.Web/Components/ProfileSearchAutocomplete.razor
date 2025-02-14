@@ -6,7 +6,7 @@
 @foreach (var profile in Profiles)
 {
 
-    <a href="@profile.BaseUrl" data-did="@profile.Did">
+    <a href="@profile.BaseUrl" data-did="@profile.Did" class="search-form-suggestion">
         <img src="@profile.AvatarUrl" class="profile-image-small">
         <div>
             <b><TextWithFacets Text="@profile.DisplayNameOrFallback" Facets="@profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets></b>

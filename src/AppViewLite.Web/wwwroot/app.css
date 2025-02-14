@@ -1445,7 +1445,7 @@ button[disabled], input[type=submit][disabled] {
     padding-left: 55px;
 }
 
-.search-form-suggestions a:hover{
+.search-form-suggestion:focus{
     background: #eee;
 }
 .search-form-suggestions .profile-image-small{

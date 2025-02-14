@@ -85,6 +85,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<ulong, byte> LabelNames;
         public CombinedPersistentMultiDictionary<LabelId, byte> LabelData;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> CustomEmojis;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, byte> KnownMirrorsToIgnore;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -226,6 +227,7 @@ namespace AppViewLite
             LabelData = RegisterDictionary<LabelId, byte>("label-data", PersistentDictionaryBehavior.PreserveOrder);
 
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
+            KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
 
             
 
@@ -2572,6 +2574,28 @@ namespace AppViewLite
             return
                 did.StartsWith("did:plc:", StringComparison.Ordinal) ||
                 did.StartsWith("did:web:", StringComparison.Ordinal);
+        }
+
+        public bool ProfileMatchesSearchTerms(BlueskyProfile x, bool alsoSearchDescriptions, string[] queryWords, string? wordPrefix)
+        {
+            if (x.IsBlockedByAdministrativeRule) return false;
+            if (IsKnownMirror(x.Did)) return false;
+            var words = StringUtils.GetAllWords(x.BasicData?.DisplayName).Concat(StringUtils.GetAllWords(x.PossibleHandle));
+            if (alsoSearchDescriptions)
+            {
+                words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
+            }
+            var wordsHashset = words.ToHashSet();
+            return
+                queryWords.All(x => wordsHashset.Contains(x)) &&
+                (wordPrefix == null || wordsHashset.Any(x => x.StartsWith(wordPrefix, StringComparison.Ordinal)));
+        }
+
+        public bool IsKnownMirror(string did)
+        {
+            if (!did.StartsWith("did:nostr:", StringComparison.Ordinal)) return false;
+            var hash = StringUtils.HashUnicodeToUuid(did);
+            return KnownMirrorsToIgnore.ContainsKey(hash);
         }
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();

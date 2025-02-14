@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +44,7 @@ namespace AppViewLite.PluggableProtocols
                 data.Description = null;
             if (string.IsNullOrWhiteSpace(data.DisplayName))
                 data.DisplayName = null;
-            if (data.CustomFields != null) data.CustomFields = data.CustomFields.Where(x => x.Name != null || x.Value != null).ToArray();
+            if (data.CustomFields != null) data.CustomFields = data.CustomFields.Where(x => !string.IsNullOrEmpty(x.Name) && !string.IsNullOrEmpty(x.Value)).ToArray();
             if (data.CustomFields != null && data.CustomFields.Length == 0)
                 data.CustomFields = null;
 
@@ -252,6 +253,14 @@ namespace AppViewLite.PluggableProtocols
         public virtual string? TryGetDomainForDid(string did) => null;
 
         public virtual bool UseSmallThumbnails => false;
+
+        protected void OnMirrorFound(DuckDbUuid didHash)
+        {
+            if (!Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash)))
+            {
+                Apis.WithRelationshipsWriteLock(rels => rels.KnownMirrorsToIgnore.Add(didHash, 0));
+            }
+        }
     }
 }
 

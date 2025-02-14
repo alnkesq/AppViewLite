@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AppViewLite.PluggableProtocols.Nostr
@@ -223,6 +224,9 @@ namespace AppViewLite.PluggableProtocols.Nostr
         public string? about;
         public string? name;
         public string? website;
+        public JsonElement nip05;
+        public string? lud16;
+        public string[][]? fields;
     }
 
 }

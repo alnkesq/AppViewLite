@@ -58,6 +58,11 @@ namespace AppViewLite.Models
         [ProtoMember(1)] public string? Name;
         [ProtoMember(2)] public string? Value;
         [ProtoMember(3)] public DateTime? VerifiedAt;
+
+        public override string ToString()
+        {
+            return Name + " = " + Value;
+        }
     }
 }
 

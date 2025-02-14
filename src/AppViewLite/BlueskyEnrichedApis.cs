@@ -820,7 +820,7 @@ namespace AppViewLite
                             posts = posts.Where(x => x.Data!.Language == options.Language);
 
                         posts = posts
-                            .Where(x => !x.Author.IsBlockedByAdministrativeRule)
+                            .Where(x => !x.Author.IsBlockedByAdministrativeRule && !rels.IsKnownMirror(x.Author.Did))
                             .Where(x => x.Data!.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
@@ -2118,7 +2118,7 @@ namespace AppViewLite
                 {
                     return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix, out _), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
                     .Select(x => rels.GetProfile(x))
-                    .Where(x => ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix))
+                    .Where(x => rels.ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix))
                     .Where(x => alreadyReturned.Add(x.Plc))
                     .Select(x => 
                     {
@@ -2161,7 +2161,7 @@ namespace AppViewLite
                             .Where(x => !alreadyReturned.Contains(x))
                             .Select(x => rels.GetProfile(x))
                             .Where(x => x.DisplayName == null) // otherwise should've matched earlier
-                            .Where(x => ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
+                            .Where(x => rels.ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
                             .Select(x => 
                             {
                                 followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);
@@ -2179,20 +2179,6 @@ namespace AppViewLite
             
 
             return (result.Items.OrderByDescending(x => followerCount[x.Plc]).ToArray(), result.NextContinuation);
-        }
-
-        private static bool ProfileMatchesSearchTerms(BlueskyProfile x, bool alsoSearchDescriptions, string[] queryWords, string? wordPrefix)
-        {
-            if (x.IsBlockedByAdministrativeRule) return false;
-            var words = StringUtils.GetAllWords(x.BasicData?.DisplayName).Concat(StringUtils.GetAllWords(x.PossibleHandle));
-            if (alsoSearchDescriptions)
-            {
-                words = words.Concat(StringUtils.GetAllWords(x.BasicData?.Description));
-            }
-            var wordsHashset = words.ToHashSet();
-            return
-                queryWords.All(x => wordsHashset.Contains(x)) &&
-                (wordPrefix == null || wordsHashset.Any(x => x.StartsWith(wordPrefix, StringComparison.Ordinal)));
         }
 
         private static (T[] Items, string? NextContinuation) GetPageAndNextPaginationFromLimitPlus1<T>(T[] itemsPlusOne, int limit, Func<T, string> serialize)

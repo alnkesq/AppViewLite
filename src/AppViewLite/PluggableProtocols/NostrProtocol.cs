@@ -2,6 +2,7 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using NNostr.Client;
 using NNostr.Client.Protocols;
+using DuckDbSharp.Types;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -67,6 +68,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         private void OnEventReceived(NostrEvent e)
         {
             var did = GetDidFromPubKey(e.PublicKey);
+            var didHash = StringUtils.HashUnicodeToUuid(did);
             var content = e.Content;
             if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
                 return;
@@ -76,6 +78,8 @@ namespace AppViewLite.PluggableProtocols.Nostr
             var kind = (NostrEventKind)e.Kind;
             if (kind == NostrEventKind.Short_Text_Note)
             {
+                if (Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash)))
+                    return;
                 var tid = CreateSyntheticTid(e.CreatedAt!.Value.UtcDateTime, e.Id);
                 var postId = new QualifiedPluggablePostId(did, GetNonQualifiedPostId(tid, e.Id));
                 var data = new BlueskyPostData
@@ -161,13 +165,29 @@ namespace AppViewLite.PluggableProtocols.Nostr
             {
                 if (e.Content == "hello") return; // avoid noisy exceptions
                 var p = System.Text.Json.JsonSerializer.Deserialize<NostrProfileJson>(e.Content!, JsonOptions)!;
+                //Console.Error.WriteLine(e.Content);
+
+                var nip05 = p.nip05.ValueKind == JsonValueKind.String ? p.nip05.GetString() : null;
+                if (IsMirrorProfile(p, nip05))
+                {
+                    OnMirrorFound(didHash);
+                    return;
+                }
+
+
                 var data = new BlueskyProfileBasicInfo
                 {
                     DisplayName = p.name,
                     AvatarCidBytes = BlueskyRelationships.CompressBpe(p.picture),
                     BannerCidBytes = BlueskyRelationships.CompressBpe(p.banner),
                     Description = p.about,
-                    CustomFields = [new CustomFieldProto(null, p.website)]
+                    CustomFields = [
+
+                        new CustomFieldProto("website", p.website),
+                        new CustomFieldProto("nip05", nip05),
+                        new CustomFieldProto("lud16", p.lud16),
+                        ..((p.fields ?? []).Select(x => new CustomFieldProto(x.FirstOrDefault(), x.ElementAtOrDefault(1))))
+                    ],
                 };
 
                 var emojis = GetCustomEmojis(e);
@@ -193,6 +213,15 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         }
 
+
+
+        private static bool IsMirrorProfile(NostrProfileJson p, string? nip05)
+        {
+            if (nip05?.EndsWith(".mostr.pub", StringComparison.Ordinal) == true) return true;
+            if (p.about?.Contains("https://hugohp.codeberg.page/@rss-to-nostr/", StringComparison.Ordinal) == true) return true;
+            if (p.name?.Contains("RSS Feed", StringComparison.OrdinalIgnoreCase) == true) return true;
+            return false;
+        }
 
         private static string? GetSingleVariadicTag(Dictionary<string, List<string>> kvs, string k)
         {

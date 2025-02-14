@@ -1393,7 +1393,7 @@ button[disabled], input[type=submit][disabled] {
 .post-blocked > .post-meta,
 .post-blocked > .post-image-list,
 .post-blocked > .post-external-preview,
-.post-blocked > .post-author-image-link {
+.post-blocked > .post-author-image-link-container > .post-author-image-link {
     filter: blur(5px);
 }
 

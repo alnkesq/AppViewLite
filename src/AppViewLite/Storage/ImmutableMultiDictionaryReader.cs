@@ -19,15 +19,18 @@ namespace AppViewLite.Storage
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
             this.columnarReader = new SimpleColumnarReader(pathPrefix, IsSingleValue ? 2 : 3);
+            this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
+            if (!IsSingleValue)
+                this.Offsets = columnarReader.GetColumnHugeMemory<UInt48>(2); 
             this.MinimumKey = Keys[0];
             this.MaximumKey = Keys[Keys.Length - 1];
         }
 
 
 
-        public HugeReadOnlyMemory<TKey> Keys => columnarReader.GetColumnHugeMemory<TKey>(0);
+        public HugeReadOnlyMemory<TKey> Keys;
         public DangerousHugeReadOnlyMemory<TValue> Values => columnarReader.GetColumnDangerousHugeMemory<TValue>(1);
-        public HugeReadOnlyMemory<UInt48> Offsets => IsSingleValue ? throw new InvalidOperationException() : columnarReader.GetColumnHugeMemory<UInt48>(2);
+        public HugeReadOnlyMemory<UInt48> Offsets;
 
 
 

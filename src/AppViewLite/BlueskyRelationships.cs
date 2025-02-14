@@ -1553,6 +1553,8 @@ namespace AppViewLite
                 }
             }
 
+            possibleHandle = MaybeBridyHandleToFediHandle(possibleHandle);
+
             if (isBlockedByAdministrativeRule)
             {
                 basic = new BlueskyProfileBasicInfo
@@ -1583,6 +1585,20 @@ namespace AppViewLite
                 IsMediaBlockedByAdministrativeRule = isMediaBlockedByAdministrativeRule,
                 Badges = Badges.GetBadges(plc, did, possibleHandle)
             };
+        }
+
+        public static string? MaybeBridyHandleToFediHandle(string? handle)
+        {
+            if (handle != null && handle.EndsWith(".ap.brid.gy", StringComparison.Ordinal))
+            {
+                var h = handle.Substring(0, handle.Length - ".ap.brid.gy".Length);
+                var dot = h.IndexOf('.');
+                if (dot != -1)
+                {
+                    return string.Concat(h.AsSpan(0, dot), "@", h.AsSpan(dot + 1));
+                }
+            }
+            return handle;
         }
 
         private static void RemoveCustomEmojiFacets(ref FacetData[]? facets)

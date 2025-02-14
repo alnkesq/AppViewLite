@@ -279,7 +279,7 @@ namespace AppViewLite
             PendingHandleVerifications.StartAsync(handle, task =>
             {
                 var k = task.IsCompletedSuccessfully && task.Result == did ? handle : null;
-                ctx.SendSignalrAsync("HandleVerificationResult", did, k);
+                ctx.SendSignalrAsync("HandleVerificationResult", did, BlueskyRelationships.MaybeBridyHandleToFediHandle(k));
             });
         }
 

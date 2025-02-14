@@ -663,6 +663,28 @@ function onInitialLoad() {
     document.addEventListener('keydown', e => {
         if (e.ctrlKey || e.shiftKey || e.altKey) return;
         
+        if (currentlyOpenMenu) { 
+            var currentMenuItem = document.activeElement;
+            if (currentMenuItem && currentMenuItem.classList.contains('menu-item')) {
+                if (e.key == 'ArrowUp') {
+                    
+                    if (currentMenuItem.previousElementSibling)
+                        currentMenuItem.previousElementSibling.focus();
+                    else
+                        currentMenuItem.parentElement.lastElementChild.focus();
+                    e.preventDefault();
+                    return;
+                } else if (e.key == 'ArrowDown') {
+                    if (currentMenuItem.nextElementSibling)
+                        currentMenuItem.nextElementSibling.focus();
+                    else
+                        currentMenuItem.parentElement.firstElementChild.focus();
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+
         if (e.key == 'Escape') { 
             if (tryTrimMediaSegments(location.href)) {
                 closeTheater();
@@ -759,6 +781,13 @@ function onInitialLoad() {
 
 
     });
+
+    document.addEventListener('mousemove', e => {
+        var target = e.target;
+        if (target && target.classList?.contains('menu-item')) { 
+            target.focus();
+        }
+    }, { passive: true });
 
     document.addEventListener('mousedown', e => { 
         userSelectedTextSinceLastMouseDown = false;

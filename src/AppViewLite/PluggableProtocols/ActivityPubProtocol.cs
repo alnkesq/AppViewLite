@@ -260,10 +260,15 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private static string? TryGetDidFromUrl(Uri url)
         {
-
+            
             try
             {
+
                 var segments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (segments.Length == 2 && segments[0] == "users")
+                {
+                    return GetDid(new ActivityPubUserId(url.Host, segments[1]));
+                }
                 if (segments.Length == 1 && segments[0].StartsWith('@') && string.IsNullOrEmpty(url.Query))
                 {
                     var username = segments[0];
@@ -274,10 +279,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                         return GetDid(new ActivityPubUserId(username.Substring(at + 1), username.Substring(0, at)));
                     else
                     {
-                        var host = url.Host;
-                        if (host.StartsWith("www.", StringComparison.Ordinal))
-                            host = host.Substring(4);
-                        return GetDid(new ActivityPubUserId(host, username));
+                        return GetDid(new ActivityPubUserId(url.Host, username));
                     }
                 }
             }
@@ -432,6 +434,8 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             if (this == default) return default;
             string instance = this.Instance.ToLowerInvariant();
+            if (instance.StartsWith("www.", StringComparison.Ordinal))
+                instance = instance.Substring(4);
             if (!BlueskyEnrichedApis.IsValidDomain(instance) && !instance.AsSpan().ContainsAny("/@:% "))
             {
                 if (Uri.TryCreate("https://" + instance + "/", UriKind.Absolute, out var url) && url.PathAndQuery == "/")

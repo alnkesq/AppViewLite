@@ -188,6 +188,15 @@ namespace AppViewLite.Web.Controllers
             {
                 EnsureNotConfusableWithVerifiedBadge(ref image);
             }
+
+            if (sizeEnum == ThumbnailSize.avatar_thumbnail)
+            {
+                image.Mutate(m =>
+                {
+                    // Workaround for https://github.com/alnkesq/AppViewLite/issues/87
+                    m.BackgroundColor(Color.White);
+                });
+            }
             return image;
         }
 

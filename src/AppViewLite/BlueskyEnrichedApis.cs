@@ -816,6 +816,9 @@ namespace AppViewLite
                             .Where(x => author != default ? x.Key.Author == author : true)
                             .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)));
 
+                        if (options.MediaOnly)
+                            posts = posts.Where(x => x.Data!.Media != null);
+
                         if (options.Language != LanguageEnum.Unknown)
                             posts = posts.Where(x => x.Data!.Language == options.Language);
 

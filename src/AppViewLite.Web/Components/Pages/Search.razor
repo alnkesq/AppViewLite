@@ -83,6 +83,7 @@
                     Author = From,
                     MinLikes = MinLikes ?? 0,
                     MinReposts = MinReposts ?? 0,
+                    MediaOnly = Kind == "media",
                     Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
                 };
 
@@ -150,6 +151,7 @@
 <div class="tabbed-lists-header">
     <div class="tabbed-lists-header-inner">
         <a href="@GetSearchUrlForKind(null)" class="@(Kind == null ? "active" : null)">Posts</a>
+        <a href="@GetSearchUrlForKind("media")" class="@(Kind == "media" ? "active" : null)">Media</a>
         <a href="@GetSearchUrlForKind("users")" class="@(Kind == "users" ? "active" : null)">People</a>
         <a href="@GetSearchUrlForKind("feeds")" class="@(Kind == "feeds" ? "active" : null)">Feeds</a>
     </div>
@@ -163,6 +165,10 @@
 else if(Kind == "feeds")
 {
     <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
+}
+else if(Kind == "media")
+{
+    <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="true" />
 }
 else
 {

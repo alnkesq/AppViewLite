@@ -15,6 +15,7 @@ namespace AppViewLite.Models
         public DateTime? Until { get; init; }
         public string? Author { get; init; }
         public LanguageEnum Language { get; init; }
+        public bool MediaOnly { get; init; }
     }
 }
 

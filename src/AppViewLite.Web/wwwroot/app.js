@@ -382,7 +382,7 @@ function applyPageElements() {
     if (isTheater) { 
         
         var postElement = document.querySelector(getPostSelector(theaterInfo.postdid, theaterInfo.postrkey));
-        var includePostText = theaterReturnUrl && theaterReturnUrl.includes('?media=1');
+        var includePostText = theaterReturnUrl && (theaterReturnUrl.includes('?media=1') || theaterReturnUrl.includes('kind=media'));
 
         var images = [...postElement.children].filter(x => x.classList.contains('post-image-list'))[0].children;
         var postText = includePostText ? [...postElement.children].filter(x => x.classList.contains('post-body'))[0]?.textContent : null;

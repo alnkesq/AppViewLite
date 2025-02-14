@@ -397,6 +397,9 @@ ul {
     padding-bottom: 10px;
 }
 
+.post-focal > .post-background-link {
+    pointer-events: none;
+}
 
 .post-focal > .post-body {
     margin-top: 5px;

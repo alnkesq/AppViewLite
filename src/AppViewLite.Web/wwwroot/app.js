@@ -423,8 +423,11 @@ function trimMediaSegments(href) {
 
 async function fetchOrReusePageAsync(href, token) { 
     href = trimMediaSegments(href);
-    var p = recentPages.filter(x => x.href == href)[0];
-    if (p) {
+    var index = recentPages.findIndex(x => x.href == href);
+    if (index != -1) {
+        var p = recentPages[index];
+        recentPages.splice(index, 1);
+        recentPages.push(p);
         return p;
     } else { 
         var response = await fetch(href, { signal: AbortSignal.timeout(20000) });
@@ -437,6 +440,8 @@ async function fetchOrReusePageAsync(href, token) {
         var title = temp.querySelector('title').textContent;
         var p = { href: href, dom: dom, dateFetched: Date.now(), title: title, scrollTop: 0 };
         recentPages.push(p)
+        while (recentPages.length > 7)
+            recentPages.splice(0, 1);
         return p;
     }
 }

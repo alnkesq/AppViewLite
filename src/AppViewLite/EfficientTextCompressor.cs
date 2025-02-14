@@ -8,6 +8,9 @@ namespace AppViewLite
 {
     public class EfficientTextCompressor
     {
+
+
+
         private readonly TiktokenTokenizer tokenizer;
         public EfficientTextCompressor()
         {
@@ -16,6 +19,7 @@ namespace AppViewLite
         }
         private IReadOnlyList<int> BpeCompress(string text)
         {
+            if (text.Length >= 1024 * 8) throw new ArgumentException("Exceeded maximum text size for BPE compression.");
             return tokenizer.EncodeToIds(text, int.MaxValue, out var normalized, out var consumed, considerPreTokenization: false, considerNormalization: false);
         }
         private string BpeDecompress(IReadOnlyList<int> bpe)

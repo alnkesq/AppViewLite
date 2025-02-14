@@ -67,15 +67,25 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         private void OnEventReceived(NostrEvent e)
         {
+            var content = e.Content;
+            var kind = (NostrEventKind)e.Kind;
+            if (content?.Length >= 4 * 1024) return;
+            if (e.Kind == (int)NostrEventKind.Short_Text_Note && content != null) 
+            {
+                var trimmed = content.AsSpan().Trim();
+                if (trimmed.Length >= 30 && !trimmed.Contains(' ') && !trimmed.StartsWith("http", StringComparison.Ordinal))
+                    return; // probably not natural language
+            }
+                
+
             var did = GetDidFromPubKey(e.PublicKey);
             var didHash = StringUtils.HashUnicodeToUuid(did);
-            var content = e.Content;
+            
             if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
                 return;
             if (RecentlyAddedPosts.Count >= 10_000)
                 RecentlyAddedPosts = new();
 
-            var kind = (NostrEventKind)e.Kind;
             if (kind == NostrEventKind.Short_Text_Note)
             {
                 if (Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash)))

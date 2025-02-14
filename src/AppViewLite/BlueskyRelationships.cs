@@ -732,6 +732,18 @@ namespace AppViewLite
                     AddToSearchIndex(word, approxPostDate);
                 }
             }
+
+            if (proto.Media != null)
+            {
+                foreach (var media in proto.Media)
+                {
+                    var words = StringUtils.GetDistinctWords(media.AltText);
+                    foreach (var word in words)
+                    {
+                        AddToSearchIndex(word, approxPostDate);
+                    }
+                }
+            }
         }
 
         private static FacetData[]? GetFacetsAsProtos(List<Facet>? facets)

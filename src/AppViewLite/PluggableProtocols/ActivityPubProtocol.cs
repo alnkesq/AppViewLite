@@ -18,7 +18,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 {
     public class ActivityPubProtocol : PluggableProtocol
     {
-        new const string DidPrefix = "did:fedi:";
+        public new const string DidPrefix = "did:fedi:";
 
         private Stopwatch? RecentlyStoredProfilesLastReset;
         private HashSet<UInt128> RecentlyStoredProfiles = new();

@@ -1,6 +1,7 @@
 @page "/@{did}"
 @inject RequestContext RequestContext
 @inject BlueskyEnrichedApis Apis
+@inject NavigationManager Navigation
 
 @code {
     [Parameter][SupplyParameterFromQuery] public int? Replies { get; set; }
@@ -33,6 +34,10 @@
     {
         Did = (await Apis.ResolveHandleAsync(Did));
         Profile = await Apis.GetFullProfileAsync(Did, RequestContext, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
+        var alt = await Apis.TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(Profile.Profile);
+        if (alt != null)
+            Navigation.NavigateTo("/@" + alt + new Uri(Navigation.Uri).Query);
+
         data = Profile.Profile?.BasicData;
         pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Did);
         pluggableExternalUrl = pluggable?.TryGetOriginalProfileUrl(Did);

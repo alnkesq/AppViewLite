@@ -2646,6 +2646,28 @@ namespace AppViewLite
         }
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
+
+        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(BlueskyProfile profile)
+        {
+            if (!profile.Did.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
+                return null;
+
+            var userId = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.ParseDid(profile.Did);
+
+            var possibleHandle = userId.UserName + "." + userId.Instance + ".ap.brid.gy";
+            if (!WithRelationshipsLock(rels => rels.HandleToPossibleDids.ContainsKey(BlueskyRelationships.HashWord(possibleHandle))))
+                return null;
+
+            try
+            {
+                var resolved = await ResolveHandleAsync(possibleHandle);
+                return resolved;
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }
 

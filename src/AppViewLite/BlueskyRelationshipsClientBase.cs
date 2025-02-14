@@ -125,6 +125,7 @@ namespace AppViewLite
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             relationshipsUnlocked.Lock.EnterReadLock();
+            var restore = MaybeSetThreadName("Lock_Read");
             try
             {
                 relationshipsUnlocked.EnsureNotDisposed();
@@ -136,6 +137,7 @@ namespace AppViewLite
             }
             finally
             {
+                MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitReadLock();
 
                 MaybeLogLongLockUsage(sw, gc, LockKind.Read, PrintLongReadLocksThreshold);
@@ -144,6 +146,7 @@ namespace AppViewLite
         }
 
 
+        
 
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func)
         {
@@ -154,6 +157,9 @@ namespace AppViewLite
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             relationshipsUnlocked.Lock.EnterWriteLock();
+
+            BlueskyRelationships.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
+            var restore = MaybeSetThreadName("**** LOCK_WRITE ****");
             try
             {
                 relationshipsUnlocked.EnsureNotDisposed();
@@ -166,11 +172,12 @@ namespace AppViewLite
             }
             finally
             {
+                BlueskyRelationships.ManagedThreadIdWithWriteLock = 0;
+                MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
                 MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold);
             }
-
         }
 
         public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func)
@@ -182,6 +189,7 @@ namespace AppViewLite
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
+            var restore = MaybeSetThreadName("**** LOCK_UPGRADEABLE ****");
             try
             {
                 relationshipsUnlocked.EnsureNotDisposed();
@@ -193,9 +201,30 @@ namespace AppViewLite
             }
             finally
             {
+                MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
                 MaybeLogLongLockUsage(sw, gc, LockKind.Upgradeable, PrintLongUpgradeableLocksThreshold);
             }
+
+        }
+
+
+        private static void MaybeRestoreThreadName(string? prevName)
+        {
+#if false
+            Thread.CurrentThread.Name = prevName;
+#endif
+        }
+
+        private static string? MaybeSetThreadName(string newName)
+        {
+#if false
+            var prev = Thread.CurrentThread.Name;
+            Thread.CurrentThread.Name = newName;
+            return prev;
+#else
+            return null;
+#endif
 
         }
 

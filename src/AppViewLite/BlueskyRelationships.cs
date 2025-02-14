@@ -28,6 +28,7 @@ namespace AppViewLite
 {
     public class BlueskyRelationships : IDisposable
     {
+        public static int ManagedThreadIdWithWriteLock;
         public int ForbidUpgrades;
         private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
         public CombinedPersistentMultiDictionary<DuckDbUuid, Plc> DidHashToUserId;

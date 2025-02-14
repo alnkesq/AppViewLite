@@ -8,17 +8,39 @@
 
 
     private BlueskyPost[] Posts = [];
-    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public string? Continuation { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public string? Sort { get; set; }
     private string? NextContinuation;
+
     protected override async Task OnParametersSetAsync()
     {
         if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
-        else (Posts, NextContinuation) = await Apis.GetFollowingFeedAsync(Continuation, default, RequestContext);
+        else
+        {
+            if (Sort == "balanced") (Posts, NextContinuation) = await Apis.GetBalancedFollowingFeedAsync(Continuation, default, RequestContext);
+            else (Posts, NextContinuation) = await Apis.GetFollowingFeedAsync(Continuation, default, RequestContext);
+        }
     }
 }
 
 <PageTitle>Following</PageTitle>
 
 <h1>Following</h1>
+
+<div class="feed-author-link">
+    <div class="feed-grid-toggle">
+        @if (Sort == "balanced")
+        {
+            <a href="/following">Recent</a>
+            <span> | <b>Balanced</b></span>
+        }
+        else
+        {
+            <span><b>Recent</b> | </span>
+            <a href="/following?sort=balanced">Balanced</a>
+
+        }
+    </div>
+</div>
 
 <PostList Posts="@Posts" NextContinuation="@NextContinuation" />

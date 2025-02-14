@@ -28,6 +28,7 @@ namespace AppViewLite.Models
 
         public PostId PostId;
         public string Did => Author.Did;
+        public Plc AuthorId => Author.Plc;
 
         public BlueskyPost? InReplyToFullPost;
         public BlueskyPost? RootFullPost;

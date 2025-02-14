@@ -1558,6 +1558,8 @@ namespace AppViewLite
             return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value));
         }
 
+
+
         public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
@@ -1574,8 +1576,136 @@ namespace AppViewLite
         }
 
 
-        
+        public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 50);
 
+
+    
+
+            var now = DateTime.UtcNow;
+            var candidates =
+                WithRelationshipsLock(rels => rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-1), null).ToArray())
+                .Select(x => new ScoredBlueskyPost(x, GetDecayedScore(x.LikeCount, now - x.Date, 0.5), GetBalancedFeedGlobalScore(x.LikeCount, now - x.Date)))
+                .ToArray();
+
+            var alreadyReturnedPost = new HashSet<PostId>();
+            var finalPosts = new List<BlueskyPost>();
+            var postToMostRecentRepostDate = GetMostRecentRepostDates(candidates);
+
+            var bestOriginalPostsByUser = candidates.Where(x => x.Post.RepostedBy == null).GroupBy(x => x.Post.AuthorId).Select(x => x.OrderByDescending(x => x.PerUserScore).ToQueue()).ToList();
+            var bestRepostsByUser = candidates.Where(x => x.Post.RepostedBy != null).GroupBy(x => x.Post.AuthorId).Select(x => x.OrderByDescending(x => x.PerUserScore).ToQueue()).ToList();
+
+            var mergedFollowedPosts = new Queue<ScoredBlueskyPost>();
+            var mergedNonFollowedPosts = new Queue<ScoredBlueskyPost>();
+
+            while (bestOriginalPostsByUser.Count != 0 && bestRepostsByUser.Count != 0)
+            {
+                var followedPosts = new List<ScoredBlueskyPost>();
+                foreach (var user in bestOriginalPostsByUser)
+                {
+                    while (user.TryDequeue(out var post))
+                    {
+                        if (alreadyReturnedPost.Add(post.PostId))
+                        {
+                            followedPosts.Add(post);
+                            break;
+                        }
+                    }
+                }
+                bestOriginalPostsByUser.RemoveAll(x => x.Count == 0);
+
+                var nonFollowedReposts = new List<ScoredBlueskyPost>();
+                foreach (var user in bestRepostsByUser)
+                {
+                    while (user.TryDequeue(out var post))
+                    {
+                        if (alreadyReturnedPost.Add(post.PostId))
+                        {
+                            if (post.Post.Author.IsFollowedBySelf != null)
+                                followedPosts.Add(post);
+                            else
+                                nonFollowedReposts.Add(post);
+
+                            break;
+                        }
+                    }
+                }
+                bestRepostsByUser.RemoveAll(x => x.Count == 0);
+
+                
+                mergedFollowedPosts.EnqueueRange(followedPosts.OrderByDescending(x => x.GlobalScore));
+                mergedNonFollowedPosts.EnqueueRange(nonFollowedReposts.OrderByDescending(x => x.GlobalScore));
+
+
+                var done = false;
+                while (mergedFollowedPosts.Count != 0 && !done && finalPosts.Count < 200)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        if (mergedFollowedPosts.TryDequeue(out var followed))
+                        {
+                            finalPosts.Add(followed.Post);
+                        }
+                        else
+                        {
+                            done = true;
+                            break;
+                        }
+                    }
+                    if (!done)
+                    {
+                        if (mergedNonFollowedPosts.TryDequeue(out var nonFollowed))
+                            finalPosts.Add(nonFollowed.Post);
+                    }
+                }
+
+            }
+
+            var posts = finalPosts.ToArray();
+            var alreadyReturnedAfterNormalization = new HashSet<PostId>();
+            posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts, alreadyReturnedAfterNormalization).ToArray());
+            await EnrichAsync(posts, ctx);
+            return new PostsAndContinuation(posts, null);
+        }
+
+        private static Dictionary<PostId, DateTime> GetMostRecentRepostDates(ScoredBlueskyPost[] candidates)
+        {
+            var postToMostRecentRepostDate = new Dictionary<PostId, DateTime>();
+            foreach (var candidate in candidates)
+            {
+                ref var date = ref CollectionsMarshal.GetValueRefOrAddDefault(postToMostRecentRepostDate, candidate.PostId, out var exists);
+                if (!exists)
+                    date = candidate.Post.Date;
+                if (candidate.Post.RepostDate is { } repostDate && repostDate > date)
+                    date = repostDate;
+            }
+
+            return postToMostRecentRepostDate;
+        }
+
+        record struct ScoredBlueskyPost(BlueskyPost Post, float PerUserScore, float GlobalScore)
+        {
+            public PostId PostId => Post.PostId;
+            public override string ToString()
+            {
+                return $"{PerUserScore:0.000} | {GlobalScore:0.000} | +{Post.LikeCount} | {Post}";
+            }
+        }
+
+        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age)
+        {
+            return GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8);
+        }
+        private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity)
+        {
+            // https://medium.com/hacking-and-gonzo/how-hacker-news-ranking-algorithm-works-1d9b0cf2c08d
+            // HackerNews uses gravity=1.8
+            if (age < TimeSpan.Zero) age = TimeSpan.Zero;
+            var ageHours = age.TotalHours;
+            var score = (likeCount + 1) / Math.Pow(ageHours + 2, gravity);
+            return (float)score;
+        }
 
         public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, bool startIfNotRunning = true, TimeSpan ignoreIfRecentlyRan = default, CancellationToken ct = default)
         {

@@ -3,6 +3,7 @@ using ProtoBuf;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -30,26 +31,23 @@ namespace AppViewLite.Models
             if (long.TryParse(s, out var num)) return new NonQualifiedPluggablePostId(tid, num);
             return new NonQualifiedPluggablePostId(tid, s);
         }
-        public NonQualifiedPluggablePostId(Tid tid, long int64)
+        public NonQualifiedPluggablePostId(Tid? tid, long int64)
         {
-            if (tid == default) throw new ArgumentException();
             if (int64 <= 0) throw new ArgumentException();
             this.Int64 = int64;
-            this.Tid = tid;
+            this.Tid = tid ?? default;
         }
-        public NonQualifiedPluggablePostId(Tid tid, string s)
+        public NonQualifiedPluggablePostId(Tid? tid, string s)
         {
-            if (tid == default) throw new ArgumentException();
             if (string.IsNullOrEmpty(s)) throw new ArgumentException();
             this.String = s;
-            this.Tid = tid;
+            this.Tid = tid ?? default;
         }
-        public NonQualifiedPluggablePostId(Tid tid, byte[] bytes)
+        public NonQualifiedPluggablePostId(Tid? tid, byte[] bytes)
         {
-            if (tid == default) throw new ArgumentException();
             if (bytes == null || bytes.Length == 0) throw new ArgumentException();
             this.Bytes = bytes;
-            this.Tid = tid;
+            this.Tid = tid ?? default;
         }
 
         [ProtoMember(1)] public long Int64;
@@ -58,6 +56,15 @@ namespace AppViewLite.Models
         [ProtoIgnore] public Tid Tid;
 
 
+        internal NonQualifiedPluggablePostId CloneWithoutTid() => WithTid(default);
+
+        internal NonQualifiedPluggablePostId WithTid(Tid updatedTid) => new NonQualifiedPluggablePostId
+        {
+            Int64 = Int64,
+            String = String,
+            Bytes = Bytes,
+            Tid = updatedTid,
+        };
 
     }
 }

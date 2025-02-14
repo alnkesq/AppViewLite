@@ -72,6 +72,11 @@ namespace AppViewLite.PluggableProtocols
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postId.Did)) return;
 
+
+
+
+
+
             if (inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
             EnsureOwnDid(rootPostId.Value.Did);
 
@@ -86,8 +91,25 @@ namespace AppViewLite.PluggableProtocols
             {
                 var authorPlc = rels.SerializeDid(postId.Did);
 
+
+                if (!StoreTidIfNotReversible(rels, ref postId))
+                    return;
+
+
+
                 data.PluggablePostId = postId.PostId;
                 data.PostId = new PostId(authorPlc, postId.PostId.Tid);
+
+                if (!StoreTidIfNotReversible(rels, ref inReplyTo))
+                {
+                    data.IsReplyToUnspecifiedPost = true;
+                    inReplyTo = null;
+                }
+
+                if (!StoreTidIfNotReversible(rels, ref rootPostId))
+                {
+                    rootPostId = inReplyTo ?? postId;
+                }
 
                 if (inReplyTo != null)
                 {
@@ -96,7 +118,7 @@ namespace AppViewLite.PluggableProtocols
                     data.PluggableInReplyToPostId = inReplyTo.Value.PostId;
                 }
 
-                data.RootPostPlc = rels.SerializeDid(rootPostId.Value.Did).PlcValue;
+                data.RootPostPlc = rels.SerializeDid(rootPostId!.Value.Did).PlcValue;
                 data.RootPostRKey = rootPostId.Value.PostId.Tid.TidValue;
                 data.PluggableRootPostId = rootPostId.Value.PostId;
 
@@ -131,6 +153,50 @@ namespace AppViewLite.PluggableProtocols
 
             });
         }
+        private bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId? postId)
+        {
+            if (postId != null)
+            {
+                var p = postId.Value;
+                var result = StoreTidIfNotReversible(rels, ref p);
+                postId = p;
+                return result;
+            }
+            return true;
+        }
+
+        private bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId postId)
+        {
+            var reversedTid = TryGetTidFromPostId(new QualifiedPluggablePostId(postId.Did, postId.PostId.CloneWithoutTid())) ?? default;
+            if (reversedTid != default)
+            {
+                if (postId.Tid != default && reversedTid != default)
+                    throw new ArgumentException("Mismatch between TryGetTidFromPostId and the TID passed to OnPostDiscovered.");
+
+                postId = postId.WithTid(reversedTid);
+            }
+            else
+            {
+                var hash = postId.GetExternalPostIdHash();
+                if (rels.ExternalPostIdHashToSyntheticTid.TryGetSingleValue(hash, out var tid))
+                {
+                    postId = postId.WithTid(tid);
+                }
+                else
+                {
+                    if (postId.Tid != default)
+                    {
+                        rels.ExternalPostIdHashToSyntheticTid.Add(hash, postId.Tid);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
 
         public bool RequiresExplicitPostIdStorage(NonQualifiedPluggablePostId? postId)
         {
@@ -141,6 +207,10 @@ namespace AppViewLite.PluggableProtocols
         }
 
         public virtual NonQualifiedPluggablePostId? TryGetPostIdFromTid(Tid tid)
+        {
+            return null;
+        }
+        public virtual Tid? TryGetTidFromPostId(QualifiedPluggablePostId id)
         {
             return null;
         }

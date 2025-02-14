@@ -1,7 +1,9 @@
 using AppViewLite.Numerics;
+using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,6 +18,8 @@ namespace AppViewLite.Models
         {
             return Did + "/" + PostId.ToString();
         }
+
+        public Tid Tid => PostId.Tid;
 
 
         public QualifiedPluggablePostId(string did, NonQualifiedPluggablePostId postId)
@@ -38,7 +42,19 @@ namespace AppViewLite.Models
         }
 
 
+        public DuckDbUuid GetExternalPostIdHash()
+        {
+            return StringUtils.HashToUuid([
+                ..MemoryMarshal.AsBytes<char>(Did),
+                (byte)(PostId.String != null ? 1 : PostId.Bytes != null ? 2 : 3),
+                ..MemoryMarshal.AsBytes<char>(PostId.String),
+                ..PostId.Bytes.AsSpan(),
+                ..MemoryMarshal.AsBytes<long>([PostId.Int64]),
+            ]);
+        }
 
+
+        public QualifiedPluggablePostId WithTid(Tid updatedTid) => new QualifiedPluggablePostId(Did, PostId.WithTid(updatedTid));
     }
 }
 

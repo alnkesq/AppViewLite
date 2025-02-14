@@ -86,6 +86,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<LabelId, byte> LabelData;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> CustomEmojis;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> KnownMirrorsToIgnore;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, Tid> ExternalPostIdHashToSyntheticTid;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -228,6 +229,7 @@ namespace AppViewLite
 
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
+            ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
 
             
 

@@ -125,7 +125,6 @@ namespace AppViewLite
                     relationship = next;
                     return true;
                 }
-                return false;
             }
             return false;
         }

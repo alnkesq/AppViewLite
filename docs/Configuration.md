@@ -21,12 +21,12 @@ You can set the following environment variables:
 * `APPVIEWLITE_DID_DOC_OVERRIDES`: Path to an optional text file, where each line is `did:plc:example pds.example handle.example`. Will be reloaded dynamically if it changes. The listed PDSes will be listened from directly, without relaying on the main firehose.
 
 ## Administrative rules
-* `APPVIEWLITE_BLOCKLIST_PATH`: path to an `.ini` file whose sections can be `[noinjest]`, `[nodisplay]`, `[nooutboundconnect]` (or combinations, like `[noinjest,nodisplay]`) to block specific DIDs or domains (and all their subdomains) of all types (PDSes, Mastodon instances, handles, Mastodon external media...)
+* `APPVIEWLITE_BLOCKLIST_PATH`: path to an `.ini` file whose sections can be `[noingest]`, `[nodisplay]`, `[nooutboundconnect]` (or combinations, like `[noingest,nodisplay]`) to block specific DIDs or domains (and all their subdomains) of all types (PDSes, Mastodon instances, handles, Mastodon external media...)
 
-   * `[noinjest]` ignores all the posts coming from the various firehoses for the specified DIDs or domains. By default, it includes various cross-protocol mirrors (AppViewLite is already multi-protocol)
+   * `[noingest]` ignores all the posts coming from the various firehoses for the specified DIDs or domains. By default, it includes various cross-protocol mirrors (AppViewLite is already multi-protocol)
    * `[nodisplay]` prevents post and profile data for the specified DIDs or domains from being displayed.
    * `[nooutboundconnect]` prevents outbound HTTP traffic to the specified DIDs or domains. Image thumbnails and profile pictures won't be available.
-   * `[blockall]` is a shorthand for `[noinjest,nodisplay,nooutboundconnect]`
+   * `[blockall]` is a shorthand for `[noingest,nodisplay,nooutboundconnect]`
    * `[allowall]` allows you to override the default rules for the specified domains.
 
 You can also use regular expressions (e.g. `regex:^example$`), but for best performance you should minimize the number of such rules (you can use the `|` regex operator to consolidate them).

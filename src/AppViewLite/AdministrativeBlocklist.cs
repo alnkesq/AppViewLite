@@ -40,7 +40,7 @@ namespace AppViewLite
                     continue;
                 }
                 if (!seenFirstSection)
-                    throw new ArgumentException("Blocklist file must start with a section name, for example [noinjest,nodisplay,nooutboundconnect]");
+                    throw new ArgumentException("Blocklist file must start with a section name, for example [noingest,nodisplay,nooutboundconnect]");
 
 
                 if (line.StartsWith("regex:", StringComparison.Ordinal))

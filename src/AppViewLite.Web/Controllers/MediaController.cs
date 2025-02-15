@@ -177,6 +177,7 @@ namespace AppViewLite.Web.Controllers
                     Access = FileAccess.Read,
                     Options = FileOptions.Asynchronous
                 });
+                Response.ContentLength = stream.Length;
                 await stream.CopyToAsync(Response.Body);
 
             }
@@ -187,6 +188,7 @@ namespace AppViewLite.Web.Controllers
                     var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
                     InitFileName(blob.FileNameForDownload);
                     SetMediaHeaders(name, "video/mp4");
+                    Response.ContentLength = blob.Bytes.Length;
                     await Response.Body.WriteAsync(blob.Bytes);
                 }
                 else if(sizeEnum == ThumbnailSize.feed_video_playlist)

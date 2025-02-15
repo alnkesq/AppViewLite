@@ -1284,6 +1284,13 @@ document.addEventListener('play', e => {
     }
 }, true);
 
+document.addEventListener('onerror', e => {
+    var img = e.target;
+    if (img.tagName == 'IMG') { 
+        img.style.width = '48px';
+        img.style.width = '48px';
+    }
+});
 
 
 function emojify(target = document.body) {

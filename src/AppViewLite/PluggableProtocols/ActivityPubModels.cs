@@ -42,6 +42,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public string description;
         public string preview_url;
         public string remote_url;
+        public string url;
         public string type;
     }
     public class ActivityPubAccountJson

@@ -141,8 +141,8 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 Description = description.Text,
                 PluggableProtocolFollowerCount = account.followers_count,
                 PluggableProtocolFollowingCount = account.following_count,
-                AvatarCidBytes = MediaUrlsToBytes(account.avatar_static ?? account.avatar, null),
-                BannerCidBytes = MediaUrlsToBytes(account.header_static ?? account.header, null),
+                AvatarCidBytes = MediaUrlsToBytes(account.avatar_static ?? account.avatar, null, null),
+                BannerCidBytes = MediaUrlsToBytes(account.header_static ?? account.header, null, null),
                 CustomFields = account.fields?.Select(x => ConvertFieldToProto(x, baseUrl)).Where(x => x != null).ToArray()
             };
             if (proto.CustomFields != null && proto.CustomFields.Length == 0)
@@ -196,31 +196,42 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return new BlueskyMediaData
             {
                  AltText = x.description,
-                 Cid = MediaUrlsToBytes(x.remote_url, x.preview_url)!,
+                 Cid = MediaUrlsToBytes(x.remote_url, x.preview_url, x.url)!,
                  IsVideo = x.type?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
             };
         }
 
-        private static byte[]? MediaUrlsToBytes(string? fullUrl, string? previewUrl)
+        private static byte[]? MediaUrlsToBytes(string? a, string? b, string? c)
         {
-            if (fullUrl == null && previewUrl == null) return null;
-            return BlueskyRelationships.CompressBpe(fullUrl + "\n" + previewUrl);
+            if (a == null && b == null && c == null) return null;
+            return BlueskyRelationships.CompressBpe(a + "\n" + b + "\n" + c);
         }
 
         public async override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
         {
-            var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n');
+            var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n').Select(x => x.Length != 0 ? x : null).ToArray();
 
+            var a = urls.ElementAtOrDefault(0);
+            var b = urls.ElementAtOrDefault(1);
+            var c = urls.ElementAtOrDefault(2);
 
-            var url = 
-                (
-                preferredSize == ThumbnailSize.feed_fullsize || 
+            var fullSize =
+                preferredSize == ThumbnailSize.feed_fullsize ||
                 preferredSize == ThumbnailSize.avatar ||
                 preferredSize == ThumbnailSize.feed_video_blob ||
-                preferredSize == ThumbnailSize.feed_video_playlist
-                ) ? urls[0] : urls[^1];
-            if(string.IsNullOrEmpty(url))
-                 url = urls.First(x => !string.IsNullOrEmpty(x));
+                preferredSize == ThumbnailSize.feed_video_playlist;
+
+            string url;
+
+            if (fullSize)
+            {
+                url = c ?? a ?? b!;
+            }
+            else
+            {
+                url = b ?? c ?? a!;
+            }
+
             return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url));
         }
 

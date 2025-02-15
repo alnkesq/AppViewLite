@@ -149,7 +149,11 @@ function applyPageFocus() {
     else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
     
-    document.querySelector('[autofocus]')?.focus();
+    var autofocus = document.querySelector('[autofocus]');
+    if (autofocus && autofocus.classList.contains('compose-textarea')) { 
+        autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
+    }
+    autofocus?.focus();
     
 
     var seenNotificationId = document.querySelector('#notification-newest-id')?.dataset['newestnotification'];

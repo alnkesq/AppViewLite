@@ -389,7 +389,7 @@
                     {
                         <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                     }
-                    @if (baseUrlPreferExternal != null)
+                    @if (baseUrlPreferExternal != Post.BaseUrl)
                     {
                         <a href="@Post.BaseUrl" class="menu-item">View here</a>
                     }

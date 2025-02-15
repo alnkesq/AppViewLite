@@ -479,6 +479,7 @@ function closeCurrentMenu() {
     currentlyOpenMenu.classList.remove('menu-visible')
     currentlyOpenMenu = null;
     currentlyOpenMenuButton = null;
+    enableMenuFocus();
 }
 
 function ensureMenuFullyVisible() { 
@@ -673,6 +674,12 @@ function maybeLoadNextPage() {
     loadNextPage(false);
 }
 
+function enableMenuFocus() { 
+    for (const element of document.querySelectorAll('.menu-item-hide-focus')) {
+        element.classList.remove('menu-item-hide-focus');
+    }
+}
+
 function onInitialLoad() {
     window.addEventListener('popstate', e => {
         var popped = historyStack.pop();
@@ -708,6 +715,7 @@ function onInitialLoad() {
         if (currentlyOpenMenu || document.querySelector('.search-form-suggestions')?.firstElementChild) { 
             var currentMenuItem = document.activeElement;
             if (currentMenuItem && (currentMenuItem.classList.contains('menu-item') || currentMenuItem.classList.contains('search-form-suggestion'))) {
+                enableMenuFocus();
                 if (e.key == 'ArrowUp') {
                     
                     if (currentMenuItem.previousElementSibling) {
@@ -831,7 +839,11 @@ function onInitialLoad() {
         var target = e.target;
         if (target && target instanceof Element) { 
             var menuItem = target.closest('.menu-item,.search-form-suggestion');
-            menuItem?.focus();
+            if (menuItem) { 
+                menuItem.focus();
+                enableMenuFocus();
+            }
+            
         }
     });
 
@@ -851,6 +863,7 @@ function onInitialLoad() {
     document.addEventListener('click', e => {
         
         var target = e.target;
+        var clickFromKeyboard = e.detail === 0;
 
         if (currentlyOpenMenu) { 
             if (currentlyOpenMenuButton.contains(target)) { 
@@ -899,7 +912,12 @@ function onInitialLoad() {
                         currentlyOpenMenuButton = actionButton;
                         currentlyOpenMenu = prevMenu;
                         ensureMenuFullyVisible();
-                        currentlyOpenMenu.querySelector('a, button')?.focus();
+                        var first = currentlyOpenMenu.querySelector('a, button');
+                        if (first) {
+                            if (!clickFromKeyboard)
+                                first.classList.add('menu-item-hide-focus');
+                            first.focus();
+                        }
                     }
                 }
             }
@@ -1296,7 +1314,6 @@ document.addEventListener('error', e => {
         img.style.height = '48px';
     }
 }, true);
-
 
 function emojify(target = document.body) {
     twemoji.parse(target);

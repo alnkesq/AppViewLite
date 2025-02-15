@@ -1263,7 +1263,7 @@ button[disabled], input[type=submit][disabled] {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-    .menu-item:focus {
+    .menu-item:not(.menu-item-hide-focus):focus {
         background: #a4a4a53d;
     }
 

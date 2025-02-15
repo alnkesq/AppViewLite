@@ -28,7 +28,7 @@ namespace AppViewLite
             {
                 if (i != 0)
                 {
-                    if (i == items.Length - 1) sb.Append(", and ");
+                    if (i == items.Length - 1) sb.Append(items.Length == 2 ? " and " : ", and ");
                     else sb.Append(", ");
                 }
                 sb.Append(items[i]);

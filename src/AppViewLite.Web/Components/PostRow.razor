@@ -191,7 +191,7 @@
         </a>
     </div>
 
-    @if (IsFocalPost && RequestContext.IsLoggedIn && Post.Author.Plc != RequestContext.LoggedInUser)
+    @if (IsFocalPost && RequestContext.IsLoggedIn && Post.Author.Plc != RequestContext.LoggedInUser && Post.Author.IsFollowedBySelf == null)
     {
         <FollowButton Profile="@Post.Author" />
     }

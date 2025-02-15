@@ -1414,6 +1414,7 @@ button[disabled], input[type=submit][disabled] {
     font-weight: bold;
     z-index: 10;
     pointer-events: all;
+    padding: 0 3px;
     
 }
 

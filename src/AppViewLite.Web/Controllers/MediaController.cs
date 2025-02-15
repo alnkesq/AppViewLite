@@ -185,7 +185,7 @@ namespace AppViewLite.Web.Controllers
             {
                 if (sizeEnum == ThumbnailSize.feed_video_blob)
                 {
-                    var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
+                    using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
                     InitFileName(blob.FileNameForDownload);
                     SetMediaHeaders(name, "video/mp4");
                     if (blob.Bytes != null)
@@ -238,7 +238,7 @@ namespace AppViewLite.Web.Controllers
 
         private async Task<(Image<Rgba32> Image, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, CancellationToken ct)
         {
-            var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
+            using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
             var bytes = await blob.ReadAsBytesAsync();
             if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
             var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);

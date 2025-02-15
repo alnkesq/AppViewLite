@@ -8,8 +8,9 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    public record struct BlobResult(byte[]? Bytes, Stream? Stream, string? FileNameForDownload)
+    public record struct BlobResult(byte[]? Bytes, Stream? Stream, string? FileNameForDownload) : IDisposable
     {
+
         public async Task<byte[]> ReadAsBytesAsync()
         {
             if (Bytes != null) return Bytes;
@@ -19,7 +20,11 @@ namespace AppViewLite.Models
                 await Stream!.CopyToAsync(ms);
                 return ms.ToArray();
             }
-            
+
+        }
+        public void Dispose()
+        {
+            Stream?.Dispose();
         }
 
     }

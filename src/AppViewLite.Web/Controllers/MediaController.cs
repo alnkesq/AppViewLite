@@ -243,6 +243,8 @@ namespace AppViewLite.Web.Controllers
             if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
             var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
 
+            if (image.Frames.Count > 1) return (image, blob.FileNameForDownload);
+
             if (Math.Max(image.Width, image.Height) > sizePixels)
             {
                 image.Mutate(m => m.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new SixLabors.ImageSharp.Size(sizePixels, sizePixels) }));

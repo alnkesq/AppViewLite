@@ -115,6 +115,9 @@ main {
     display: none;
     padding: 0;
     position: absolute;
+    backdrop-filter: blur(10px);
+    background-color: rgb(255 255 255 / 50%);
+    border-radius: 0px 0px 5px 0px;
 }
 
 .sidebar-button.sidebar-button-fixed{
@@ -270,9 +273,6 @@ main {
         width: 50px;
         height: 45px;
         top: 0px;
-        backdrop-filter: blur(10px);
-        background-color: rgb(255 255 255 / 50%);
-        border-radius: 0px 0px 5px 0px;
     }
 
     .tabbed-lists-header{

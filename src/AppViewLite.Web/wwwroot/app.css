@@ -1241,7 +1241,7 @@ button[disabled], input[type=submit][disabled] {
     width: 150px;
     display: none;
     backdrop-filter: blur(10px);
-    background-color: rgba(250,250,250, 0.7);
+    background-color: rgba(250,250,250, 0.5);
 }
 .menu.menu-visible {
     display: block;
@@ -1263,8 +1263,8 @@ button[disabled], input[type=submit][disabled] {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-    .menu-item:hover {
-        background: #F1F3F5;
+    .menu-item:focus {
+        background: #a4a4a53d;
     }
 
 

@@ -488,7 +488,7 @@ function ensureMenuFullyVisible() {
 
     const MIN_MARGIN = 5;
 
-    var vw = window.innerWidth - MIN_MARGIN;
+    var vw = window.innerWidth - MIN_MARGIN - 10;
     var vh = window.innerHeight - document.querySelector('.bottom-bar').getBoundingClientRect().height - MIN_MARGIN;
 
     

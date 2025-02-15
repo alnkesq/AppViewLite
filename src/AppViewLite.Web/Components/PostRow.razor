@@ -31,6 +31,9 @@
     [Parameter]
     public bool IsQuoteList { get; set; }
 
+    [Parameter]
+    public bool VideoAutoPlay { get; set; }
+
     // If you add [Parameter] flags, update RenderFlags serialization and deserialization.
 
 
@@ -62,6 +65,7 @@
             { nameof(PostRow.ShowThreadLine), flags[5] },
             { nameof(PostRow.IsThreadView), flags[6]},
             { nameof(PostRow.IsQuoteList), flags[7]},
+            { nameof(PostRow.VideoAutoPlay), flags[8]},
         });
 
     }
@@ -83,6 +87,7 @@
              ShowThreadLine,
              IsThreadView,
              IsQuoteList,
+             VideoAutoPlay,
         }.Select(x => x ? "1" : "0"));
 
 
@@ -294,15 +299,18 @@
         {
             <div class="post-image-list post-indented @(UseSmallImages ? "post-image-list-compact" : null)">
 
+                @{
+                    var autoplayIndex = 0;
+                }
                 @foreach (var image in Post.Data.Media)
                 {
                     @if (image.IsVideo)
                     {
-                        <video class="post-video" controls preload="none" data-playlisturl="@Apis.GetImageUrl(ThumbnailSize.feed_video_playlist, Post.Did, image.Cid, Post.Author.Pds)" poster="@Apis.GetImageUrl(ThumbnailSize.video_thumbnail, Post.Did, image.Cid, Post.Author.Pds)">
+                        var shouldAutoplay = VideoAutoPlay && ++autoplayIndex == 1;
+                        <video autoplay="@shouldAutoplay" muted="@shouldAutoplay" class="post-video" controls preload="@(shouldAutoplay ? null : "none")" data-playlisturl="@Apis.GetImageUrl(ThumbnailSize.feed_video_playlist, Post.Did, image.Cid, Post.Author.Pds)" poster="@Apis.GetImageUrl(ThumbnailSize.video_thumbnail, Post.Did, image.Cid, Post.Author.Pds)">
                         </video>
                         if (IsFocalPost)
                         {
-
                             <meta property="og:video" content="@Apis.GetImageUrl(ThumbnailSize.feed_video_playlist, Post.Did, image.Cid, Post.Author.Pds, Post.Did + "-" + Post.RKey + ".mp4")"> @* helps yt-dlp *@
                             <meta property="og:video:type" content="video/mp4">
                         }

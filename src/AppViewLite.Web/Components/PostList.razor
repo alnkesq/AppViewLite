@@ -11,6 +11,8 @@
     [Parameter] public string? NextContinuation { get; set; }
     [Parameter] public bool IsQuoteList { get; set; }
     [Parameter] public bool ShowAsGrid { get; set; }
+    [Parameter] public bool FocalVideoAutoPlay { get; set; }
+
     private Uri? continuationUrl;
     private Plc? focalPostPlc;
 
@@ -48,7 +50,7 @@
                         <img src="@thumbUrl" class="image-grid-cell-image" />
                     </a>
                 </li>
-                
+
             }
 
         }
@@ -57,6 +59,7 @@
             var prev = i != 0 ? Posts[i - 1] : null;
             var next = i != Posts.Length - 1 ? Posts[i + 1] : null;
             var postId = post.PostId;
+            var isFocalPost = post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey;
             <PostRow 
                 Post="post"
                 ShowThreadLine="@(
@@ -69,10 +72,10 @@
                     (post.IsNativeReply && ((prev == null || (IsLastOfGroup(prev, post) && post.InReplyToPostId!.Value.Author != focalPostPlc)))))"
                 IsLastOfGroup="@IsLastOfGroup(post, next)"
                 ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
-                IsFocalPost="@(post.Author.Did == FocalPostDid && post.RKey == FocalPostRKey)" 
+                IsFocalPost="@isFocalPost" 
                 IsThreadView="@(focalPostPlc != null)"
                 IsQuoteList="@IsQuoteList"
-            />
+                VideoAutoPlay="@(FocalVideoAutoPlay && isFocalPost)" />
         }
     }
 </ul>

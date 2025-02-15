@@ -154,7 +154,12 @@ function applyPageFocus() {
         autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
     }
     autofocus?.focus();
-    
+    for (const video of document.querySelectorAll('video[autoplay]')) {
+        if (!video.didAutoPlay) {
+            video.didAutoPlay = true;
+            video.play();
+        }
+    }
 
     var seenNotificationId = document.querySelector('#notification-newest-id')?.dataset['newestnotification'];
     if (seenNotificationId) {

@@ -20,6 +20,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public string content;
         public DateTime created_at;
         public string? in_reply_to_account_id;
+        public object? conversation_id;
         public string language;
         public ActivityPubMediaAttachmentJson[] media_attachments;
         public ActivityPubMentionJson[] mentions;

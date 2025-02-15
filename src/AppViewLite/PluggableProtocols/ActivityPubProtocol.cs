@@ -98,6 +98,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             if (post.in_reply_to_account_id != null)
                 data.IsReplyToUnspecifiedPost = true;
 
+            if (post.conversation_id != null && post.mentions != null && post.mentions.Length != 0)
+                data.IsReplyToUnspecifiedPost = true;
+
             var customEmojis = (post.emojis ?? []).Concat(post.account?.emojis ?? []).Select(x => new CustomEmoji(x.shortcode, x.static_url ?? x.url)).ToArray();
 
             Apis.MaybeAddCustomEmojis(customEmojis);

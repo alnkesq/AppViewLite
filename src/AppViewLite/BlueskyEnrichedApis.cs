@@ -1233,7 +1233,7 @@ namespace AppViewLite
                 var message = at.AtError.Detail?.Message ?? at.AtError.Detail?.Error;
                 if (string.IsNullOrEmpty(message)) return subjectDisplayText + " returned error " + at.AtError.StatusCode;
 
-                if (message.StartsWith("Could not find repo:"))
+                if (message.StartsWith("Could not find repo:", StringComparison.Ordinal))
                     return "This user no longer exists at the specified PDS.";
 
                 return subjectDisplayText + " returned error " + message;

@@ -298,9 +298,8 @@
                 {
                     @if (image.IsVideo)
                     {
-                        <a href="@Post.BlueskyUrl" title="@image.AltText" class="post-image-link blue-link" target="_blank" rel="noreferrer">
-                            Watch video on bsky.app
-                        </a>
+                        <video class="post-video" controls preload="none" data-playlisturl="@Apis.GetImageUrl(ThumbnailSize.feed_video, Post.Did, image.Cid, Post.Author.Pds)" poster="@Apis.GetImageUrl(ThumbnailSize.video_thumbnail, Post.Did, image.Cid, Post.Author.Pds)">
+                        </video>
                     }
                     else
                     {

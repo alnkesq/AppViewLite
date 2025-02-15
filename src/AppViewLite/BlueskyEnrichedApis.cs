@@ -1531,6 +1531,7 @@ namespace AppViewLite
             return GetImageUrl(ThumbnailSize.feed_fullsize, did, cid, pds);
         }
 
+
         public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
@@ -1550,6 +1551,14 @@ namespace AppViewLite
             }
 
             var cidString = isNativeAtProto ? Cid.Read(cid).ToString() : Ipfs.Base32.ToBase32(cid);
+
+            if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video)
+            {
+                if (!isNativeAtProto) return null; // TODO
+                cdn = "https://video.bsky.app";
+                return $"{cdn}/watch/{Uri.EscapeDataString(did)}/{cidString}/{(size == ThumbnailSize.video_thumbnail ? "thumbnail.jpg" : "playlist.m3u8")}";
+            }
+
 
             if (cdn != null) pds = null;
 

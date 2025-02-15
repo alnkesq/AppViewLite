@@ -570,6 +570,11 @@ ul {
     pointer-events: all;
 }
 
+.post-video{
+    width: calc(100% - 10px);
+    pointer-events: all;
+}
+
 .post-image-list{
     pointer-events: none;
 }

@@ -1268,6 +1268,17 @@ async function searchBoxAutocomplete(forceResults) {
     else closeAutocompleteMenu(autocomplete)
 }
 
+document.addEventListener('play', e => {
+    var video = e.target;
+    if (video.tagName != 'VIDEO') return;
+    if (video.didInstallHls) return;
+    var playlistUrl = video.dataset.playlisturl;
+    if (!playlistUrl) return;
+    video.didInstallHls = true;
+    var hls = new Hls();
+    hls.loadSource(playlistUrl);
+    hls.attachMedia(video);
+}, true);
 
 
 

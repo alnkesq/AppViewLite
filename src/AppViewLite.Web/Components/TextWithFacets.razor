@@ -161,7 +161,7 @@
     }
     else if(part.CustomEmoji != null)
     {
-        <img src="@Apis.GetCustomEmojiUrl(part.CustomEmoji, IsProfileDisplayName ? ThumbnailSize.emoji_profile_name : ThumbnailSize.emoji)" class="custom-emoji" alt="@part.Text.Replace(":", null)" rel="noreferrer">
+        <img src="@Apis.GetCustomEmojiUrl(part.CustomEmoji, IsProfileDisplayName ? ThumbnailSize.emoji_profile_name : ThumbnailSize.emoji)" class="custom-emoji" alt="@(IsProfileDisplayName ? " " : part.Text.Replace(":", null))" rel="noreferrer">
     }
     else
     {

@@ -206,7 +206,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             GetBoardIdFromDid(did);
         }
 
-        public override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
+        public override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize, CancellationToken ct)
         {
             var board = GetBoardIdFromDid(did);
             var imageId = Encoding.UTF8.GetString(bytes);
@@ -215,7 +215,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 imageId = Path.GetFileNameWithoutExtension(imageId) + "s.jpg";
             }
             var url = $"{GetImagePrefix(board)}/{imageId}";
-            return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url));
+            return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), ct: ct);
         }
 
         public YotsubaBoardId GetBoardIdFromDid(string did)

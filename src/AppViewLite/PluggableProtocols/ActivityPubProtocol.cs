@@ -207,7 +207,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return BlueskyRelationships.CompressBpe(a + "\n" + b + "\n" + c);
         }
 
-        public async override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
+        public async override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize, CancellationToken ct)
         {
             var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n').Select(x => x.Length != 0 ? x : null).ToArray();
 
@@ -232,7 +232,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 url = b ?? c ?? a!;
             }
 
-            return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url));
+            return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
         }
 
         private static FacetData? ElementToFacet(IElement element, Uri baseUrl)

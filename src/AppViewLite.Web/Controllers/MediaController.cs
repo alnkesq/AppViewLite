@@ -32,7 +32,7 @@ namespace AppViewLite.Web.Controllers
 
         [Route("/watch/{encodedDid}/{cid}/{format}")]
         [HttpGet]
-        public Task GetVideo(string format, string encodedDid, string cid, [FromQuery] string? pds, [FromQuery] string? name)
+        public Task GetVideo(string format, string encodedDid, string cid, [FromQuery] string? pds, [FromQuery] string? name, CancellationToken ct)
         {
 
             var size = format switch
@@ -42,13 +42,13 @@ namespace AppViewLite.Web.Controllers
                 "playlist.m3u8" => ThumbnailSize.feed_video_playlist,
                 _ => throw new ArgumentException(),
             };
-            return GetThumbnail(size.ToString(), Uri.UnescapeDataString(encodedDid), cid, pds, name);
+            return GetThumbnail(size.ToString(), Uri.UnescapeDataString(encodedDid), cid, pds, name, ct);
 
         }
 
         [Route("/img/{size}/plain/{did}/{cid}@jpeg")]
         [HttpGet]
-        public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds, [FromQuery] string? name)
+        public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds, [FromQuery] string? name, CancellationToken ct)
         {
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
             var sizeEnum = Enum.Parse<ThumbnailSize>(size);
@@ -147,7 +147,7 @@ namespace AppViewLite.Web.Controllers
                     if (IsVideo(sizeEnum))
                         throw new NotSupportedException("Caching of videos to disk is not currently supported.");
 
-                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, ct);
                     using var image = imageResult.Image;
                     
                     // TODO: if caching is enabled, we lose we don't serve the original content-disposition file name
@@ -157,7 +157,7 @@ namespace AppViewLite.Web.Controllers
                     {
                         using (var cacheStream = new System.IO.FileStream(cachePath + ".tmp", FileMode.Create, FileAccess.Write))
                         {
-                            await WriteImageAsync(image, cacheStream);
+                            await WriteImageAsync(image, cacheStream, ct);
                         }
                         System.IO.File.Move(cachePath + ".tmp", cachePath);
                     }
@@ -178,18 +178,31 @@ namespace AppViewLite.Web.Controllers
                     Options = FileOptions.Asynchronous
                 });
                 Response.ContentLength = stream.Length;
-                await stream.CopyToAsync(Response.Body);
+                await stream.CopyToAsync(Response.Body, ct);
 
             }
             else
             {
                 if (sizeEnum == ThumbnailSize.feed_video_blob)
                 {
-                    var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
+                    var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
                     InitFileName(blob.FileNameForDownload);
                     SetMediaHeaders(name, "video/mp4");
-                    Response.ContentLength = blob.Bytes.Length;
-                    await Response.Body.WriteAsync(blob.Bytes);
+                    if (blob.Bytes != null)
+                    {
+                        Response.ContentLength = blob.Bytes.Length;
+                        await Response.Body.WriteAsync(blob.Bytes, ct);
+                    }
+                    else
+                    {
+
+                        using (blob.Stream)
+                        {
+                            await blob.Stream!.CopyToAsync(Response.Body, ct);
+                        }
+                        
+                    }
+                    
                 }
                 else if(sizeEnum == ThumbnailSize.feed_video_playlist)
                 {
@@ -197,21 +210,21 @@ namespace AppViewLite.Web.Controllers
                 }
                 else
                 {
-                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, ct);
                     using var image = imageResult.Image;
                     InitFileName(imageResult.FileNameForDownload);
                     SetMediaHeaders(name);
-                    await WriteImageAsync(image, Response.Body);
+                    await WriteImageAsync(image, Response.Body, ct);
                 }
             }
         }
 
         private static bool IsVideo(ThumbnailSize size) => size is ThumbnailSize.feed_video_blob or ThumbnailSize.feed_video_playlist;
-        private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream)
+        private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream, CancellationToken ct)
         {
             using (image)
             {
-                await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 70 });
+                await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 70 }, cancellationToken: ct);
             }
         }
 
@@ -223,11 +236,12 @@ namespace AppViewLite.Web.Controllers
                 .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
-        private async Task<(Image<Rgba32> Image, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)
+        private async Task<(Image<Rgba32> Image, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, CancellationToken ct)
         {
-            var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
-            if (!StartsWithAllowlistedMagicNumber(blob.Bytes)) throw new Exception("Unrecognized image format.");
-            var image = SixLabors.ImageSharp.Image.Load<Rgba32>(blob.Bytes);
+            var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
+            var bytes = await blob.ReadAsBytesAsync();
+            if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
+            var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
 
             if (Math.Max(image.Width, image.Height) > sizePixels)
             {

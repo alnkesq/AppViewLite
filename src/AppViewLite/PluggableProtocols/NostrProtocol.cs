@@ -290,10 +290,10 @@ namespace AppViewLite.PluggableProtocols.Nostr
         //private readonly static SearchValues<char> HexDigits = SearchValues.Create("0123456789abcdef");
         private readonly static SearchValues<char> LettersAndDigits = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
 
-        public override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
+        public override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize, CancellationToken ct)
         {
             var url = BlueskyRelationships.DecompressBpe(bytes)!;
-            return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url));
+            return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
         }
 
         public override string? TryGetOriginalProfileUrl(string did)

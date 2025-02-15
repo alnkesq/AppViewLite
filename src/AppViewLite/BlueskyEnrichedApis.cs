@@ -2712,7 +2712,7 @@ namespace AppViewLite
         }
 
 
-        public async Task<BlobResult> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
+        public async Task<BlobResult> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize, CancellationToken ct)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
@@ -2720,7 +2720,7 @@ namespace AppViewLite
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
                 var url = new Uri(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
-                return await GetBlobFromUrl(url);
+                return await GetBlobFromUrl(url, ct: ct);
             }
             else
             {
@@ -2728,7 +2728,7 @@ namespace AppViewLite
                 var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
                 if (pluggable != null)
                 {
-                    return await pluggable.GetBlobAsync(did, Ipfs.Base32.FromBase32(cid), preferredSize);
+                    return await pluggable.GetBlobAsync(did, Ipfs.Base32.FromBase32(cid), preferredSize, ct: ct);
                 }
 
                 if (pds != null && !pds.Contains(':'))
@@ -2739,7 +2739,7 @@ namespace AppViewLite
                 {
                     pds = (await GetDidDocAsync(did)).Pds;
                 }
-                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true);
+                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct);
             }
         }
 

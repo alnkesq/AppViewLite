@@ -262,7 +262,7 @@ namespace AppViewLite.PluggableProtocols
                     Console.Error.WriteLine("Pluggable protocol error:");
                     Console.Error.WriteLine(ex);
                 }
-                await Task.Delay(TimeSpan.FromSeconds(30));
+                await Task.Delay(TimeSpan.FromSeconds(30), ct);
             }
         }
 
@@ -313,7 +313,7 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
-        public virtual Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize)
+        public virtual Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize, CancellationToken ct)
         {
             throw new NotSupportedException();
         }

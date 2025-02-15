@@ -37,15 +37,18 @@
             @foreach (var (index, media) in (post.Data?.Media ?? []).Index())
             {
                 var preverExternalLink = post.Did.StartsWith("did:yotsuba:", StringComparison.Ordinal);
-                if(!media.IsVideo)
-                {
-                    var thumbUrl = @Apis.GetImageThumbnailUrl(post.Did, media.Cid, post.Author.Pds);
-                    <li class="image-grid-cell" data-postdid="@post.Did" data-postrkey="@post.RKey">
-                        <a class="image-grid-cell-link" href="@(preverExternalLink ? post.OriginalPostUrl : post.BaseUrl + (thumbUrl != null ? "/media/" + (index + 1) : null))" target="@(preverExternalLink ? "_blank" : null)" rel="noreferrer" title="@((post.Data!.Text + "\n\n" + (media.AltText != null ? "Image description:\n" + media.AltText : null)).Trim())">
-                            <img src="@thumbUrl" class="image-grid-cell-image" />
-                        </a>
-                    </li>
-                }
+
+                var thumbUrl = media.IsVideo ? Apis.GetVideoThumbnailUrl(post.Did, media.Cid, post.Author.Pds) : Apis.GetImageThumbnailUrl(post.Did, media.Cid, post.Author.Pds);
+                var linkUrl =
+                    preverExternalLink ? post.OriginalPostUrl :
+                    media.IsVideo ? post.BaseUrl :
+                    post.BaseUrl + (thumbUrl != null ? "/media/" + (index + 1) : null);
+                <li class="image-grid-cell @(media.IsVideo ? "image-grid-cell-video" : null)" data-postdid="@post.Did" data-postrkey="@post.RKey">
+                    <a class="image-grid-cell-link" href="@linkUrl" target="@(preverExternalLink ? "_blank" : null)" rel="noreferrer" title="@((post.Data!.Text + "\n\n" + (media.AltText != null ? "Image description:\n" + media.AltText : null)).Trim())">
+                        <img src="@thumbUrl" class="image-grid-cell-image" />
+                    </a>
+                </li>
+                
             }
 
         }

@@ -498,7 +498,7 @@ function ensureMenuFullyVisible() {
     }
 
     marginLeft = (buttonRect.left + buttonRect.width / 2) - menuRect.width / 2;
-    
+
     if (marginLeft < 0) marginLeft = 0;
     if (marginLeft + menuRect.width > vw) marginLeft = vw - menuRect.width;
 
@@ -1275,9 +1275,13 @@ document.addEventListener('play', e => {
     var playlistUrl = video.dataset.playlisturl;
     if (!playlistUrl) return;
     video.didInstallHls = true;
-    var hls = new Hls();
-    hls.loadSource(playlistUrl);
-    hls.attachMedia(video);
+    if (new URL(playlistUrl, location.href).pathname.endsWith('.m3u8')) {
+        var hls = new Hls();
+        hls.loadSource(playlistUrl);
+        hls.attachMedia(video);
+    } else { 
+        video.src = playlistUrl;
+    }
 }, true);
 
 

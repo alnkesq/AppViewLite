@@ -9,7 +9,6 @@ using System.Buffers;
 
 namespace AppViewLite.Web.Controllers
 {
-    [Route("/img")]
     [ApiController]
     public class MediaController : ControllerBase
     {
@@ -29,7 +28,24 @@ namespace AppViewLite.Web.Controllers
         private readonly static bool CacheAvatars = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CACHE_AVATARS) ?? true;
         private readonly static bool CacheFeedThumbs = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CACHE_FEED_THUMBS) ?? false;
 
-        [Route("{size}/plain/{did}/{cid}@jpeg")]
+
+        [Route("/watch/{encodedDid}/{cid}/{format}")]
+        [HttpGet]
+        public Task GetVideo(string format, string encodedDid, string cid, [FromQuery] string? pds)
+        {
+
+            var size = format switch
+            {
+                "thumbnail.jpg" => ThumbnailSize.video_thumbnail,
+                "video.mp4" => ThumbnailSize.feed_video_blob,
+                "playlist.m3u8" => ThumbnailSize.feed_video_playlist,
+                _ => throw new ArgumentException(),
+            };
+            return GetThumbnail(size.ToString(), Uri.UnescapeDataString(encodedDid), cid, pds);
+
+        }
+
+        [Route("/img/{size}/plain/{did}/{cid}@jpeg")]
         [HttpGet]
         public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds)
         {
@@ -61,20 +77,22 @@ namespace AppViewLite.Web.Controllers
 
             var sizePixels = sizeEnum switch
             {
-                ThumbnailSize.feed_thumbnail => 1000,
+                ThumbnailSize.feed_thumbnail or ThumbnailSize.video_thumbnail => 1000,
                 ThumbnailSize.feed_fullsize => 2000,
                 ThumbnailSize.avatar => 1000,
                 ThumbnailSize.avatar_thumbnail => 150,
                 ThumbnailSize.banner => 1000,
                 ThumbnailSize.emoji or ThumbnailSize.emoji_profile_name => 64,
+                _ when IsVideo(sizeEnum) => -1,
                 _ => throw new ArgumentException("Unrecognized image size.")
             };
 
             var storeToDisk =
                 sizeEnum is ThumbnailSize.emoji or ThumbnailSize.emoji_profile_name ? true :
                 sizeEnum is ThumbnailSize.avatar_thumbnail ? CacheAvatars :
-                sizeEnum is ThumbnailSize.feed_thumbnail or ThumbnailSize.banner ? CacheFeedThumbs : 
+                sizeEnum is ThumbnailSize.feed_thumbnail or ThumbnailSize.banner or ThumbnailSize.video_thumbnail ? CacheFeedThumbs : 
                 false;
+
 
             if (storeToDisk)
             {
@@ -120,6 +138,9 @@ namespace AppViewLite.Web.Controllers
 
                 if (!System.IO.File.Exists(cachePath))
                 {
+                    if (IsVideo(sizeEnum))
+                        throw new NotSupportedException("Caching of videos to disk is not currently supported.");
+
                     using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
@@ -151,12 +172,26 @@ namespace AppViewLite.Web.Controllers
             }
             else
             {
-                using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
-                SetMediaHeaders(cid);
-                await WriteImageAsync(image, Response.Body);
+                if (sizeEnum == ThumbnailSize.feed_video_blob)
+                {
+                    var bytes = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
+                    SetMediaHeaders(cid, "video/mp4");
+                    await Response.Body.WriteAsync(bytes);
+                }
+                else if(sizeEnum == ThumbnailSize.feed_video_playlist)
+                {
+                    throw new NotSupportedException("Proxying of HLS streams is not currently supported.");
+                }
+                else
+                {
+                    using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    SetMediaHeaders(cid);
+                    await WriteImageAsync(image, Response.Body);
+                }
             }
         }
 
+        private static bool IsVideo(ThumbnailSize size) => size is ThumbnailSize.feed_video_blob or ThumbnailSize.feed_video_playlist;
         private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream)
         {
             using (image)
@@ -336,9 +371,9 @@ namespace AppViewLite.Web.Controllers
             image = other;
         }
 
-        private void SetMediaHeaders(string cid)
+        private void SetMediaHeaders(string cid, string contentType = "image/jpeg")
         {
-            Response.ContentType = "image/jpeg";
+            Response.ContentType = contentType;
             Response.Headers.CacheControl = new(["public, max-age=31536000, immutable"]);
             Response.Headers.Pragma = new(["cache"]);
             Response.Headers.ETag = new(["permanent"]);

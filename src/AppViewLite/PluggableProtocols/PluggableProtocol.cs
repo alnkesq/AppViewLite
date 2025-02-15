@@ -313,10 +313,12 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
-        public virtual Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
+        public virtual Task<byte[]> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize)
         {
             throw new NotSupportedException();
         }
+
+        public virtual bool ShouldUseM3u8ForVideo(string did, byte[] cid) => false;
 
         public virtual string? GetIndexableDidText(string did)
         {

@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
+using AppViewLite;
 using DuckDbSharp.Types;
 using System;
 using System.Buffers;
@@ -192,7 +193,6 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private static BlueskyMediaData ConvertMediaAttachment(ActivityPubMediaAttachmentJson x)
         {
-
             return new BlueskyMediaData
             {
                  AltText = x.description,
@@ -210,7 +210,15 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public async override Task<byte[]> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize)
         {
             var urls = BlueskyRelationships.DecompressBpe(bytes)!.Split('\n');
-            var url = (preferredSize == ThumbnailSize.feed_fullsize || preferredSize == ThumbnailSize.avatar) ? urls[0] : urls[^1];
+
+
+            var url = 
+                (
+                preferredSize == ThumbnailSize.feed_fullsize || 
+                preferredSize == ThumbnailSize.avatar ||
+                preferredSize == ThumbnailSize.feed_video_blob ||
+                preferredSize == ThumbnailSize.feed_video_playlist
+                ) ? urls[0] : urls[^1];
             if(string.IsNullOrEmpty(url))
                  url = urls.First(x => !string.IsNullOrEmpty(x));
             return await BlueskyEnrichedApis.DefaultHttpClient.GetByteArrayAsync(url);

@@ -16,7 +16,8 @@ namespace AppViewLite.Models
         banner,
         emoji,
         emoji_profile_name,
-        feed_video,
+        feed_video_playlist,
+        feed_video_blob,
         video_thumbnail,
     }
 }

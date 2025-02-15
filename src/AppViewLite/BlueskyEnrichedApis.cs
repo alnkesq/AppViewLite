@@ -1552,19 +1552,33 @@ namespace AppViewLite
 
             var cidString = isNativeAtProto ? Cid.Read(cid).ToString() : Ipfs.Base32.ToBase32(cid);
 
-            if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video)
+            if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video_playlist)
             {
-                if (!isNativeAtProto) return null; // TODO
-                cdn = "https://video.bsky.app";
-                return $"{cdn}/watch/{Uri.EscapeDataString(did)}/{cidString}/{(size == ThumbnailSize.video_thumbnail ? "thumbnail.jpg" : "playlist.m3u8")}";
+                string format = (size == ThumbnailSize.video_thumbnail ? "thumbnail.jpg" : "playlist.m3u8");
+
+                if (isNativeAtProto)
+                {
+                    cdn = "https://video.bsky.app";
+                    pds = null;
+                }
+                else if (size == ThumbnailSize.feed_video_playlist)
+                {
+                    if (!BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.ShouldUseM3u8ForVideo(did, cid))
+                        format = "video.mp4";
+                }
+
+                return $"{cdn}/watch/{Uri.EscapeDataString(did)}/{cidString}/{format}" + GetPdsQueryString(pds, cdn);
             }
 
+            return $"{cdn}/img/{size}/plain/{did}/{cidString}@jpeg" + GetPdsQueryString(pds, cdn);
+        }
 
-            if (cdn != null) pds = null;
-
-            if (pds != null && pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
-
-            return $"{cdn}/img/{size}/plain/{did}/{cidString}@jpeg" + (pds != null ? "?pds=" + Uri.EscapeDataString(pds) : null);
+        private static string? GetPdsQueryString(string? pds, string? cdn)
+        {
+            if (pds == null) return null;
+            if (cdn != null && cdn.EndsWith(".bsky.app", StringComparison.Ordinal)) return null;
+            if (pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
+            return "?pds=" + Uri.EscapeDataString(pds);
         }
 
         public long GetNotificationCount(AppViewLiteSession ctx)

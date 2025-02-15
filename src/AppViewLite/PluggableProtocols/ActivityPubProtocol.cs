@@ -197,7 +197,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             {
                  AltText = x.description,
                  Cid = MediaUrlsToBytes(x.remote_url, x.preview_url, x.url)!,
-                 IsVideo = x.type?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
+                 IsVideo = x.type == "gifv" || x.type?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
             };
         }
 

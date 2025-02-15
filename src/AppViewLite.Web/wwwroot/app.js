@@ -485,9 +485,13 @@ function ensureMenuFullyVisible() {
     var menu = currentlyOpenMenu;
     var buttonRect = currentlyOpenMenuButton.getBoundingClientRect();
     var menuRect = menu.getBoundingClientRect(); 
-    var vw = window.innerWidth;
-    var vh = window.innerHeight - document.querySelector('.bottom-bar').getBoundingClientRect().height;
 
+    const MIN_MARGIN = 5;
+
+    var vw = window.innerWidth - MIN_MARGIN;
+    var vh = window.innerHeight - document.querySelector('.bottom-bar').getBoundingClientRect().height - MIN_MARGIN;
+
+    
     var marginTop;
     var marginLeft;
 
@@ -499,7 +503,7 @@ function ensureMenuFullyVisible() {
 
     marginLeft = (buttonRect.left + buttonRect.width / 2) - menuRect.width / 2;
 
-    if (marginLeft < 0) marginLeft = 0;
+    if (marginLeft < MIN_MARGIN) marginLeft = MIN_MARGIN;
     if (marginLeft + menuRect.width > vw) marginLeft = vw - menuRect.width;
 
     marginLeft -= buttonRect.left;

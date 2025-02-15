@@ -369,7 +369,7 @@ function applyPageElements() {
     updateLiveSubscriptions();
     updateSidebarButtonScrollVisibility();
     updateBottomBarSelectedTab();
-
+    composeTextAreaChanged();
     
     var theaterInfo = tryTrimMediaSegments(location.href);
     var isTheater = !!theaterInfo;
@@ -1191,7 +1191,9 @@ function countGraphemes(string) {
 
 var MAX_GRAPHEMES = 300;
 function composeTextAreaChanged() { 
-    var text = document.querySelector('.compose-textarea').value;
+    var textArea = document.querySelector('.compose-textarea');
+    if (!textArea) return;
+    var text = textArea.value;
     var count = countGraphemes(text)
     var bar = document.querySelector('.compose-textarea-limit');
     bar.style.width = Math.min(1, count / MAX_GRAPHEMES) * 100 + '%';

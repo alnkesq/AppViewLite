@@ -313,7 +313,7 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
-        public virtual Task<byte[]> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize)
+        public virtual Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize)
         {
             throw new NotSupportedException();
         }

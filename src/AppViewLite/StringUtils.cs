@@ -7,6 +7,7 @@ using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.CompilerServices;
@@ -549,6 +550,13 @@ namespace AppViewLite
 
         public static Uri? TryParseUri(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
+        public static string? GetFileName(this Uri url)
+        {
+            var path = Path.GetFileName(url.AbsolutePath);
+            if (string.IsNullOrEmpty(path))
+                return null;
+            return path;
+        }
     }
 }
 

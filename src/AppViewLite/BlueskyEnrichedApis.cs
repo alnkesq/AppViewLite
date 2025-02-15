@@ -33,6 +33,7 @@ using System.Buffers;
 using Ipfs;
 using AppViewLite;
 using DnsClient.Protocol;
+using System.IO;
 
 namespace AppViewLite
 {
@@ -1508,34 +1509,34 @@ namespace AppViewLite
             return coalescedList.ToArray();
         }
 
-        public string GetCustomEmojiUrl(CustomEmoji emoji, ThumbnailSize size)
+        public string? GetCustomEmojiUrl(CustomEmoji emoji, ThumbnailSize size)
         {
             var url = new Uri(emoji.Url);
-            return GetImageUrl(size, "host:" + url.Host, Encoding.UTF8.GetBytes(url.PathAndQuery), null);
+            return GetImageUrl(size, "host:" + url.Host, Encoding.UTF8.GetBytes(url.PathAndQuery), null, emoji.ShortCode?.Replace(":", null));
         }
 
-        public string? GetAvatarUrl(string did, byte[]? avatarCid, string? pds)
+        public string? GetAvatarUrl(string did, byte[]? avatarCid, string? pds, string? fileNameForDownload = null)
         {
-            return GetImageUrl(ThumbnailSize.avatar_thumbnail, did, avatarCid, pds);
+            return GetImageUrl(ThumbnailSize.avatar_thumbnail, did, avatarCid, pds, fileNameForDownload);
         }
-        public string? GetImageThumbnailUrl(string did, byte[]? cid, string? pds)
+        public string? GetImageThumbnailUrl(string did, byte[]? cid, string? pds, string? fileNameForDownload = null)
         {
-            return GetImageUrl(ThumbnailSize.feed_thumbnail, did, cid, pds);
+            return GetImageUrl(ThumbnailSize.feed_thumbnail, did, cid, pds, fileNameForDownload);
         }
-        public string GetImageBannerUrl(string did, byte[] cid, string? pds)
+        public string? GetImageBannerUrl(string did, byte[] cid, string? pds, string? fileNameForDownload = null)
         {
-            return GetImageUrl(ThumbnailSize.banner, did, cid, pds)!;
+            return GetImageUrl(ThumbnailSize.banner, did, cid, pds, fileNameForDownload);
         }
-        public string GetImageFullUrl(string did, byte[] cid, string? pds)
+        public string? GetImageFullUrl(string did, byte[] cid, string? pds, string? fileNameForDownload = null)
         {
-            return GetImageUrl(ThumbnailSize.feed_fullsize, did, cid, pds);
+            return GetImageUrl(ThumbnailSize.feed_fullsize, did, cid, pds, fileNameForDownload);
         }
 
 
         public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
-        public string? GetImageUrl(ThumbnailSize size, string did, byte[]? cid, string? pds)
+        public string? GetImageUrl(ThumbnailSize size, string did, byte[]? cid, string? pds, string? fileNameForDownload = null)
         {
             if (cid == null) return null;
             var cdn = CdnPrefix;
@@ -1567,18 +1568,19 @@ namespace AppViewLite
                         format = "video.mp4";
                 }
 
-                return $"{cdn}/watch/{Uri.EscapeDataString(did)}/{cidString}/{format}" + GetPdsQueryString(pds, cdn);
+                return $"{cdn}/watch/{Uri.EscapeDataString(did)}/{cidString}/{format}" + GetQueryStringForImageUrl(pds, fileNameForDownload, cdn);
             }
 
-            return $"{cdn}/img/{size}/plain/{did}/{cidString}@jpeg" + GetPdsQueryString(pds, cdn);
+            return $"{cdn}/img/{size}/plain/{did}/{cidString}@jpeg" + GetQueryStringForImageUrl(pds, fileNameForDownload, cdn);
         }
 
-        private static string? GetPdsQueryString(string? pds, string? cdn)
+        private static string? GetQueryStringForImageUrl(string? pds, string? fileNameForDownload, string? cdn)
         {
-            if (pds == null) return null;
             if (cdn != null && cdn.EndsWith(".bsky.app", StringComparison.Ordinal)) return null;
-            if (pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
-            return "?pds=" + Uri.EscapeDataString(pds);
+
+            if (pds != null && pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
+            
+            return "?pds=" + Uri.EscapeDataString(pds ?? string.Empty) + "&name=" + Uri.EscapeDataString(fileNameForDownload ?? string.Empty);
         }
 
         public long GetNotificationCount(AppViewLiteSession ctx)
@@ -2706,32 +2708,35 @@ namespace AppViewLite
         }
 
 
-        public async Task<byte[]> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
+        public async Task<BlobResult> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
 
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
-                return await DefaultHttpClient.GetByteArrayAsync(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
+                var url = new Uri(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
+                return await GetBlobFromUrl(url);
             }
+            else
+            {
 
-            var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
-            if (pluggable != null)
-            {
-                return await pluggable.GetBlobAsync(did, Ipfs.Base32.FromBase32(cid), preferredSize);
-            }
+                var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
+                if (pluggable != null)
+                {
+                    return await pluggable.GetBlobAsync(did, Ipfs.Base32.FromBase32(cid), preferredSize);
+                }
 
-            if (pds != null && !pds.Contains(':'))
-            {
-                pds = "https://" + pds;
+                if (pds != null && !pds.Contains(':'))
+                {
+                    pds = "https://" + pds;
+                }
+                if (pds == null)
+                {
+                    pds = (await GetDidDocAsync(did)).Pds;
+                }
+                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"));
             }
-            if (pds == null)
-            {
-                pds = (await GetDidDocAsync(did)).Pds;
-            }
-            var url = $"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}";
-            return await DefaultHttpClient.GetByteArrayAsync(url);
         }
 
         private async Task<DidDocProto> GetDidDocAsync(string did)
@@ -2829,6 +2834,18 @@ namespace AppViewLite
             {
                 return null;
             }
+        }
+
+        public static async Task<BlobResult> GetBlobFromUrl(Uri url)
+        {
+            using var response = await DefaultHttpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var disposition = response.Content.Headers.ContentDisposition;
+            var fileName = disposition?.FileNameStar != null ? Uri.UnescapeDataString(disposition.FileNameStar) : disposition?.FileName;
+            if (string.IsNullOrEmpty(fileName))
+                fileName = url.GetFileName();
+            return new BlobResult(bytes, fileName);
         }
     }
 }

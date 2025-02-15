@@ -6,6 +6,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
 using System.Buffers;
+using System.Net.Http.Headers;
 
 namespace AppViewLite.Web.Controllers
 {
@@ -31,7 +32,7 @@ namespace AppViewLite.Web.Controllers
 
         [Route("/watch/{encodedDid}/{cid}/{format}")]
         [HttpGet]
-        public Task GetVideo(string format, string encodedDid, string cid, [FromQuery] string? pds)
+        public Task GetVideo(string format, string encodedDid, string cid, [FromQuery] string? pds, [FromQuery] string? name)
         {
 
             var size = format switch
@@ -41,17 +42,22 @@ namespace AppViewLite.Web.Controllers
                 "playlist.m3u8" => ThumbnailSize.feed_video_playlist,
                 _ => throw new ArgumentException(),
             };
-            return GetThumbnail(size.ToString(), Uri.UnescapeDataString(encodedDid), cid, pds);
+            return GetThumbnail(size.ToString(), Uri.UnescapeDataString(encodedDid), cid, pds, name);
 
         }
 
         [Route("/img/{size}/plain/{did}/{cid}@jpeg")]
         [HttpGet]
-        public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds)
+        public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds, [FromQuery] string? name)
         {
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
             var sizeEnum = Enum.Parse<ThumbnailSize>(size);
 
+            void InitFileName(string? fallback = null)
+            {
+                name ??= fallback ?? (cid + (IsVideo(sizeEnum) ? ".mp4" : ".jpg"));
+            }
+            
 
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
 
@@ -141,7 +147,10 @@ namespace AppViewLite.Web.Controllers
                     if (IsVideo(sizeEnum))
                         throw new NotSupportedException("Caching of videos to disk is not currently supported.");
 
-                    using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    using var image = imageResult.Image;
+                    
+                    // TODO: if caching is enabled, we lose we don't serve the original content-disposition file name
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
                     try
@@ -158,7 +167,8 @@ namespace AppViewLite.Web.Controllers
                     }
                 }
 
-                SetMediaHeaders(cid);
+                InitFileName();
+                SetMediaHeaders(name);
 
                 using var stream = new FileStream(cachePath, new FileStreamOptions 
                 { 
@@ -174,9 +184,10 @@ namespace AppViewLite.Web.Controllers
             {
                 if (sizeEnum == ThumbnailSize.feed_video_blob)
                 {
-                    var bytes = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
-                    SetMediaHeaders(cid, "video/mp4");
-                    await Response.Body.WriteAsync(bytes);
+                    var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
+                    InitFileName(blob.FileNameForDownload);
+                    SetMediaHeaders(name, "video/mp4");
+                    await Response.Body.WriteAsync(blob.Bytes);
                 }
                 else if(sizeEnum == ThumbnailSize.feed_video_playlist)
                 {
@@ -184,8 +195,10 @@ namespace AppViewLite.Web.Controllers
                 }
                 else
                 {
-                    using var image = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
-                    SetMediaHeaders(cid);
+                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum);
+                    using var image = imageResult.Image;
+                    InitFileName(imageResult.FileNameForDownload);
+                    SetMediaHeaders(name);
                     await WriteImageAsync(image, Response.Body);
                 }
             }
@@ -208,11 +221,11 @@ namespace AppViewLite.Web.Controllers
                 .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
-        private async Task<Image<Rgba32>> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)
+        private async Task<(Image<Rgba32> Image, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum)
         {
-            var bytes = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
-            if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
-            var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
+            var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum);
+            if (!StartsWithAllowlistedMagicNumber(blob.Bytes)) throw new Exception("Unrecognized image format.");
+            var image = SixLabors.ImageSharp.Image.Load<Rgba32>(blob.Bytes);
 
             if (Math.Max(image.Width, image.Height) > sizePixels)
             {
@@ -232,7 +245,7 @@ namespace AppViewLite.Web.Controllers
                     m.BackgroundColor(Color.White);
                 });
             }
-            return image;
+            return (image, blob.FileNameForDownload);
         }
 
         private readonly static Rgba32 Color_VerifiedGeneric = new Rgba32(0x1D, 0xA1, 0xF2);
@@ -371,14 +384,22 @@ namespace AppViewLite.Web.Controllers
             image = other;
         }
 
-        private void SetMediaHeaders(string cid, string contentType = "image/jpeg")
+        private void SetMediaHeaders(string? nameForDownload, string contentType = "image/jpeg")
         {
             Response.ContentType = contentType;
             Response.Headers.CacheControl = new(["public, max-age=31536000, immutable"]);
             Response.Headers.Pragma = new(["cache"]);
             Response.Headers.ETag = new(["permanent"]);
             Response.Headers.Expires = new(["Fri, 31 Dec 9999 23:59:59 GMT"]);
-            Response.Headers.ContentDisposition = new(["inline; filename=\"" + cid + ".jpg\""]);
+            if (nameForDownload != null)
+            {
+                var contentDisposition = new ContentDispositionHeaderValue("inline")
+                {
+                    FileNameStar = Uri.EscapeDataString(nameForDownload),
+                    
+                };
+                Response.Headers.ContentDisposition = contentDisposition.ToString();
+            }
         }
 
         private static ReadOnlySpan<byte> Magic_JPG => [0xff, 0xd8, 0xff];

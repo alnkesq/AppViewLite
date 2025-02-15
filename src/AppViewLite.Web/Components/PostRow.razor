@@ -300,6 +300,12 @@
                     {
                         <video class="post-video" controls preload="none" data-playlisturl="@Apis.GetImageUrl(ThumbnailSize.feed_video_playlist, Post.Did, image.Cid, Post.Author.Pds)" poster="@Apis.GetImageUrl(ThumbnailSize.video_thumbnail, Post.Did, image.Cid, Post.Author.Pds)">
                         </video>
+                        if (IsFocalPost)
+                        {
+
+                            <meta property="og:video" content="@Apis.GetImageUrl(ThumbnailSize.feed_video_playlist, Post.Did, image.Cid, Post.Author.Pds, Post.Did + "-" + Post.RKey + ".mp4")"> @* helps yt-dlp *@
+                            <meta property="og:video:type" content="video/mp4">
+                        }
                     }
                     else
                     {

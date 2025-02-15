@@ -2735,7 +2735,7 @@ namespace AppViewLite
                 {
                     pds = (await GetDidDocAsync(did)).Pds;
                 }
-                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"));
+                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true);
             }
         }
 
@@ -2836,15 +2836,19 @@ namespace AppViewLite
             }
         }
 
-        public static async Task<BlobResult> GetBlobFromUrl(Uri url)
+        public static async Task<BlobResult> GetBlobFromUrl(Uri url, bool ignoreFileName = false)
         {
             using var response = await DefaultHttpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var bytes = await response.Content.ReadAsByteArrayAsync();
-            var disposition = response.Content.Headers.ContentDisposition;
-            var fileName = disposition?.FileNameStar != null ? Uri.UnescapeDataString(disposition.FileNameStar) : disposition?.FileName;
-            if (string.IsNullOrEmpty(fileName))
-                fileName = url.GetFileName();
+            string? fileName = null;
+            if (!ignoreFileName)
+            {
+                var disposition = response.Content.Headers.ContentDisposition;
+                fileName = disposition?.FileNameStar != null ? Uri.UnescapeDataString(disposition.FileNameStar) : disposition?.FileName;
+                if (string.IsNullOrEmpty(fileName))
+                    fileName = url.GetFileName();
+            }
             return new BlobResult(bytes, fileName);
         }
     }

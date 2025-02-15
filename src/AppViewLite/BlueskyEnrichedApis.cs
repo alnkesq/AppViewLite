@@ -2840,23 +2840,45 @@ namespace AppViewLite
             }
         }
 
-        public static async Task<BlobResult> GetBlobFromUrl(Uri url, bool ignoreFileName = false)
+        public static async Task<BlobResult> GetBlobFromUrl(Uri url, bool ignoreFileName = false, bool? stream = null, ThumbnailSize preferredSize = default, CancellationToken ct = default)
         {
-            using var response = await DefaultHttpClient.GetAsync(url);
-            var contentLength = response.Content.Headers.ContentLength;
-            response.EnsureSuccessStatusCode();
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            if (contentLength != null && contentLength != bytes.Length)
-                throw new HttpRequestException(bytes.Length < contentLength ? "Truncated response received from the server." : "Mismatching Content-Length.");
-            string? fileName = null;
-            if (!ignoreFileName)
+            stream ??= preferredSize == ThumbnailSize.feed_video_blob;
+            var response = await DefaultHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            var responseToDispose = response;
+
+            try
             {
-                var disposition = response.Content.Headers.ContentDisposition;
-                fileName = disposition?.FileNameStar != null ? Uri.UnescapeDataString(disposition.FileNameStar) : disposition?.FileName;
-                if (string.IsNullOrEmpty(fileName))
-                    fileName = url.GetFileName();
+                var contentLength = response.Content.Headers.ContentLength;
+                response.EnsureSuccessStatusCode();
+
+                string? fileName = null;
+                if (!ignoreFileName)
+                {
+                    var disposition = response.Content.Headers.ContentDisposition;
+                    fileName = disposition?.FileNameStar != null ? Uri.UnescapeDataString(disposition.FileNameStar) : disposition?.FileName;
+                    if (string.IsNullOrEmpty(fileName))
+                        fileName = url.GetFileName();
+                }
+
+                if (stream.Value)
+                {
+                    var s = await response.Content.ReadAsStreamAsync(ct);
+                    responseToDispose = null;
+                    return new BlobResult(null, s, fileName);
+                }
+                else
+                {
+                    var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                    if (contentLength != null && contentLength != bytes.Length)
+                        throw new HttpRequestException(bytes.Length < contentLength ? "Truncated response received from the server." : "Mismatching Content-Length.");
+                    return new BlobResult(bytes, null, fileName);
+                }
+
             }
-            return new BlobResult(bytes, fileName);
+            finally
+            {
+                responseToDispose?.Dispose();
+            }
         }
     }
 }

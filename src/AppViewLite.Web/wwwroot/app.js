@@ -480,6 +480,34 @@ function closeCurrentMenu() {
     currentlyOpenMenu = null;
     currentlyOpenMenuButton = null;
 }
+
+function ensureMenuFullyVisible() { 
+    var menu = currentlyOpenMenu;
+    var buttonRect = currentlyOpenMenuButton.getBoundingClientRect();
+    var menuRect = menu.getBoundingClientRect(); 
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+
+    var marginTop;
+    var marginLeft;
+
+    if (buttonRect.bottom + menuRect.height > vh) {
+        marginTop = -menuRect.height;
+    } else { 
+        marginTop = buttonRect.height;
+    }
+
+    marginLeft = (buttonRect.left + buttonRect.width / 2) - menuRect.width / 2;
+    
+    if (marginLeft < 0) marginLeft = 0;
+    if (marginLeft + menuRect.width > vw) marginLeft = vw - menuRect.width;
+
+    marginLeft -= buttonRect.left;
+
+    menu.style.marginTop = marginTop + 'px';
+    menu.style.marginLeft = marginLeft + 'px';
+}
+
 var prevScrollTop = 0;
 
 async function checkUpdatesForCurrentFeed() { 
@@ -864,9 +892,9 @@ function onInitialLoad() {
                     var prevMenu = actionButton.previousElementSibling;
                     if (prevMenu && prevMenu.classList.contains('menu')) {
                         prevMenu.classList.add('menu-visible');
-                        
                         currentlyOpenMenuButton = actionButton;
                         currentlyOpenMenu = prevMenu;
+                        ensureMenuFullyVisible();
                         currentlyOpenMenu.querySelector('a, button')?.focus();
                     }
                 }

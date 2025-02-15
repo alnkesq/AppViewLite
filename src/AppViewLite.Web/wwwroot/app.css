@@ -1221,14 +1221,10 @@ button[disabled], input[type=submit][disabled] {
 .post-repost-menu {
     position: absolute;
     z-index: 7;
-    margin-top: 30px;
-    margin-left: -37px;
 }
 .post-post-menu {
     position: absolute;
     z-index: 35;
-    margin-top: 30px;
-    margin-left: -120px;
     width: 300px !important;
 }
 .menu {

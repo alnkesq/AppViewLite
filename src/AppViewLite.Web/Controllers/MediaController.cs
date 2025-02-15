@@ -245,7 +245,17 @@ namespace AppViewLite.Web.Controllers
                     m.BackgroundColor(Color.White);
                 });
             }
-            return (image, blob.FileNameForDownload);
+
+
+
+            var other = new Image<Rgba32>(image.Width, image.Height);
+            using (image)
+            {
+                other.Mutate(m => m.DrawImage(image, new Point(0, 0), 1));
+
+            }
+
+            return (other, blob.FileNameForDownload);
         }
 
         private readonly static Rgba32 Color_VerifiedGeneric = new Rgba32(0x1D, 0xA1, 0xF2);

@@ -2839,8 +2839,11 @@ namespace AppViewLite
         public static async Task<BlobResult> GetBlobFromUrl(Uri url, bool ignoreFileName = false)
         {
             using var response = await DefaultHttpClient.GetAsync(url);
+            var contentLength = response.Content.Headers.ContentLength;
             response.EnsureSuccessStatusCode();
             var bytes = await response.Content.ReadAsByteArrayAsync();
+            if (contentLength != null && contentLength != bytes.Length)
+                throw new HttpRequestException(bytes.Length < contentLength ? "Truncated response received from the server." : "Mismatching Content-Length.");
             string? fileName = null;
             if (!ignoreFileName)
             {

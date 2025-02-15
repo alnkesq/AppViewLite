@@ -1284,13 +1284,14 @@ document.addEventListener('play', e => {
     }
 }, true);
 
-document.addEventListener('onerror', e => {
+
+document.addEventListener('error', e => {
     var img = e.target;
-    if (img.tagName == 'IMG') { 
+    if (img.tagName == 'IMG' && img.classList.contains('post-image')) { 
         img.style.width = '48px';
-        img.style.width = '48px';
+        img.style.height = '48px';
     }
-});
+}, true);
 
 
 function emojify(target = document.body) {

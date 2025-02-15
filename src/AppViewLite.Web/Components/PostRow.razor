@@ -383,6 +383,10 @@
                     {
                         <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
                     }
+                    @if (baseUrlPreferExternal != null)
+                    {
+                        <a href="@Post.BaseUrl" class="menu-item">View here</a>
+                    }
 
                     <button actionkind="copyPostUrl" class="menu-item">Copy post URL</button>
                     @if (Post.Data?.Text != null)

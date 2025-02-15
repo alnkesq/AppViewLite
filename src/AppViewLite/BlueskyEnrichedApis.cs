@@ -1221,7 +1221,7 @@ namespace AppViewLite
         private static Exception CreateExceptionMessageForExternalServerError(string subjectDisplayText, Exception ex)
         {
             if (ex is PermissionException) return ex;
-            return new Exception(GetExceptionMessageForExternalServerError(subjectDisplayText, ex), ex);
+            return new UnexpectedFirehoseDataException(GetExceptionMessageForExternalServerError(subjectDisplayText, ex), ex);
         }
         private static string? GetExceptionMessageForExternalServerError(string subjectDisplayText, Exception ex)
         {
@@ -1530,6 +1530,10 @@ namespace AppViewLite
         public string? GetImageFullUrl(string did, byte[] cid, string? pds, string? fileNameForDownload = null)
         {
             return GetImageUrl(ThumbnailSize.feed_fullsize, did, cid, pds, fileNameForDownload);
+        }
+        public string? GetVideoThumbnailUrl(string did, byte[] cid, string? pds, string? fileNameForDownload = null)
+        {
+            return GetImageUrl(ThumbnailSize.video_thumbnail, did, cid, pds, fileNameForDownload);
         }
 
 

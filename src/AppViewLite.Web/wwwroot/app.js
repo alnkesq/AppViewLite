@@ -675,7 +675,7 @@ function onInitialLoad() {
         if (popped != location.href) { 
             console.log("History stack (" + popped +") / pushState (" + location.href + ") mismatch");
         }
-        applyPage(location.href, false);
+        applyPage(location.href, false, false);
     });
     
     appliedPageObj = {

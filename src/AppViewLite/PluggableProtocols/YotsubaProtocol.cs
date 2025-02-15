@@ -159,7 +159,8 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 Facets = body.Facets,
                 Media = [new BlueskyMediaData
                 {
-                    Cid = Encoding.UTF8.GetBytes(thread.Tim + thread.Ext)
+                    Cid = Encoding.UTF8.GetBytes(thread.Tim + thread.Ext),
+                    IsVideo = thread.Ext is ".webm" or ".mp4"
                 }],
                 PluggableReplyCount = (int)thread.Replies,
                 PluggableLikeCount = (int)thread.Replies,

@@ -486,7 +486,7 @@ function ensureMenuFullyVisible() {
     var buttonRect = currentlyOpenMenuButton.getBoundingClientRect();
     var menuRect = menu.getBoundingClientRect(); 
     var vw = window.innerWidth;
-    var vh = window.innerHeight;
+    var vh = window.innerHeight - document.querySelector('.bottom-bar').getBoundingClientRect().height;
 
     var marginTop;
     var marginLeft;

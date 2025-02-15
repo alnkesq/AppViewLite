@@ -38,6 +38,9 @@ namespace AppViewLite.PluggableProtocols
 
             var didWords = StringUtils.GetDistinctWords(GetIndexableDidText(did));
 
+            if (data.DisplayNameFacets != null)
+                data.DisplayNameFacets = data.DisplayNameFacets.Where(x => x.CustomEmojiHash != null).ToArray(); // only emoji facets allowed in display name
+
             if (data.DisplayNameFacets != null && data.DisplayNameFacets.Length == 0) data.DisplayNameFacets = null;
             if (data.DescriptionFacets != null && data.DescriptionFacets.Length == 0) data.DescriptionFacets = null;
             if (string.IsNullOrWhiteSpace(data.Description) && data.DescriptionFacets == null)

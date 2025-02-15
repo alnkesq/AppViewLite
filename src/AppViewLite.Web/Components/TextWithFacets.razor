@@ -68,7 +68,7 @@
         var textBytes = System.Text.Encoding.UTF8.GetBytes(Text);
         Parts = [];
         var facets = Facets ?? [];
-        if (textBytes.Contains((byte)'#'))
+        if (!IsProfileDisplayName && textBytes.Contains((byte)'#'))
         {
             facets = facets.Concat(StringUtils.GuessHashtagFacets(Text).Where(x => facets.All(y => y.IsDisjoint(x)))).ToArray();
         }

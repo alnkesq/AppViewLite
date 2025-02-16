@@ -518,11 +518,14 @@ function closeCurrentMenu() {
     enableMenuFocus();
 }
 
+var scrollTopWhenMenuOpened = 0;
+
 function ensureMenuFullyVisible() { 
     var menu = currentlyOpenMenu;
     var buttonRect = currentlyOpenMenuButton.getBoundingClientRect();
     var menuRect = menu.getBoundingClientRect(); 
 
+    scrollTopWhenMenuOpened = document.scrollingElement.scrollTop;
     const MIN_MARGIN = 5;
 
     var vw = window.innerWidth - MIN_MARGIN - 10;
@@ -736,6 +739,8 @@ function onInitialLoad() {
     
     window.addEventListener('scroll', e => {
         updateSidebarButtonScrollVisibility();
+        if (currentlyOpenMenu && Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10)
+            closeCurrentMenu();
         maybeLoadNextPage();
     }, { passive: true });
 

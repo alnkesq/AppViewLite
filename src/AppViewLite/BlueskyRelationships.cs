@@ -2637,7 +2637,7 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowed) GetFollowingFast(Plc loggedInUser)
+        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowedRequiresLock) GetFollowingFast(Plc loggedInUser) // The lambda is SAFE to reuse across re-locks
         {
             var stillFollowedResult = new Dictionary<Plc, bool>();
             var possibleFollows = RegisteredUserToFollowees
@@ -2647,6 +2647,8 @@ namespace AppViewLite
 
             return (possibleFollows.Keys.ToArray(), plc =>
             {
+                // Callers can assume that this lambda is SAFE to reuse across re-locks (must not capture ManagedOrNativeArrays)
+
                 if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
 
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);

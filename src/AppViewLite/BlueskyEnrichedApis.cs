@@ -1642,20 +1642,20 @@ namespace AppViewLite
                     var reposts = rels.UserToRecentReposts.GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default)).ToArray();
 
                     if (posts.Length == 0 && reposts.Length == 0) return default;
-                    if (!possibleFollows.IsStillFollowed(plc)) return default;
+                    if (!possibleFollows.IsStillFollowedRequiresLock(plc)) return default;
 
                     return (
                         Plc: plc,
                         Posts: posts
-                            .Where(x => x.InReplyTo == default || possibleFollows.IsStillFollowed(x.InReplyTo))
+                            .Where(x => x.InReplyTo == default || possibleFollows.IsStillFollowedRequiresLock(x.InReplyTo))
                             .Select(x => (x.InReplyTo, PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
                             .ToArray(), 
                        Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowedRequiresLock(x.PostId.Author), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))
                             .ToArray()
                        );
                 }).Where(x => x.Plc != default).ToArray();
-                return (possibleFollows.PossibleFollows, userPosts); // don't pass the lambda of possibleFollows (its closure would escape lock)
+                return (possibleFollows, userPosts);
             });
 
             var alreadyReturnedPost = new HashSet<PostId>();

@@ -292,6 +292,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         public override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize, CancellationToken ct)
         {
+            if (preferredSize == ThumbnailSize.video_thumbnail) throw new NotSupportedException();
             var url = BlueskyRelationships.DecompressBpe(bytes)!;
             return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
         }

@@ -275,15 +275,23 @@ function fastNavigateIfLink(event) {
         }
     }
 
-    if ((document.querySelector('#components-reconnect-modal') || ((url.pathname == '/login' || url.pathname == '/logout') && url.host == window.location.host))) {
-        window.location = url;
-    } else if (!a.target) { 
+    if (a.target || a.download)
+        return false;
+
+    if (canFastNavigateTo(url)) {
         fastNavigateTo(url.href);
         event.preventDefault();
+        return true;
     }
-    return true;
+    return false;
 }
 
+function canFastNavigateTo(url) { 
+    if (url.host != window.location.host) return false;
+    if (url.pathname == '/login' || url.pathname == '/logout') return false;
+    if (url.pathname.startsWith('/img/') || url.pathname.startsWith('/watch/')) return false;
+    return true;
+}
 
 /**@type {href: string, dateFetched: number, dom: HTMLElement, title: string, scrollTop: number}[] */
 var recentPages = [];

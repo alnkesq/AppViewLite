@@ -408,6 +408,18 @@
                         <button actionkind="translatePost" class="menu-item">Translate post</button>
                     }
 
+                    @if(Post.Data?.Media != null)
+                    {
+                        foreach (var (index, video) in Post.Data.Media.Index())
+                        {
+                            if (video.IsVideo)
+                            {
+                                <a href="@Apis.GetVideoBlobUrl(Post.Did, video.Cid, Post.Author.Pds)" class="menu-item" download>Download video@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
+                            }
+                        }
+                    
+                    }
+
                     @if (RequestContext.IsLoggedIn)
                     {
                         @if (Post.Author.Plc == RequestContext.LoggedInUser)

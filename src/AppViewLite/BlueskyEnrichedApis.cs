@@ -1538,6 +1538,10 @@ namespace AppViewLite
         {
             return GetImageUrl(ThumbnailSize.video_thumbnail, did, cid, pds, fileNameForDownload);
         }
+        public string? GetVideoBlobUrl(string did, byte[] cid, string? pds, string? fileNameForDownload = null)
+        {
+            return GetImageUrl(ThumbnailSize.feed_video_blob, did, cid, pds, fileNameForDownload);
+        }
 
 
         public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
@@ -1555,25 +1559,30 @@ namespace AppViewLite
 
             if (!ServeImages)
             {
-                if (isNativeAtProto && cdn == null && !DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did)) cdn = "https://cdn.bsky.app";
+                if (
+                    isNativeAtProto &&
+                    cdn == null && 
+                    size != ThumbnailSize.feed_video_blob &&
+                    !DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did)
+                    ) cdn = "https://cdn.bsky.app";
             }
 
             var cidString = isNativeAtProto ? Cid.Read(cid).ToString() : Ipfs.Base32.ToBase32(cid);
 
-            if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video_playlist)
+            if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video_playlist or ThumbnailSize.feed_video_blob)
             {
-                string format = (size == ThumbnailSize.video_thumbnail ? "thumbnail.jpg" : "playlist.m3u8");
 
-                if (isNativeAtProto)
+                if (isNativeAtProto && size == ThumbnailSize.feed_video_playlist)
                 {
                     cdn = "https://video.bsky.app";
-                    pds = null;
                 }
                 else if (size == ThumbnailSize.feed_video_playlist)
                 {
                     if (!BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.ShouldUseM3u8ForVideo(did, cid))
-                        format = "video.mp4";
+                        size = ThumbnailSize.feed_video_blob;
                 }
+
+                string format = (size == ThumbnailSize.video_thumbnail ? "thumbnail.jpg" : size == ThumbnailSize.feed_video_blob ? "video.mp4" : "playlist.m3u8");
 
                 return $"{cdn}/watch/{Uri.EscapeDataString(did)}/{cidString}/{format}" + GetQueryStringForImageUrl(pds, fileNameForDownload, cdn);
             }

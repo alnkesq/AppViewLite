@@ -2084,6 +2084,7 @@ namespace AppViewLite
                 return true;
             }
 
+
             var usersRecentPosts =
                 follows
                 .Select(author =>
@@ -2100,24 +2101,29 @@ namespace AppViewLite
                             if (!IsFollowPossiblyStillValid(author.ListItemRKey))
                                 return null;
 
-                            if (parentAuthor != default && parentAuthor != postAuthor)
+                            bool ShouldConsiderPostByAuthor(Plc mustFollow, ref Tid followRkeyToCheckLater)
                             {
-                                if (!plcToLatestFollowRkey.TryGetValue(parentAuthor, out inReplyToTid))
-                                    return null;
-                                if (!IsFollowPossiblyStillValid(inReplyToTid)) 
-                                    return null;
+                                if (mustFollow == loggedInUser) return true;
+
+                                if (!plcToLatestFollowRkey.TryGetValue(mustFollow, out followRkeyToCheckLater))
+                                    return false;
+                                if (!IsFollowPossiblyStillValid(followRkeyToCheckLater))
+                                    return false;
+                                return true;
+                            }
+
+                            if (parentAuthor != default && parentAuthor != postAuthor && !ShouldConsiderPostByAuthor(parentAuthor, ref inReplyToTid))
+                            {
+                                return null;
                             }
 
                             var post = GetPost(x.PostId);
                             if (post.Data == null) return null;
 
                             var rootAuthor = post.RootPostId.Author;
-                            if (rootAuthor != postAuthor && rootAuthor != parentAuthor)
+                            if (rootAuthor != postAuthor && rootAuthor != parentAuthor && !ShouldConsiderPostByAuthor(rootAuthor, ref rootTid))
                             {
-                                if (!plcToLatestFollowRkey.TryGetValue(rootAuthor, out rootTid))
-                                    return null;
-                                if (!IsFollowPossiblyStillValid(rootTid))
-                                    return null;
+                                return null;
                             }
 
                             requireFollowStillValid[post] = (author.ListItemRKey, inReplyToTid, rootTid);

@@ -396,6 +396,7 @@
                     else if(BlueskyRelationships.IsNativeAtProtoDid(Post.Did))
                     {
                         <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
+                        <button actionkind="copyBlueskyPostUrl" class="menu-item">Copy Bluesky URL</button>
                     }
                     @if (baseUrlPreferExternal != Post.BaseUrl)
                     {

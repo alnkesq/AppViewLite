@@ -1143,6 +1143,9 @@ var postActions = {
     copyPostUrl: async function (did, rkey) { 
         navigator.clipboard.writeText(location.origin + '/@' + did + '/' + rkey)
     },
+    copyBlueskyPostUrl: async function (did, rkey) { 
+        navigator.clipboard.writeText('https://bsky.app/profile/' + did + '/' + rkey);
+    },
     translatePost: async function (did, rkey, postElement) { 
         var text = postElement.querySelector('.post-body').textContent
         window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(text) + '&op=translate');

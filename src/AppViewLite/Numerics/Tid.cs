@@ -40,7 +40,7 @@ namespace AppViewLite.Numerics
 
         public DateTime Date => DateTime.UnixEpoch.AddMicroseconds(Timestamp);
 
-        public static Tid FromDateTime(DateTime d, uint clockId) => FromMicroseconds(checked((d - DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerMicrosecond), clockId);
+        public static Tid FromDateTime(DateTime d, uint clockId = 0) => FromMicroseconds(checked((d - DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerMicrosecond), clockId);
         public static Tid FromMicroseconds(long microseconds, uint clockId) => new Tid((microseconds << 10) | clockId);
         public override string? ToString()
         {

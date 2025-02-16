@@ -28,12 +28,9 @@ using DnsClient;
 using System.Text;
 using System.Net.Http.Json;
 using AppViewLite;
-using System.Diagnostics.CodeAnalysis;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
-using DnsClient.Protocol;
-using System.IO;
 
 namespace AppViewLite
 {
@@ -776,8 +773,8 @@ namespace AppViewLite
                     .DistinctAssumingOrderedInput(skipCheck: true)
                     .SelectMany(approxDate =>
                     {
-                        var startPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate, 0), default);
-                        var endPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate.AddTicks(1), 0), default);
+                        var startPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate), default);
+                        var endPostId = new PostIdTimeFirst(Tid.FromDateTime(approxDate.AddTicks(1)), default);
 
                         // TODO: these are not sorted
                         var postsCore = rels.PostData.GetInRangeUnsorted(startPostId, endPostId)
@@ -933,7 +930,7 @@ namespace AppViewLite
 
             if (continuation == null && (includePosts || includeReposts))
             {
-                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(canFetchFromServer ? -7 : -90), 0);
+                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(canFetchFromServer ? -7 : -90));
                 var recentPosts = WithRelationshipsLock(rels =>
                 {
                     var plc = rels.TrySerializeDidMaybeReadOnly(did);
@@ -1623,25 +1620,53 @@ namespace AppViewLite
         }
 
 
+
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
 
-
+            
     
 
             var now = DateTime.UtcNow;
-            var candidates =
-                WithRelationshipsLock(rels => rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-1), null).ToArray())
-                .Select(x => new ScoredBlueskyPost(x, GetDecayedScore(x.LikeCount, now - x.Date, 0.5), GetBalancedFeedGlobalScore(x.LikeCount, now - x.Date)))
-                .ToArray();
+            var minDate = now.AddDays(-3);
+
+            
+            var (possibleFollows, users) = WithRelationshipsLock(rels =>
+            {
+                var possibleFollows = rels.GetFollowingFast(ctx.LoggedInUser);
+
+                var userPosts = possibleFollows.PossibleFollows.Select(plc =>
+                {
+                    var posts = rels.UserToRecentPosts.GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(minDate), default)).ToArray();
+                    var reposts = rels.UserToRecentReposts.GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default)).ToArray();
+
+                    if (posts.Length == 0 && reposts.Length == 0) return default;
+                    if (!possibleFollows.IsStillFollowed(plc)) return default;
+
+                    return (
+                        Plc: plc,
+                        Posts: posts
+                            .Where(x => x.InReplyTo == default || possibleFollows.IsStillFollowed(x.InReplyTo))
+                            .Select(x => (x.InReplyTo, PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
+                            .ToArray(), 
+                       Reposts: reposts
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))
+                            .ToArray()
+                       );
+                }).Where(x => x.Plc != default).ToArray();
+                return (possibleFollows.PossibleFollows, userPosts); // don't pass the lambda of possibleFollows (its closure would escape lock)
+            });
 
             var alreadyReturnedPost = new HashSet<PostId>();
             var finalPosts = new List<BlueskyPost>();
-            var postToMostRecentRepostDate = GetMostRecentRepostDates(candidates);
 
-            var bestOriginalPostsByUser = candidates.Where(x => x.Post.RepostedBy == null).GroupBy(x => x.Post.AuthorId).Select(x => x.OrderByDescending(x => x.PerUserScore).ToQueue()).ToList();
-            var bestRepostsByUser = candidates.Where(x => x.Post.RepostedBy != null).GroupBy(x => x.Post.AuthorId).Select(x => x.OrderByDescending(x => x.PerUserScore).ToQueue()).ToList();
+            var bestOriginalPostsByUser = users.Select(user => user.Posts.Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date))).OrderByDescending(x => x.PerUserScore).ToQueue())
+                .Where(x => x.Count != 0)
+                .ToList();
+            var bestRepostsByUser = users.Select(user => user.Reposts.Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date))).OrderByDescending(x => x.PerUserScore).ToQueue())
+                .Where(x => x.Count != 0)
+                .ToList();
 
             var mergedFollowedPosts = new Queue<ScoredBlueskyPost>();
             var mergedNonFollowedPosts = new Queue<ScoredBlueskyPost>();
@@ -1669,7 +1694,7 @@ namespace AppViewLite
                     {
                         if (alreadyReturnedPost.Add(post.PostId))
                         {
-                            if (post.Post.Author.IsFollowedBySelf != null)
+                            if (post.IsAuthorFollowed)
                                 followedPosts.Add(post);
                             else
                                 nonFollowedReposts.Add(post);
@@ -1685,27 +1710,34 @@ namespace AppViewLite
                 mergedNonFollowedPosts.EnqueueRange(nonFollowedReposts.OrderByDescending(x => x.GlobalScore));
 
 
-                var done = false;
-                while (mergedFollowedPosts.Count != 0 && !done && finalPosts.Count < 200)
+                WithRelationshipsLock(rels =>
                 {
-                    for (int i = 0; i < 3; i++)
+                    var done = false;
+                    while (mergedFollowedPosts.Count != 0 && !done && finalPosts.Count < 200)
                     {
-                        if (mergedFollowedPosts.TryDequeue(out var followed))
+                        for (int i = 0; i < 3; i++)
                         {
-                            finalPosts.Add(followed.Post);
+                            if (mergedFollowedPosts.TryDequeue(out var followed))
+                            {
+
+                                finalPosts.Add(rels.GetPostAndMaybeRepostedBy(followed.PostId, followed.Repost));
+                            }
+                            else
+                            {
+                                done = true;
+                                break;
+                            }
                         }
-                        else
+                        if (!done)
                         {
-                            done = true;
-                            break;
+                            if (mergedNonFollowedPosts.TryDequeue(out var nonFollowed))
+                            {
+                                finalPosts.Add(rels.GetPostAndMaybeRepostedBy(nonFollowed.PostId, nonFollowed.Repost));
+                            }
                         }
                     }
-                    if (!done)
-                    {
-                        if (mergedNonFollowedPosts.TryDequeue(out var nonFollowed))
-                            finalPosts.Add(nonFollowed.Post);
-                    }
-                }
+                });
+
 
             }
 
@@ -1716,34 +1748,32 @@ namespace AppViewLite
             return new PostsAndContinuation(posts, null);
         }
 
-        private static Dictionary<PostId, DateTime> GetMostRecentRepostDates(ScoredBlueskyPost[] candidates)
-        {
-            var postToMostRecentRepostDate = new Dictionary<PostId, DateTime>();
-            foreach (var candidate in candidates)
-            {
-                ref var date = ref CollectionsMarshal.GetValueRefOrAddDefault(postToMostRecentRepostDate, candidate.PostId, out var exists);
-                if (!exists)
-                    date = candidate.Post.Date;
-                if (candidate.Post.RepostDate is { } repostDate && repostDate > date)
-                    date = repostDate;
-            }
+        //private static Dictionary<PostId, DateTime> GetMostRecentRepostDates(ScoredBlueskyPost[] candidates)
+        //{
+        //    var postToMostRecentRepostDate = new Dictionary<PostId, DateTime>();
+        //    foreach (var candidate in candidates)
+        //    {
+        //        ref var date = ref CollectionsMarshal.GetValueRefOrAddDefault(postToMostRecentRepostDate, candidate.PostId, out var exists);
+        //        if (!exists)
+        //            date = candidate.Post.Date;
+        //        if (candidate.Post.RepostDate is { } repostDate && repostDate > date)
+        //            date = repostDate;
+        //    }
 
-            return postToMostRecentRepostDate;
-        }
+        //    return postToMostRecentRepostDate;
+        //}
 
-        record struct ScoredBlueskyPost(BlueskyPost Post, float PerUserScore, float GlobalScore)
+        record struct ScoredBlueskyPost(PostId PostId, Models.Relationship Repost, bool IsAuthorFollowed, long LikeCount, float PerUserScore, float GlobalScore)
         {
-            public PostId PostId => Post.PostId;
             public override string ToString()
             {
-                return $"{PerUserScore:0.000} | {GlobalScore:0.000} | +{Post.LikeCount} | {Post}";
+                return $"{PerUserScore:0.000} | {GlobalScore:0.000} | +{LikeCount} | {PostId}";
             }
         }
 
-        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age)
-        {
-            return GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8);
-        }
+        private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.5);
+        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age) => GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8);
+
         private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity)
         {
             // https://medium.com/hacking-and-gonzo/how-hacker-news-ranking-algorithm-works-1d9b0cf2c08d

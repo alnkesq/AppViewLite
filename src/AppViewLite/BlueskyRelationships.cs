@@ -1686,7 +1686,7 @@ namespace AppViewLite
             var followers = Follows.GetRelationshipsSorted(plc, default).Select(x => x.Actor).DistinctAssumingOrderedInput();
 
             return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x.Member, followers, x => x)
-                .Where(x => x.Left != default && x.Right != default && !Follows.deletions.ContainsKey(new Relationship(loggedInUser, x.Left.ListItemRKey)))
+                .Where(x => x.Left != default && x.Right != default && !Follows.IsDeleted(new Relationship(loggedInUser, x.Left.ListItemRKey)))
                 .Select(x => x.Key)
                 .ToArray();
         }
@@ -2054,7 +2054,7 @@ namespace AppViewLite
 
         public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate, Tid? maxTid)
         {
-            var thresholdDate = minDate != default ? Tid.FromDateTime(minDate, 0) : default;
+            var thresholdDate = minDate != default ? Tid.FromDateTime(minDate) : default;
 
             
             var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).ToArray();
@@ -2073,7 +2073,7 @@ namespace AppViewLite
                 if (followRkey == default) return true;
                 ref var stillValid = ref CollectionsMarshal.GetValueRefOrAddDefault(followPrecise, followRkey, out var exists);
                 if (!exists)
-                    stillValid = !Follows.deletions.ContainsKey(new Relationship(loggedInUser, followRkey));
+                    stillValid = !Follows.IsDeleted(new Relationship(loggedInUser, followRkey));
                 return stillValid;
             }
             bool IsFollowPossiblyStillValid(Tid followRkey)
@@ -2148,7 +2148,7 @@ namespace AppViewLite
                         });
                 });
             var result = 
-                SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value, 0) : x.PostId.PostRKey, new ReverseComparer<Tid>())
+                SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value) : x.PostId.PostRKey, new ReverseComparer<Tid>())
                 .Where(x =>
                 {
                     var triplet = requireFollowStillValid[x];
@@ -2636,6 +2636,49 @@ namespace AppViewLite
         }
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
+
+        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowed) GetFollowingFast(Plc loggedInUser)
+        {
+            var stillFollowedResult = new Dictionary<Plc, bool>();
+            var possibleFollows = RegisteredUserToFollowees
+                .GetValuesSorted(loggedInUser)
+                .DistinctByAssumingOrderedInputLatest(x => x.Member)
+                .ToDictionary(x => x.Member, x => x.ListItemRKey);
+
+            return (possibleFollows.Keys.ToArray(), plc =>
+            {
+                if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
+
+                ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
+                if (!exists)
+                {
+                    result = !Follows.IsDeleted(new Relationship(loggedInUser, rkey));
+                }
+                return result;
+            });
+        }
+
+
+        internal QualifiedPluggablePostId TryGetStoredSyntheticTidFromPluggablePostId(QualifiedPluggablePostId postId)
+        {
+            var hash = postId.GetExternalPostIdHash();
+            if (ExternalPostIdHashToSyntheticTid.TryGetSingleValue(hash, out var tid))
+            {
+                return new QualifiedPluggablePostId(postId.Did, postId.PostId.WithTid(tid));
+            }
+            return postId;
+        }
+
+        internal BlueskyPost GetPostAndMaybeRepostedBy(PostId postId, Relationship repost)
+        {
+            var post = GetPost(postId);
+            if (repost != default)
+            {
+                post.RepostDate = repost.RelationshipRKey.Date;
+                post.RepostedBy = GetProfile(repost.Actor);
+            }
+            return post;
+        }
     }
 
     public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);

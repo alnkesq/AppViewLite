@@ -1,5 +1,4 @@
 using AppViewLite.Models;
-using AppViewLite.Numerics;
 using AppViewLite;
 using AppViewLite.Storage;
 using AppViewLite.Numerics;
@@ -89,12 +88,14 @@ namespace AppViewLite
 
             foreach (var r in creations.GetValuesSorted(target, continuation != default ? continuation : null))
             {
-                if (deletions.ContainsKey(r))
+                if (IsDeleted(r))
                     continue;
                 yield return r;
             }
             
         }
+
+        public bool IsDeleted(Relationship relationship) => deletions.ContainsKey(relationship);
 
 
         public bool HasActor(TTarget target, Plc actor, out Relationship relationship)
@@ -120,7 +121,7 @@ namespace AppViewLite
                     {
                         next = span[++i];
                     }
-                    if (deletions.ContainsKey(next))
+                    if (IsDeleted(next))
                         return false;
                     relationship = next;
                     return true;
@@ -133,7 +134,7 @@ namespace AppViewLite
 
         public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
         {
-            if (!deletions.ContainsKey(rel))
+            if (!IsDeleted(rel))
             {
                 deletions.Add(rel, deletionDate);
 

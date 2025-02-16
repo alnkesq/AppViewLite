@@ -500,6 +500,8 @@ namespace AppViewLite.Storage
             return GetValuesSorted(key).DistinctAssumingOrderedInput();
         }
 
+        public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null) => GetValuesChunked(key, minExclusive, maxExclusive).SelectMany(x => x);
+
         public IEnumerable<TValue> GetValuesSorted(TKey key, TValue? minExclusive = null)
         {
             var chunks = GetValuesChunked(key, minExclusive).ToArray();

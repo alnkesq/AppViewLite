@@ -1621,6 +1621,8 @@ namespace AppViewLite
 
 
 
+        record struct ScoredBlueskyPostWithSource(ScoredBlueskyPost Post, Queue<ScoredBlueskyPost> Source);
+
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
@@ -1629,7 +1631,7 @@ namespace AppViewLite
     
 
             var now = DateTime.UtcNow;
-            var minDate = now.AddDays(-3);
+            var minDate = now.AddDays(-2);
 
             
             var (possibleFollows, users) = WithRelationshipsLock(rels =>
@@ -1668,77 +1670,120 @@ namespace AppViewLite
                 .Where(x => x.Count != 0)
                 .ToList();
 
-            var mergedFollowedPosts = new Queue<ScoredBlueskyPost>();
-            var mergedNonFollowedPosts = new Queue<ScoredBlueskyPost>();
+            var mergedFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
+            var mergedNonFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
 
             while (bestOriginalPostsByUser.Count != 0 && bestRepostsByUser.Count != 0)
             {
-                var followedPosts = new List<ScoredBlueskyPost>();
-                foreach (var user in bestOriginalPostsByUser)
+
+                var followedPostsToEnqueue = new List<ScoredBlueskyPostWithSource>();
+                var nonFollowedRepostsToEnqueue = new List<ScoredBlueskyPostWithSource>();
+
+                void SampleEachUser(IEnumerable<Queue<ScoredBlueskyPost>> users)
                 {
-                    while (user.TryDequeue(out var post))
+                    foreach (var user in users)
                     {
-                        if (alreadyReturnedPost.Add(post.PostId))
+                        while (user.TryDequeue(out var post))
                         {
-                            followedPosts.Add(post);
-                            break;
-                        }
-                    }
-                }
-                bestOriginalPostsByUser.RemoveAll(x => x.Count == 0);
-
-                var nonFollowedReposts = new List<ScoredBlueskyPost>();
-                foreach (var user in bestRepostsByUser)
-                {
-                    while (user.TryDequeue(out var post))
-                    {
-                        if (alreadyReturnedPost.Add(post.PostId))
-                        {
-                            if (post.IsAuthorFollowed)
-                                followedPosts.Add(post);
-                            else
-                                nonFollowedReposts.Add(post);
-
-                            break;
-                        }
-                    }
-                }
-                bestRepostsByUser.RemoveAll(x => x.Count == 0);
-
-                
-                mergedFollowedPosts.EnqueueRange(followedPosts.OrderByDescending(x => x.GlobalScore));
-                mergedNonFollowedPosts.EnqueueRange(nonFollowedReposts.OrderByDescending(x => x.GlobalScore));
-
-
-                WithRelationshipsLock(rels =>
-                {
-                    var done = false;
-                    while (mergedFollowedPosts.Count != 0 && !done && finalPosts.Count < 200)
-                    {
-                        for (int i = 0; i < 3; i++)
-                        {
-                            if (mergedFollowedPosts.TryDequeue(out var followed))
+                            if (alreadyReturnedPost.Add(post.PostId))
                             {
+                                if (post.IsAuthorFollowed)
+                                    followedPostsToEnqueue.Add(new(post, user));
+                                else
+                                    nonFollowedRepostsToEnqueue.Add(new(post, user));
 
-                                finalPosts.Add(rels.GetPostAndMaybeRepostedBy(followed.PostId, followed.Repost));
-                            }
-                            else
-                            {
-                                done = true;
                                 break;
                             }
                         }
-                        if (!done)
+                    }
+                }
+
+                SampleEachUser(bestOriginalPostsByUser);
+                SampleEachUser(bestRepostsByUser);
+
+
+                bestOriginalPostsByUser.RemoveAll(x => x.Count == 0);
+                bestRepostsByUser.RemoveAll(x => x.Count == 0);
+
+                mergedFollowedPosts.EnqueueRange(followedPostsToEnqueue.OrderByDescending(x => x.Post.GlobalScore));
+                mergedNonFollowedPosts.EnqueueRange(nonFollowedRepostsToEnqueue.OrderByDescending(x => x.Post.GlobalScore));
+
+                var populateFollowedFrom = mergedFollowedPosts;
+                var populateNonFollowedPostsFrom = mergedNonFollowedPosts;
+
+                var enqueueEverything = false;
+                while (true)
+                {
+
+
+                    var usersDeservingFollowedPostResampling = new List<Queue<ScoredBlueskyPost>>();
+                    var usersDeservingNonFollowedPostResampling = new List<Queue<ScoredBlueskyPost>>();
+
+                    WithRelationshipsLock(rels =>
+                    {
+                        bool ShouldInclude(BlueskyPost post)
                         {
-                            if (mergedNonFollowedPosts.TryDequeue(out var nonFollowed))
+                            if (post.RepostedBy != null) return true;
+                            if (post.RootPostId.Author != post.AuthorId && post.InReplyToPostId?.Author != post.AuthorId)
                             {
-                                finalPosts.Add(rels.GetPostAndMaybeRepostedBy(nonFollowed.PostId, nonFollowed.Repost));
+                                if (!possibleFollows.IsStillFollowedRequiresLock(post.RootPostId.Author))
+                                    return false;
+                            }
+                            return true;
+                        }
+                        bool MaybeAddToFinalPostList(ScoredBlueskyPost postScore)
+                        {
+                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost);
+                            if (!ShouldInclude(post)) return false;
+                            finalPosts.Add(post);
+                            return true;
+                        }
+
+                        var done = false;
+                        while (
+                            enqueueEverything 
+                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0 
+                                : populateFollowedFrom.Count != 0 && (!done && finalPosts.Count < 100)
+                            )
+                        {
+                            for (int i = 0; i < 3; i++)
+                            {
+                                if (populateFollowedFrom.TryDequeue(out var followed))
+                                {
+                                    if (!MaybeAddToFinalPostList(followed.Post))
+                                        usersDeservingFollowedPostResampling.Add(followed.Source);
+                                }
+                                else
+                                {
+                                    done = true;
+                                    break;
+                                }
+                            }
+                            if (!done || enqueueEverything)
+                            {
+                                if (populateNonFollowedPostsFrom.TryDequeue(out var nonFollowed))
+                                {
+                                    if (!MaybeAddToFinalPostList(nonFollowed.Post))
+                                        usersDeservingNonFollowedPostResampling.Add(nonFollowed.Source);
+                                }
                             }
                         }
-                    }
-                });
+                    });
+
+                    if (usersDeservingFollowedPostResampling.Count == 0 && usersDeservingNonFollowedPostResampling.Count == 0) break;
 
 
+                    followedPostsToEnqueue.Clear();
+                    nonFollowedRepostsToEnqueue.Clear();
+
+                    SampleEachUser(usersDeservingFollowedPostResampling);
+                    SampleEachUser(usersDeservingNonFollowedPostResampling);
+
+                    populateFollowedFrom = followedPostsToEnqueue.OrderByDescending(x => x.Post.GlobalScore).ToQueue();
+                    populateNonFollowedPostsFrom = nonFollowedRepostsToEnqueue.OrderByDescending(x => x.Post.GlobalScore).ToQueue();
+
+                    enqueueEverything = true;
+                }
             }
 
             var posts = finalPosts.ToArray();

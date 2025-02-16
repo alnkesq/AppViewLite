@@ -247,7 +247,6 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return "https://" + board.Host + "/" + board.BoardName + "/catalog";
         }
 
-        public override bool UseSmallThumbnails => true;
 
         public override string? TryGetDomainForDid(string did)
         {

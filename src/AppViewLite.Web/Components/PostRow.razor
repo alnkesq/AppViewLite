@@ -123,7 +123,7 @@
         targetForBaseUrlPreferExternal = originalPostUrl != null ? "_blank" : null;
 
         var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Post.Did);
-        UseSmallImages = Post?.Data?.Media?.Length > 1 || IsQuote || pluggable?.UseSmallThumbnails == true;
+        UseSmallImages = Post?.Data?.Media?.Length > 1 || IsQuote;
     }
 
 

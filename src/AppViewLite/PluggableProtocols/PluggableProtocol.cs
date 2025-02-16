@@ -327,7 +327,6 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual string? TryGetDomainForDid(string did) => null;
 
-        public virtual bool UseSmallThumbnails => false;
 
         protected void OnMirrorFound(DuckDbUuid didHash)
         {

@@ -991,13 +991,6 @@ details:not([open]) .summary-when-open {
         content: "An error has occurred."
     }
 
-#components-reconnect-modal {
-    pointer-events: none;
-    /*opacity: 0.1;*/
-    visibility: hidden;
-
-}
-
 .post-external-preview {
     border: 1px solid rgb(212, 219, 226);
     border-radius: 12px;

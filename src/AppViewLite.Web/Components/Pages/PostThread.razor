@@ -23,3 +23,9 @@
 
 <PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" ShowInReplyTo="false" FocalPostDid="@Did" FocalPostRKey="@RKey" FocalVideoAutoPlay="true" />
 
+@if (FocalPost?.OriginalPostUrl != null)
+{
+    <div class="post-link-to-external-thread">
+        <a href="@FocalPost?.OriginalPostUrl" target="_blank" rel="noreferrer">See full thread on @(new Uri(FocalPost!.OriginalPostUrl).Host)</a>
+    </div>
+}

@@ -154,7 +154,7 @@
         @if (pluggableExternalUrl != null)
         {
             <div class="profile-link-to-full-profile">
-                <a href="@pluggableExternalUrl" target="_blank">See full profile on @(new Uri(pluggableExternalUrl).Host)</a>
+                <a href="@pluggableExternalUrl" target="_blank" rel="noreferrer">See full profile on @(new Uri(pluggableExternalUrl).Host)</a>
             </div>
         }
     </div>

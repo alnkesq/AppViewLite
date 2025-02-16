@@ -1537,7 +1537,7 @@ h1 .profile-badge img{
     margin-bottom: 3px;
 }
 
-.profile-link-to-full-profile a {
+.profile-link-to-full-profile a, .post-link-to-external-thread a {
     padding: 10px;
     background: #eee;
     text-align: center;

@@ -48,6 +48,9 @@
 
     public string RenderFlags;
 
+    private bool HasBskyAppUrl => BlueskyRelationships.IsNativeAtProtoDid(Post.Did);
+    private bool HasExternalUrl => originalPostUrl != null;
+
 
 
     public static ParameterView CreateParametersForRenderFlags(BlueskyPost post, string renderFlags)
@@ -389,21 +392,33 @@
             <div class="post-action-bar-spacer">
 
                 <div class="post-post-menu menu">
-                    @if (originalPostUrl != null)
+
+                    @if (HasExternalUrl)
                     {
-                        <a href="@originalPostUrl" class="menu-item" target="_blank">View on @(new Uri(originalPostUrl).Host)</a>
+                        <a href="@originalPostUrl" class="menu-item" target="_blank" rel="noreferrer">View on @(new Uri(originalPostUrl!).Host)</a>
+                        if (!IsFocalPost)
+                        {
+                            <a href="@Post.BaseUrl" class="menu-item">View here</a>
+                        }
                     }
-                    else if(BlueskyRelationships.IsNativeAtProtoDid(Post.Did))
+                    @if (HasBskyAppUrl)
                     {
-                        <a href="@Post.BlueskyUrl" class="menu-item" target="_blank">View on Bluesky</a>
-                        <button actionkind="copyBlueskyPostUrl" class="menu-item">Copy Bluesky URL</button>
-                    }
-                    @if (baseUrlPreferExternal != Post.BaseUrl)
-                    {
-                        <a href="@Post.BaseUrl" class="menu-item">View here</a>
+                        <a href="@Post.BlueskyUrl" class="menu-item" target="_blank" rel="noreferrer">View on Bluesky</a>
                     }
 
+
+
+
+                    @if (HasExternalUrl)
+                    {
+                        <button actionkind="copyOriginalPostUrl" class="menu-item">Copy original URL</button>
+                    }
+                    @if (HasBskyAppUrl)
+                    {
+                        <button actionkind="copyBlueskyPostUrl" class="menu-item">Copy Bluesky URL</button>
+                    }
                     <button actionkind="copyPostUrl" class="menu-item">Copy post URL</button>
+
                     @if (Post.Data?.Text != null)
                     {
                         <button actionkind="translatePost" class="menu-item">Translate post</button>

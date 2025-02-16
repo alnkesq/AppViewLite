@@ -217,8 +217,8 @@ function fastNavigateIfLink(event) {
     var a = null;
 
     if (t instanceof HTMLElement && t.classList.contains('post-body') && !t.parentElement.classList.contains('post-focal')) { 
-        var backgroundLink = t.parentElement.querySelector('.post-background-link');
-        if (backgroundLink.href && !userSelectedTextSinceLastMouseDown) {
+        var backgroundLink = getPostPreferredUrlElement(t.parentElement);
+        if (!userSelectedTextSinceLastMouseDown) {
             if (backgroundLink.target == '_blank') window.open(backgroundLink.href);
             else fastNavigateTo(backgroundLink.href);
             return true;
@@ -318,8 +318,8 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
     var theaterForPostInfo = tryTrimMediaSegments(location.href);
     var theaterForPostElement = theaterForPostInfo ? document.querySelector(getPostSelector(theaterForPostInfo.postdid, theaterForPostInfo.postrkey)) : null;
     if (theaterForPostElement) {
-        var body = theaterForPostElement.querySelector('.post-body')?.textContent;
-        pageTitleOverride = theaterForPostElement.querySelector('.post-author').textContent + (body ? ': ' + body : '');
+        var body = getPostText(theaterForPostElement);
+        pageTitleOverride = getTextIncludingEmojis(theaterForPostElement.querySelector('.post-author')) + (body ? ': ' + body : '');
     }else{
         
         var oldMainWasHidden = false;
@@ -375,6 +375,29 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
 
 }
 
+function getTextIncludingEmojis(node) { 
+    if (!node) return '';
+    if (node instanceof Element) {
+
+        if (node.tagName == 'IMG') {
+            return node.alt || '';
+        }
+
+        var sb = '';
+    
+        for (const child of node.childNodes) {
+            sb += getTextIncludingEmojis(child);
+        }
+
+        if (node.tagName == 'A' && (sb.startsWith('https://') || sb.startsWith('http://'))) {
+            return node.href;
+        }
+        return sb;
+    } else { 
+        return node.textContent;
+    }
+}
+
 function applyPageElements() { 
     
 
@@ -402,7 +425,7 @@ function applyPageElements() {
         var includePostText = theaterReturnUrl && (theaterReturnUrl.includes('?media=1') || theaterReturnUrl.includes('kind=media'));
 
         var images = [...postElement.children].filter(x => x.classList.contains('post-image-list'))[0].children;
-        var postText = includePostText ? [...postElement.children].filter(x => x.classList.contains('post-body'))[0]?.textContent : null;
+        var postText = includePostText ? getPostText(postElement) : null;
         
         var a = images[theaterInfo.mediaId - 1]
         document.querySelector('.theater-image').src = ''; // ensure old image is never displayed
@@ -864,7 +887,7 @@ function onInitialLoad() {
         userSelectedTextSinceLastMouseDown = false;
         if (e.button == 1) { 
             if (e.target?.classList?.contains('post-body')) { 
-                var href = e.target.parentElement.querySelector('.post-background-link')?.href;
+                var href = getPostPreferredUrl(e.target.parentElement);
                 if (href) {
                     window.open(href);
                     e.preventDefault();
@@ -1109,6 +1132,17 @@ function getOrCreateRepostToggler(did, rkey, postElement) {
         });
 }
 
+function getPostText(postElement) { 
+    return getTextIncludingEmojis([...postElement.children].filter(x => x.classList.contains('post-body'))[0]).trim();
+}
+
+function getPostPreferredUrl(postElement) { 
+    return getPostPreferredUrlElement(postElement).href;
+}
+function getPostPreferredUrlElement(postElement) { 
+    return [...postElement.children].filter(x => x.classList.contains('post-background-link'))[0];
+}
+
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
         getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
@@ -1117,9 +1151,8 @@ var postActions = {
         if (did.startsWith('did:plc:') || did.startsWith('did:web:')) {
             getOrCreateRepostToggler(did, rkey, postElement).toggleIfNotBusyAsync();
         } else { 
-            var children = [...postElement.children];
-            var originalText = children.filter(x => x.classList.contains('post-body'))[0]?.textContent?.trim();
-            var url = children.filter(x => x.classList.contains('post-background-link'))[0]?.href;
+            var originalText = getPostText(postElement);
+            var url = getPostPreferredUrl(postElement);
             var text = (originalText ? "\"" + originalText + "\"\n" : "\n") + (url ? url : '')
             fastNavigateTo('/compose?text=' + encodeURIComponent(text.trim()));
         }
@@ -1143,12 +1176,15 @@ var postActions = {
     copyPostUrl: async function (did, rkey) { 
         navigator.clipboard.writeText(location.origin + '/@' + did + '/' + rkey)
     },
+    copyOriginalPostUrl: async function (did, rkey, node) { 
+        navigator.clipboard.writeText(getPostPreferredUrl(node))
+    },
+    
     copyBlueskyPostUrl: async function (did, rkey) { 
         navigator.clipboard.writeText('https://bsky.app/profile/' + did + '/post/' + rkey);
     },
     translatePost: async function (did, rkey, postElement) { 
-        var text = postElement.querySelector('.post-body').textContent
-        window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(text) + '&op=translate');
+        window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(getPostText(postElement)) + '&op=translate');
     }
 }
 

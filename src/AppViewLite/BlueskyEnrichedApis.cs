@@ -1092,6 +1092,9 @@ namespace AppViewLite
             EnsureLimit(ref limit, 100);
             var thread = new List<BlueskyPost>();
             var focalPost = GetSinglePost(did, rkey);
+            if (focalPost!.Data == null && !BlueskyRelationships.IsNativeAtProtoDid(did))
+                throw new Exception("Post not found.");
+
             var focalPostId = new PostId(new Plc(focalPost.Author.PlcId), Tid.Parse(focalPost.RKey));
 
             if (continuation == null)

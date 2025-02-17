@@ -1636,12 +1636,22 @@ namespace AppViewLite
             
             var (possibleFollows, users) = WithRelationshipsLock(rels =>
             {
+
+
                 var possibleFollows = rels.GetFollowingFast(ctx.LoggedInUser);
+
+                var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx.LoggedInUser);
 
                 var userPosts = possibleFollows.PossibleFollows.Select(plc =>
                 {
-                    var posts = rels.UserToRecentPosts.GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(minDate), default)).ToArray();
-                    var reposts = rels.UserToRecentReposts.GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default)).ToArray();
+                    var posts = rels.UserToRecentPosts
+                        .GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(minDate), default))
+                        .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
+                        .ToArray();
+                    var reposts = rels.UserToRecentReposts
+                        .GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default))
+                        .Where(x => !isPostSeen(x.PostId))
+                        .ToArray();
 
                     if (posts.Length == 0 && reposts.Length == 0) return default;
                     if (!possibleFollows.IsStillFollowedRequiresLock(plc)) return default;
@@ -2966,6 +2976,18 @@ namespace AppViewLite
             {
                 responseToDispose?.Dispose();
             }
+        }
+
+        public void MarkAsRead(PostIdString[] postIdsStr, Plc loggedInUser)
+        {
+            WithRelationshipsWriteLock(rels =>
+            {
+                foreach (var postIdStr in postIdsStr)
+                {
+                    var postId = rels.GetPostId(postIdStr.Did, postIdStr.RKey);
+                    rels.SeenPosts.Add(loggedInUser, postId);
+                }
+            });
         }
     }
 }

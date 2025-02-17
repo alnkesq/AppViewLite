@@ -81,6 +81,7 @@ var liveUpdatesConnectionFuture = (async () => {
             repostToggler.applyLiveUpdate(stats.repostCount, ownRelationship?.repostRkey);
             
             setPostStats(postElement, stats.replyCount, 'replies', 'reply', 'replies');
+            intersectionObserver.observe(postElement);
         }
     });
     connection.on('NotificationCount', (count) => {
@@ -398,6 +399,8 @@ function getTextIncludingEmojis(node) {
     }
 }
 
+var intersectionObserver;
+
 function applyPageElements() { 
     
 
@@ -419,7 +422,7 @@ function applyPageElements() {
 
     var theater = document.body.querySelector('.theater');
     theater.classList.toggle('display-none', !isTheater)
-    if (isTheater) { 
+    if (isTheater) {
         
         var postElement = document.querySelector(getPostSelector(theaterInfo.postdid, theaterInfo.postrkey));
         var includePostText = theaterReturnUrl && (theaterReturnUrl.includes('?media=1') || theaterReturnUrl.includes('kind=media'));
@@ -439,6 +442,49 @@ function applyPageElements() {
         document.querySelector('.theater-full-post-link').classList.toggle('display-none', !includePostText);
         document.querySelector('.theater-full-post-link').href = theaterInfo.href;
     }
+
+    var postsInViewport = [];
+    intersectionObserver = new IntersectionObserver(
+        (entries) => {
+            entries.forEach(entry => {
+                var post = entry.target;
+                if (!post.classList.contains('post')) return;
+                if (entry.isIntersecting) {
+                    postsInViewport.push(post)
+                    post.didAppearInViewport = true;
+                } else { 
+                    post.querySelectorAll('video').forEach(x => x.pause());
+                    postsInViewport = postsInViewport.filter(x => x != post);
+                }
+                var postList = [...document.querySelector('.post-list').children];
+                var postIndexes = postsInViewport.map(x => postList.indexOf(x)).filter(x => x != -1);
+                postIndexes.sort();
+                var firstVisiblePost = postIndexes.length ? postList[postIndexes[0]] : null;
+                
+                //console.log('First visible post: ' + getPostText(firstVisiblePost))
+                var postToMarkAsRead = firstVisiblePost?.previousElementSibling;
+                while (postToMarkAsRead) { 
+                    if (postToMarkAsRead.classList.contains('post')) {
+                        if (postToMarkAsRead.wasMarkedAsRead) break;
+                        if (postToMarkAsRead.getBoundingClientRect().bottom < 0 && postToMarkAsRead.didAppearInViewport) {
+                            //console.log('Mark as read: ' + getPostText(postToMarkAsRead));
+                            var p = postToMarkAsRead;
+                            (async () => (await liveUpdatesConnectionFuture).invoke('MarkAsRead', p.dataset.postdid, p.dataset.postrkey))()
+                            postToMarkAsRead.wasMarkedAsRead = true;
+                        }
+                    }
+                    postToMarkAsRead = postToMarkAsRead.previousElementSibling;
+                }
+            });
+        },
+        {
+            threshold: 0.1,
+        }
+    );
+    for (const post of document.querySelectorAll('.post-list > .post')) {
+        intersectionObserver.observe(post);
+    }
+    
 
     maybeLoadNextPage();
 }
@@ -654,6 +700,8 @@ function focusPostForKeyboardNavigation(post, isFirst) {
     else post.scrollIntoView();
 }
 
+
+  
 async function loadNextPage(allowRetry) { 
     var paginationButton = document.querySelector('.pagination-button');
     if (!paginationButton) return;
@@ -692,6 +740,7 @@ async function loadNextPage(allowRetry) {
             child.remove();
             if (child instanceof Element) anyChildren = true;
             oldList.appendChild(child);
+            intersectionObserver.observe(child);
         }
     }
     var newPagination = temp.querySelector('.pagination-button');
@@ -703,6 +752,8 @@ async function loadNextPage(allowRetry) {
         maybeLoadNextPage();
     }
 }
+
+
 
 function maybeLoadNextPage() { 
     var scrollingElement = document.scrollingElement;
@@ -969,6 +1020,7 @@ function onInitialLoad() {
             closeAutocompleteMenu();
     });
 
+    
     applyPageElements();
     applyPageFocus();
 }
@@ -1379,7 +1431,7 @@ function emojify(target = document.body) {
 
 emojify();
 
-const observer = new MutationObserver(mutations => {
+const mutationObserver = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
         if (mutation.addedNodes.length) {
             mutation.addedNodes.forEach(node => {
@@ -1391,6 +1443,6 @@ const observer = new MutationObserver(mutations => {
     });
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+mutationObserver.observe(document.body, { childList: true, subtree: true });
 onInitialLoad();
 

@@ -38,5 +38,24 @@ namespace AppViewLite
             }
         }
     }
+
+    public class Throttler : IDisposable
+    {
+        private Throttler<int> inner;
+        public Throttler(TimeSpan interval, Action callback)
+        {
+            this.inner = new Throttler<int>(interval, x => callback());
+        }
+
+        public void Notify()
+        {
+            this.inner.Notify(0);
+        }
+
+        public void Dispose()
+        {
+            inner.Dispose();
+        }
+    }
 }
 

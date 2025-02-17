@@ -88,6 +88,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> CustomEmojis;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> KnownMirrorsToIgnore;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Tid> ExternalPostIdHashToSyntheticTid;
+        public CombinedPersistentMultiDictionary<Plc, PostIdTimeFirst> SeenPosts;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -231,6 +232,7 @@ namespace AppViewLite
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
+            SeenPosts = RegisterDictionary<Plc, PostIdTimeFirst>("seen-posts");
 
             
 
@@ -2680,6 +2682,22 @@ namespace AppViewLite
                 post.RepostedBy = GetProfile(repost.Actor);
             }
             return post;
+        }
+
+
+        public Func<PostIdTimeFirst, bool> GetIsPostSeenFuncForUserRequiresLock(Plc loggedInUser)
+        {
+            var seenPosts = SeenPosts.GetValuesChunked(loggedInUser).ToArray();
+
+
+            return postId =>
+            {
+                foreach (var slice in seenPosts)
+                {
+                    if (slice.AsSpan().BinarySearch(postId) >= 0) return true;
+                }
+                return false;
+            };
         }
     }
 

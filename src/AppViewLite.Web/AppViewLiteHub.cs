@@ -26,7 +26,7 @@ namespace AppViewLite.Web
             }
         }
         
-        public async Task LoadPendingProfiles(ProfileRenderRequest[] requests)
+        public void LoadPendingProfiles(ProfileRenderRequest[] requests)
         {
             if (apis.IsReadOnly) return;
             var hub = HubContext;
@@ -57,7 +57,7 @@ namespace AppViewLite.Web
             }
         }
 
-        public async Task LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee, string? focalDid)
+        public void LoadPendingPosts(PostRenderRequest[] requests, bool sideWithQuotee, string? focalDid)
         {
             var hub = HubContext;
             if (apis.IsReadOnly) return;
@@ -84,6 +84,20 @@ namespace AppViewLite.Web
                 var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html);
             }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc).FireAndForget();
+
+        }
+
+
+
+        public void MarkAsRead(string did, string rkey)
+        {
+            var ctx = HubContext;
+            if (ctx.MarkAsReadThrottler == null) return;
+            lock (ctx.MarkAsReadPending)
+            {
+                ctx.MarkAsReadPending.Add(new PostIdString(did, rkey));
+            }
+            ctx.MarkAsReadThrottler.Notify();
 
         }
 
@@ -167,10 +181,21 @@ namespace AppViewLite.Web
             if (!connectionIdToCallback.TryAdd(connectionId, context)) throw new Exception();
 
 
-            if (userPlc != null)
+            if (userPlc != null) 
+            { 
                 apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.Subscribe(userPlc.Value, context.UserNotificationCallback);
 
-
+                context.MarkAsReadThrottler = new Throttler(TimeSpan.FromSeconds(1), () =>
+                {
+                    PostIdString[] markAsReadPendingArray;
+                    lock (context.MarkAsReadPending)
+                    {
+                        markAsReadPendingArray = context.MarkAsReadPending.ToArray();
+                        context.MarkAsReadPending.Clear();
+                    }
+                    apis.MarkAsRead(markAsReadPendingArray, userPlc.Value);
+                });
+            }
             return Task.CompletedTask;
         }
 
@@ -214,10 +239,12 @@ namespace AppViewLite.Web
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
         public string? SessionCookie;
-
+        public Throttler? MarkAsReadThrottler;
+        public List<PostIdString> MarkAsReadPending = new();
         public void Dispose()
         {
             LiveUpdatesCallbackThrottler.Dispose();
+            MarkAsReadThrottler?.Dispose();
         }
     }
 }

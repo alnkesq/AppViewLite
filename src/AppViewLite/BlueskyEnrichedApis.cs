@@ -1703,7 +1703,7 @@ namespace AppViewLite
             });
 
             var alreadySampledPost = new HashSet<PostId>();
-            var alreadyReturnedPost = new HashSet<PostId>();
+            var alreadyReturnedPosts = new HashSet<PostId>();
             var finalPosts = new List<BlueskyPost>();
 
             var bestOriginalPostsByUser = users.Select(user => user.Posts.Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date))).OrderByDescending(x => x.PerUserScore).ToQueue())
@@ -1794,7 +1794,7 @@ namespace AppViewLite
                             {
                                 foreach (var reply in chunk.AsSmallSpan())
                                 {
-                                    if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPost.Contains(reply))
+                                    if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPosts.Contains(reply))
                                     {
                                         var likeCount = rels.Likes.GetApproximateActorCount(reply);
                                         replies.Add(new ScoredBlueskyPost(reply, default, true, likeCount, GetBalancedFeedPerUserScore(likeCount, now - reply.PostRKey.Date), 0));
@@ -1810,37 +1810,58 @@ namespace AppViewLite
 
                             return null;
                         }
+
                         bool MaybeAddToFinalPostList(ScoredBlueskyPost postScore)
                         {
-                            if (!alreadyReturnedPost.Add(postScore.PostId)) return false;
+                            if (!alreadyReturnedPosts.Add(postScore.PostId)) return false;
 
                             var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost);
                             if (!ShouldInclude(post)) return false;
-                            if (post.ReplyCount != 0)
+
+                            var threadLength = 0;
+
+                            void AddCore(BlueskyPost post)
+                            {
+                                alreadyReturnedPosts.Add(post.PostId);
+                                alreadySampledPost.Add(post.PostId);
+                                finalPosts.Add(post);
+                                threadLength++;
+                            }
+
+                            if (post.InReplyToPostId is { } inReplyToPostId)
+                            {
+
+                                var parent = rels.GetPost(inReplyToPostId);
+
+                                if (post.RootPostId != parent.PostId)
+                                {
+                                    var rootPost = rels.GetPost(post.RootPostId);
+                                    AddCore(rootPost);
+                                }
+
+                                AddCore(parent);
+                            }
+
+                            AddCore(post);
+
+                            if (threadLength <= 2)
                             {
                                 var bestReply = TryGetBestReply(post);
                                 if (bestReply != null)
                                 {
-                                    alreadyReturnedPost.Add(bestReply.PostId);
-                                    alreadySampledPost.Add(bestReply.PostId);
+                                    AddCore(bestReply);
 
-                                    if (post.IsRootPost)
+                                    if (threadLength <= 2)
                                     {
                                         var bestGrandReply = TryGetBestReply(bestReply);
                                         if (bestGrandReply != null)
                                         {
-                                            alreadyReturnedPost.Add(bestGrandReply.PostId);
-                                            alreadySampledPost.Add(bestGrandReply.PostId);
-                                            finalPosts.Add(bestGrandReply);
-                                            return true;
+                                            AddCore(bestGrandReply);
                                         }
                                     }
-                                    // parent will be implicitly included later.
-                                    finalPosts.Add(bestReply);
-                                    return true;
                                 }
                             }
-                            finalPosts.Add(post);
+
                             return true;
                         }
 
@@ -1892,8 +1913,6 @@ namespace AppViewLite
             }
 
             var posts = finalPosts.ToArray();
-            var alreadyReturnedAfterNormalization = new HashSet<PostId>();
-            posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts, alreadyReturnedAfterNormalization).ToArray());
             await EnrichAsync(posts, ctx);
             return new PostsAndContinuation(posts, null);
         }

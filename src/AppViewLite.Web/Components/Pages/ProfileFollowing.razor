@@ -10,8 +10,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
-        (Following, NextContinuation) = await Apis.GetFollowingAsync(Did, Continuation, default, RequestContext);
+        (Following, NextContinuation) = await Apis.GetFollowingAsync(await Apis.ResolveHandleAsync(Did), Continuation, default, RequestContext);
     }
 }
 

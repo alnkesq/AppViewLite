@@ -20,7 +20,7 @@ namespace AppViewLite.Models
 
         public BlueskyPost? QuotedPost;
 
-        public string BaseUrl => $"/@{Author.Did}/{RKey}";
+        public string BaseUrl => $"{Author.BaseUrl}/{RKey}";
         public string BlueskyUrl => $"{Author.BlueskyUrl}/post/{RKey}";
         public BlueskyPostData? Data;
 

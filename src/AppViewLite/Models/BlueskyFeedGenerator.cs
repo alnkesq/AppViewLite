@@ -18,7 +18,7 @@ namespace AppViewLite.Models
         public long LikeCount;
         public string DisplayNameOrFallback => Data?.DisplayName ?? (Did + "/" + RKey);
         public Plc Plc => FeedId.Plc;
-        public string BaseUrl => $"/feed/{Did}/{RKey}";
+        public string BaseUrl => $"{Author.BaseUrl}/feed/{RKey}";
 
         public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data?.AvatarCid, Author.Pds);
 

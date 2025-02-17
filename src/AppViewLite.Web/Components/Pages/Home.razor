@@ -6,6 +6,6 @@
     protected override void OnInitialized()
     {
         if (RequestContext.IsLoggedIn) Navigation.NavigateTo("/following");
-        else Navigation.NavigateTo("/feed/did:plc:z72i7hdynmk6r22z27h6tvur/whats-hot");
+        else Navigation.NavigateTo("/@bsky.app/feed/whats-hot");
     }
 }

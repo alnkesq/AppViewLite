@@ -11,8 +11,7 @@
     private BlueskyProfile[] Reposters = [];
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
-        (Reposters, NextContinuation) = await Apis.GetPostRepostersAsync(Did, RKey, Continuation, default, RequestContext);
+        (Reposters, NextContinuation) = await Apis.GetPostRepostersAsync(await Apis.ResolveHandleAsync(Did), RKey, Continuation, default, RequestContext);
     }
 }
 

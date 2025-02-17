@@ -28,7 +28,7 @@ namespace AppViewLite.Models
 
         public BlueskyLabel[]? Labels;
 
-        public string BaseUrl => "/@" + Did;
+        public string BaseUrl => "/@" + (HandleIsUncertain || PossibleHandle == null ? Did : PossibleHandle);
         public string BlueskyUrl => $"https://bsky.app/profile/{Did}";
 
         public BlueskyProfileBasicInfo? BasicData;

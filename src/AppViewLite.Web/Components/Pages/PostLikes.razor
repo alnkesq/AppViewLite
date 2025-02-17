@@ -11,8 +11,7 @@
     private BlueskyProfile[] Likers = [];
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
-        (Likers, NextContinuation) = await Apis.GetPostLikersAsync(Did, RKey, Continuation, default, RequestContext);
+        (Likers, NextContinuation) = await Apis.GetPostLikersAsync(await Apis.ResolveHandleAsync(Did), RKey, Continuation, default, RequestContext);
     }
 }
 

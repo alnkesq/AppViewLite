@@ -9,6 +9,6 @@
     protected override async Task OnParametersSetAsync()
     {
         Did = (await Apis.ResolveHandleAsync(Did));
-        Navigation.NavigateTo("/feed/" + Did + "/" + RKey);
+        Navigation.NavigateTo("/@" + Did + "/feed/" + RKey);
     }
 }

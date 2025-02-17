@@ -11,8 +11,7 @@
     private BlueskyPost[] Posts = [];
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
-        (Posts, NextContinuation) = await Apis.GetPostQuotesAsync(Did, RKey, Continuation, default, RequestContext);
+        (Posts, NextContinuation) = await Apis.GetPostQuotesAsync(await Apis.ResolveHandleAsync(Did), RKey, Continuation, default, RequestContext);
     }
 }
 

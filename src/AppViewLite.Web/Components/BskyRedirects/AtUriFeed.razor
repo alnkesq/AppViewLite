@@ -6,6 +6,6 @@
     [Parameter] public required string RKey { get; set; }
     protected override void OnParametersSet()
     {
-        Navigation.NavigateTo($"/feed/{Did}/{RKey}");
+        Navigation.NavigateTo($"/@{Did}/feed/{RKey}");
     }
 }

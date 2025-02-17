@@ -58,6 +58,15 @@ function updateHandlesForDid(did) {
         a.classList.toggle('handle-invalid', !handle);
     }
     if (handle) {
+        for (const a of document.querySelectorAll("a[href*='/@" + did + "']")) { 
+            var url = new URL(a.href);
+            if (url.origin == location.origin) { 
+                var segments = url.pathname.split('/');
+                if (segments[1] == '@' + did) { 
+                    a.href = '/@' + handle + url.pathname.substring(did.length + 2);
+                }
+            }
+        }
         for (const a of document.querySelectorAll('.profile-badge-pending[data-badgedid="' + did + '"][data-badgehandle="' + handle.toLowerCase() + '"]')) {
             a.classList.remove('profile-badge-pending');
         }

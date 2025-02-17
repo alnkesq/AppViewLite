@@ -19,7 +19,7 @@ namespace AppViewLite.Models
         public RelationshipStr ListIdStr;
         public BlueskyProfile Author;
         public string RKey => ListIdStr.RKey;
-        public string BaseUrl => $"/@{Did}/lists/{RKey}";
+        public string BaseUrl => $"{Author.BaseUrl}/lists/{RKey}";
 
         public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data?.AvatarCid, Author.Pds);
     }

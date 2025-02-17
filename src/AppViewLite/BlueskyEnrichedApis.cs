@@ -31,6 +31,7 @@ using AppViewLite;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
+using NNostr.Client;
 
 namespace AppViewLite
 {
@@ -1139,16 +1140,46 @@ namespace AppViewLite
             var wantMore = Math.Max(1, limit - thread.Count) + 1;
 
             PostId? parsedContinuation = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : null;
-            var otherReplies = WithRelationshipsLock(rels => rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x)).ToArray());
+            var otherReplyGroups = WithRelationshipsLock(rels =>
+            {
+                var groups = new List<List<BlueskyPost>>();
+
+                var otherReplies = rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x)).ToArray();
+                foreach (var otherReply in otherReplies)
+                {
+                    var group = new List<BlueskyPost>();
+                    group.Add(otherReply);
+                    var lastAdded = otherReply;
+                    while (lastAdded.ReplyCount != 0)
+                    {
+                        var subReplies = rels.DirectReplies.GetValuesUnsorted(lastAdded.PostId);
+                        var bestSubReply = subReplies
+                            .Where(x => x.Author == focalPostId.Author || x.Author == otherReply.AuthorId || otherReplies.Length == 1)
+                            .Select(x => (PostId: x, LikeCount: rels.Likes.GetApproximateActorCount(x)))
+                            .OrderByDescending(x => x.PostId.Author == focalPostId.Author)
+                            .ThenByDescending(x => x.LikeCount)
+                            .ThenByDescending(x => x.PostId.PostRKey.Date)
+                            .FirstOrDefault();
+                        if (bestSubReply == default) break;
+                        lastAdded = rels.GetPost(bestSubReply.PostId);
+                        group.Add(lastAdded);
+                        if (otherReplies.Length >= 2 && group.Count >= 4) break;
+                        if (otherReplies.Length >= 3 && group.Count >= 2) break;
+                    }
+                    groups.Add(group);
+                }
+
+                return groups;
+            });
 
             string? nextContinuation = null;
-            if (otherReplies.Length == wantMore)
+            if (otherReplyGroups.Count == wantMore)
             {
-                otherReplies = otherReplies.AsSpan(0, otherReplies.Length - 1).ToArray();
-                nextContinuation = otherReplies[^1].PostId.Serialize(); // continuation is exclusive, so UI-last instead of core-last
+                otherReplyGroups.RemoveAt(otherReplyGroups.Count - 1);
+                nextContinuation = otherReplyGroups[^1][0].PostId.Serialize(); // continuation is exclusive, so UI-last instead of core-last
             }
 
-            thread.AddRange(otherReplies.OrderByDescending(x => x.LikeCount).ThenByDescending(x => x.Date));
+            thread.AddRange(otherReplyGroups.OrderByDescending(x => x[0].LikeCount).ThenByDescending(x => x[0].Date).SelectMany(x => x));
             await EnrichAsync(thread.ToArray(), ctx, focalPostAuthor: focalPostId.Author);
             return new(thread.ToArray(), nextContinuation);
         }

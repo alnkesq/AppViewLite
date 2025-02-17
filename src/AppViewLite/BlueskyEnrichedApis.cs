@@ -1739,9 +1739,16 @@ namespace AppViewLite
                         bool ShouldInclude(BlueskyPost post)
                         {
                             if (post.RepostedBy != null) return true;
-                            if (post.RootPostId.Author != post.AuthorId && post.InReplyToPostId?.Author != post.AuthorId)
+                            if (post.Data?.Deleted == true) return false;
+
+                            if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
                             {
-                                if (!possibleFollows.IsStillFollowedRequiresLock(post.RootPostId.Author) && post.RootPostId.Author != loggedInUser)
+                                if (!possibleFollows.IsStillFollowedRequiresLock(rootAuthor) && rootAuthor != loggedInUser)
+                                    return false;
+                            }
+                            if (post.InReplyToPostId is { Author: var inReplyTo } && inReplyTo != post.AuthorId)
+                            {
+                                if (!possibleFollows.IsStillFollowedRequiresLock(inReplyTo) && inReplyTo != loggedInUser)
                                     return false;
                             }
                             return true;

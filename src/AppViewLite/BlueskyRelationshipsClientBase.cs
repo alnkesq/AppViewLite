@@ -148,7 +148,7 @@ namespace AppViewLite
 
         
 
-        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func)
+        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, string? reason = null)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
@@ -176,7 +176,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold, reason);
             }
         }
 
@@ -236,13 +236,13 @@ namespace AppViewLite
                 return false;
             });
         }
-        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func)
+        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, string? reason = null)
         {
             WithRelationshipsWriteLock(rels =>
             {
                 func(rels);
                 return false;
-            });
+            }, reason);
         }
         public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func)
         {
@@ -257,7 +257,7 @@ namespace AppViewLite
         public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
         public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
 
-        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold)
+        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold, string? reason = null)
         {
             if (sw == null) return;
 
@@ -283,7 +283,7 @@ namespace AppViewLite
                         break;
                 }
  
-                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null));
+                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();

@@ -43,15 +43,16 @@ namespace AppViewLite
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
+            var slash = path!.IndexOf('/');
+            var collection = path.Substring(0, slash);
+            var rkey = path.Substring(slash + 1);
+            var deletionDate = DateTime.UtcNow;
+
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
-                var slash = path!.IndexOf('/');
-                var collection = path.Substring(0, slash);
-                var rkey = path.Substring(slash + 1);
-                var deletionDate = DateTime.UtcNow;
                 var commitPlc = relationships.SerializeDid(commitAuthor);
 
                 if (collection == Generator.RecordType)
@@ -111,7 +112,7 @@ namespace AppViewLite
 
                 relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();
-            });
+            }, "Delete " + collection);
         }
 
         record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
@@ -281,7 +282,7 @@ namespace AppViewLite
                 {
                     if (!generateNotifications) relationships.SuppressNotificationGeneration--;
                 }
-            });
+            }, reason: "Create " + record.Type);
 
             if (continueOutsideLock != null)
             {

@@ -1822,6 +1822,11 @@ namespace AppViewLite
 
                             void AddCore(BlueskyPost post)
                             {
+                                if (threadLength != 0)
+                                {
+                                    post.RepostedBy = null;
+                                    post.RepostDate = null;
+                                }
                                 alreadyReturnedPosts.Add(post.PostId);
                                 alreadySampledPost.Add(post.PostId);
                                 finalPosts.Add(post);

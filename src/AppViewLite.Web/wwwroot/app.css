@@ -207,7 +207,7 @@ main {
     }
 }
 
-@media (max-width: 793px) {
+@media (max-width: 700px) {
     .page {
         flex-direction: row;
     }
@@ -339,7 +339,7 @@ h1 {
 }
 
 body {
-    max-width: 1000px;
+    max-width: 820px;
     margin: 0 auto;
 
 }
@@ -567,7 +567,7 @@ ul {
 
 .post-image {
     width: 100%;
-    max-height: 780px;
+    max-height: 700px;
     object-fit: cover;
     pointer-events: all;
 }

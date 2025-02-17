@@ -6,6 +6,7 @@ html, body, button {
 html {
     overflow-y: scroll;
     overflow-x: hidden;
+    font-size: 15px;
 }
 
 
@@ -405,7 +406,7 @@ ul {
 
 .post-focal > .post-body {
     margin-top: 5px;
-    font-size: 16pt;
+    font-size: 18.75px;
     margin-bottom: 5px;
 }
 

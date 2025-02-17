@@ -1569,7 +1569,7 @@ namespace AppViewLite
             if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video_playlist or ThumbnailSize.feed_video_blob)
             {
 
-                if (isNativeAtProto && size == ThumbnailSize.feed_video_playlist)
+                if (isNativeAtProto && size is ThumbnailSize.feed_video_playlist or ThumbnailSize.video_thumbnail)
                 {
                     cdn = "https://video.bsky.app";
                 }

@@ -1828,7 +1828,7 @@ namespace AppViewLite
                                 threadLength++;
                             }
 
-                            if (post.InReplyToPostId is { } inReplyToPostId)
+                            if (post.InReplyToPostId is { } inReplyToPostId && (!post.IsRepost || allOriginalPostsAndReplies.Contains(inReplyToPostId)))
                             {
 
                                 var parent = rels.GetPost(inReplyToPostId);

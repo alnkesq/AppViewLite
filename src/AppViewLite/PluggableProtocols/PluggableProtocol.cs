@@ -70,6 +70,9 @@ namespace AppViewLite.PluggableProtocols
 
         public void OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex)
         {
+            if (postId.Tid != default)
+                BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.Tid);
+                
             rootPostId ??= inReplyTo ?? postId;
             EnsureOwnDid(postId.Did);
 

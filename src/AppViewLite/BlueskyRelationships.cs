@@ -2699,7 +2699,15 @@ namespace AppViewLite
                 return false;
             };
         }
+
+
+        internal static void EnsureNotExcessivelyFutureDate(Tid tid)
+        {
+            if ((tid.Date - DateTime.UtcNow).TotalMinutes > 10)
+                throw new UnexpectedFirehoseDataException("Post date is too much in the future.");
+        }
     }
+
 
     public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);
 }

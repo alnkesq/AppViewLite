@@ -211,6 +211,7 @@ namespace AppViewLite
                     else if (record is Post p)
                     {
                         var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
+                        BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
                         var proto = relationships.StorePostInfoExceptData(p, postId);
                         if (proto != null)
                         {

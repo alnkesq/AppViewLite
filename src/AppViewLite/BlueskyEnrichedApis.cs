@@ -1633,12 +1633,13 @@ namespace AppViewLite
             var now = DateTime.UtcNow;
             var minDate = now.AddDays(-2);
 
-            
+
+            var loggedInUser = ctx.LoggedInUser;
+
             var (possibleFollows, users) = WithRelationshipsLock(rels =>
             {
 
-
-                var possibleFollows = rels.GetFollowingFast(ctx.LoggedInUser);
+                var possibleFollows = rels.GetFollowingFast(loggedInUser);
 
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx.LoggedInUser);
 
@@ -1650,7 +1651,7 @@ namespace AppViewLite
                         .ToArray();
                     var reposts = rels.UserToRecentReposts
                         .GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default))
-                        .Where(x => !isPostSeen(x.PostId))
+                        .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
                         .ToArray();
 
                     if (posts.Length == 0 && reposts.Length == 0) return default;
@@ -1659,7 +1660,7 @@ namespace AppViewLite
                     return (
                         Plc: plc,
                         Posts: posts
-                            .Where(x => x.InReplyTo == default || possibleFollows.IsStillFollowedRequiresLock(x.InReplyTo))
+                            .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowedRequiresLock(x.InReplyTo))
                             .Select(x => (x.InReplyTo, PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
                             .ToArray(), 
                        Reposts: reposts
@@ -1740,7 +1741,7 @@ namespace AppViewLite
                             if (post.RepostedBy != null) return true;
                             if (post.RootPostId.Author != post.AuthorId && post.InReplyToPostId?.Author != post.AuthorId)
                             {
-                                if (!possibleFollows.IsStillFollowedRequiresLock(post.RootPostId.Author))
+                                if (!possibleFollows.IsStillFollowedRequiresLock(post.RootPostId.Author) && post.RootPostId.Author != loggedInUser)
                                     return false;
                             }
                             return true;

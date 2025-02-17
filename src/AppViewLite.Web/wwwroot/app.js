@@ -964,13 +964,6 @@ function onInitialLoad() {
             }
         }
 
-        if (target.tagName == 'VIDEO') { 
-            if (target.paused) target.play();
-            else target.pause();
-            e.preventDefault();
-            return;
-        }
-
         if (fastNavigateIfLink(e))
             return;
 

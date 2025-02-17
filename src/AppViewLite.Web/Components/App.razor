@@ -6,11 +6,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <base href="/" />
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["AppViewLite.Web.styles.css"]" />
     <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="icon" type="image/png" href="@Assets["favicon.png"]" />
     <HeadOutlet />
 </head>
 
@@ -31,10 +29,10 @@
             </AppViewLite.Web.Components.Layout.MainLayout>
         </ErrorContent>
     </ErrorBoundary>
-    <script src="/lib/microsoft/signalr/dist/browser/signalr.js"></script>
-    <script src="/lib/twemoji.min.js"></script>
-    <script src="/lib/hls.min.js"></script>
-    <script src="/app.js"></script>
+    <script src="@Assets["lib/microsoft/signalr/dist/browser/signalr.js"]"></script>
+    <script src="@Assets["lib/twemoji.min.js"]"></script>
+    <script src="@Assets["lib/hls.min.js"]"></script>
+    <script src="@Assets["app.js"]"></script>
 
 </body>
 

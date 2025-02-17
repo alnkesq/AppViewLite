@@ -1670,6 +1670,7 @@ namespace AppViewLite
                 return (possibleFollows, userPosts);
             });
 
+            var alreadySampledPost = new HashSet<PostId>();
             var alreadyReturnedPost = new HashSet<PostId>();
             var finalPosts = new List<BlueskyPost>();
 
@@ -1679,6 +1680,9 @@ namespace AppViewLite
             var bestRepostsByUser = users.Select(user => user.Reposts.Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date))).OrderByDescending(x => x.PerUserScore).ToQueue())
                 .Where(x => x.Count != 0)
                 .ToList();
+
+            var allOriginalPostsAndReplies = bestOriginalPostsByUser.SelectMany(x => x).Select(x => x.PostId).ToHashSet();
+
 
             var mergedFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
             var mergedNonFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
@@ -1695,7 +1699,7 @@ namespace AppViewLite
                     {
                         while (user.TryDequeue(out var post))
                         {
-                            if (alreadyReturnedPost.Add(post.PostId))
+                            if (alreadySampledPost.Add(post.PostId))
                             {
                                 if (post.IsAuthorFollowed)
                                     followedPostsToEnqueue.Add(new(post, user));
@@ -1741,10 +1745,62 @@ namespace AppViewLite
                             }
                             return true;
                         }
+
+                        BlueskyPost? TryGetBestReply(BlueskyPost post)
+                        {
+                            if (post.ReplyCount == 0) return null;
+
+                            var replies = new List<ScoredBlueskyPost>();
+                            foreach (var chunk in rels.DirectReplies.GetValuesChunked(post.PostId))
+                            {
+                                foreach (var reply in chunk.AsSmallSpan())
+                                {
+                                    if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPost.Contains(reply))
+                                    {
+                                        var likeCount = rels.Likes.GetApproximateActorCount(reply);
+                                        replies.Add(new ScoredBlueskyPost(reply, default, true, likeCount, GetBalancedFeedPerUserScore(likeCount, now - reply.PostRKey.Date), 0));
+                                    }
+                                }
+                            }
+                            if (replies.Count == 0) return null;
+                            foreach (var reply in replies.OrderByDescending(x => (x.PostId.Author == post.AuthorId, x.PerUserScore)))
+                            {
+                                var p = rels.GetPost(reply.PostId);
+                                if (ShouldInclude(p)) return p;
+                            }
+
+                            return null;
+                        }
                         bool MaybeAddToFinalPostList(ScoredBlueskyPost postScore)
                         {
+                            if (!alreadyReturnedPost.Add(postScore.PostId)) return false;
+
                             var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost);
                             if (!ShouldInclude(post)) return false;
+                            if (post.ReplyCount != 0)
+                            {
+                                var bestReply = TryGetBestReply(post);
+                                if (bestReply != null)
+                                {
+                                    alreadyReturnedPost.Add(bestReply.PostId);
+                                    alreadySampledPost.Add(bestReply.PostId);
+
+                                    if (post.IsRootPost)
+                                    {
+                                        var bestGrandReply = TryGetBestReply(bestReply);
+                                        if (bestGrandReply != null)
+                                        {
+                                            alreadyReturnedPost.Add(bestGrandReply.PostId);
+                                            alreadySampledPost.Add(bestGrandReply.PostId);
+                                            finalPosts.Add(bestGrandReply);
+                                            return true;
+                                        }
+                                    }
+                                    // parent will be implicitly included later.
+                                    finalPosts.Add(bestReply);
+                                    return true;
+                                }
+                            }
                             finalPosts.Add(post);
                             return true;
                         }

@@ -147,6 +147,7 @@ namespace AppViewLite.Storage
         public List<SliceInfo> slices;
 
         public event EventHandler BeforeFlush;
+        public event EventHandler AfterFlush;
         public event EventHandler<CancelEventArgs> ShouldFlush;
         public event EventHandler BeforeWrite;
 
@@ -239,6 +240,7 @@ namespace AppViewLite.Storage
                 if (!disposing)
                     MaybeStartCompactation();
                 lastFlushed = null;
+                AfterFlush?.Invoke(this, EventArgs.Empty);
             }
         }
 

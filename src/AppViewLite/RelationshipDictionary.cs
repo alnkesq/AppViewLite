@@ -20,6 +20,7 @@ namespace AppViewLite
         private CombinedPersistentMultiDictionary<RelationshipHash, UInt24>? relationshipIdHashToApproxTarget;
         private Func<TTarget, bool, UInt24?>? targetToApproxTarget;
         public event EventHandler? BeforeFlush;
+        public event EventHandler? AfterFlush;
         public event EventHandler<CancelEventArgs>? ShouldFlush;
         public event EventHandler? BeforeWrite;
 
@@ -51,11 +52,16 @@ namespace AppViewLite
             inner.BeforeFlush += OnBeforeFlush;
             inner.BeforeWrite += OnBeforeWrite;
             inner.ShouldFlush += OnShouldFlush;
+            inner.AfterFlush += OnAfterFlush;
         }
 
         private void OnBeforeFlush(object? sender, EventArgs e)
         {
             BeforeFlush?.Invoke(this, e);
+        }
+        private void OnAfterFlush(object? sender, EventArgs e)
+        {
+            AfterFlush?.Invoke(this, e);
         }
 
         private void OnBeforeWrite(object? sender, EventArgs e)

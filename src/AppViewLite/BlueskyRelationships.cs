@@ -258,6 +258,7 @@ namespace AppViewLite
                     item.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
                     item.ShouldFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
                     item.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
+                    item.AfterFlush += (_, _) => throw new InvalidOperationException("ReadOnly mode.");
                 }
             }
             else

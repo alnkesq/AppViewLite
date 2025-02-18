@@ -15,16 +15,16 @@ namespace AppViewLite.Storage
 {
     public unsafe class MemoryMappedFileSlim : IDisposable
     {
-        public MemoryMappedFileSlim(string path)
-            : this(path, writable: false, FileShare.Read)
+        public MemoryMappedFileSlim(string path, bool randomAccess = false)
+            : this(path, writable: false, FileShare.Read, randomAccess: randomAccess)
         { 
         
         }
-        public MemoryMappedFileSlim(string path, bool writable, FileShare fileShare = FileShare.None)
+        public MemoryMappedFileSlim(string path, bool writable, FileShare fileShare = FileShare.None, bool randomAccess = false)
         {
             var access = writable ? MemoryMappedFileAccess.ReadWrite : MemoryMappedFileAccess.Read;
 
-            using var fileStream = new FileStream(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare);
+            using var fileStream = new FileStream(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare, 4096, randomAccess ? FileOptions.RandomAccess : FileOptions.None);
             _length = fileStream.Length;
             mmap = MemoryMappedFile.CreateFromFile(fileStream, null, 0, access, HandleInheritability.None, false);
             var stream = mmap.CreateViewStream(0, 0, access);

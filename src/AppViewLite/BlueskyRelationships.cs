@@ -309,7 +309,7 @@ namespace AppViewLite
             var date = postId.PostRKey.Date;
             if (date < ApproximateDateTime24.MinValueAsDateTime)
             {
-                return saturate ? 0 : null;
+                return saturate ? default : null;
             }
             if (date > ApproximateDateTime24.MaxValueAsDateTime)
             {

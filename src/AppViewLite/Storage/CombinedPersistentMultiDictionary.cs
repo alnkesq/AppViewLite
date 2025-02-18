@@ -706,7 +706,7 @@ namespace AppViewLite.Storage
                 foreach (var group in groupedSlices)
                 {
                     var mostRecent = group.Values[^1];
-                    output.AddPresorted(group.Key, mostRecent);
+                    output.AddPresorted(group.Key, mostRecent.Span.AsSmallSpan);
                 }
 
             }

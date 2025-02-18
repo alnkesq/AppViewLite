@@ -3,6 +3,9 @@ using System;
 using System.Collections.Generic;
 using AppViewLite;
 using AppViewLite.Numerics;
+using System.Runtime.CompilerServices;
+using System.IO;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
@@ -11,21 +14,57 @@ namespace AppViewLite.Storage
         private readonly SimpleColumnarReader columnarReader;
         public string PathPrefix;
         private readonly PersistentDictionaryBehavior behavior;
+        private DangerousHugeReadOnlyMemory<TKey> pageKeys;
+        private readonly MemoryMappedFileSlim? pageKeysMmap;
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
-        public ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
+        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
             this.columnarReader = new SimpleColumnarReader(pathPrefix, IsSingleValue ? 2 : 3);
             this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
             if (!IsSingleValue)
-                this.Offsets = columnarReader.GetColumnHugeMemory<UInt48>(2); 
-            this.MinimumKey = Keys[0];
-            this.MaximumKey = Keys[Keys.Length - 1];
+                this.Offsets = columnarReader.GetColumnHugeMemory<UInt48>(2);
+
+            if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)
+            {
+                var keyCachePath = pathPrefix + ".keys" + KeyCountPerPage + ".cache";
+                if (!File.Exists(keyCachePath))
+                {
+                    using (var cacheStream = new FileStream(keyCachePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        var keySpan = Keys.Span;
+                        for (long i = 0; i < keySpan.Length; i += KeyCountPerPage)
+                        {
+                            var startKey = keySpan[i];
+                            cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in startKey)));
+                        }
+                        var maxKey = keySpan[keySpan.Length - 1];
+                        cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in maxKey)));
+                    }
+                    File.Move(keyCachePath + ".tmp", keyCachePath);
+                }
+                this.pageKeysMmap = new MemoryMappedFileSlim(keyCachePath);
+                var pageKeysPlusLast = new DangerousHugeReadOnlyMemory<TKey>((TKey*)(void*)pageKeysMmap.Pointer, pageKeysMmap.Length / Unsafe.SizeOf<TKey>());
+                this.MinimumKey = pageKeysPlusLast[0];
+                this.MaximumKey = pageKeysPlusLast[pageKeysPlusLast.Length - 1];
+                this.pageKeys = pageKeysPlusLast.Slice(0, pageKeysPlusLast.Length - 1);
+            }
+            else
+            {
+
+                this.MinimumKey = Keys[0];
+                this.MaximumKey = Keys[Keys.Length - 1];
+            }
+
         }
 
+        const int MinSizeBeforeKeyCache = 2 * 1024 * 1024;
+        const int TargetPageSizeBytes = 4 * 1024;
+
+        public unsafe readonly static int KeyCountPerPage = TargetPageSizeBytes / sizeof(TKey);
 
 
         public HugeReadOnlyMemory<TKey> Keys;
@@ -41,6 +80,8 @@ namespace AppViewLite.Storage
         public void Dispose()
         {
             columnarReader.Dispose();
+            pageKeysMmap?.Dispose();
+            pageKeys = default;
         }
 
         public long GetIndex(TKey key)
@@ -164,7 +205,67 @@ namespace AppViewLite.Storage
         {
             if (comparable.CompareTo(MinimumKey) < 0) return ~0;
             if (comparable.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
-            return HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+
+#if true
+            var result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+
+            if (pageKeys.Length != 0)
+            {
+                var fast = BinarySearchPaginated(comparable);
+                if (fast != result)
+                    CombinedPersistentMultiDictionary.Abort(new Exception("Paginated binary search mismatch"));
+            }
+            return result;
+#else
+
+
+            if (pageKeys.Length != 0)
+            {
+                return BinarySearchPaginated(comparable);
+            }
+            else
+            {
+                return HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+            }
+#endif
+
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        private long BinarySearchPaginated<TComparable>(TComparable comparable) where TComparable : IComparable<TKey>, allows ref struct
+        {
+            var keyCacheSpan = this.pageKeys.Span;
+            var pageIndex = HugeSpanHelpers.BinarySearch(keyCacheSpan, comparable);
+            if (pageIndex < 0)
+            {
+                pageIndex = (~pageIndex) - 1;
+                var keySpan = this.Keys.Span;
+                var pageBaseIndex = pageIndex * KeyCountPerPage;
+                var page =
+                    (
+                        pageIndex == keyCacheSpan.Length - 1 
+                            ? keySpan.Slice(pageBaseIndex)
+                            : keySpan.Slice(pageBaseIndex, KeyCountPerPage)
+                    ).AsSmallSpan;
+
+                var innerIndex = page.BinarySearch(comparable);
+                if (innerIndex < 0)
+                {
+
+                    innerIndex = ~innerIndex;
+                    return ~(pageBaseIndex + innerIndex);
+                }
+                else
+                {
+                    return pageBaseIndex + innerIndex;
+                }
+                
+            }
+            else
+            {
+                // this page starts exactly with the key we want.
+                return pageIndex * KeyCountPerPage;
+            }
         }
     }
 }

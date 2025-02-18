@@ -331,6 +331,7 @@ namespace AppViewLite
             return GetApproxPlc24(rkeyHash.Plc, saturate);
         }
 
+        protected bool IsDisposing;
         public bool IsDisposed => _disposed;
 
 
@@ -341,6 +342,7 @@ namespace AppViewLite
             Lock.EnterWriteLock();
             try
             {
+                IsDisposing = true;
                 if (!_disposed)
                 {
                     foreach (var d in disposables)

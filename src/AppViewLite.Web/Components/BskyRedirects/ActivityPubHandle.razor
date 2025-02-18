@@ -8,6 +8,6 @@
     [Parameter] public string? Rest { get; set; }
     protected override void OnParametersSet()
     {
-        Navigation.NavigateTo("/@" + ActivityPubProtocol.GetDid(new ActivityPubUserId(Instance, UserName)) + Rest);
+        Navigation.NavigateTo("/@" + ActivityPubProtocol.GetDid(new ActivityPubUserId(Instance, UserName)) + (string.IsNullOrEmpty(Rest) ? null : "/" + Rest));
     }
 }

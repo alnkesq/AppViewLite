@@ -465,7 +465,9 @@ function applyPageElements() {
                     post.querySelectorAll('video').forEach(x => x.pause());
                     postsInViewport = postsInViewport.filter(x => x != post);
                 }
-                var postList = [...document.querySelector('.post-list').children];
+                var postListElement = document.querySelector('.post-list');
+                if (!postListElement) return;
+                var postList = [...postListElement.children];
                 var postIndexes = postsInViewport.map(x => postList.indexOf(x)).filter(x => x != -1);
                 postIndexes.sort();
                 var firstVisiblePost = postIndexes.length ? postList[postIndexes[0]] : null;

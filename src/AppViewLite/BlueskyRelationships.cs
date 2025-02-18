@@ -417,10 +417,15 @@ namespace AppViewLite
         private void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
             if (IsReadOnly) return;
-            var keep = new DirectoryInfo(BaseDirectory + "/checkpoints")
-                .EnumerateFiles("*.pb")
+            var allCheckpoints = new DirectoryInfo(BaseDirectory + "/checkpoints").EnumerateFiles("*.pb").ToArray();
+            
+            var checkpointsToKeep =
+                allCheckpoints
                 .OrderByDescending(x => x.LastWriteTimeUtc)
                 .Take(3)
+                .ToArray();
+
+            var keep = checkpointsToKeep
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
@@ -444,6 +449,13 @@ namespace AppViewLite
                         file.Delete();
                     }
                 }
+            }
+
+            var checkpointsToKeepHashset = checkpointsToKeep.Select(x => x.Name).ToHashSet();
+            foreach (var checkpoint in allCheckpoints)
+            {
+                if (!checkpointsToKeepHashset.Contains(checkpoint.Name))
+                    checkpoint.Delete();
             }
         }
 

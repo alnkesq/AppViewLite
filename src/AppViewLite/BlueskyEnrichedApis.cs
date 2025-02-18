@@ -31,7 +31,6 @@ using AppViewLite;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
-using NNostr.Client;
 
 namespace AppViewLite
 {
@@ -982,17 +981,26 @@ namespace AppViewLite
                 new MergeablePostEnumerator(parsedContinuation.MaxTidPosts, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Post.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
-                    return posts.Records.Select(x => new PostReference(x.Uri.Rkey, new PostIdString(did, x.Uri.Rkey), (Post)x.Value)).ToArray();
+                    return posts.Records.Select(x =>
+                    {
+                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey, new PostIdString(did, x.Uri.Rkey), (Post)x.Value));
+                    }).Where(x => x != default).ToArray();
                 }, CollectionKind.Posts),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidReposts, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
-                    return posts.Records.Select(x => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!))).ToArray();
+                    return posts.Records.Select(x => 
+                    {
+                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!)));
+                    }).Where(x => x != default).ToArray();
                 }, CollectionKind.Reposts),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidLikes, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
-                    return posts.Records.Select(x => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!))).ToArray();
+                    return posts.Records.Select(x => 
+                    {
+                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!)));
+                    }).Where(x => x != default).ToArray();
                 }, CollectionKind.Likes),
 
             ];
@@ -1087,6 +1095,21 @@ namespace AppViewLite
 
         }
 
+        private static PostReference TryGetPostReference(Func<PostReference> func)
+        {
+            try
+            {
+                var reference = func();
+                if (!Tid.TryParse(reference.RKey, out _)) return default;
+                if (!Tid.TryParse(reference.PostId.RKey, out _)) return default;
+                return reference;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return default;
+            }
+        }
 
         public async Task<PostsAndContinuation> GetPostThreadAsync(string did, string rkey, int limit, string? continuation, RequestContext ctx)
         {

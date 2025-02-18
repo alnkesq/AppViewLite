@@ -209,7 +209,7 @@ namespace AppViewLite.Storage
 #if true
             var result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
-            if (pageKeys.Length != 0)
+            if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
                 var fast = BinarySearchPaginated(comparable);
                 if (fast != result)

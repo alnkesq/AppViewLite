@@ -746,6 +746,22 @@ namespace AppViewLite.Storage
             // Don't commit yet (see caller)
         }
 
+
+        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> EnumerateUnsortedGrouped()
+        {
+            foreach (var slice in slices)
+            {
+                foreach (var group in slice.Reader.Enumerate())
+                {
+                    yield return group;
+                }
+            }
+            foreach (var q in queue.Groups)
+            {
+                yield return (q.Key, q.Value.ValuesUnsortedArray);
+            }
+        }
+
         public IEnumerable<(TKey Key, TValue Value)> EnumerateUnsorted()
         {
             foreach (var slice in slices)

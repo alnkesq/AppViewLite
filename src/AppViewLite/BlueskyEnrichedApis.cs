@@ -194,11 +194,14 @@ namespace AppViewLite
                 }
             });
 
-            foreach (var profile in profiles)
+            if (!IsReadOnly)
             {
-                if (profile.HandleIsUncertain)
+                foreach (var profile in profiles)
                 {
-                    VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx).FireAndForget();
+                    if (profile.HandleIsUncertain)
+                    {
+                        VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx).FireAndForget();
+                    }
                 }
             }
 
@@ -1297,7 +1300,7 @@ namespace AppViewLite
 
             var now = DateTime.UtcNow;
 
-            if (result == null || (now - result.RetrievalDate).TotalHours > 6)
+            if (result == null || ((now - result.RetrievalDate).TotalHours > 6 && !IsReadOnly))
             { 
                 var recordOutput = await GetRecordAsync(did, Generator.RecordType, rkey);
                 var generator = (Generator)recordOutput!.Value!;

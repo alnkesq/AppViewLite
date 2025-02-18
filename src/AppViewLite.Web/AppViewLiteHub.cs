@@ -45,6 +45,7 @@ namespace AppViewLite.Web
 
         public void VerifyUncertainHandlesForDids(string[] dids)
         {
+            if (apis.IsReadOnly) return;
             var ctx = RequestContext;
             
             var pairs = apis.WithRelationshipsLockForDids(dids, (plcs, rels) =>

@@ -82,7 +82,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                     
                     await BoardIterationAsync(boardId, ct);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
                     Console.Error.WriteLine(ex);
                 }

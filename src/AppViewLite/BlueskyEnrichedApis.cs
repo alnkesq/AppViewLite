@@ -191,7 +191,7 @@ namespace AppViewLite
                     profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
                     profile.Labels = rels.GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
-            });
+            }, ctx);
 
             if (!IsReadOnly)
             {
@@ -320,21 +320,22 @@ namespace AppViewLite
                     }
                     post.Labels = rels.GetPostLabels(post.PostId, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
-            });
+            }, ctx);
 
 
             var postIdToPost = posts.ToLookup(x => x.PostId);
 
             var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
-            toLookup = WithRelationshipsLock(rels => toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray());
 
             WithRelationshipsLock(rels =>
             {
+                toLookup = toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray();
+
                 foreach (var post in posts.Where(x => x.Data != null))
                 {
                     OnRecordReceived(rels, post.PostId);
                 }
-            });
+            }, ctx);
 
      
 
@@ -481,7 +482,7 @@ namespace AppViewLite
                             }
 
                         }
-                    });
+                    }, ctx);
                 }
             }
             return posts;
@@ -1359,7 +1360,7 @@ namespace AppViewLite
                 return merged
                     .Take(limit)
                     .ToArray();
-            });
+            }, ctx);
             await EnrichAsync(posts, ctx);
             return (posts, posts.LastOrDefault()?.PostId.Serialize());
         }
@@ -1653,10 +1654,10 @@ namespace AppViewLite
             return "?pds=" + Uri.EscapeDataString(pds ?? string.Empty) + "&name=" + Uri.EscapeDataString(fileNameForDownload ?? string.Empty);
         }
 
-        public long GetNotificationCount(AppViewLiteSession ctx)
+        public long GetNotificationCount(AppViewLiteSession ctx, RequestContext reqCtx)
         {
             if (!ctx.IsLoggedIn) return 0;
-            return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value));
+            return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value), reqCtx);
         }
 
 
@@ -1671,7 +1672,7 @@ namespace AppViewLite
                 var posts = rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-7), maxTid);
                 var normalized = rels.EnumerateFeedWithNormalization(posts, alreadyReturned);
                 return normalized.Take(limit).ToArray();
-            });
+            }, ctx);
             await EnrichAsync(posts, ctx);
             return new PostsAndContinuation(posts, posts.Length != 0 ? posts[^1].PostId.PostRKey.ToString() : null);
         }
@@ -1726,7 +1727,7 @@ namespace AppViewLite
                        );
                 }).Where(x => x.Plc != default).ToArray();
                 return (possibleFollows, userPosts);
-            });
+            }, ctx);
 
             var alreadySampledPost = new HashSet<PostId>();
             var alreadyReturnedPosts = new HashSet<PostId>();
@@ -1925,7 +1926,7 @@ namespace AppViewLite
                                 }
                             }
                         }
-                    });
+                    }, ctx);
 
                     if (usersDeservingFollowedPostResampling.Count == 0 && usersDeservingNonFollowedPostResampling.Count == 0) break;
 
@@ -2319,7 +2320,7 @@ namespace AppViewLite
                 await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(x.Key.LabelerDid);
                 foreach (var label in x)
                 {
-                    var data = WithRelationshipsLock(rels => rels.TryGetLabelData(label.LabelId));
+                    var data = WithRelationshipsLock(rels => rels.TryGetLabelData(label.LabelId), ctx);
                     label.Data = data;
                 }
             }));

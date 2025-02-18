@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -116,9 +117,50 @@ namespace AppViewLite
         }
 
 
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func)
+        private ConcurrentQueue<UrgentReadTask> urgentReadTasks = new();
+
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx)
+        {
+            return WithRelationshipsLock(func, ctx?.IsUrgent == true);
+        }
+        public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext? ctx)
+        {
+            WithRelationshipsLock<int>(rels => 
+            {
+                func(rels);
+                return 0;
+            }, ctx);
+        }
+
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, bool urgent = false)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
+
+
+            if (urgent) 
+            {
+                var tcs = new TaskCompletionSource();
+                T urgentResult = default!;
+
+                var task = new UrgentReadTask(() => 
+                {
+
+                    urgentResult = func(relationshipsUnlocked);
+                }, tcs);
+
+                urgentReadTasks.Enqueue(task);
+
+                Task.WhenAny(task.Tcs.Task, Task.Run(() => 
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        RunPendingUrgentReadTasks();
+                    });
+                })).GetAwaiter().GetResult();
+
+                return urgentResult!;
+            }
+
 
             Stopwatch? sw = null;
             int gc = 0;
@@ -129,6 +171,7 @@ namespace AppViewLite
             try
             {
                 relationshipsUnlocked.EnsureNotDisposed();
+                RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
                 gc = GC.CollectionCount(0);
 
@@ -145,8 +188,21 @@ namespace AppViewLite
 
         }
 
-
-        
+        private void RunPendingUrgentReadTasks()
+        {
+            while (urgentReadTasks.TryDequeue(out var urgentReadTask))
+            {
+                try
+                {
+                    urgentReadTask.Run();
+                    urgentReadTask.Tcs.SetResult();
+                }
+                catch (Exception ex)
+                {
+                    urgentReadTask.Tcs.SetException(ex);
+                }
+            }
+        }
 
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, string? reason = null)
         {
@@ -163,6 +219,7 @@ namespace AppViewLite
             try
             {
                 relationshipsUnlocked.EnsureNotDisposed();
+                RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
                 gc = GC.CollectionCount(0);
 
@@ -193,6 +250,7 @@ namespace AppViewLite
             try
             {
                 relationshipsUnlocked.EnsureNotDisposed();
+                RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
                 gc = GC.CollectionCount(0);
 
@@ -347,5 +405,7 @@ namespace AppViewLite
         Write,
         Upgradeable,
     }
+
+    public record UrgentReadTask(Action Run, TaskCompletionSource Tcs);
 }
 

@@ -14,7 +14,7 @@ namespace AppViewLite
         public Task? ShortDeadline { get; private set; }
         public AppViewLiteSession Session { get; set; }
         public string? SignalrConnectionId { get; set; }
-
+        public bool IsUrgent { get; }
 
 
         public static Func<string, string, object[], Task>? SendSignalrImpl;
@@ -25,12 +25,13 @@ namespace AppViewLite
             SendSignalrImpl.Invoke(SignalrConnectionId, method, arguments);
         }
 
-        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId)
+        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false)
         {
             this.longTimeout = longTimeout;
             this.shortTimeout = shortTimeout;
             this.Session = session;
             this.SignalrConnectionId = signalrConnectionId;
+            this.IsUrgent = urgent;
             InitializeDeadlines();
         }
 
@@ -40,9 +41,9 @@ namespace AppViewLite
             LongDeadline = longTimeout != null ? Task.Delay(longTimeout.Value) : null;
         }
 
-        public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null)
+        public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = false)
         {
-            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId);
+            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent);
         }
 
         public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null)

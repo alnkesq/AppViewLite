@@ -70,7 +70,8 @@ namespace AppViewLite.Web
                 var session = provider.GetRequiredService<AppViewLiteSession>();
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
                 var signalrConnectionId = httpContext?.Request.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
-                return RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId);
+                var urgent = httpContext?.Request.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0";
+                return RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent);
             });
             builder.Services.AddSignalR();
 

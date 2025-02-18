@@ -615,7 +615,7 @@ async function checkUpdatesForCurrentFeed() {
     var url = new URL(location.href);
     url.searchParams.delete('limit');
     url.searchParams.append('limit', 1);
-    var response = await fetch(url.href);
+    var response = await fetch(url.href, { headers: { 'X-AppViewLiteUrgent': 0 } });
     var html = await response.text();
     if (response.status != 200) return;
     if (token != applyPageId) return;

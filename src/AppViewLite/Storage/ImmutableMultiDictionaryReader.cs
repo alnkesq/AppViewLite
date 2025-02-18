@@ -59,8 +59,8 @@ namespace AppViewLite.Storage
             if (IsSingleValue)
                 return 1;
             var offsets = this.Offsets;
-            var startOffset = offsets[index];
-            var endOffset = index == offsets.Length - 1 ? Values.Length : offsets[index + 1];
+            ulong startOffset = offsets[index];
+            ulong endOffset = index == offsets.Length - 1 ? (ulong)Values.Length : offsets[index + 1];
             return checked((int)(endOffset - startOffset));
         }
 

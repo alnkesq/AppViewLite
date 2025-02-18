@@ -13,9 +13,25 @@ namespace AppViewLite.Numerics
             return Low.CompareTo(other.Low);
         }
 
+        public static implicit operator ulong(UInt24 n) => (ulong)(uint)n;
         public static implicit operator uint(UInt24 n) => ((uint)n.High << 8) | n.Low;
+        public static explicit operator ushort(UInt24 n) => (ushort)(uint)n;
+        public static explicit operator byte(UInt24 n) => (byte)(uint)n;
+
+        public static implicit operator long(UInt24 n) => (long)(uint)n;
+        public static implicit operator int(UInt24 n) => (int)(uint)n;
+        public static explicit operator short(UInt24 n) => (short)(uint)n;
+        public static explicit operator sbyte(UInt24 n) => (sbyte)(uint)n;
+
+        public static explicit operator UInt24(ulong n) => (UInt24)(uint)n;
         public static explicit operator UInt24(uint n) => new(checked((ushort)(n >> 8)), unchecked((byte)n));
         public static implicit operator UInt24(ushort n) => (UInt24)(uint)n;
+        public static implicit operator UInt24(byte n) => (UInt24)(uint)n;
+
+        public static explicit operator UInt24(long n) => (UInt24)(uint)n;
+        public static explicit operator UInt24(int n) => (UInt24)(uint)n;
+        public static implicit operator UInt24(short n) => (UInt24)(uint)n;
+        public static implicit operator UInt24(sbyte n) => (UInt24)(uint)n;
 
         public readonly static UInt24 MinValue = new UInt24(ushort.MinValue, byte.MinValue);
         public readonly static UInt24 MaxValue = new UInt24(ushort.MaxValue, byte.MaxValue);

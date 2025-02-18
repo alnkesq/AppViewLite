@@ -417,6 +417,7 @@ namespace AppViewLite
         private void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
             if (IsReadOnly) return;
+            if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DISABLE_SLICE_GC) == true) return;
             var allCheckpoints = new DirectoryInfo(BaseDirectory + "/checkpoints").EnumerateFiles("*.pb").ToArray();
             
             var checkpointsToKeep =

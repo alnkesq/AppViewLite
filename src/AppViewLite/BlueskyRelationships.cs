@@ -4,7 +4,6 @@ using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
-using Ipfs;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite;
@@ -310,7 +309,7 @@ namespace AppViewLite
             var date = postId.PostRKey.Date;
             if (date < ApproximateDateTime24.MinValueAsDateTime)
             {
-                return saturate ? default : null;
+                return saturate ? ApproximateDateTime24.MinValue.Value : null;
             }
             if (date > ApproximateDateTime24.MaxValueAsDateTime)
             {

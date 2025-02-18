@@ -7,9 +7,11 @@
     private long NotificationCount;
     private string LoginUrl;
     string? Announcement;
-    protected override void OnInitialized()
+
+    [Parameter] public bool NeedsNotificationCount { get; set; }
+    protected override void OnParametersSet()
     {
-        NotificationCount = Apis.GetNotificationCount(Session, RequestContext);
+        NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext) : -1;
         var url = Navigation.ToAbsoluteUri(Navigation.Uri);
         LoginUrl = url.AbsolutePath == "/login" ? "/login" : "/login?return=" + Uri.EscapeDataString(url.PathAndQuery);
         var staleness = Apis.PlcDirectoryStaleness;

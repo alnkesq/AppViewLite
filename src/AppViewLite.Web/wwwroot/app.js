@@ -527,7 +527,7 @@ async function fetchOrReusePageAsync(href, token) {
         recentPages.push(p);
         return p;
     } else { 
-        var response = await fetch(href, { signal: AbortSignal.timeout(20000) });
+        var response = await fetch(href, { signal: AbortSignal.timeout(20000), headers: { 'X-AppViewLiteOmitLayout': 1 } });
         if (response.status != 200) { 
             throw ('HTTP ' + response.status);
         }
@@ -617,7 +617,7 @@ async function checkUpdatesForCurrentFeed() {
     var url = new URL(location.href);
     url.searchParams.delete('limit');
     url.searchParams.append('limit', 1);
-    var response = await fetch(url.href, { headers: { 'X-AppViewLiteUrgent': 0 } });
+    var response = await fetch(url.href, { headers: { 'X-AppViewLiteUrgent': 0, 'X-AppViewLiteOmitLayout': 1 } });
     var html = await response.text();
     if (response.status != 200) return;
     if (token != applyPageId) return;
@@ -726,7 +726,7 @@ async function loadNextPage(allowRetry) {
     paginationButton.insertAdjacentHTML('beforeend', SPINNER_HTML)
 
     try {
-        var nextPage = await fetch(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(20000) });
+        var nextPage = await fetch(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(20000), headers: { 'X-AppViewLiteOmitLayout': 1 } });
         if (nextPage.status != 200) throw ('HTTP ' + nextPage.status);
         var temp = parseHtmlAsWrapper(await nextPage.text());
         var pageError = temp.querySelector('.page-error')?.textContent;

@@ -1275,27 +1275,30 @@ namespace AppViewLite
 
             if (proto.Language == LanguageEnum.en) proto.Language = null;
         }
-        private static void Decompress(BlueskyPostData proto, PostId postId)
+        private static void Decompress(BlueskyPostData proto, PostId postId, bool skipBpeDecompression = false)
         {
-         
-            lock (textCompressorUnlocked)
+
+            if (!skipBpeDecompression)
             {
-                textCompressorUnlocked.DecompressInPlace(ref proto.Text, ref proto.TextBpe);
-                textCompressorUnlocked.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
-                textCompressorUnlocked.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
-                textCompressorUnlocked.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
-                if (proto.Media != null)
+                lock (textCompressorUnlocked)
                 {
-                    foreach (var media in proto.Media)
+                    textCompressorUnlocked.DecompressInPlace(ref proto.Text, ref proto.TextBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
+                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
+                    if (proto.Media != null)
                     {
-                        textCompressorUnlocked.DecompressInPlace(ref media.AltText, ref media.AltTextBpe);
+                        foreach (var media in proto.Media)
+                        {
+                            textCompressorUnlocked.DecompressInPlace(ref media.AltText, ref media.AltTextBpe);
+                        }
                     }
-                }
-                if (proto.Facets != null)
-                {
-                    foreach (var facet in proto.Facets)
+                    if (proto.Facets != null)
                     {
-                        textCompressorUnlocked.DecompressInPlace(ref facet.Link, ref facet.LinkBpe);
+                        foreach (var facet in proto.Facets)
+                        {
+                            textCompressorUnlocked.DecompressInPlace(ref facet.Link, ref facet.LinkBpe);
+                        }
                     }
                 }
             }
@@ -1478,7 +1481,7 @@ namespace AppViewLite
             return proto;
         }
 
-        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId)
+        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false)
         {
             var encoding = (PostDataEncoding)postDataCompressed[0];
             postDataCompressed = postDataCompressed.Slice(1);
@@ -1491,7 +1494,7 @@ namespace AppViewLite
             {
 
                 var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(ms);
-                Decompress(proto, postId);
+                Decompress(proto, postId, skipBpeDecompression: skipBpeDecompression);
                 return proto;
             }
             //if (encoding == PostDataEncoding.BrotliProto)
@@ -1532,7 +1535,7 @@ namespace AppViewLite
                 var bpeLength = ms.Length - ms.Position;
                 proto.TextBpe = br.ReadBytes((int)bpeLength);
                 
-                Decompress(proto, postId);
+                Decompress(proto, postId, skipBpeDecompression: skipBpeDecompression);
                 return proto;
             }
         }

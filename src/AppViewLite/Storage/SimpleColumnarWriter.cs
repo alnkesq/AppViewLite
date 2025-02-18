@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -25,6 +26,10 @@ namespace AppViewLite.Storage
         public void WriteElement<T>(int columnIndex, T value) where T : unmanaged
         {
             _columnWriters[columnIndex].Writer.WriteUnmanaged(value);
+        }
+        public void WriteElementRange<T>(int columnIndex, ReadOnlySpan<T> values) where T : unmanaged
+        {
+            _columnWriters[columnIndex].Writer.Write(MemoryMarshal.AsBytes(values));
         }
 
         public void Commit()

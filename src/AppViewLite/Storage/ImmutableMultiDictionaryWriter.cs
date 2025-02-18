@@ -50,8 +50,23 @@ namespace AppViewLite.Storage
 
         public void AddPresorted(TKey key, ReadOnlySpan<TValue> sortedValues)
         {
-            if (behavior == PersistentDictionaryBehavior.SingleValue && sortedValues.Length > 1) throw new ArgumentException();
             var startOffset = currentValueOffset;
+
+            if (behavior == PersistentDictionaryBehavior.PreserveOrder)
+            {
+                if (sortedValues.IsEmpty) return;
+                writer.WriteElementRange(1, sortedValues);
+                currentValueOffset += sortedValues.Length;
+
+                writer.WriteElement(0, key);
+                WriteStartOffset(startOffset);
+                KeyCount++;
+                return;
+            }
+
+
+            if (behavior == PersistentDictionaryBehavior.SingleValue && sortedValues.Length > 1) throw new ArgumentException();
+
             TValue? prev = default;
 
             foreach (var value in sortedValues)

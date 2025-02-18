@@ -1,5 +1,6 @@
 using Microsoft.Win32.SafeHandles;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.MemoryMappedFiles;
@@ -15,11 +16,18 @@ namespace AppViewLite.Storage
     public unsafe class MemoryMappedFileSlim : IDisposable
     {
         public MemoryMappedFileSlim(string path)
+            : this(path, writable: false, FileShare.Read)
+        { 
+        
+        }
+        public MemoryMappedFileSlim(string path, bool writable, FileShare fileShare = FileShare.None)
         {
-            using var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var access = writable ? MemoryMappedFileAccess.ReadWrite : MemoryMappedFileAccess.Read;
+
+            using var fileStream = new FileStream(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare);
             _length = fileStream.Length;
-            mmap = MemoryMappedFile.CreateFromFile(fileStream, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, false);
-            var stream = mmap.CreateViewStream(0, 0, MemoryMappedFileAccess.Read);
+            mmap = MemoryMappedFile.CreateFromFile(fileStream, null, 0, access, HandleInheritability.None, false);
+            var stream = mmap.CreateViewStream(0, 0, access);
             this.handle = stream.SafeMemoryMappedViewHandle;
             handle.AcquirePointer(ref ptr);
         }
@@ -36,6 +44,7 @@ namespace AppViewLite.Storage
         private MemoryMappedFile mmap;
         private int disposed;
 
+        [Obsolete]
         public MemoryMappedMemory Memory => new MemoryMappedMemory(this, ptr, Length);
         public byte* Pointer => ptr;
         private long _length;
@@ -60,7 +69,7 @@ namespace AppViewLite.Storage
             throw new ObjectDisposedException(nameof(SafeHandle));
         }
     }
-
+    [Obsolete]
     public unsafe struct MemoryMappedMemory
     {
         public MemoryMappedMemory(MemoryMappedFileSlim handle, byte* basePtr, long length)
@@ -111,6 +120,5 @@ namespace AppViewLite.Storage
         }
         
     }
-
 }
 

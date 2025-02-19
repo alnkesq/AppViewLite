@@ -502,7 +502,17 @@ namespace AppViewLite.Storage
             return GetValuesSorted(key).DistinctAssumingOrderedInput();
         }
 
-        public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null) => GetValuesChunked(key, minExclusive, maxExclusive).SelectMany(x => x);
+        public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null)
+        {
+            if (minExclusive != null && maxExclusive == null)
+            {
+                var chunks = GetValuesChunked(key);
+                return chunks.SelectMany(chunk => chunk.Reverse().TakeWhile(x => minExclusive.Value.CompareTo(x) < 0));
+            }
+            return GetValuesChunked(key, minExclusive, maxExclusive).SelectMany(x => x);
+        }
+
+
 
         public IEnumerable<TValue> GetValuesSorted(TKey key, TValue? minExclusive = null)
         {
@@ -515,6 +525,8 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive, TValue? maxExclusive)
         {
+            if (minExclusive != null && maxExclusive == null)
+                return GetValuesSortedDescending(key, null, null).TakeWhile(x => minExclusive.Value.CompareTo(x) < 0); // avoids binary searches
             var chunks = GetValuesChunked(key, minExclusive, maxExclusive).ToArray();
             if (chunks.Length == 0) return [];
             if (chunks.Length == 1) return chunks[0].Reverse();

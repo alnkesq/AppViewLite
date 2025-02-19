@@ -114,7 +114,7 @@
 
         <div class="profile-description main-padding">
             <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
-            @if (pluggableExternalUrl != null)
+            @if (pluggableExternalUrl != null && Profile.Profile.PluggableProtocol.ShouldDisplayExternalLinkInBio)
             {
                 @if (Profile.Profile?.BasicData?.Description != null)
                 {

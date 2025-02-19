@@ -349,6 +349,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
              return string.Concat(GetNip19FromDid(did).AsSpan(0, 9), "…");
         }
 
+        public override bool ShouldDisplayExternalLinkInBio => false;
 
     }
 }

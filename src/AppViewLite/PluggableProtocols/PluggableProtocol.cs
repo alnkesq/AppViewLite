@@ -370,6 +370,7 @@ namespace AppViewLite.PluggableProtocols
         public virtual string? GetDefaultAvatar(string did) => null;
 
         public virtual string? GetDefaultBannerColor(string did) => null;
+        public virtual bool ShouldDisplayExternalLinkInBio => true;
     }
 }
 

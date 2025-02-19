@@ -1,4 +1,5 @@
 using AppViewLite.Numerics;
+using AppViewLite.PluggableProtocols;
 
 namespace AppViewLite.Models
 {
@@ -14,6 +15,7 @@ namespace AppViewLite.Models
             get
             {
                 if (DisplayName != null) return DisplayName;
+                if (PluggableProtocol.GetDisplayNameFromDid(Did) is { } username) return username;
                 if (PossibleHandle != null)
                 {
                     var at = PossibleHandle.IndexOf('@');
@@ -29,6 +31,10 @@ namespace AppViewLite.Models
         public BlueskyLabel[]? Labels;
 
         public string BaseUrl => "/@" + (HandleIsUncertain || PossibleHandle == null ? Did : PossibleHandle);
+
+        public string? FollowingUrl => PluggableProtocol != null ? PluggableProtocol.GetFollowingUrl(Did) : BaseUrl + "/following";
+        public string? FollowersUrl => PluggableProtocol != null ? PluggableProtocol.GetFollowersUrl(Did) : BaseUrl + "/followers";
+
         public string BlueskyUrl => $"https://bsky.app/profile/{Did}";
 
         public BlueskyProfileBasicInfo? BasicData;
@@ -57,6 +63,8 @@ namespace AppViewLite.Models
 
         public ProfileBadge[]? Badges;
         public DidDocProto? DidDoc;
+
+        public PluggableProtocol? PluggableProtocol;
 
         public override string ToString()
         {

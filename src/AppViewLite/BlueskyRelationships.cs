@@ -1577,7 +1577,8 @@ namespace AppViewLite
             if (possibleHandle == null && didDoc != null)
                 handleIsCertain = true;
 
-            if (TryGetPluggableProtocolForDid(did) is { } pluggable)
+            var pluggable = TryGetPluggableProtocolForDid(did);
+            if (pluggable != null)
             {
                 if (possibleHandle == null)
                 {
@@ -1616,7 +1617,8 @@ namespace AppViewLite
                 HandleIsUncertain = !handleIsCertain,
                 IsBlockedByAdministrativeRule = isBlockedByAdministrativeRule,
                 IsMediaBlockedByAdministrativeRule = isMediaBlockedByAdministrativeRule,
-                Badges = Badges.GetBadges(plc, did, possibleHandle)
+                Badges = Badges.GetBadges(plc, did, possibleHandle),
+                PluggableProtocol = pluggable,
             };
         }
 

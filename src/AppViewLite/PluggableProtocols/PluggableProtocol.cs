@@ -30,9 +30,10 @@ namespace AppViewLite.PluggableProtocols
                 throw new ArgumentException();
         }
 
-        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex)
+        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex = true)
         {
             EnsureOwnDid(did);
+            EnsureValidDid(did);
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(did)) return;
 
@@ -68,7 +69,25 @@ namespace AppViewLite.PluggableProtocols
             });
         }
 
-        public void OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex)
+        public void OnRepostDiscovered(string reposterDid, PostId postId, DateTime repostDate)
+        {
+            EnsureOwnDid(reposterDid);
+            EnsureValidDid(reposterDid);
+            if (postId == default) throw new ArgumentNullException();
+
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(reposterDid)) return;
+
+            Apis.WithRelationshipsWriteLock(rels =>
+            {
+                var reposterPlc = rels.SerializeDid(reposterDid);
+                var postDid = rels.GetDid(postId.Author);
+                if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postDid)) return;
+
+                rels.UserToRecentReposts.AddIfMissing(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
+            });
+
+        }
+        public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex = true)
         {
             if (postId.Tid != default)
                 BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.Tid);
@@ -76,7 +95,7 @@ namespace AppViewLite.PluggableProtocols
             rootPostId ??= inReplyTo ?? postId;
             EnsureOwnDid(postId.Did);
 
-            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postId.Did)) return;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postId.Did)) return null;
 
 
 
@@ -93,13 +112,17 @@ namespace AppViewLite.PluggableProtocols
             if (data.Media != null && data.Media.Length == 0) data.Media = null;
             data.Language ??= LanguageEnum.Unknown;
 
-            Apis.WithRelationshipsWriteLock(rels =>
+            EnsureValidDid(postId.Did);
+            if (inReplyTo != null) EnsureValidDid(inReplyTo.Value.Did);
+            if (rootPostId != null) EnsureValidDid(rootPostId.Value.Did);
+
+            return Apis.WithRelationshipsWriteLock(rels =>
             {
                 var authorPlc = rels.SerializeDid(postId.Did);
 
 
                 if (!StoreTidIfNotReversible(rels, ref postId))
-                    return;
+                    return null;
 
 
 
@@ -153,10 +176,11 @@ namespace AppViewLite.PluggableProtocols
                 if (data.Media != null)
                     rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
 
-                rels.PostData.AddRange(new PostId(authorPlc, postId.PostId.Tid), BlueskyRelationships.SerializePostData(data, postId.Did));
+                var simplePostId = new PostId(authorPlc, postId.PostId.Tid);
+                rels.PostData.AddRange(simplePostId, BlueskyRelationships.SerializePostData(data, postId.Did));
 
 
-
+                return (PostId?)simplePostId;
             });
         }
         private bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId? postId)
@@ -338,6 +362,11 @@ namespace AppViewLite.PluggableProtocols
                 Apis.WithRelationshipsWriteLock(rels => rels.KnownMirrorsToIgnore.Add(didHash, 0));
             }
         }
+
+        public virtual string? GetFollowingUrl(string did) => null;
+        public virtual string? GetFollowersUrl(string did) => null;
+
+        public virtual string? GetDisplayNameFromDid(string did) => null;
     }
 }
 

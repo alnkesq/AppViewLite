@@ -165,7 +165,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 PluggableReplyCount = (int)thread.Replies,
                 PluggableLikeCount = (int)thread.Replies,
             };
-            OnPostDiscovered(threadId, null, null, threadData, shouldIndex: true);
+            OnPostDiscovered(threadId, null, null, threadData);
         }
 
         private static (string? Text, FacetData[]? Facets) ParseHtml(string? html, YotsubaBoardId boardId)

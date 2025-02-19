@@ -169,7 +169,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 
 
-                OnPostDiscovered(postId, null, null, data, true);
+                OnPostDiscovered(postId, null, null, data);
             }
             else if (kind == NostrEventKind.User_Metadata)
             {
@@ -205,7 +205,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 StringUtils.GuessCustomEmojiFacets(data.Description, ref data.DescriptionFacets, emojis);
 
-                OnProfileDiscovered(did, data, true);
+                OnProfileDiscovered(did, data);
             }
             //else if (kind is NostrEventKind.Relay_List_Metadata or  NostrEventKind.Draft_Event) { } // noisy, uninteresting
 

@@ -27,7 +27,6 @@
     const int MaxFollowersYouFollowNames = 3; // A, B and C    *or*   A, B and 2 others
     const int MaxFollowersYouFollowAvatars = 3;
     private BlueskyProfileBasicInfo? data;
-    private AppViewLite.PluggableProtocols.PluggableProtocol? pluggable;
     private string? pluggableExternalUrl;
     private string? anchorTargetForProfileUrl;
     protected override async Task OnParametersSetAsync()
@@ -39,8 +38,7 @@
             Navigation.NavigateTo("/@" + alt + new Uri(Navigation.Uri).Query);
 
         data = Profile.Profile?.BasicData;
-        pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Did);
-        pluggableExternalUrl = pluggable?.TryGetOriginalProfileUrl(Did);
+        pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Did);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
         GuessedFacets = data?.GetOrGuessFacets();
         (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
@@ -89,11 +87,27 @@
         }
 
         <div class="profile-follow-links main-padding">
-            <a href="@(pluggable != null ? pluggableExternalUrl : Profile.Profile.BaseUrl + "/following")" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowingCount Following</a> ·
-            <a href="@(pluggable != null ? pluggableExternalUrl : Profile.Profile.BaseUrl + "/followers")" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowerCount Followers</a>
+            @{
+                var followingUrl = Profile.Profile.FollowingUrl;
+                var followersUrl = Profile.Profile.FollowersUrl;
+                var shouldShowFollowing = followingUrl != null || data?.PluggableProtocolFollowingCount != null;
+                var shouldShowFollowers = followersUrl != null || data?.PluggableProtocolFollowerCount != null;
+            }
+            @if (shouldShowFollowing)
+            {
+                <a href="@followingUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowingCount Following</a>
+            }
+            @if (shouldShowFollowing && shouldShowFollowers)
+            {
+                <text> · </text>
+            }
+            @if (shouldShowFollowers)
+            {
+                <a href="@followersUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowerCount Followers</a>
+            }
             @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == Profile.Profile.Plc)
             {
-                <text> ·</text>
+                <text> · </text>
                 <a href = "@Profile.Profile.BaseUrl/known-followers" class="underline-on-hover">Mutuals</a>
             }
         </div>

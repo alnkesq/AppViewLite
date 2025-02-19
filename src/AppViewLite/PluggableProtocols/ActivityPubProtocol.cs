@@ -446,6 +446,17 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             return ParseDid(did).Instance;
         }
+
+        public override string? GetFollowingUrl(string did)
+        {
+            var userId = ParseDid(did);
+            return $"https://{userId.Instance}/@{userId.UserName}/following";
+        }
+        public override string? GetFollowersUrl(string did)
+        {
+            var userId = ParseDid(did);
+            return $"https://{userId.Instance}/@{userId.UserName}/followers";
+        }
     }
 
 
@@ -483,6 +494,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             return "@" + UserName + "@" + Instance;
         }
+
     }
 
 }

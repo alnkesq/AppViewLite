@@ -557,6 +557,24 @@ namespace AppViewLite
                 return null;
             return path;
         }
+
+        public static string GetDisplayUrl(Uri url)
+        {
+
+            var authority = url.Authority;
+            if (authority.StartsWith("www.", StringComparison.Ordinal))
+                authority = authority.Substring(4);
+
+
+            var pathAndQuery = url.ToString(); // minimal escaping
+            var slash = pathAndQuery.IndexOf('/', 8);
+            pathAndQuery = pathAndQuery.Substring(slash);
+
+            if (pathAndQuery.Length >= 25)
+                pathAndQuery = string.Concat(pathAndQuery.AsSpan(0, 20), "…");
+            return authority + pathAndQuery;
+
+        }
     }
 }
 

@@ -43,7 +43,10 @@ namespace AppViewLite.Models
             get
             {
                 if (BasicData == null) return null; // still loading. Blank is better than generic avatar.
-                return BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, BasicData.AvatarCidBytes, Pds) ?? "/assets/default-user-avatar.svg";
+                return
+                    BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, BasicData.AvatarCidBytes, Pds)
+                    ?? PluggableProtocol?.GetDefaultAvatar(Did)
+                    ?? "/assets/default-user-avatar.svg";
             }
         }
 

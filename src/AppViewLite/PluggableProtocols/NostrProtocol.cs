@@ -334,6 +334,22 @@ namespace AppViewLite.PluggableProtocols.Nostr
             return did.Substring(DidPrefixLength);
         }
 
+        public override string? GetDefaultAvatar(string did)
+        {
+            return "/assets/default-nostr-avatar.png";
+        }
+
+        public override string? GetDefaultBannerColor(string did)
+        {
+            return "#662482";
+        }
+
+        public override string? GetDisplayNameFromDid(string did)
+        {
+             return string.Concat(GetNip19FromDid(did).AsSpan(0, 9), "…");
+        }
+
+
     }
 }
 

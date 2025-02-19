@@ -103,12 +103,22 @@ namespace AppViewLite.PluggableProtocols.HackerNews
 
         public override string? GetDisplayNameFromDid(string did)
         {
-            return GetUserName(did) ?? "Hacker News";
+            if (did == HackerNewsMainDid) return "Hacker News";
+            return GetUserName(did);
         }
 
         // case sensitive usernames
         private readonly static SearchValues<char> ValidUserNameChars = SearchValues.Create("_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
+        public override string? GetDefaultAvatar(string did)
+        {
+            return "/assets/default-hackernews-avatar.svg";
+        }
+
+        public override string? GetDefaultBannerColor(string did)
+        {
+            return "#FF6600";
+        }
     }
 }
 

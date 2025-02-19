@@ -367,6 +367,9 @@ namespace AppViewLite.PluggableProtocols
         public virtual string? GetFollowersUrl(string did) => null;
 
         public virtual string? GetDisplayNameFromDid(string did) => null;
+        public virtual string? GetDefaultAvatar(string did) => null;
+
+        public virtual string? GetDefaultBannerColor(string did) => null;
     }
 }
 

@@ -60,7 +60,7 @@
 @if (Profile != null)
 {
     <div class="profile-page @(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
-        <div class="profile-banner @(Profile.Profile.HasBannerImage ? null : "profile-banner-no-image")">
+        <div class="profile-banner @(Profile.Profile.HasBannerImage ? null : "profile-banner-no-image")" style="@(!Profile.Profile.HasBannerImage && Profile.Profile.PluggableProtocol?.GetDefaultBannerColor(Profile.Profile.Did) is {} defaultColor ? "background-color: " + defaultColor : null)">
             @if (Profile.Profile.HasBannerImage)
             {
                 <img src="@Apis.GetImageBannerUrl(Did, Profile.Profile.BasicData!.BannerCidBytes!, Profile.Profile.Pds)" />
@@ -114,6 +114,16 @@
 
         <div class="profile-description main-padding">
             <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
+            @if (pluggableExternalUrl != null)
+            {
+                @if (Profile.Profile?.BasicData?.Description != null)
+                {
+                    <br>
+
+                    <br>
+                }
+                <a href="@pluggableExternalUrl" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(new Uri(pluggableExternalUrl))</a>
+            }
         </div>
 
         @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0 && RequestContext.LoggedInUser != Profile.Profile.Plc)

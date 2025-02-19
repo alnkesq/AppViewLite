@@ -253,6 +253,11 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return GetBoardIdFromDid(did).Host;
         }
 
+        public override string? GetDefaultBannerColor(string did)
+        {
+            return "#D4D8F0";
+        }
+
     }
 
     public record struct YotsubaBoardId(string Host, string BoardName)

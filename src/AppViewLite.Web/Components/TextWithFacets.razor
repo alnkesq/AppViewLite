@@ -23,20 +23,7 @@
                     string.Equals(text, url.ToString(), StringComparison.InvariantCultureIgnoreCase))
                 {
 
-
-                    var authority = urlNoTrackingParams.Authority;
-                    if (authority.StartsWith("www.", StringComparison.Ordinal))
-                        authority = authority.Substring(4);
-
-
-                    var pathAndQuery = urlNoTrackingParams.ToString(); // minimal escaping
-                    var slash = pathAndQuery.IndexOf('/', 8);
-                    pathAndQuery = pathAndQuery.Substring(slash);
-
-                    if (pathAndQuery.Length >= 25)
-                        pathAndQuery = pathAndQuery.Substring(0, 20) + "…";
-                    text = authority + pathAndQuery;
-
+                    text = StringUtils.GetDisplayUrl(urlNoTrackingParams);
                 }
 
             }

@@ -1460,8 +1460,14 @@ namespace AppViewLite
 
         public async Task<BlueskyFullProfile> GetFullProfileAsync(string did, RequestContext ctx, int followersYouFollowToLoad)
         {
+            RssRefreshInfo? rssFeedInfo = null;
+            if (did.StartsWith(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidPrefix, StringComparison.Ordinal))
+            {
+                rssFeedInfo = await AppViewLite.PluggableProtocols.Rss.RssProtocol.Instance!.MaybeRefreshFeedAsync(did);
+            }
             var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad));
             await EnrichAsync([profile.Profile, ..profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
+            profile.RssFeedInfo = rssFeedInfo;
             return profile;
         }
         public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)

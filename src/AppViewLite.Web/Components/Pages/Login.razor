@@ -33,7 +33,7 @@
     [SupplyParameterFromForm]
     private LoginData? Model { get; set; }
 
-    [Parameter] [SupplyParameterFromQuery] public string Return { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public string? Return { get; set; }
 
     protected override void OnInitialized()
     {
@@ -43,7 +43,7 @@
 
     private async Task Submit()
     {
-        if (!string.IsNullOrEmpty(Model!.Handle))
+        if (!string.IsNullOrEmpty(Model!.Handle) && !string.IsNullOrEmpty(Model!.Password))
         {
             await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle, Model.Password);
             Navigation.NavigateTo(Return ?? "/following", true);

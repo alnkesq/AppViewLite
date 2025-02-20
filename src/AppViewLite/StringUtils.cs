@@ -409,6 +409,8 @@ namespace AppViewLite
 
         public static string NormalizeHandle(string handle)
         {
+            if (handle.StartsWith("did:", StringComparison.Ordinal))
+                return handle;
             return handle.ToLowerInvariant();
         }
 

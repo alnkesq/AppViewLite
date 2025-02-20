@@ -1459,7 +1459,10 @@ namespace AppViewLite
             var isDeleted = PostDeletions.ContainsKey(id);
             
             BlueskyPostData? proto = null;
-            if (PostData.TryGetPreserveOrderSpanAny(id, out var postDataCompressed))
+            ManagedOrNativeArray<byte> postDataCompressed;
+            
+            // latest instead of any (pluggable posts include their own like count)
+            if (PostData.TryGetPreserveOrderSpanLatest(id, out postDataCompressed))
             {
                 proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id);
             }

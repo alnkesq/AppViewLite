@@ -567,7 +567,7 @@ namespace AppViewLite
             if (uri.Collection != Post.RecordType)
             {
                 if (ignoreIfNotPost) return default;
-                throw new ArgumentException("Unexpected URI type: " + uri.Collection);
+                throw new UnexpectedFirehoseDataException("Unexpected URI type: " + uri.Collection);
             }
             return new PostId(SerializeDid(uri.Did!.Handler), Tid.Parse(uri.Rkey));
         }

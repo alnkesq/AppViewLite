@@ -579,6 +579,7 @@ namespace AppViewLite
             if (authority.StartsWith("www.", StringComparison.Ordinal))
                 authority = authority.Substring(4);
 
+            if (url.PathAndQuery == "/") return authority;
 
             var pathAndQuery = url.ToString(); // minimal escaping
             var slash = pathAndQuery.IndexOf('/', 8);

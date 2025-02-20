@@ -63,7 +63,7 @@ namespace AppViewLite.IconParser
 
                 int paletteSize = 0;
                 var bitCount = infoHeader.biBitCount;
-                if (bitCount < 8)
+                if (bitCount <= 8)
                 {
                     var colorCount = colorCountFromEntry;
                     int maxColors = 1 << bitCount;

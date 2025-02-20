@@ -33,7 +33,8 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                     foreach (var post in dom.QuerySelectorAll(".submission"))
                     {
                         var postMeta = post.NextElementSibling!;
-                        var username = postMeta.QuerySelector(".hnuser")!.TextContent;
+                        var username = postMeta.QuerySelector(".hnuser")?.TextContent;
+                        if (username == null) continue;
                         var date = DateTime.UnixEpoch.AddSeconds(long.Parse(postMeta.QuerySelector(".age")!.GetAttribute("title")!.Split(' ')[1])); // format: title="2025-02-19T12:40:58 1739968858"
                         var id = long.Parse(post.Id!);
                         var threadLink = postMeta.QuerySelectorAll("a").Last();

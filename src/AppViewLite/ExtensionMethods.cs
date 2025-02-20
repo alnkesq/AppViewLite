@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -31,6 +34,18 @@ namespace AppViewLite
                 queue.Enqueue(item);
             }
         }
+
+        public static T ReadUnmanaged<T>(this BinaryReader reader) where T : unmanaged
+        {
+            var bytes = reader.ReadBytes(Unsafe.SizeOf<T>());
+            return MemoryMarshal.Cast<byte, T>(bytes)[0];
+        }
+        public static void WriteUnmanaged<T>(this BinaryWriter writer, T item) where T : unmanaged
+        {
+            writer.Write(MemoryMarshal.AsBytes([item]));
+        }
     }
+
+
 }
 

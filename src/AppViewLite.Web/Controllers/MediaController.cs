@@ -7,6 +7,7 @@ using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
 using System.Buffers;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite.Web.Controllers
 {
@@ -224,7 +225,10 @@ namespace AppViewLite.Web.Controllers
         {
             using (image)
             {
-                await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 70 }, cancellationToken: ct);
+                await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 
+                    image.Width <= 16 ? 98 :
+                    image.Width <= 32 ? 90 :
+                    70 }, cancellationToken: ct);
             }
         }
 
@@ -240,14 +244,28 @@ namespace AppViewLite.Web.Controllers
         {
             using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
             var bytes = await blob.ReadAsBytesAsync();
-            if (!StartsWithAllowlistedMagicNumber(bytes)) throw new Exception("Unrecognized image format.");
-            var image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
+            if (!StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
+            Image<Rgba32> image;
+            if (bytes.AsSpan().StartsWith(Magic_ICO))
+                image = IconParser.IconUtils.LoadLargestImage(bytes);
+            else
+                image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
 
             if (image.Frames.Count > 1) return (image, blob.FileNameForDownload);
 
             if (Math.Max(image.Width, image.Height) > sizePixels)
             {
                 image.Mutate(m => m.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new SixLabors.ImageSharp.Size(sizePixels, sizePixels) }));
+            }
+
+            if ((image.Width <= 60) && sizeEnum == ThumbnailSize.avatar_thumbnail)
+            {
+                var borderColor = GetBorderAverageColor(image);
+                image.Mutate(m =>
+                {
+                    var size = Math.Min(image.Width, image.Height) + 16;
+                    m.Pad(size, size, borderColor);
+                });
             }
 
             if (sizeEnum == ThumbnailSize.emoji_profile_name)
@@ -274,6 +292,55 @@ namespace AppViewLite.Web.Controllers
             }
 
             return (other, blob.FileNameForDownload);
+        }
+
+        private static int Pow2(int a) => a * a;
+        public static double ColorDistancePow(Rgba32 a, Rgba32 b)
+        {
+            var diff = Math.Sqrt(Pow2(a.R - b.R) + Pow2(a.G - b.G) + Pow2(a.B - b.B));
+            return diff;
+
+        }
+        private static Color GetBorderAverageColor(Image<Rgba32> image)
+        {
+            Color borderColor = default;
+            image.ProcessPixelRows(accessor =>
+            {
+                var r = 0;
+                var g = 0;
+                var b = 0;
+                var a = 0;
+                int borderCount = 0;
+                var frequency = new Dictionary<Rgba32, int>();
+                void Accumulate(Rgba32 pixel)
+                {
+                    r += pixel.R;
+                    g += pixel.G;
+                    b += pixel.B;
+                    a += pixel.A;
+                    CollectionsMarshal.GetValueRefOrAddDefault(frequency, pixel, out _)++;
+                    borderCount++;
+                }
+                foreach (var pixel in accessor.GetRowSpan(0))
+                {
+                    Accumulate(pixel);
+                }
+                foreach (var pixel in accessor.GetRowSpan(accessor.Height - 1))
+                {
+                    Accumulate(pixel);
+                }
+                for (int i = accessor.Height - 2; i >= 1; i--)
+                {
+                    Accumulate(image[0, i]);
+                    Accumulate(image[accessor.Width - 1, i]);
+                }
+                var borderCountFloat = (float)borderCount * 255;
+                var average = new Rgba32(r / borderCountFloat, g / borderCountFloat, b / borderCountFloat, a / borderCountFloat);
+                var mostFrequent = frequency.MaxBy(x => x.Value).Key;
+                if (ColorDistancePow(average, mostFrequent) < 50) borderColor = mostFrequent;
+                else borderColor = average;
+            });
+            return borderColor;
         }
 
         private readonly static Rgba32 Color_VerifiedGeneric = new Rgba32(0x1D, 0xA1, 0xF2);
@@ -436,6 +503,7 @@ namespace AppViewLite.Web.Controllers
         private static ReadOnlySpan<byte> Magic_WEBP => [0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38];
         private static ReadOnlySpan<byte> Magic_GIF87a => "GIF87a"u8;
         private static ReadOnlySpan<byte> Magic_GIF89a => "GIF89a"u8;
+        private static ReadOnlySpan<byte> Magic_ICO => "\x00\x00\x01\x00"u8;
         private static bool StartsWithAllowlistedMagicNumber(ReadOnlySpan<byte> bytes)
         {
             return 
@@ -444,6 +512,7 @@ namespace AppViewLite.Web.Controllers
                 bytes.StartsWith(Magic_WEBP) ||
                 bytes.StartsWith(Magic_GIF87a) ||
                 bytes.StartsWith(Magic_GIF89a) ||
+                bytes.StartsWith(Magic_ICO) ||
                 (bytes.StartsWith(Magic_RIFF) && bytes.Slice(8).StartsWith(Magic_WEBP))
                 ;
         }

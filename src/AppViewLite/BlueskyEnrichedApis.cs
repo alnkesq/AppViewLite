@@ -3135,6 +3135,17 @@ namespace AppViewLite
                 }
             });
         }
+
+        public static async Task<Uri> GetFaviconUrlAsync(Uri pageUrl)
+        {
+            var dom = StringUtils.ParseHtml(await DefaultHttpClient.GetStringAsync(pageUrl));
+            var href = dom.QuerySelector("link[rel='icon'],link[rel='shortcut icon']")?.GetAttribute("href");
+            if (!string.IsNullOrEmpty(href))
+            {
+                return new Uri(pageUrl, href);
+            }
+            return new Uri(pageUrl.GetLeftPart(UriPartial.Authority) + "/favicon.ico");
+        }
     }
 }
 

@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AppViewLite\AppViewLite.csproj" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
   </ItemGroup>
 
 </Project>

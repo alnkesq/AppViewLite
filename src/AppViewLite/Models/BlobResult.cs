@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    public record struct BlobResult(byte[]? Bytes, Stream? Stream, string? FileNameForDownload) : IDisposable
+    public record struct BlobResult(byte[]? Bytes, Stream? Stream, string? FileNameForDownload, bool IsFavIcon = false) : IDisposable
     {
 
         public async Task<byte[]> ReadAsBytesAsync()

@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 namespace AppViewLite.IconParser
 {
 
+#pragma warning disable CS0649
+
     [StructLayout(LayoutKind.Sequential, Pack = 2)]
     internal struct BITMAPFILEHEADER
     {

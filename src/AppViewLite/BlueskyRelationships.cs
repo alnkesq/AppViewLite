@@ -2727,7 +2727,7 @@ namespace AppViewLite
 
         internal static void EnsureNotExcessivelyFutureDate(Tid tid)
         {
-            if ((tid.Date - DateTime.UtcNow).TotalMinutes > 10)
+            if ((tid.Date - DateTime.UtcNow).TotalMinutes > 15)
                 throw new UnexpectedFirehoseDataException("Post date is too much in the future.");
         }
     }

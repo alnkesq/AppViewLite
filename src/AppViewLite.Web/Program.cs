@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
-using System.Collections.Frozen;
+using System.Text.RegularExpressions;
 
 namespace AppViewLite.Web
 {
@@ -43,6 +43,7 @@ namespace AppViewLite.Web
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.HackerNews.HackerNewsProtocol));
+            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Rss.RssProtocol));
 
             BlueskyEnrichedApis.Instance = apis;
             var builder = WebApplication.CreateBuilder(args);
@@ -110,18 +111,20 @@ namespace AppViewLite.Web
                     var s = path.AsSpan(1);
                     var slash = s.IndexOf('/');
                     var firstSegment = slash != -1 ? s.Slice(0, slash) : s;
+
                     if (!firstSegment.StartsWith('@'))
                     {
+                        if (firstSegment.StartsWith("did:"))
+                        {
+                            ctx.Response.Redirect("/@" + firstSegment.ToString() + ctx.Request.QueryString.Value);
+                            return;
+                        }
                         if (
-                            firstSegment.StartsWith("did:") ||
-                            (
-                                !IsKnownFileTypeAsOpposedToTld(firstSegment.Slice(firstSegment.LastIndexOf('.') + 1)) &&
-                                !firstSegment.SequenceEqual("bsky.app") &&
-                                BlueskyEnrichedApis.IsValidDomain(firstSegment)
-                            )
+                            !IsKnownFileTypeAsOpposedToTld(firstSegment.Slice(firstSegment.LastIndexOf('.') + 1)) &&
+                            BlueskyEnrichedApis.IsValidDomain(firstSegment)
                         )
                         {
-                            ctx.Response.Redirect(string.Concat("/@", path.AsSpan(1)) + ctx.Request.QueryString.Value);
+                            ctx.Response.Redirect(string.Concat("/https://", path.AsSpan(1)) + ctx.Request.QueryString.Value);
                             return;
                         }
                     }
@@ -427,11 +430,6 @@ namespace AppViewLite.Web
 
 
 
-        public static bool IsBskyAppOrAtUri(string? q)
-        {
-            return q != null && (q.StartsWith("https://bsky.app/", StringComparison.Ordinal) || q.StartsWith("at://", StringComparison.Ordinal));
-        }
-
         public static Uri? GetNextContinuationUrl(this NavigationManager url, string? nextContinuation)
         {
             if (nextContinuation == null) return null;
@@ -489,12 +487,85 @@ namespace AppViewLite.Web
         }
         public static string GetExceptionDisplayText(Exception exception)
         {
+            if (exception is HttpRequestException ex)
+            {
+                if (ex.HttpRequestError != default)
+                    return $"Could not fetch the resource: {ex.HttpRequestError}";
+                if (ex.StatusCode != null)
+                    return $"Could not fetch the resource: HTTP {(int)ex.StatusCode} {ex.StatusCode}";
+            }
             var message = exception.Message;
             if (string.IsNullOrEmpty(message))
             {
                 message = "Error: " + exception.GetType().Name;
             }
             return message;
+        }
+
+        public async static Task<string> ResolveUrlAsync(Uri url, Uri baseUrl)
+        {
+            // bsky.app links
+            if (url.Host == "bsky.app")
+                return url.PathAndQuery;
+
+            // recursive appviewlite links
+            if (url.Host == baseUrl.Host)
+                return url.PathAndQuery;
+
+            // atproto profile from custom domain
+            var apis = BlueskyEnrichedApis.Instance;
+            if (url.PathAndQuery == "/")
+            {
+                var handle = url.Host;
+                try
+                {
+                    var did = await apis.ResolveHandleAsync(handle);
+                    return "/@" + handle;
+                }
+                catch
+                {
+                }
+            }
+
+            var pathSegments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            // Mastodon profile
+            if (pathSegments.Length == 1 && pathSegments[0].StartsWith('@'))
+            {
+                var fediverseProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(pathSegments[0], url.Host).Normalize();
+                return "/" + fediverseProfile;
+            }
+
+            // Other fediverse profile
+            if (pathSegments.Length == 2 && pathSegments[0] == "users")
+            {
+                var fediverseProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(pathSegments[1], url.Host).Normalize();
+                return "/" + fediverseProfile;
+            }
+
+            using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
+
+            if (response.Headers.Location != null)
+            {
+                if (response.Headers.Location.AbsoluteUri == url.AbsoluteUri)
+                    throw new UnexpectedFirehoseDataException("Redirect loop.");
+                return "/" + response.Headers.Location.AbsoluteUri;
+            }
+
+            response.EnsureSuccessStatusCode();
+            var responseText = (await response.Content.ReadAsStringAsync()).Trim();
+            var initialText = responseText.Substring(0, Math.Min(responseText.Length, 1024));
+            if (Regex.IsMatch(initialText, @"<(?:rss|feed|rdf)\b"))
+            {
+                return "/@" + AppViewLite.PluggableProtocols.Rss.RssProtocol.UrlToDid(url);
+            }
+            
+            var rssFeed = await AppViewLite.PluggableProtocols.Rss.RssProtocol.TryGetFeedUrlFromPageAsync(responseText, url);
+            if (rssFeed != null)
+            {
+                return "/@" + AppViewLite.PluggableProtocols.Rss.RssProtocol.UrlToDid(rssFeed);
+            }
+            throw new UnexpectedFirehoseDataException("No RSS feeds were found at the specified page.");
         }
 
 

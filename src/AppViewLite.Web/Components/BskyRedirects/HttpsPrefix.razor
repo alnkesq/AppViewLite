@@ -1,4 +1,4 @@
-@page "/http:/{*rest}"
+@page "/https:/{*rest}"
 @* Routes with 2 consecutive slashes are not allowed in aspnet. *@
 @inject NavigationManager Navigation
 
@@ -6,6 +6,6 @@
     [Parameter] public required string Rest { get; set; }
     protected override async Task OnParametersSetAsync()
     {
-        Navigation.NavigateTo(await Program.ResolveUrlAsync(new Uri("http:/" + Rest), new Uri(Navigation.BaseUri)));
+        Navigation.NavigateTo(await Program.ResolveUrlAsync(new Uri("https:/" + Rest), new Uri(Navigation.BaseUri)));
     }
 }

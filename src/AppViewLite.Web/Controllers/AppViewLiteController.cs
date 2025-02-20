@@ -96,6 +96,17 @@ namespace AppViewLite.Web
                 }
             }
 
+            var hasUri = q != null &&
+                (
+                    q.StartsWith("https://", StringComparison.Ordinal) ||
+                    q.StartsWith("http://", StringComparison.Ordinal) ||
+                    q.StartsWith("at://", StringComparison.Ordinal)
+                );
+
+            if (hasUri)
+            {
+                profiles = new ProfilesAndContinuation();
+            }
             if (forceResults != null)
             {
                 profiles = (await apis.GetProfilesAsync(forceResults.Split(','), ctx, profile => NotifySearchAutocompleteUpdates()), null);
@@ -107,7 +118,12 @@ namespace AppViewLite.Web
             responseAlreadySent = true;
             return new
             {
-                Html = await Program.RenderComponentAsync<ProfileSearchAutocomplete>(new Dictionary<string, object?> { { "Profiles", profiles.Profiles }, { "SearchQuery", q } })
+                Html = await Program.RenderComponentAsync<ProfileSearchAutocomplete>(new Dictionary<string, object?> 
+                {
+                    { "Profiles", profiles.Profiles },
+                    { "SearchQuery", q },
+                    { "GoToUri", hasUri },
+                })
             };
         }
 

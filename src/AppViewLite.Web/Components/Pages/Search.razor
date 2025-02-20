@@ -33,7 +33,11 @@
     {
         if (string.IsNullOrEmpty(Kind)) Kind = null;
 
-        if (Program.IsBskyAppOrAtUri(Q))
+        if (Q != null && 
+            (
+                Q.StartsWith("http://", StringComparison.Ordinal) ||
+                Q.StartsWith("https://", StringComparison.Ordinal) ||
+                Q.StartsWith("at://", StringComparison.Ordinal)))
         {
             Navigation.NavigateTo("/" + Q);
             return; 

@@ -453,8 +453,15 @@ namespace AppViewLite.PluggableProtocols.Rss
             return refreshData;
         }
 
-
-
+        public static async Task<Uri?> TryGetFeedUrlFromPageAsync(string responseText, Uri url)
+        {
+            var dom = StringUtils.ParseHtml(responseText);
+            var feedUrl = dom.QuerySelectorAll("link[type='application/atom+xml'],link[type='application/rss+xml']")
+                .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
+                .Where(x => x != null)
+                .MinBy(x => x!.AbsoluteUri.Length);
+            return feedUrl;
+        }
     }
 }
 

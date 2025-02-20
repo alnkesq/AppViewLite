@@ -1,21 +1,33 @@
 @code {
     [Parameter] public required BlueskyProfile[] Profiles { get; set; }
     [Parameter] public string? SearchQuery { get; set; }
+    [Parameter] public bool GoToUri { get; set; }
 }
 
-@foreach (var profile in Profiles)
+@if (GoToUri)
 {
+    <a href="/@SearchQuery">Go to "@SearchQuery"</a>
 
-    <a href="@profile.BaseUrl" data-did="@profile.Did" class="search-form-suggestion">
-        <img src="@profile.AvatarUrl" class="profile-image-small">
-        <div>
-            <b><TextWithFacets Text="@profile.DisplayNameOrFallback" Facets="@profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets></b>
-            <ProfileBadges Profile="@profile" NoLink="true" />
-        </div>
-        <div data-handledid="@profile.Did" class="handle-generic @(profile.HandleIsUncertain ? "handle-uncertain" : profile.PossibleHandle == null ? "handle-invalid" : null)">@(profile.PossibleHandle ?? "handle.invalid")</div>
-    </a>
 }
-@if (Profiles.Length == 0 && !string.IsNullOrEmpty(SearchQuery))
+else
 {
-    <a href="/search?q=@(Uri.EscapeDataString(SearchQuery))">@(SearchQuery.StartsWith("https://bsky.app/") || SearchQuery.StartsWith("at://") ? "Go to" : "Search for") "@SearchQuery"</a>
+    @foreach (var profile in Profiles)
+    {
+
+        <a href="@profile.BaseUrl" data-did="@profile.Did" class="search-form-suggestion">
+            <img src="@profile.AvatarUrl" class="profile-image-small">
+            <div>
+                <b><TextWithFacets Text="@profile.DisplayNameOrFallback" Facets="@profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets></b>
+                <ProfileBadges Profile="@profile" NoLink="true" />
+            </div>
+            <div data-handledid="@profile.Did" class="handle-generic @(profile.HandleIsUncertain ? "handle-uncertain" : profile.PossibleHandle == null ? "handle-invalid" : null)">@(profile.PossibleHandle ?? "handle.invalid")</div>
+        </a>
+    }
+
+    if (Profiles.Length == 0 && !string.IsNullOrEmpty(SearchQuery))
+    {
+        <a href="/search?q=@(Uri.EscapeDataString(SearchQuery))">Search for "@SearchQuery"</a>
+    }
 }
+
+

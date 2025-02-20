@@ -44,6 +44,16 @@ namespace AppViewLite
         {
             writer.Write(MemoryMarshal.AsBytes([item]));
         }
+
+        internal static void MakeUtc(ref DateTime date)
+        {
+            date = new DateTime(date.Ticks, DateTimeKind.Utc);
+        }
+        internal static void MakeUtc(ref DateTime? date)
+        {
+            if (date != null)
+                date = new DateTime(date.Value.Ticks, DateTimeKind.Utc);
+        }
     }
 
 

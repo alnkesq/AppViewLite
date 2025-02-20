@@ -29,6 +29,7 @@
     private BlueskyProfileBasicInfo? data;
     private string? pluggableExternalUrl;
     private string? anchorTargetForProfileUrl;
+    private string? RssError;
     protected override async Task OnParametersSetAsync()
     {
         Did = (await Apis.ResolveHandleAsync(Did));
@@ -51,6 +52,13 @@
             limit: default,
             continuation: Continuation,
             ctx: RequestContext);
+        RssError = Profile.RssFeedInfo?.RssErrorMessage;
+        if(Profile.RssFeedInfo?.RedirectsTo != null)
+        {
+            Navigation.NavigateTo("/rss/" + Profile.RssFeedInfo.RedirectsTo);
+        }
+        if (RssError != null && Posts.Length == 0)
+            throw new UnexpectedFirehoseDataException(RssError);
     }
 }
 
@@ -114,7 +122,7 @@
 
         <div class="profile-description main-padding">
             <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
-            @if (pluggableExternalUrl != null && Profile.Profile.PluggableProtocol.ShouldDisplayExternalLinkInBio)
+            @if (pluggableExternalUrl != null && Profile.Profile.PluggableProtocol!.ShouldDisplayExternalLinkInBio)
             {
                 @if (Profile.Profile?.BasicData?.Description != null)
                 {
@@ -125,6 +133,14 @@
                 <a href="@pluggableExternalUrl" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(new Uri(pluggableExternalUrl))</a>
             }
         </div>
+
+
+        @if (RssError != null)
+        {
+            <div class="rss-fetch-error main-padding">
+                @RssError
+            </div>
+        }
 
         @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0 && RequestContext.LoggedInUser != Profile.Profile.Plc)
         {

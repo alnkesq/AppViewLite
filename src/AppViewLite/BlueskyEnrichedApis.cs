@@ -31,7 +31,6 @@ using AppViewLite;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
-using AppViewLite.PluggableProtocols;
 
 namespace AppViewLite
 {
@@ -3047,17 +3046,25 @@ namespace AppViewLite
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
         public readonly static HttpClient DefaultHttpClient;
+        public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
 
         static BlueskyEnrichedApis()
         {
-            DefaultHttpClient = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler 
-            { 
-                AllowAutoRedirect = true,
+            DefaultHttpClient = CreateHttpClient(autoredirect: true);
+            DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
+        }
+
+        private static HttpClient CreateHttpClient(bool autoredirect)
+        {
+            var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
+            {
+                AllowAutoRedirect = autoredirect,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
             }, true), true);
-            DefaultHttpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
-            DefaultHttpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024;
-            DefaultHttpClient.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+            client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
+            client.Timeout = TimeSpan.FromSeconds(10);
+            return client;
         }
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();

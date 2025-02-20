@@ -88,6 +88,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> KnownMirrorsToIgnore;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Tid> ExternalPostIdHashToSyntheticTid;
         public CombinedPersistentMultiDictionary<Plc, PostIdTimeFirst> SeenPosts;
+        public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -232,6 +233,7 @@ namespace AppViewLite
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
             SeenPosts = RegisterDictionary<Plc, PostIdTimeFirst>("seen-posts");
+            RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
 
             
 
@@ -2729,6 +2731,19 @@ namespace AppViewLite
         {
             if ((tid.Date - DateTime.UtcNow).TotalMinutes > 15)
                 throw new UnexpectedFirehoseDataException("Post date is too much in the future.");
+        }
+
+
+
+        public RssRefreshInfo? GetRssRefreshInfo(Plc plc)
+        {
+            if (RssRefreshInfos.TryGetPreserveOrderSpanLatest(plc, out var bytes))
+            {
+                var proto = DeserializeProto<RssRefreshInfo>(bytes.AsSmallSpan());
+                proto.MakeUtc();
+                return proto;
+            }
+            return null;
         }
     }
 

@@ -10,6 +10,7 @@ namespace AppViewLite.Models
         public List<BlueskyProfile>? FollowedByPeopleYouFollow;
         public bool HasFeeds;
         public bool HasLists;
+        public RssRefreshInfo? RssFeedInfo;
     }
 }
 

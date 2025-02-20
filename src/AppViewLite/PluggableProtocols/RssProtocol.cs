@@ -1,9 +1,14 @@
+using AngleSharp.Io;
 using AppViewLite.Models;
+using AppViewLite;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO.Hashing;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -14,10 +19,15 @@ namespace AppViewLite.PluggableProtocols.Rss
 {
     public class RssProtocol : PluggableProtocol
     {
-        private new const string DidPrefix = "did:rss:";
+        public new const string DidPrefix = "did:rss:";
         public RssProtocol() : base(DidPrefix)
         {
+            Instance = this;
+            RefreshFeed = new(TryRefreshFeedCoreAsync);
         }
+
+
+        public static RssProtocol? Instance;
 
         public override string? GetIndexableDidText(string did)
         {
@@ -26,15 +36,15 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
         public async override Task DiscoverAsync(CancellationToken ct)
         {
-   
+
             string[] feeds = [
-          
-            ];
+           
+                ];
             foreach (var feed in feeds.Take(1))
             {
                 RetryInfiniteLoopAsync(async ct =>
                 {
-                    await PollFeedAsync(new Uri(feed), ct);
+                    //await PollFeedAsync(new Uri(feed), ct);
                     await Task.Delay(TimeSpan.FromHours(3), ct);
 
                 }, ct).FireAndForget();
@@ -67,22 +77,74 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return "#999";
         }
-        private async Task PollFeedAsync(Uri feedUrl, CancellationToken ct)
+        private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did)
         {
-            var did = UrlToDid(feedUrl);
-            var roundtrip = DidToUrl(did);
-            if (roundtrip != feedUrl)
+            var feedUrl = DidToUrl(did);
+            if (UrlToDid(feedUrl) != did)
                 throw new Exception("RSS/did roundtrip failed.");
-            var xml = await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(feedUrl, ct);
-            var dom = XDocument.Parse(xml).Root;
-
-            var rss = dom;
-            rss = GetChild(rss, "channel") ?? rss;
-            rss = GetChild(rss, "feed") ?? rss;
 
 
+            var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)));
+            var now = DateTime.UtcNow;
+            refreshInfo ??= new RssRefreshInfo { FirstRefresh = now };
 
+            if (refreshInfo.RedirectsTo != null && (now - refreshInfo.LastRefreshAttempt).TotalDays < 30) return refreshInfo;
+
+            var lastRefreshSucceeded = refreshInfo.RssErrorMessage == null;
+
+            refreshInfo.LastRefreshAttempt = now;
+            refreshInfo.LastHttpError = default;
+            refreshInfo.LastHttpStatus = default;
+            refreshInfo.OtherException = null;
+            try
             {
+
+                refreshInfo.RedirectsTo = null;
+                using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, feedUrl);
+
+                if (lastRefreshSucceeded)
+                {
+                    if (refreshInfo.HttpLastModified != null)
+                    {
+                        request.Headers.IfModifiedSince = new DateTimeOffset(refreshInfo.HttpLastModified.Value, TimeSpan.FromSeconds(refreshInfo.HttpLastModifiedTzOffset));
+                    }
+
+                    if (refreshInfo.HttpLastETag != null)
+                    {
+                        request.Headers.IfNoneMatch.Add(System.Net.Http.Headers.EntityTagHeaderValue.Parse(refreshInfo.HttpLastETag));
+                    }
+                }
+
+
+                using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.SendAsync(request);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
+                {
+                    return refreshInfo;
+                }
+                refreshInfo.LastHttpStatus = response.StatusCode;
+                var redirectLocation = response.Headers.Location;
+                if (redirectLocation != null)
+                {
+                    if (redirectLocation.AbsoluteUri == feedUrl.AbsoluteUri)
+                        throw new UnexpectedFirehoseDataException("Redirect loop");
+                    refreshInfo.RedirectsTo = redirectLocation.AbsoluteUri;
+                    return refreshInfo;
+                }
+                response.EnsureSuccessStatusCode();
+
+                var xml = await response.Content.ReadAsStringAsync();
+                var xmlTrimmed = xml.AsSpan().Trim();
+                if (xmlTrimmed.StartsWith("<!doctype html", StringComparison.OrdinalIgnoreCase) || xmlTrimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase))
+                    throw new UnexpectedFirehoseDataException("Not an RSS feed.");
+                var dom = XDocument.Parse(xml).Root;
+
+                var rss = dom;
+                rss = GetChild(rss, "channel") ?? rss;
+                rss = GetChild(rss, "feed") ?? rss;
+
+
+
+
                 var title = GetValue(rss, "title");
                 if (title != null)
                 {
@@ -91,46 +153,112 @@ namespace AppViewLite.PluggableProtocols.Rss
                         title = null;
 
                 }
-                var url = GetAlternateLink(rss);
-                if (url == null)
-                    url = feedUrl.GetLeftPart(UriPartial.Authority) + "/";
+                var altUrl = GetAlternateLink(rss);
+                if (altUrl != null && string.Equals(NormalizeForApproxUrlEquality(altUrl), NormalizeForApproxUrlEquality(feedUrl), StringComparison.OrdinalIgnoreCase))
+                    altUrl = null;
+                var altUrlOrFallback = altUrl;
+                if (altUrlOrFallback == null)
+                    altUrlOrFallback = new Uri(feedUrl.GetLeftPart(UriPartial.Authority) + "/");
                 var description = GetValue(rss, "description");
-                if (description == feedUrl.Host || description == url) description = null;
+                if (description == feedUrl.Host || description == altUrlOrFallback.ToString()) description = null;
                 var subtitle = GetValue(rss, "subtitle");
 
-                var rssFavicon = BlueskyRelationships.CompressBpe(GetValue(rss.Element("image"), "url"));
-                if (rssFavicon == null)
+
+
+
+
+                var items = GetChildren(rss, "item").Concat(GetChildren(rss, "entry"));
+                if (rss != dom)
+                    items = items.Concat(GetChildren(dom, "item").Concat(GetChildren(dom, "entry")));
+                var minDate = DateTime.MaxValue;
+                var maxDate = DateTime.MinValue;
+                var postCount = 0;
+                Uri? firstUrl = null;
+                foreach (var item in items)
                 {
-                    var prev = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfileBasicInfo(plc));
-                    rssFavicon = prev?.AvatarCidBytes
-                        ?? BlueskyRelationships.CompressBpe("!" + (await BlueskyEnrichedApis.GetFaviconUrlAsync(new Uri(url ?? feedUrl.GetLeftPart(UriPartial.Authority)))).AbsoluteUri);
+                    try
+                    {
+                        var (date, postUrl) = AddPost(did, item);
+                        firstUrl ??= postUrl;
+                        if (date < minDate) minDate = date;
+                        if (date > maxDate) maxDate = date;
+                        postCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine(ex);
+                    }
                 }
+
+                var imageUrlFromXml = GetValue(rss.Element("image"), "url");
+                if (imageUrlFromXml != null)
+                {
+                    refreshInfo.FaviconUrl = BlueskyRelationships.CompressBpe(imageUrlFromXml);
+                }
+                
+                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval)
+                {
+                    try
+                    {
+                        refreshInfo.FaviconUrl = BlueskyRelationships.CompressBpe("!" + (await BlueskyEnrichedApis.GetFaviconUrlAsync(altUrl ?? firstUrl ?? altUrlOrFallback ?? new Uri(feedUrl.GetLeftPart(UriPartial.Authority)))).AbsoluteUri);
+                    }
+                    catch (Exception)
+                    {
+                    }
+                    refreshInfo.DidAttemptFaviconRetrieval = true;
+                }
+
+
                 OnProfileDiscovered(did, new BlueskyProfileBasicInfo
                 {
                     DisplayName = title,
                     Description = (subtitle + "\n\n" + description)?.Trim(),
-                    CustomFields = [new CustomFieldProto("web", url)],
-                    AvatarCidBytes = rssFavicon
+                    CustomFields = [new CustomFieldProto("web", altUrlOrFallback?.AbsoluteUri)],
+                    AvatarCidBytes = refreshInfo.FaviconUrl,
                 });
 
+                if (postCount != 0)
+                {
+                    refreshInfo.HttpLastETag = response.Headers.ETag?.ToString();
+                    refreshInfo.HttpLastModified = response.Content.Headers.LastModified?.UtcDateTime;
+                    refreshInfo.HttpLastModifiedTzOffset = (int)((response.Content.Headers.LastModified?.Offset.Ticks ?? 0) / TimeSpan.TicksPerSecond);
+                    refreshInfo.HttpLastDate = response.Headers.Date?.UtcDateTime;
+                    refreshInfo.LastSuccessfulRefresh = now;
+                    refreshInfo.XmlOldestPost = minDate;
+                    refreshInfo.XmlNewestPost = maxDate;
+                    refreshInfo.XmlPostCount = postCount;
+                }
             }
-
-            var items = GetChildren(rss, "item").Concat(GetChildren(rss, "entry"));
-            if (rss != dom)
-                items = items.Concat(GetChildren(dom, "item").Concat(GetChildren(dom, "entry")));
-            foreach (var item in items)
+            catch (HttpRequestException ex)
             {
-                try
-                {
-                    AddPost(did, item);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(ex);
-                }
+                refreshInfo.LastHttpStatus = ex.StatusCode ?? default;
+                refreshInfo.LastHttpError = ex.HttpRequestError;
             }
+            catch (TaskCanceledException ex)
+            {
+                refreshInfo.LastHttpError = TimeoutError;
+            }
+            catch (Exception ex)
+            {
+                refreshInfo.OtherException = ex.Message;
+            }
+            finally
+            {
+                Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)));
+            }
+            return refreshInfo;
         }
-        private void AddPost(string did, XElement item)
+
+        private static string? NormalizeForApproxUrlEquality(Uri url)
+        {
+            var host = url.Host;
+            if (host.StartsWith("www.", StringComparison.Ordinal))
+                host = host.Substring(4);
+            return host + "/" + url.AbsolutePath.Trim('/') + url.Query;
+        }
+
+        public const HttpRequestError TimeoutError = (HttpRequestError)1001;
+        private (DateTime Date, Uri? Url) AddPost(string did, XElement item)
         {
             var title = GetValue(item, "title");
             var url = GetAlternateLink(item);
@@ -145,7 +273,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             var guid = GetValue(item, "guid");
 
-            var postId = guid ?? url;
+            var postId = guid ?? url.AbsoluteUri;
             var dateParsed = date != null ? DateTime.Parse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal) : DateTime.UtcNow;
             var bodyAsText = StringUtils.ParseHtmlToText(fullContentHtml ?? summaryHtml, out var bodyDom);
             if (bodyAsText?.Length >= 500)
@@ -168,7 +296,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
 
                 }
-                data.ExternalUrl = url;
+                data.ExternalUrl = url.AbsoluteUri;
                 data.ExternalDescription = bodyAsText;
                 data.ExternalTitle = title;
                 var img = (bodyDom ?? summaryDom)?.QuerySelector("img");
@@ -179,7 +307,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         var size = img.GetAttribute("height") ?? img.GetAttribute("width");
                         if (size == null || int.Parse(size) > 60)
                         {
-                            data.ExternalThumbCid = BlueskyRelationships.CompressBpe(new Uri(new Uri(url), img.GetAttribute("src")).AbsoluteUri);
+                            data.ExternalThumbCid = BlueskyRelationships.CompressBpe(new Uri(url, img.GetAttribute("src")).AbsoluteUri);
                         }
                     }
                     catch
@@ -192,6 +320,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 data.Text = bodyAsText ?? title;
             }
             OnPostDiscovered(new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, postId), XxHash64.Hash(MemoryMarshal.AsBytes<char>(postId)))), null, null, data);
+            return (dateParsed, url);
         }
 
         private static bool IsTrimmedText(string? bodyAsText, string summaryText)
@@ -202,13 +331,18 @@ namespace AppViewLite.PluggableProtocols.Rss
             return Normalize(bodyAsText).StartsWith(Normalize(withoutEllipsis), StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string? GetAlternateLink(XElement item)
+        public override string? GetDefaultAvatar(string did)
+        {
+            return "/assets/default-rss-avatar.svg";
+        }
+
+        private static Uri? GetAlternateLink(XElement item)
         {
             var links = GetChildren(item, "link");
             var link = links.FirstOrDefault(x => GetAttribute(x, "rel") == "alternate") ??
                 links.FirstOrDefault(x => GetAttribute(x, "rel") == null);
             var url = Normalize(GetAttribute(link, "href")) ?? Normalize(link);
-            return url;
+            return url != null ? new Uri(url) : null;
         }
 
         private static string Normalize(XElement? element) => Normalize(element?.Value);
@@ -304,6 +438,23 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return TimeSpan.FromDays(365 * 50);
         }
+
+        private readonly TaskDictionary<string, RssRefreshInfo> RefreshFeed;
+
+        public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did)
+        {
+            var refreshData = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetRssRefreshInfo(plc));
+
+            var now = DateTime.UtcNow;
+            if (refreshData == null || (now - refreshData.LastRefreshAttempt).TotalHours > 6)
+            {
+                return await RefreshFeed.GetValueAsync(did);
+            }
+            return refreshData;
+        }
+
+
+
     }
 }
 

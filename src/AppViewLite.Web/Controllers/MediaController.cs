@@ -5,6 +5,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
+using System;
 using System.Buffers;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
@@ -158,7 +159,7 @@ namespace AppViewLite.Web.Controllers
                     {
                         using (var cacheStream = new System.IO.FileStream(cachePath + ".tmp", FileMode.Create, FileAccess.Write))
                         {
-                            await WriteImageAsync(image, cacheStream, ct);
+                            await WriteImageOrBytesAsync(image, imageResult.SvgData, cacheStream, ct);
                         }
                         System.IO.File.Move(cachePath + ".tmp", cachePath);
                     }
@@ -168,8 +169,6 @@ namespace AppViewLite.Web.Controllers
                     }
                 }
 
-                InitFileName();
-                SetMediaHeaders(name);
 
                 using var stream = new FileStream(cachePath, new FileStreamOptions 
                 { 
@@ -178,6 +177,13 @@ namespace AppViewLite.Web.Controllers
                     Access = FileAccess.Read,
                     Options = FileOptions.Asynchronous
                 });
+
+                Memory<byte> initialBytes = new byte[256];
+                initialBytes = initialBytes.Slice(0, await stream.ReadAsync(initialBytes, ct));
+                stream.Seek(0, SeekOrigin.Begin);
+
+                InitFileName();
+                SetMediaHeaders(name, initialBytes: initialBytes);
                 Response.ContentLength = stream.Length;
                 await stream.CopyToAsync(Response.Body, ct);
 
@@ -214,21 +220,31 @@ namespace AppViewLite.Web.Controllers
                     var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, ct);
                     using var image = imageResult.Image;
                     InitFileName(imageResult.FileNameForDownload);
-                    SetMediaHeaders(name);
-                    await WriteImageAsync(image, Response.Body, ct);
+                    SetMediaHeaders(name, initialBytes: imageResult.SvgData);
+                    await WriteImageOrBytesAsync(image, imageResult.SvgData, Response.Body, ct);
                 }
             }
         }
 
         private static bool IsVideo(ThumbnailSize size) => size is ThumbnailSize.feed_video_blob or ThumbnailSize.feed_video_playlist;
-        private static async Task WriteImageAsync(Image<Rgba32> image, Stream cacheStream, CancellationToken ct)
+        private static async Task WriteImageOrBytesAsync(Image<Rgba32>? image, byte[]? bytes, Stream cacheStream, CancellationToken ct)
         {
-            using (image)
+            if (bytes != null)
             {
-                await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder { Quality = 
-                    image.Width <= 16 ? 98 :
-                    image.Width <= 32 ? 90 :
-                    70 }, cancellationToken: ct);
+                cacheStream.Write(bytes);
+            }
+            else
+            {
+                using (image)
+                {
+                    await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
+                    {
+                        Quality =
+                        image.Width <= 16 ? 98 :
+                        image.Width <= 32 ? 90 :
+                        70
+                    }, cancellationToken: ct);
+                }
             }
         }
 
@@ -240,66 +256,79 @@ namespace AppViewLite.Web.Controllers
                 .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
-        private async Task<(Image<Rgba32> Image, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, CancellationToken ct)
+        private async Task<(Image<Rgba32>? Image, byte[]? SvgData, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, CancellationToken ct)
         {
-            using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
-            var bytes = await blob.ReadAsBytesAsync();
-            if (!StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
-            Image<Rgba32> image;
-            if (bytes.AsSpan().StartsWith(Magic_ICO))
-                image = IconParser.IconUtils.LoadLargestImage(bytes);
-            else
-                image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
-
-            if (image.Frames.Count > 1) return (image, blob.FileNameForDownload);
-
-            if (Math.Max(image.Width, image.Height) > sizePixels)
+            try
             {
-                image.Mutate(m => m.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new SixLabors.ImageSharp.Size(sizePixels, sizePixels) }));
-            }
+                using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
 
-            if ((image.Width <= 60) && sizeEnum == ThumbnailSize.avatar_thumbnail)
-            {
-                var borderColor = GetBorderAverageColor(image);
-                image.Mutate(m =>
+                var bytes = await blob.ReadAsBytesAsync();
+
+                if (bytes.AsSpan().StartsWith("<?xml "u8) && bytes.AsSpan().IndexOf("xmlns=\"http://www.w3.org/2000/svg\""u8) != -1)
                 {
-                    var size = Math.Min(image.Width, image.Height) + 16;
-                    m.Pad(size, size, borderColor);
-                });
-            }
+                    return (null, bytes, blob.FileNameForDownload);
+                }
 
-            if (sizeEnum == ThumbnailSize.emoji_profile_name)
-            {
-                EnsureNotConfusableWithVerifiedBadge(ref image);
-            }
+                if (!StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
+                Image<Rgba32> image;
+                if (bytes.AsSpan().StartsWith(Magic_ICO))
+                    image = IconParser.IconUtils.LoadLargestImage(bytes);
+                else
+                    image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
 
-            if (sizeEnum == ThumbnailSize.avatar_thumbnail)
-            {
-                image.Mutate(m =>
+                if (image.Frames.Count > 1) return (image, null, blob.FileNameForDownload);
+
+                if (Math.Max(image.Width, image.Height) > sizePixels)
                 {
-                    // Workaround for https://github.com/alnkesq/AppViewLite/issues/87
-                    m.BackgroundColor(Color.White);
-                });
+                    image.Mutate(m => m.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new SixLabors.ImageSharp.Size(sizePixels, sizePixels) }));
+                }
+
+                if ((image.Width <= 60) && sizeEnum == ThumbnailSize.avatar_thumbnail)
+                {
+                    var borderColor = GetBorderAverageColor(image);
+                    image.Mutate(m =>
+                    {
+                        var size = Math.Min(image.Width, image.Height) + 16;
+                        m.Pad(size, size, borderColor);
+                    });
+                }
+
+                if (sizeEnum == ThumbnailSize.emoji_profile_name)
+                {
+                    EnsureNotConfusableWithVerifiedBadge(ref image);
+                }
+
+                if (sizeEnum == ThumbnailSize.avatar_thumbnail)
+                {
+                    image.Mutate(m =>
+                    {
+                        // Workaround for https://github.com/alnkesq/AppViewLite/issues/87
+                        m.BackgroundColor(Color.White);
+                    });
+                }
+
+
+
+                var other = new Image<Rgba32>(image.Width, image.Height);
+                using (image)
+                {
+                    other.Mutate(m => m.DrawImage(image, new Point(0, 0), 1));
+
+                }
+
+                return (other, null, blob.FileNameForDownload);
             }
-
-
-
-            var other = new Image<Rgba32>(image.Width, image.Height);
-            using (image)
+            catch (Exception) when (sizeEnum == ThumbnailSize.avatar_thumbnail && did.StartsWith(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidPrefix, StringComparison.Ordinal))
             {
-                other.Mutate(m => m.DrawImage(image, new Point(0, 0), 1));
-
+                return (null, DefaultRssIconSvg, null);
             }
-
-            return (other, blob.FileNameForDownload);
         }
 
         private static int Pow2(int a) => a * a;
-        public static double ColorDistancePow(Rgba32 a, Rgba32 b)
+        public static double ColorDistance(Rgba32 a, Rgba32 b)
         {
             var diff = Math.Sqrt(Pow2(a.R - b.R) + Pow2(a.G - b.G) + Pow2(a.B - b.B));
             return diff;
-
         }
         private static Color GetBorderAverageColor(Image<Rgba32> image)
         {
@@ -337,7 +366,7 @@ namespace AppViewLite.Web.Controllers
                 var borderCountFloat = (float)borderCount * 255;
                 var average = new Rgba32(r / borderCountFloat, g / borderCountFloat, b / borderCountFloat, a / borderCountFloat);
                 var mostFrequent = frequency.MaxBy(x => x.Value).Key;
-                if (ColorDistancePow(average, mostFrequent) < 50) borderColor = mostFrequent;
+                if (ColorDistance(average, mostFrequent) < 50) borderColor = mostFrequent;
                 else borderColor = average;
             });
             return borderColor;
@@ -479,8 +508,10 @@ namespace AppViewLite.Web.Controllers
             image = other;
         }
 
-        private void SetMediaHeaders(string? nameForDownload, string contentType = "image/jpeg")
+        private void SetMediaHeaders(string? nameForDownload, string contentType = "image/jpeg", ReadOnlyMemory<byte> initialBytes = default)
         {
+            if (initialBytes.Span.StartsWith("<?xml "u8))
+                contentType = "image/svg+xml";
             Response.ContentType = contentType;
             Response.Headers.CacheControl = new(["public, max-age=31536000, immutable"]);
             Response.Headers.Pragma = new(["cache"]);
@@ -516,6 +547,24 @@ namespace AppViewLite.Web.Controllers
                 (bytes.StartsWith(Magic_RIFF) && bytes.Slice(8).StartsWith(Magic_WEBP))
                 ;
         }
+
+        private readonly static byte[] DefaultRssIconSvg =
+            """
+            <?xml version="1.0" encoding="iso-8859-1"?>
+            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-80 -80 615.731 615.731" xml:space="preserve">
+            <g>
+            <rect x="-80" y="-80" style="fill:#F78422;" width="615.731" height="615.731"/>
+            <g>
+            <path style="fill:#FFFFFF;" d="M296.208,159.16C234.445,97.397,152.266,63.382,64.81,63.382v64.348
+            c70.268,0,136.288,27.321,185.898,76.931c49.609,49.61,76.931,115.63,76.931,185.898h64.348
+            C391.986,303.103,357.971,220.923,296.208,159.16z"/>
+            <path style="fill:#FFFFFF;" d="M64.143,172.273v64.348c84.881,0,153.938,69.056,153.938,153.939h64.348
+            C282.429,270.196,184.507,172.273,64.143,172.273z"/>
+            <circle style="fill:#FFFFFF;" cx="109.833" cy="346.26" r="46.088"/>
+            </g>
+            </g>
+            </svg>
+            """u8.ToArray();
     }
 }
 

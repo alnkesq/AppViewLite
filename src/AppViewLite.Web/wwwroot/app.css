@@ -1541,7 +1541,7 @@ h1 .profile-badge img{
 }
 
 
-.post[data-postdid^='did:yotsuba:'] .post-image {
+.post[data-postdid^='did:yotsuba:'] .post-image, .post[data-postdid^='did:yotsuba:'] video {
     max-width: 250px;
     max-height: 250px;
     object-fit: scale-down;

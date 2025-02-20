@@ -64,20 +64,21 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             }, ct);
         }
 
+        public override bool RepostsAreCategories => true;
 
         public override string? GetIndexableDidText(string did)
         {
             return GetUserName(did);
         }
 
-        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
+        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
             return "https://news.ycombinator.com/item?id=" + postId.PostId.Int64;
         }
 
-        public override string? TryGetOriginalProfileUrl(string did)
+        public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
-            var username = GetUserName(did);
+            var username = GetUserName(profile.Did);
             if (username == null)
                 return "https://news.ycombinator.com/";
             return "https://news.ycombinator.com/user?id=" + Uri.EscapeDataString(username);
@@ -108,7 +109,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
         }
 
         // case sensitive usernames
-        private readonly static SearchValues<char> ValidUserNameChars = SearchValues.Create("_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        private readonly static SearchValues<char> ValidUserNameChars = SearchValues.Create("-_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
         public override string? GetDefaultAvatar(string did)
         {

@@ -38,7 +38,7 @@
             Navigation.NavigateTo("/@" + alt + new Uri(Navigation.Uri).Query);
 
         data = Profile.Profile?.BasicData;
-        pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Did);
+        pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Profile.Profile);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
         GuessedFacets = data?.GetOrGuessFacets();
         (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
@@ -157,17 +157,19 @@
                 <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
                 <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
                 <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
-                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
-                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
-                @if (Profile.HasFeeds)
+                @if (Profile.Profile.PluggableProtocol == null)
                 {
-                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
+                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
+                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+                    @if (Profile.HasFeeds)
+                    {
+                        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
+                    }
+                    @if (Profile.HasLists)
+                    {
+                        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
+                    }
                 }
-                @if (Profile.HasLists)
-                {
-                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
-                }
-
                 @* <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a> *@
                 <a class="search-link" href="/search?q=from:@Did%20" title="Search"><img src="/assets/search.png"></a>
             </div>

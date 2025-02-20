@@ -297,12 +297,12 @@ namespace AppViewLite.PluggableProtocols.Nostr
             return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
         }
 
-        public override string? TryGetOriginalProfileUrl(string did)
+        public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
-            return "https://primal.net/p/" + GetNip19FromDid(did);
+            return "https://primal.net/p/" + GetNip19FromDid(profile.Did);
         }
 
-        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
+        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
             return "https://primal.net/e/" + GetNoteId(postId.PostId);
         }

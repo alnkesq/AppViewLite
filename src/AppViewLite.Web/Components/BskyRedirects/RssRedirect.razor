@@ -1,0 +1,13 @@
+@page "/rss/{*rest}"
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContext
+
+@code {
+    [Parameter] public required string Rest { get; set; }
+    protected override void OnParametersSet()
+    {
+        var url = new Uri(Rest + HttpContext.HttpContext!.Request.QueryString.Value);
+        var did = PluggableProtocols.Rss.RssProtocol.UrlToDid(url);
+        Navigation.NavigateTo("/@" + did);
+    }
+}

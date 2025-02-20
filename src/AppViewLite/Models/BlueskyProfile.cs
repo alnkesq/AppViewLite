@@ -15,7 +15,7 @@ namespace AppViewLite.Models
             get
             {
                 if (DisplayName != null) return DisplayName;
-                if (PluggableProtocol.GetDisplayNameFromDid(Did) is { } username) return username;
+                if (PluggableProtocol?.GetDisplayNameFromDid(Did) is { } username) return username;
                 if (PossibleHandle != null)
                 {
                     var at = PossibleHandle.IndexOf('@');

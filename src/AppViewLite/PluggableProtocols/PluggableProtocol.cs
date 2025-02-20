@@ -69,6 +69,7 @@ namespace AppViewLite.PluggableProtocols
             });
         }
 
+        public virtual bool RepostsAreCategories => false;
         public void OnRepostDiscovered(string reposterDid, PostId postId, DateTime repostDate)
         {
             EnsureOwnDid(reposterDid);
@@ -155,9 +156,12 @@ namespace AppViewLite.PluggableProtocols
                 {
                     rels.IndexPost(data);
 
-                    foreach (var hashtag in StringUtils.GuessHashtags(data.Text))
+                    if (data.PostId.PostRKey.Date >= ApproximateDateTime32.MinValueAsDateTime)
                     {
-                        rels.AddToSearchIndex(hashtag.ToLowerInvariant(), BlueskyRelationships.GetApproxTime32(data.PostId.PostRKey));
+                        foreach (var hashtag in StringUtils.GuessHashtags(data.Text))
+                        {
+                            rels.AddToSearchIndex(hashtag.ToLowerInvariant(), BlueskyRelationships.GetApproxTime32(data.PostId.PostRKey));
+                        }
                     }
                 }
 
@@ -330,12 +334,12 @@ namespace AppViewLite.PluggableProtocols
 
         }
 
-        public virtual string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
+        public virtual string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
             return null;
         }
 
-        public virtual string? TryGetOriginalProfileUrl(string did)
+        public virtual string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
             return null;
         }
@@ -370,6 +374,9 @@ namespace AppViewLite.PluggableProtocols
         public virtual string? GetDefaultAvatar(string did) => null;
 
         public virtual string? GetDefaultBannerColor(string did) => null;
+
+        public virtual TimeSpan GetProfilePageMaxPostAge() => TimeSpan.FromDays(90);
+
         public virtual bool ShouldDisplayExternalLinkInBio => true;
     }
 }

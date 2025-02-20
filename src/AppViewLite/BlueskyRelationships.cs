@@ -421,7 +421,7 @@ namespace AppViewLite
             if (IsReadOnly) return;
             if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DISABLE_SLICE_GC) == true) return;
             var allCheckpoints = new DirectoryInfo(BaseDirectory + "/checkpoints").EnumerateFiles("*.pb").ToArray();
-            
+
             var checkpointsToKeep =
                 allCheckpoints
                 .OrderByDescending(x => x.LastWriteTimeUtc)
@@ -736,6 +736,7 @@ namespace AppViewLite
         public void IndexPost(BlueskyPostData proto)
         {
             var postId = proto.PostId;
+            if (postId.PostRKey.Date < ApproximateDateTime32.MinValueAsDateTime) return;
             var approxPostDate = GetApproxTime32(postId.PostRKey);
 
             if (proto.Language != LanguageEnum.Unknown)

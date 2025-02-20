@@ -528,6 +528,18 @@ namespace AppViewLite
             return (sb.ToString(), facets?.ToArray());
         }
 
+        public static string? ParseHtmlToText(string? html, out IHtmlElement? body)
+        {
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                body = null;
+                return null;
+            }
+            body = ParseHtml(html).Body!;
+            var text = HtmlToFacets(body, x => null).Text?.Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            return text;
+        }
         public static IHtmlDocument ParseHtml(string? html)
         {
             var parser = new HtmlParser();

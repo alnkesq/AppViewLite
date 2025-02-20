@@ -31,6 +31,7 @@ using AppViewLite;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
+using AppViewLite.PluggableProtocols;
 
 namespace AppViewLite
 {
@@ -934,7 +935,7 @@ namespace AppViewLite
 
             if (continuation == null && (includePosts || includeReposts))
             {
-                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(canFetchFromServer ? -7 : -90));
+                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow - (canFetchFromServer ? TimeSpan.FromDays(7) : BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.GetProfilePageMaxPostAge()));
                 var recentPosts = WithRelationshipsLock(rels =>
                 {
                     var plc = rels.TrySerializeDidMaybeReadOnly(did);

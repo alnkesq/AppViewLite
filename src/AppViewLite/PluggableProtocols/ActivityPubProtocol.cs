@@ -416,7 +416,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return new ActivityPubUserId(parts[0], parts[1]);
         }
 
-        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
+        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
             var user = ParseDid(postId.Did);
             var postIdStr = postId.PostId.AsString!;
@@ -429,9 +429,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         }
 
 
-        public override string? TryGetOriginalProfileUrl(string did)
+        public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
-            var user = ParseDid(did);
+            var user = ParseDid(profile.Did);
             return "https://" + user.Instance + "/@" + user.UserName;
         }
 

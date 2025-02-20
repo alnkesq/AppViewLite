@@ -61,12 +61,24 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
                 var boardId = new YotsubaBoardId(host, board.board);
                 var description = ParseHtml(board.meta_description, boardId);
-                OnProfileDiscovered(ToDid(boardId), new BlueskyProfileBasicInfo 
+
+                var did = ToDid(boardId);
+                var prev = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfileBasicInfo(plc));
+
+                var avatarCidBytes = prev?.AvatarCidBytes;
+                if (avatarCidBytes == null)
+                {
+                    var faviconUrl = await BlueskyEnrichedApis.GetFaviconUrlAsync(new Uri(boardId.BaseUrl.AbsoluteUri + "/"));
+                    avatarCidBytes = Encoding.UTF8.GetBytes(faviconUrl.AbsoluteUri);
+                }
+
+                OnProfileDiscovered(did, new BlueskyProfileBasicInfo 
                 { 
                      DisplayName = "/" + boardId.BoardName + "/ - " + board.title + " (" + displayHost + ")",
                      Description = description.Text,
                      DescriptionFacets = description.Facets,
                      HasExplicitFacets = true,
+                     AvatarCidBytes = avatarCidBytes
                 }, shouldIndex: true);
                 BoardLoopAsync(boardId, ct).FireAndForget();
             }
@@ -207,16 +219,22 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             GetBoardIdFromDid(did);
         }
 
-        public override Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize, CancellationToken ct)
+        public override async Task<BlobResult> GetBlobAsync(string did, byte[] bytes, ThumbnailSize preferredSize, CancellationToken ct)
         {
             var board = GetBoardIdFromDid(did);
             var imageId = Encoding.UTF8.GetString(bytes);
-            if (preferredSize == ThumbnailSize.feed_thumbnail)
+            if (imageId.StartsWith("https://", StringComparison.Ordinal) || imageId.StartsWith("http://", StringComparison.Ordinal))
+            {
+                var image = await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(imageId), ct: ct);
+                image.IsFavIcon = true;
+                return image;
+            }
+            if (preferredSize is ThumbnailSize.feed_thumbnail or ThumbnailSize.video_thumbnail)
             {
                 imageId = Path.GetFileNameWithoutExtension(imageId) + "s.jpg";
             }
             var url = $"{GetImagePrefix(board)}/{imageId}";
-            return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), ct: ct);
+            return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), ct: ct);
         }
 
         public YotsubaBoardId GetBoardIdFromDid(string did)
@@ -235,15 +253,15 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return parsed.Host + " " + parsed.BoardName;
         }
 
-        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId)
+        public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
             var board = GetBoardIdFromDid(postId.Did);
             return "https://" + board.Host + "/" + board.BoardName + "/thread/" + postId.PostId.AsString;
         }
 
-        public override string? TryGetOriginalProfileUrl(string did)
+        public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
-            var board = GetBoardIdFromDid(did);
+            var board = GetBoardIdFromDid(profile.Did);
             return "https://" + board.Host + "/" + board.BoardName + "/catalog";
         }
 

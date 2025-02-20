@@ -72,7 +72,7 @@ namespace AppViewLite.Models
             return new QualifiedPluggablePostId(did!, postId.Value);
         }
 
-        public string? OriginalPostUrl => QualifiedPluggablePostId is { } p ? BlueskyRelationships.TryGetPluggableProtocolForDid(Did)!.TryGetOriginalPostUrl(p) : null;
+        public string? OriginalPostUrl => Author.PluggableProtocol?.TryGetOriginalPostUrl(this.QualifiedPluggablePostId!.Value, this);
 
         public string? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList)
         {

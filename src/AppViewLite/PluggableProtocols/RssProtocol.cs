@@ -285,7 +285,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     if (summaryText.Length < 400 && !IsTrimmedText(bodyAsText, summaryText))
                     {
-                        var readMore = Regex.Match(summaryText, @"(?:…|\.\.\.|\b[Rr]ead [Mm]ore)\W*$");
+                        var readMore = Regex.Match(summaryText, @"(?:…|\.\.\.|\b[Rr]ead [Mm]ore|[Cc]ontinue [Rr]eading)\W*$");
                         if (readMore.Success) 
                         {
                             summaryText = summaryText.Substring(0, readMore.Index).TrimEnd([' ', '\n', '.', '…']) + "…";
@@ -326,7 +326,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         private static bool IsTrimmedText(string? bodyAsText, string summaryText)
         {
             if (bodyAsText == null) return false;
-            var withoutEllipsis = summaryText.Replace("read more", null, StringComparison.OrdinalIgnoreCase);
+            var withoutEllipsis = summaryText.Replace("read more", null, StringComparison.OrdinalIgnoreCase).Replace("continue reading", null, StringComparison.OrdinalIgnoreCase);
             string Normalize(string text) => Regex.Replace(text, @"\W", string.Empty);
             return Normalize(bodyAsText).StartsWith(Normalize(withoutEllipsis), StringComparison.OrdinalIgnoreCase);
         }

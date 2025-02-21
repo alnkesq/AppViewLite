@@ -28,7 +28,7 @@
 {
     <tr>
         <td style="text-align: left">@table.Name</td>
-        <td>@table.InMemorySize</td>
+        <td>@StringUtils.ToHumanBytes(@table.InMemorySize)</td>
         <td>@StringUtils.ToHumanDate(table.LastFlushed)</td>
         <td>@StringUtils.ToHumanBytes(table.OriginalWriteBytes)</td>
         <td>@StringUtils.ToHumanBytes(table.CompactationWriteBytes)</td>

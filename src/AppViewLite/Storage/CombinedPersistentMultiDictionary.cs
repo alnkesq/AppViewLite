@@ -243,7 +243,7 @@ namespace AppViewLite.Storage
                 OriginalWriteBytes += size;
                 queue.Clear();
                 slices.Add(new(date, date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
-                Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {groupCount} rows");
+                Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {StringUtils.ToHumanBytes(size)}");
 
                 if (!disposing)
                     MaybeStartCompactation();

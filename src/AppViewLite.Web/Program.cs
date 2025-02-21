@@ -548,8 +548,7 @@ namespace AppViewLite.Web
 
             response.EnsureSuccessStatusCode();
             var responseText = (await response.Content.ReadAsStringAsync()).Trim();
-            var initialText = responseText.Substring(0, Math.Min(responseText.Length, 1024));
-            if (Regex.IsMatch(initialText, @"<(?:rss|feed|rdf)\b"))
+            if (AppViewLite.PluggableProtocols.Rss.RssProtocol.IsFeedXml(responseText)) 
             {
                 return "/@" + AppViewLite.PluggableProtocols.Rss.RssProtocol.UrlToDid(url);
             }
@@ -559,6 +558,7 @@ namespace AppViewLite.Web
             {
                 return "/@" + AppViewLite.PluggableProtocols.Rss.RssProtocol.UrlToDid(rssFeed);
             }
+
             throw new UnexpectedFirehoseDataException("No RSS feeds were found at the specified page.");
         }
 

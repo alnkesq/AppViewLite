@@ -460,7 +460,36 @@ namespace AppViewLite.PluggableProtocols.Rss
                 .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
                 .Where(x => x != null)
                 .MinBy(x => x!.AbsoluteUri.Length);
+            if (feedUrl == null)
+            {
+                var links = dom.QuerySelectorAll("a")
+                    .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
+                    .Where(x => x != null)
+                    .Where(x => x.Host == url.Host)
+                    .Where(x => Regex.IsMatch(x.PathAndQuery, @"\b(?:feed|rss|\.xml|atom)\b"))
+                    .DistinctBy(x => x.GetLeftPart(UriPartial.Query))
+                    .OrderBy(x => x.AbsoluteUri.Length);
+                foreach (var link in links.Take(2))
+                {
+                    try
+                    {
+                        var xml = await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(link);
+                        if (IsFeedXml(xml))
+                            return link;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+            }
             return feedUrl;
+        }
+
+        public static bool IsFeedXml(string responseText)
+        {
+            var initialText = responseText.Substring(0, Math.Min(responseText.Length, 1024));
+            return Regex.IsMatch(initialText, @"<(?:rss|feed|rdf)\b");
         }
     }
 }

@@ -2,7 +2,7 @@
 @code {
     [Parameter] required public string Did { get; set; }
 
-    private string ProfileBaseUrl => "/@" + Did;
+    [Parameter] required public string ProfileBaseUrl { get; set; }
 }
 
 <div class="top-spacer-mobile"></div>

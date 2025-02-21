@@ -79,7 +79,23 @@
             }
             else 
             {
-                link = facet.Did != null ? "/@" + facet.Did : facet.GetLink(textBytes);
+                if (facet.Did != null)
+                {
+                    if (facet.Did != null && facet.Did.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix))
+                    {
+                        link = "/" + AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.ParseDid(facet.Did).ToString();
+                    }
+                    else
+                    {
+                        link = "/@" + facet.Did;
+                    }
+
+                }
+                else
+                {
+                    link = facet.GetLink(textBytes);
+                }
+
                 if (link != null && link.StartsWith("https://bsky.app/"))
                 {
                     var url = new Uri(link);

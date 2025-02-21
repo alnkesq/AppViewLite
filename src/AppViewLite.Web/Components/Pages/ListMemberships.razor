@@ -1,9 +1,8 @@
 @page "/@{did}/member-of"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/member-of"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public required string Did { get; set; }
     private BlueskyList[] MemberOf = [];
     private BlueskyProfile? Member;
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
@@ -11,7 +10,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
+        await ResolveDidAsync();
         Member = await Apis.GetProfileAsync(Did, RequestContext);
         (MemberOf, NextContinuation) = await Apis.GetMemberOfListsAsync(Did, Continuation, default, RequestContext);
     }

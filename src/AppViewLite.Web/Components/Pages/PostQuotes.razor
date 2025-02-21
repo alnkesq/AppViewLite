@@ -1,9 +1,8 @@
 @page "/@{did}/{rkey}/quotes"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/{rkey}/quotes"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
@@ -11,13 +10,13 @@
     private BlueskyPost[] Posts = [];
     protected override async Task OnParametersSetAsync()
     {
-        (Posts, NextContinuation) = await Apis.GetPostQuotesAsync(await Apis.ResolveHandleAsync(Did), RKey, Continuation, default, RequestContext);
+        (Posts, NextContinuation) = await Apis.GetPostQuotesAsync(await GetResolvedDidAsync(), RKey, Continuation, default, RequestContext);
     }
 }
 
 <PageTitle>Quotes</PageTitle>
 
-<PostEngagementHeader Did="@Did" RKey="@RKey" Kind="quotes"  />
+<PostEngagementHeader ProfileBaseUrl="@ProfileBaseUrl" RKey="@RKey" Kind="quotes" />
 
 <PostList Posts="@Posts" NextContinuation="@NextContinuation" IsQuoteList="true" />
 

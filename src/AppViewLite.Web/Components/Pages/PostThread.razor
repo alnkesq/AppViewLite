@@ -1,10 +1,10 @@
 @page "/@{did}/{rkey:length(13)}"
 @page "/@{did}/{rkey:length(13)}/media/{mediaId:int}"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/{rkey:length(13)}"
+@page "/@{did}@{activityPubInstance}/{rkey:length(13)}/media/{mediaId:int}"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
     [Parameter] public int MediaId { get; set; }
     [SupplyParameterFromQuery] [Parameter] public string? Continuation { get; set; }
@@ -13,7 +13,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
+        await ResolveDidAsync();
         Posts = await Apis.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext);
         FocalPost = Posts.Posts.FirstOrDefault(x => x.RKey == RKey && x.Did == Did);
     }

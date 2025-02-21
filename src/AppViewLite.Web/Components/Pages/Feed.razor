@@ -1,9 +1,8 @@
 @page "/@{did}/feed/{rkey}"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/feed/{rkey}"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
     [Parameter] [SupplyParameterFromQuery] public int Media { get; set; }
     [Parameter] [SupplyParameterFromQuery] public string? Continuation { get; set; }
@@ -15,7 +14,7 @@
     private bool ShowAsGrid => Media == 1;
     protected override async Task OnParametersSetAsync()
     {
-        Did = await Apis.ResolveHandleAsync(Did);
+        await ResolveDidAsync();
         Info = await Apis.GetFeedGeneratorAsync(Did, RKey);
         var ctx = RequestContext;
         (Posts, Info, NextContinuation) = await Apis.GetFeedAsync(Did, RKey, Continuation, ctx, forGrid: ShowAsGrid);

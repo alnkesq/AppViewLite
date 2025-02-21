@@ -1,6 +1,6 @@
 @page "/@{did}"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}"
+@inherits ProfileComponentBase
 @inject NavigationManager Navigation
 
 @code {
@@ -9,7 +9,6 @@
     [Parameter][SupplyParameterFromQuery] public int? Likes { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Media { get; set; }
 
-    [Parameter] public string Did { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
     private FacetData[]? GuessedFacets;
@@ -32,13 +31,10 @@
     private string? RssError;
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
+        await ResolveDidAsync();
         Profile = await Apis.GetFullProfileAsync(Did, RequestContext, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
-        var alt = await Apis.TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(Profile.Profile);
-        if (alt != null)
-            Navigation.NavigateTo("/@" + alt + new Uri(Navigation.Uri).Query);
 
-        data = Profile.Profile?.BasicData;
+        data = Profile.Profile.BasicData;
         pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Profile.Profile);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
         GuessedFacets = data?.GetOrGuessFacets();

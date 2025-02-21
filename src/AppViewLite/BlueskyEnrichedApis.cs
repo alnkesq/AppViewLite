@@ -268,22 +268,35 @@ namespace AppViewLite
 
         public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)
         {
+            if (!BlueskyRelationships.IsNativeAtProtoDid(did))
+            {
+                if (did.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
+                {
+                    var bridged = TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(did);
+                    if (bridged != null) return null; // URL explicitly requested did:fedi:
+                    return AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.Instance!.TryGetHandleFromDid(did);
+                }
+                return null;
+            }
             try
             {
                 var profile = GetSingleProfile(did);
                 var handle = profile.PossibleHandle;
-                if (!profile.HandleIsUncertain) return handle;
-
-                if (handle == null)
+                if (profile.HandleIsUncertain)
                 {
-                    var diddoc = await GetDidDocAsync(did);
-                    handle = diddoc.Handle;
-                    if (handle == null) return null;
+                    if (handle == null)
+                    {
+                        var diddoc = await GetDidDocAsync(did);
+                        handle = diddoc.Handle;
+                        if (handle == null) return null;
+                    }
+                    var did2 = await PendingHandleVerifications.GetValueAsync(handle);
+                    if (did != did2) return null;
                 }
-                var did2 = await PendingHandleVerifications.GetValueAsync(handle);
-                if (did == did2)
-                    return handle;
-                return null;
+
+                if (handle == did) return null;
+                handle = BlueskyRelationships.MaybeBridyHandleToFediHandle(handle) ?? handle;
+                return handle;
             }
             catch (Exception ex)
             {
@@ -2684,8 +2697,11 @@ namespace AppViewLite
         public static TimeSpan HandleToDidMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_HANDLE_TO_DID_MAX_STALE_HOURS) ?? (10 * 24)));
         public static TimeSpan DidDocMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DID_DOC_MAX_STALE_HOURS) ?? (2 * 24)));
 
-        public async Task<string> ResolveHandleAsync(string handle, bool forceRefresh = false, CancellationToken ct = default)
+        public async Task<string> ResolveHandleAsync(string handle, string? activityPubInstance = null, bool forceRefresh = false, CancellationToken ct = default)
         {
+            if (activityPubInstance != null)
+                handle += "@" + activityPubInstance;
+
             handle = StringUtils.NormalizeHandle(handle);
             if (handle.StartsWith('@')) handle = handle.Substring(1);
 
@@ -2697,11 +2713,16 @@ namespace AppViewLite
                 return handle;
             }
 
+
             foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)
             {
                 if (pluggableProtocol.TryHandleToDid(handle) is { } pluggableDid)
                 {
                     AdministrativeBlocklist.ThrowIfBlockedDisplay(pluggableDid);
+
+                    var bridged = await TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(pluggableDid);
+                    if (bridged != null)
+                        return bridged;
                     return pluggableDid;
                 }
             }
@@ -2765,7 +2786,7 @@ namespace AppViewLite
             {
                 if (!forceRefresh)
                 {
-                    return await ResolveHandleAsync(handle, forceRefresh: true, ct);
+                    return await ResolveHandleAsync(handle, forceRefresh: true, ct: ct);
                 }
 
 
@@ -3095,12 +3116,12 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(BlueskyProfile profile)
+        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(string maybeFediverseDid)
         {
-            if (!profile.Did.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
+            if (!maybeFediverseDid.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
                 return null;
 
-            var userId = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.ParseDid(profile.Did);
+            var userId = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.ParseDid(maybeFediverseDid);
 
             var possibleHandle = userId.UserName + "." + userId.Instance + ".ap.brid.gy";
             if (!WithRelationshipsLock(rels => rels.HandleToPossibleDids.ContainsKey(BlueskyRelationships.HashWord(possibleHandle))))

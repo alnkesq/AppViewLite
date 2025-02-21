@@ -1,9 +1,9 @@
 @page "/@{did}/feeds"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/feeds"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public required string Did { get; set; }
+
     private BlueskyFeedGenerator[] Feeds = [];
     private BlueskyProfile? Member;
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
@@ -11,7 +11,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
+        await ResolveDidAsync();
         Member = await Apis.GetProfileAsync(Did, RequestContext);
         (Feeds, NextContinuation) = await Apis.GetProfileFeedsAsync(Did, Continuation, default, RequestContext);
     }

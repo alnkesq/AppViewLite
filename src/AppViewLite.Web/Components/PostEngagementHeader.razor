@@ -1,10 +1,10 @@
 
 @code {
-    [Parameter] required public string Did { get; set; }
+    [Parameter] required public string ProfileBaseUrl { get; set; }
     [Parameter] required public string RKey { get; set; }
     [Parameter] required public string Kind { get; set; }
 
-    private string PostBaseUrl => $"/@{Did}/{RKey}";
+    private string PostBaseUrl => $"{ProfileBaseUrl}/{RKey}";
 }
 
 <h1>Post engagements</h1>

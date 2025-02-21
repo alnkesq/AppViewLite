@@ -1,9 +1,8 @@
 @page "/@{did}/{rkey}/likes"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/{rkey}/likes"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public string Did { get; set; }
     [Parameter] public string RKey { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
@@ -11,13 +10,13 @@
     private BlueskyProfile[] Likers = [];
     protected override async Task OnParametersSetAsync()
     {
-        (Likers, NextContinuation) = await Apis.GetPostLikersAsync(await Apis.ResolveHandleAsync(Did), RKey, Continuation, default, RequestContext);
+        (Likers, NextContinuation) = await Apis.GetPostLikersAsync(await GetResolvedDidAsync(), RKey, Continuation, default, RequestContext);
     }
 }
 
 <PageTitle>Post likes</PageTitle>
 
-<PostEngagementHeader Did="@Did" RKey="@RKey" Kind="likes" />
+<PostEngagementHeader ProfileBaseUrl="@ProfileBaseUrl" RKey="@RKey" Kind="likes" />
 
 <ProfileList Profiles="Likers" NextContinuation="@NextContinuation" />
 

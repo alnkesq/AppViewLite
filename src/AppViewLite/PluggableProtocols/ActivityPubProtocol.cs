@@ -23,9 +23,12 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private Stopwatch? RecentlyStoredProfilesLastReset;
         private HashSet<UInt128> RecentlyStoredProfiles = new();
+        public static ActivityPubProtocol? Instance;
 
         public ActivityPubProtocol() : base(DidPrefix)
         {
+
+            Instance = this;
         }
 
         public override Task DiscoverAsync(CancellationToken ct)
@@ -50,6 +53,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
                 try
                 {
+
                     var post = System.Text.Json.JsonSerializer.Deserialize<ActivityPubPostJson>(evt.Data!, JsonOptions)!;
                     OnPostReceived(post);
                 }

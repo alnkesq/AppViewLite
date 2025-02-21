@@ -1,22 +1,21 @@
 @page "/@{did}/known-followers"
-@inject RequestContext RequestContext
-@inject BlueskyEnrichedApis Apis
+@page "/@{did}@{activityPubInstance}/known-followers"
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter] public required string Did { get; set; }
     private BlueskyProfile[] FollowersYouFollow = [];
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
 
     protected override async Task OnParametersSetAsync()
     {
-        (FollowersYouFollow, NextContinuation) = await Apis.GetFollowersYouFollowAsync(await Apis.ResolveHandleAsync(Did), Continuation, default, RequestContext);
+        (FollowersYouFollow, NextContinuation) = await Apis.GetFollowersYouFollowAsync(await GetResolvedDidAsync(), Continuation, default, RequestContext);
     }
 }
 
 <PageTitle>Following</PageTitle>
 
-<ProfileGraphHeader Did="@Did" />
+<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" />
 
 <ProfileList Profiles="FollowersYouFollow" NextContinuation="@NextContinuation" />
 

@@ -27,14 +27,33 @@
     const int MaxFollowersYouFollowAvatars = 3;
     private BlueskyProfileBasicInfo? data;
     private string? pluggableExternalUrl;
+    private string? description;
     private string? anchorTargetForProfileUrl;
     private string? RssError;
+    private AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId? BridgyMirroredProfile;
     protected override async Task OnParametersSetAsync()
     {
         await ResolveDidAsync();
         Profile = await Apis.GetFullProfileAsync(Did, RequestContext, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
 
         data = Profile.Profile.BasicData;
+        description = data?.Description;
+        if (description != null && description.EndsWith("on the fediverse by https://fed.brid.gy/ ]", StringComparison.Ordinal) && Profile.Profile.PossibleHandle != null)
+        {
+            var suffix = description.IndexOf("[bridged from ");
+            if(suffix != -1)
+            {
+                try
+                {
+                    BridgyMirroredProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(Profile.Profile.PossibleHandle!);
+                    description = description.Substring(0, suffix).Trim();
+                    if (string.IsNullOrEmpty(description)) description = null;
+                }
+                catch
+                {
+                }
+            }
+        }
         pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Profile.Profile);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
         GuessedFacets = data?.GetOrGuessFacets();
@@ -117,16 +136,28 @@
         </div>
 
         <div class="profile-description main-padding">
-            <TextWithFacets Text="@Profile.Profile.BasicData?.Description" Facets="@GuessedFacets" />
+            <TextWithFacets Text="@description" Facets="@GuessedFacets" />
             @if (pluggableExternalUrl != null && Profile.Profile.PluggableProtocol!.ShouldDisplayExternalLinkInBio)
             {
-                @if (Profile.Profile?.BasicData?.Description != null)
+                @if (@description != null)
                 {
                     <br>
 
                     <br>
                 }
                 <a href="@pluggableExternalUrl" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(new Uri(pluggableExternalUrl))</a>
+            }
+            @if (BridgyMirroredProfile != null)
+            {
+                var fediDid = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.GetDid(BridgyMirroredProfile.Value);
+                var fediUrl = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.Instance!.TryGetOriginalProfileUrl(new BlueskyProfile { Did = fediDid });
+                @if (@description != null)
+                {
+                    <br>
+
+                    <br>
+                }
+                <text>Mirrored from <a href="/@("@" + fediDid)" class="blue-link">@BridgyMirroredProfile.Value</a> by <a href="https://fed.brid.gy/" target="_blank" class="blue-link" rel="noreferrer">fed.brid.gy</a><br><a href="@fediUrl" rel="noreferrer" target="_blank" class="blue-link">@StringUtils.GetDisplayUrl(new Uri(fediUrl))</a></text>
             }
         </div>
 

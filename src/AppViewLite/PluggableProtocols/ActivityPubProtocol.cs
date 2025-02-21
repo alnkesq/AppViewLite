@@ -433,7 +433,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         }
 
 
-        public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
+        public override string TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
             var user = ParseDid(profile.Did);
             return "https://" + user.Instance + "/@" + user.UserName;

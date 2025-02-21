@@ -333,7 +333,7 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
 
 
     var theaterForPostInfo = tryTrimMediaSegments(location.href);
-    var theaterForPostElement = theaterForPostInfo ? document.querySelector(getPostSelector(theaterForPostInfo.postdid, theaterForPostInfo.postrkey)) : null;
+    var theaterForPostElement = theaterForPostInfo?.getPostElement();
     if (theaterForPostElement) {
         var body = getPostText(theaterForPostElement);
         pageTitleOverride = getTextIncludingEmojis(theaterForPostElement.querySelector('.post-author')) + (body ? ': ' + body : '');
@@ -364,7 +364,7 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
         }
         if (token != applyPageId) throw 'Superseded navigation.'
     
-        if (p.href != href) { 
+        if (p.href != href && !theaterForPostInfo) { 
             href = p.href;
             // redirection
             history.replaceState(null, null, href);
@@ -447,7 +447,7 @@ function applyPageElements() {
     if (isTheater) {
         
         var includePostText = theaterReturnUrl && (theaterReturnUrl.includes('?media=1') || theaterReturnUrl.includes('kind=media'));
-        var a = document.querySelector('a[data-theaterurl="/@' + theaterInfo.postdid + '/' + theaterInfo.postrkey + '/media/' + theaterInfo.mediaId  + '"]')
+        var a = theaterInfo.getImageLinkElement();
         
         var postElement = a.closest('.post');
         var postText = includePostText ? getPostText(postElement) : null;
@@ -516,11 +516,17 @@ function tryTrimMediaSegments(href) {
     var url = new URL(href);
     var segments = url.pathname.split('/');
     if (segments[3] == 'media') { 
+        var posthandle = segments[1].substring(1);
+        var postrkey = segments[2];
+        var mediaId = +segments[4];
+        var getImageLinkElement = () => document.querySelector('a[data-theaterurl="/@' + posthandle + '/' + postrkey + '/media/' + mediaId + '"]');
         return {
-            href: new URL(url.origin + '/' + segments[1] + '/' + segments[2] + url.search).href,
-            postdid: segments[1].substring(1),
-            postrkey: segments[2],
-            mediaId: +segments[4]
+            href: new URL(url.origin + '/@' + posthandle + '/' + postrkey + url.search).href,
+            posthandle,
+            postrkey,
+            mediaId,
+            getImageLinkElement,
+            getPostElement: () => getImageLinkElement()?.closest('.post')
         };
     }
     return null;
@@ -698,7 +704,7 @@ function updateSidebarButtonScrollVisibility() {
 function switchTheaterImage(delta, allowWrap = true) { 
     var theater = tryTrimMediaSegments(location.href);
     if (!theater) return false;
-    var imageCount = document.querySelector(getPostSelector(theater.postdid, theater.postrkey) + ' .post-image-list').children.length;
+    var imageCount = theater.getPostElement().querySelector('.post-image-list').children.length;
     var mediaId = theater.mediaId + delta;
     if (mediaId == 0) {
         if (!allowWrap) return false;
@@ -709,7 +715,7 @@ function switchTheaterImage(delta, allowWrap = true) {
         mediaId = 1;
     }
     var prevReturn = theaterReturnUrl;
-    fastNavigateTo('/@' + theater.postdid + '/' + theater.postrkey + '/media/' + mediaId, false, false);
+    fastNavigateTo('/@' + theater.posthandle + '/' + theater.postrkey + '/media/' + mediaId, false, false);
     theaterReturnUrl = prevReturn;
     return true;
 }

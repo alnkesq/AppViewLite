@@ -242,6 +242,7 @@ namespace AppViewLite.Storage
                 var size = writer.CommitAndGetSize();
                 OriginalWriteBytes += size;
                 queue.Clear();
+                LastFlushed = DateTime.UtcNow;
                 slices.Add(new(date, date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {StringUtils.ToHumanBytes(size)}");
 

@@ -313,7 +313,7 @@
                 @{
                     var autoplayIndex = 0;
                 }
-                @foreach (var image in Post.Data.Media)
+                @foreach (var (index, image) in Post.Data.Media.Index())
                 {
                     @if (image.IsVideo)
                     {
@@ -328,7 +328,7 @@
                     }
                     else
                     {
-                        <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
+                        <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" data-theaterurl="@Post.BaseUrl/media/@(index + 1)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
                             <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
                         </a>
                     }

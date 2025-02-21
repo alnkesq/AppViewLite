@@ -59,18 +59,26 @@ function updateHandlesForDid(did) {
     }
     if (handle) {
         for (const a of document.querySelectorAll("a[href*='/@" + did + "']")) { 
-            var url = new URL(a.href);
-            if (url.origin == location.origin) { 
-                var segments = url.pathname.split('/');
-                if (segments[1] == '@' + did) { 
-                    a.href = '/@' + handle + url.pathname.substring(did.length + 2);
-                }
-            }
+            a.dataset.href = replaceDidUrlWithHandle(a.dataset.href, did, handle);
+        }
+        for (const a of document.querySelectorAll("a[data-theaterurl*='/@" + did + "']")) { 
+            a.dataset.theaterurl = replaceDidUrlWithHandle(a.dataset.theaterurl, did, handle);
         }
         for (const a of document.querySelectorAll('.profile-badge-pending[data-badgedid="' + did + '"][data-badgehandle="' + handle.toLowerCase() + '"]')) {
             a.classList.remove('profile-badge-pending');
         }
     }
+}
+
+function replaceDidUrlWithHandle(href, did, handle) { 
+    var url = new URL(href);
+    if (url.origin == location.origin) { 
+        var segments = url.pathname.split('/');
+        if (segments[1] == '@' + did) { 
+            return '/@' + handle + url.pathname.substring(did.length + 2) + url.search;
+        }
+    }
+    return href;
 }
 
 var liveUpdatesConnection = null;
@@ -253,11 +261,10 @@ function fastNavigateIfLink(event) {
         return true;
     }
 
+    var theaterUrl = a.dataset.theaterurl;
     if (a.classList.contains('post-image-for-threater')) { 
-        var index = [...a.parentElement.children].indexOf(a) + 1;
-        var post = a.closest('.post');
         theaterReturnUrl = location.href;
-        fastNavigateTo('/@' + post.dataset.postdid + '/' + post.dataset.postrkey + '/media/' + index, false, false);
+        fastNavigateTo(theaterUrl, false, false);
         event.preventDefault();
         return true;
     }
@@ -433,13 +440,12 @@ function applyPageElements() {
     theater.classList.toggle('display-none', !isTheater)
     if (isTheater) {
         
-        var postElement = document.querySelector(getPostSelector(theaterInfo.postdid, theaterInfo.postrkey));
         var includePostText = theaterReturnUrl && (theaterReturnUrl.includes('?media=1') || theaterReturnUrl.includes('kind=media'));
-
-        var images = [...postElement.children].filter(x => x.classList.contains('post-image-list'))[0].children;
+        var a = document.querySelector('a[data-theaterurl="/@' + theaterInfo.postdid + '/' + theaterInfo.postrkey + '/media/' + theaterInfo.mediaId  + '"]')
+        
+        var postElement = a.closest('.post');
         var postText = includePostText ? getPostText(postElement) : null;
         
-        var a = images[theaterInfo.mediaId - 1]
         document.querySelector('.theater-image').src = ''; // ensure old image is never displayed
         document.querySelector('.theater-image').src = a.href;
         var alt = a.title;

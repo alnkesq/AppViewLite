@@ -97,7 +97,11 @@ namespace AppViewLite
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<ICheckpointable> disposables = new();
-        public const int DefaultBufferedItems = 16 * 1024;
+
+        public IReadOnlyList<CombinedPersistentMultiDictionary> AllMultidictionaries => disposables.OfType<CombinedPersistentMultiDictionary>().Concat(disposables.OfType<RelationshipDictionary>().SelectMany(x => x.Multidictionaries)).ToArray();
+
+
+        public static int TableWriteBufferSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE) ?? (10 * 1024 * 1024);
         public int AvoidFlushes;
         public ReaderWriterLockSlim Lock;
         public BlueskyRelationships()
@@ -124,7 +128,7 @@ namespace AppViewLite
                 checkpointToLoad!.TryGetValue(name, out var slices) ? slices : [],
                 behavior
             ) {
-                ItemsToBuffer = DefaultBufferedItems,
+                WriteBufferSize = TableWriteBufferSize,
                 OnCompactation = onCompactation 
             });
         }
@@ -2242,9 +2246,11 @@ namespace AppViewLite
             AppViewLiteProfiles.AddRange(plc, SerializeProto(profile));
         }
 
+
+        private readonly int GlobalPeriodicFlushSeconds = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS) ?? 600;
         internal void MaybeGlobalFlush()
         {
-            if (lastGlobalFlush.Elapsed.TotalMinutes >= 10)
+            if (lastGlobalFlush.Elapsed.TotalSeconds > GlobalPeriodicFlushSeconds)
             {
                 if (IsReadOnly) return;
                 Console.Error.WriteLine("====== START OF GLOBAL PERIODIC FLUSH ======");

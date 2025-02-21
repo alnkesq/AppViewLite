@@ -1568,3 +1568,17 @@ h1 .profile-badge img{
     color: rgb(201, 0, 0);
     font-weight: bold;
 }
+.debug-table{
+
+    border-collapse: collapse;
+    margin: 10px;
+}
+.debug-table td, .debug-table th{
+    text-align: right;
+    border: 1px solid lightgray;
+    padding: 1px 5px;
+}
+
+body:has(.debug-table){
+    max-width: 1600px;
+}

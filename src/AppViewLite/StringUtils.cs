@@ -590,6 +590,28 @@ namespace AppViewLite
             return authority + pathAndQuery;
 
         }
+
+
+        public static string ToFullHumanDate(DateTime date)
+        {
+            return date.ToString("MMM d, yyyy HH:mm");
+        }
+        public static string ToHumanDate(DateTime date)
+        {
+            var ago = DateTime.UtcNow - date;
+            if (ago.TotalHours < 1) return (int)Math.Max(ago.TotalMinutes, 1) + "m";
+            if (ago.TotalDays < 1) return (int)ago.TotalHours + "h";
+            if (date.Year == DateTime.UtcNow.Year) return date.ToString("MMM d");
+            return date.ToString("MMM d, yyyy");
+        }
+
+        public static string ToHumanBytes(long bytes)
+        {
+            if (bytes < 1024) return bytes.ToString();
+            if (bytes < 1024 * 1024) return ((double)bytes / 1024).ToString("0.0") + " KB";
+            if (bytes < 1024 * 1024 * 1024) return ((double)bytes / 1024 / 1024).ToString("0.0") + " MB";
+            return ((double)bytes / 1024 / 1024 / 1024).ToString("0.0") + " GB";
+        }
     }
 }
 

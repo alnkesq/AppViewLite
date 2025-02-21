@@ -21,19 +21,6 @@ namespace AppViewLite.Web
         public static bool ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
 
 
-        public static string ToFullHumanDate(DateTime date)
-        {
-            return date.ToString("MMM d, yyyy HH:mm");
-        }
-        public static string ToHumanDate(DateTime date)
-        {
-            var ago = DateTime.UtcNow - date;
-            if (ago.TotalHours < 1) return (int)Math.Max(ago.TotalMinutes, 1) + "m";
-            if (ago.TotalDays < 1) return (int)ago.TotalHours + "h";
-            if (date.Year == DateTime.UtcNow.Year) return date.ToString("MMM d");
-            return date.ToString("MMM d, yyyy");
-        }
-
 
         public static async Task Main(string[] args)
         {

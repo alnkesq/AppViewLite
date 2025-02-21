@@ -221,7 +221,7 @@
         @if(!this.IsFocalPost)
         {
             <text> ·</text>
-            <a class="post-date" href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" title="@Program.ToFullHumanDate(Post.Date)">@Program.ToHumanDate(Post.Date)</a>
+            <a class="post-date" href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" title="@StringUtils.ToFullHumanDate(Post.Date)">@StringUtils.ToHumanDate(Post.Date)</a>
         }
     </div>
 
@@ -348,7 +348,7 @@
 
     @if (IsFocalPost)
     {
-        <a href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" class="post-focal-date post-indented">@Program.ToFullHumanDate(Post.Date)</a>
+        <a href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" class="post-focal-date post-indented">@StringUtils.ToFullHumanDate(Post.Date)</a>
 
         <div class="post-focal-stats post-indented @(Post.RepostCount != 0 || Post.QuoteCount != 0 || Post.LikeCount != 0 ? null : "display-none")">
 

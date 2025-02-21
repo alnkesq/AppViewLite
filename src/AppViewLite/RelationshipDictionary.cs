@@ -11,7 +11,11 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
-    public class RelationshipDictionary<TTarget> : ICheckpointable where TTarget : unmanaged, IComparable<TTarget>
+    public abstract class RelationshipDictionary
+    { 
+        public abstract IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
+    }
+    public class RelationshipDictionary<TTarget> : RelationshipDictionary, ICheckpointable where TTarget : unmanaged, IComparable<TTarget>
     {
 
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
@@ -23,12 +27,12 @@ namespace AppViewLite
         public event EventHandler? AfterFlush;
         public event EventHandler<CancelEventArgs>? ShouldFlush;
         public event EventHandler? BeforeWrite;
-
+        public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
-                return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior) { ItemsToBuffer = BlueskyRelationships.DefaultBufferedItems };
+                return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior) { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
             }
             this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty);
             this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
@@ -44,7 +48,7 @@ namespace AppViewLite
                 this.relationshipIdHashToApproxTarget = CreateMultiDictionary<RelationshipHash, UInt24>("-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
                 SetUpEventHandlers(relationshipIdHashToApproxTarget);
             }
-
+            Multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
         }
 
         private void SetUpEventHandlers(IFlushable inner)

@@ -100,9 +100,9 @@ namespace AppViewLite.Storage
         }
 
 
-        public void Commit()
+        public long CommitAndGetSize()
         {
-            writer.Commit();
+            return writer.CommitAndGetSize();
         }
 
         public void Dispose()

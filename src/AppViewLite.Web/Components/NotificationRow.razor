@@ -103,7 +103,7 @@
                 @Notification.KindDisplayText
 
 
-                <span class="notification-date">&nbsp;·&nbsp;@Program.ToHumanDate(Notification.LatestDate)</span>
+                <span class="notification-date">&nbsp;·&nbsp;@StringUtils.ToHumanDate(Notification.LatestDate)</span>
 
             </summary>
         </details>
@@ -121,7 +121,7 @@
 
             <InlineProfileLink Profile="@profile" />
             @Notification.KindDisplayText
-            <span class="notification-date">&nbsp;·&nbsp;@Program.ToHumanDate(Notification.LatestDate)</span>
+            <span class="notification-date">&nbsp;·&nbsp;@StringUtils.ToHumanDate(Notification.LatestDate)</span>
 
         </div>
     }

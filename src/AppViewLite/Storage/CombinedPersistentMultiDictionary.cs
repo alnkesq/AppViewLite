@@ -1,6 +1,5 @@
 using AppViewLite;
 using AppViewLite.Storage;
-using System.Runtime.InteropServices;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,7 +8,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Collections.Concurrent;
 
 namespace AppViewLite.Storage
 {
@@ -27,8 +25,22 @@ namespace AppViewLite.Storage
     }
 
 
-    public static class CombinedPersistentMultiDictionary
+    public abstract class CombinedPersistentMultiDictionary
     {
+        public readonly string DirectoryPath;
+        protected readonly PersistentDictionaryBehavior behavior;
+        public readonly string Name;
+        public DateTime LastFlushed;
+        public long OriginalWriteBytes;
+        public long CompactationWriteBytes;
+        protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
+        {
+            this.DirectoryPath = directory;
+            this.behavior = behavior;
+            this.Name = Path.GetFileName(directory);
+            LastFlushed = DateTime.UtcNow;
+        }
+
         public static (DateTime StartTime, DateTime EndTime) GetSliceInterval(string fileName)
         {
             var dot = fileName.IndexOf('.');
@@ -37,7 +49,7 @@ namespace AppViewLite.Storage
             return (new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), new DateTime(long.Parse(baseName.Substring(dash + 1)), DateTimeKind.Utc));
 
         }
-
+        public virtual long InMemorySize { get; }
 
         [DoesNotReturn]
         public static void Abort(Exception? ex)
@@ -60,11 +72,9 @@ namespace AppViewLite.Storage
         }
     }
 
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : IDisposable, IFlushable, ICheckpointable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
+    public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
-        private readonly string DirectoryPath;
-        private readonly PersistentDictionaryBehavior behavior;
-        public int ItemsToBuffer = 128 * 1024;
+        public int WriteBufferSize = 128 * 1024;
 
         private Stopwatch? lastFlushed;
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
@@ -73,9 +83,8 @@ namespace AppViewLite.Storage
         public event EventHandler AfterCompactation;
         private bool DeleteOldFilesOnCompactation;
         public CombinedPersistentMultiDictionary(string directory, string[]? slices, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
+            : base(directory, behavior)
         {
-            this.DirectoryPath = directory;
-            this.behavior = behavior;
 
             CompactStructCheck<TKey>.Check();
             CompactStructCheck<TValue>.Check();
@@ -142,7 +151,6 @@ namespace AppViewLite.Storage
                 reader);
         }
 
-
         private MultiDictionary2<TKey, TValue> queue;
         public List<SliceInfo> slices;
 
@@ -152,10 +160,10 @@ namespace AppViewLite.Storage
         public event EventHandler BeforeWrite;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader, long KeyCount, long ValueCount)
+        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader, long SizeInBytes)
         {
             public SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
-                 :this(StartTime, EndTime, Reader, Reader.KeyCount, Reader.ValueCount)
+                 :this(StartTime, EndTime, Reader, Reader.SizeInBytes)
             { 
            
             }
@@ -231,15 +239,16 @@ namespace AppViewLite.Storage
                     if (values.TryAsUnsortedSpan(out var span)) writer.AddPresorted(group.Key, span);
                     else writer.AddPresorted(group.Key, values.ValuesSorted);
                 }
-                writer.Commit();
-                
+                var size = writer.CommitAndGetSize();
+                OriginalWriteBytes += size;
                 queue.Clear();
                 slices.Add(new(date, date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {groupCount} rows");
 
                 if (!disposing)
                     MaybeStartCompactation();
-                lastFlushed = null;
+
+
                 AfterFlush?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -255,22 +264,21 @@ namespace AppViewLite.Storage
         public List<CompactationCandidate> GetCompactationCandidates()
         {
             var candidates = new List<CompactationCandidate>();
-            var totalCount = slices.Sum(x => x.ValueCount);
             for (int start = 0; start < slices.Count; start++)
             {
-                long itemCount = 0;
-                long largestComponent = 0;
+                long totalBytes = 0;
+                long largestComponentBytes = 0;
                 for (int end = start + 1; end <= slices.Count; end++)
                 {
-                    var componentSize = slices[end - 1].ValueCount;
-                    largestComponent = Math.Max(largestComponent, componentSize);
-                    itemCount += componentSize;
+                    var componentBytes = slices[end - 1].SizeInBytes;
+                    largestComponentBytes = Math.Max(largestComponentBytes, componentBytes);
+                    totalBytes += componentBytes;
                     var length = end - start;
 
-                    var ratioOfLargestComponent = ((double)largestComponent / itemCount);
+                    var ratioOfLargestComponent = ((double)largestComponentBytes / totalBytes);
                     //var score = (double)length / itemCount * totalCount * (1 - ratioOfLargestComponent);
                     var score = (1 - ratioOfLargestComponent) * Math.Log(length);
-                    candidates.Add(new CompactationCandidate(start, length, itemCount, largestComponent, score, ratioOfLargestComponent));
+                    candidates.Add(new CompactationCandidate(start, length, totalBytes, largestComponentBytes, score, ratioOfLargestComponent));
                 }
             }
             return candidates;
@@ -303,7 +311,6 @@ namespace AppViewLite.Storage
             }
             var mergedStartTime = inputs[0].StartTime;
             var mergedEndTime = inputs[^1].EndTime;
-            var mergedCount = inputs.Sum(x => x.ValueCount);
             var mergedPrefix = this.DirectoryPath + "/" + mergedStartTime.Ticks + "-" + mergedEndTime.Ticks;
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
@@ -329,9 +336,10 @@ namespace AppViewLite.Storage
                 return new Action(() => 
                 {
                     // Here we are again inside the lock.
-                    writer.Commit(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
+                    var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
+                    CompactationWriteBytes += size;
 
-                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => x.ValueCount.ToString("#,###"))) + " => " + inputs.Sum(x => x.ValueCount).ToString("#,###") + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
+                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => StringUtils.ToHumanBytes(x.SizeInBytes))) + " => " + StringUtils.ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     foreach (var input in inputs)
                     {
@@ -671,7 +679,7 @@ namespace AppViewLite.Storage
             MaybeCommitPendingCompactation();
             if (pendingCompactation != null) return;
             
-            if (queue.GroupCount >= ItemsToBuffer || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
+            if (InMemorySize >= WriteBufferSize || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
                 var shouldFlushArgs = new CancelEventArgs();
                 ShouldFlush(this, shouldFlushArgs);
@@ -681,6 +689,7 @@ namespace AppViewLite.Storage
             lastFlushed ??= Stopwatch.StartNew();
         }
 
+        public override long InMemorySize => queue.SizeInBytes;
 
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
         private Task<Action>? pendingCompactation;
@@ -858,6 +867,8 @@ namespace AppViewLite.Storage
         {
             return [(Path.GetFileName(this.DirectoryPath), slices.Select(x => x.StartTime.Ticks + "-" + x.EndTime.Ticks).ToArray())];
         }
+
+        
     }
 
 }

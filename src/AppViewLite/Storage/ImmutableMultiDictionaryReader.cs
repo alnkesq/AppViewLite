@@ -19,6 +19,7 @@ namespace AppViewLite.Storage
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
+        public long SizeInBytes { get; private set; }
         public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
         {
             this.PathPrefix = pathPrefix;
@@ -58,6 +59,7 @@ namespace AppViewLite.Storage
                 this.MinimumKey = Keys[0];
                 this.MaximumKey = Keys[Keys.Length - 1];
             }
+            this.SizeInBytes = Keys.Length * Unsafe.SizeOf<TKey>() + Values.Length * Unsafe.SizeOf<TValue>() + (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
 
         }
 

@@ -266,6 +266,32 @@ namespace AppViewLite
             return profiles;
         }
 
+        public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)
+        {
+            try
+            {
+                var profile = GetSingleProfile(did);
+                var handle = profile.PossibleHandle;
+                if (!profile.HandleIsUncertain) return handle;
+
+                if (handle == null)
+                {
+                    var diddoc = await GetDidDocAsync(did);
+                    handle = diddoc.Handle;
+                    if (handle == null) return null;
+                }
+                var did2 = await PendingHandleVerifications.GetValueAsync(handle);
+                if (did == did2)
+                    return handle;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                return null;
+            }
+        }
+
         public async Task VerifyHandleAndNotifyAsync(string did, string? handle, RequestContext ctx)
         {
             if (handle == null)
@@ -2953,12 +2979,6 @@ namespace AppViewLite
 
         public readonly static string PlcDirectoryPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_PLC_DIRECTORY) ?? "https://plc.directory";
 
-        public async Task<string> GetVerifiedHandleAsync(string did)
-        {
-            var didDoc = await GetDidDocCoreNoOverrideAsync(did);
-
-            return didDoc.Handle!;
-        }
 
 
         public async Task<BlobResult> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize, CancellationToken ct)

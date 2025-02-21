@@ -115,6 +115,13 @@ namespace AppViewLite.Web
                             return;
                         }
                     }
+                    if (firstSegment.StartsWith("@did:"))
+                    {
+                        var firstSegmentLength = firstSegment.Length;
+                        var handle = await apis.TryDidToHandleAsync(firstSegment.Slice(1).ToString(), RequestContext.Create(TryGetSession(ctx), urgent: true));
+                        if (handle != null)
+                            ctx.Response.Redirect(string.Concat(string.Concat("/@", handle, path.AsSpan(firstSegmentLength + 1), ctx.Request.QueryString.Value)));
+                    }
                 }
                 await req(ctx);
             });

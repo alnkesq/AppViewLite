@@ -364,6 +364,12 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
         }
         if (token != applyPageId) throw 'Superseded navigation.'
     
+        if (p.href != href) { 
+            href = p.href;
+            // redirection
+            history.replaceState(null, null, href);
+        }
+
         p.dom.classList.remove('display-none');
         var page = oldMain.parentElement;
     
@@ -541,7 +547,8 @@ async function fetchOrReusePageAsync(href, token) {
         if (token != applyPageId) throw 'Superseded navigation.'
         var dom = temp.querySelector('main');
         var title = temp.querySelector('title').textContent;
-        var p = { href: href, dom: dom, dateFetched: Date.now(), title: title, scrollTop: 0 };
+        recentPages = recentPages.filter(x => x.href != response.url);
+        var p = { href: response.url, dom: dom, dateFetched: Date.now(), title: title, scrollTop: 0 };
         recentPages.push(p)
         while (recentPages.length > 7)
             recentPages.splice(0, 1);

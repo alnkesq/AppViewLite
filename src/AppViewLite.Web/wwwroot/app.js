@@ -521,7 +521,13 @@ function tryTrimMediaSegments(href) {
         var posthandle = segments[1].substring(1);
         var postrkey = segments[2];
         var mediaId = +segments[4];
-        var getImageLinkElement = () => document.querySelector('a[data-theaterurl="/@' + posthandle + '/' + postrkey + '/media/' + mediaId + '"]');
+
+        var getImageLinkElement = () => { 
+            if (posthandle.startsWith('did:'))
+                return document.querySelector(getPostSelector(posthandle, postrkey) + ' a[data-theaterurl*="/media/' + mediaId + '"]');
+            else
+                return document.querySelector('a[data-theaterurl="/@' + posthandle + '/' + postrkey + '/media/' + mediaId + '"]');
+        };
         return {
             href: new URL(url.origin + '/@' + posthandle + '/' + postrkey + url.search).href,
             posthandle,

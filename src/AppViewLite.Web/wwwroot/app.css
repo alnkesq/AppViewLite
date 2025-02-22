@@ -1404,15 +1404,30 @@ button[disabled], input[type=submit][disabled] {
     min-width: 0;
 }
 
-.post-meta{ 
-    overflow: hidden;
-    text-overflow: ellipsis;
+.post-meta-nonfocal{ 
     white-space: nowrap;
-
+    max-width: 100%;
+    justify-content: flex-start;
     padding-top: 1px;
     padding-bottom: 1px;
+    display: flex;
 }
 
+.post-meta-nonfocal .handle-generic {
+    padding-right: 4px;
+}
+.post-meta-nonfocal a {
+    flex-grow: 0;
+    flex-shrink: 1;
+    flex-basis: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.post-meta-nonfocal a.post-date{
+    flex: 0 0 auto;
+    padding: 0 4px;
+}
 
 .post-blocked > .post-body,
 .post-blocked > .post-meta,

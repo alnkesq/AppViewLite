@@ -26,6 +26,7 @@ using DuckDbSharp.Types;
 using FishyFlip.Lexicon.Com.Atproto.Label;
 using System.Buffers;
 using System.Runtime.InteropServices;
+using AppViewLite.PluggableProtocols;
 
 namespace AppViewLite
 {
@@ -348,39 +349,50 @@ namespace AppViewLite
         public static Tid GetMessageTid(string path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
 
 
-        public async Task StartListeningToJetstreamFirehose()
+        public async Task StartListeningToJetstreamFirehose(CancellationToken ct = default)
         {
             await Task.Yield();
-            using var firehose2 = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
-            firehose2.OnConnectionUpdated += async (_, e) =>
+            await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
+                var tcs = new TaskCompletionSource();
+                ct.Register(() =>
                 {
-                    Console.Error.WriteLine("CONNECTION DROPPED! Reconnecting soon...");
-                    await Task.Delay(5000);
-                    await firehose2.ConnectAsync();
-                }
-            };
-            firehose2.OnRecordReceived += (s, e) =>
-            {
-                TryProcessRecord(() => OnJetStreamEvent(e), e.Record.Did?.Handler);
-            };
+                    tcs.TrySetCanceled();
+                    firehose.Dispose();
+                });
 
-            await firehose2.ConnectAsync();
+                firehose.OnConnectionUpdated += (_, e) =>
+                {
+                    if (ct.IsCancellationRequested) return;
+
+                    if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                    {
+                        tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
+                    }
+                };
+                firehose.OnRecordReceived += (s, e) =>
+                {
+                    TryProcessRecord(() => OnJetStreamEvent(e), e.Record.Did?.Handler);
+                };
+                await firehose.ConnectAsync(token: ct);
+                await tcs.Task;
+            }, ct);
+
         }
 
 
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(), protocol => 
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), protocol => 
             {
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() => OnRepoFirehoseEvent(s, e), e.Message.Commit?.Repo?.Handler);
             }, ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(), protocol =>
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), protocol =>
             {
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() => OnLabelFirehoseEvent(s, e), nameForDebugging);
             }, ct);
@@ -388,26 +400,32 @@ namespace AppViewLite
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
-            var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
-            
-            ct.Register(async () =>
+            await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                await firehose.StopSubscriptionAsync();
-                firehose.Dispose();
-            });
-            firehose.OnConnectionUpdated += async (_, e) =>
-            {
-                if (ct.IsCancellationRequested) return;
-
-                if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                using var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
+                var tcs = new TaskCompletionSource();
+                ct.Register(() =>
                 {
-                    Console.Error.WriteLine("CONNECTION DROPPED! Reconnecting soon...");
-                    await Task.Delay(5000);
-                    await subscribeKind(firehose);
-                }
-            };
-            setupHandler(firehose);
-            await subscribeKind(firehose);
+                    tcs.TrySetCanceled();
+                    firehose.Dispose();
+                });
+                
+
+                firehose.OnConnectionUpdated += (_, e) =>
+                {
+                    if (ct.IsCancellationRequested) return;
+
+                    if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                    {
+                        tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
+                    }
+                };
+                setupHandler(firehose);
+                await subscribeKind(firehose);
+
+                await tcs.Task;
+            }, ct);
+           
         }
 
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)

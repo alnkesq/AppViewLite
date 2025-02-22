@@ -69,6 +69,23 @@ namespace AppViewLite.Web
             await apis.DeleteFollowAsync(Tid.Parse(rkey.Rkey), ctx);
         }
 
+        [HttpPost(nameof(TogglePrivateFollow))]
+        public async Task TogglePrivateFollow([FromBody] TogglePrivateFollowArgs args)
+        {
+            var flag = Enum.Parse<PrivateFollowFlags>(args.Flag);
+            apis.WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(args.Did);
+                var info = ctx.Session.GetPrivateFollow(plc);
+                if (args.NewValue)
+                    info.Flags |= flag;
+                else
+                    info.Flags &= ~flag;
+                rels.UpdatePrivateFollow(info, ctx);
+            });
+            
+        }
+
         [HttpPost(nameof(MarkLastSeenNotification))]
         public async Task MarkLastSeenNotification([FromBody] NotificationIdArgs notificationId)
         {
@@ -132,6 +149,7 @@ namespace AppViewLite.Web
         public record RKeyOnly(string Rkey);
         public record DidOnly(string Did);
         public record NotificationIdArgs(string NotificationId);
+        public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);
     }
 }
 

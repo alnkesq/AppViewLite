@@ -10,6 +10,7 @@ namespace AppViewLite.Models
         [ProtoMember(1)] public DateTime FirstLogin;
         [ProtoMember(2)] public List<AppViewLiteSessionProto>? Sessions;
         [ProtoMember(3)] public byte[]? PdsSessionCbor;
+        [ProtoMember(4)] public PrivateFollow[]? PrivateFollows;
     }
 
     [ProtoContract]
@@ -19,6 +20,37 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public DateTime LastSeen;
         [ProtoMember(3)] public bool IsReadOnlySimulation;
 
+    }
+
+    [ProtoContract]
+    public class PrivateFollow
+    {
+        [ProtoMember(1)] public int Plc;
+        [ProtoMember(2)] public PrivateFollowFlags Flags;
+    }
+
+
+    [Flags]
+    public enum PrivateFollowFlags : ulong
+    { 
+        None = 0,
+        PrivateFollow = 1,
+
+        MuteImageSelfReposts = 2,
+        MuteTextualSelfReposts = 4,
+        MuteAllSelfReposts = MuteImageSelfReposts | MuteTextualSelfReposts,
+
+        MuteImageNonFollowedReposts = 8,
+        MuteTextualNonFollowedReposts = 16,
+        MuteAllNonFollowedReposts = MuteImageNonFollowedReposts | MuteTextualNonFollowedReposts,
+
+        MuteImageFollowedReposts = 32,
+        MuteTextualFollowedReposts = 64,
+        MuteAllFollowedReposts = MuteImageFollowedReposts | MuteTextualFollowedReposts,
+
+        MuteImagePosts = 128,
+        MuteTextualPosts = 256,
+        MuteAllPosts = MuteImagePosts | MuteTextualPosts,
     }
 }
 

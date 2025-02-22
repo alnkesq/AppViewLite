@@ -1026,7 +1026,8 @@ function onInitialLoad() {
                     postAction.call(postActions,
                         getAncestorData(actionButton, 'postdid'),
                         getAncestorData(actionButton, 'postrkey'),
-                        actionButton.closest('[data-postrkey]')
+                        actionButton.closest('[data-postrkey]'),
+                        actionButton
                     );
                     return;
                 }
@@ -1037,7 +1038,8 @@ function onInitialLoad() {
                         getAncestorData(actionButton, 'profiledid'),
                         getAncestorData(actionButton, 'followrkey'),
                         getAncestorData(actionButton, 'followsyou'),
-                        actionButton.closest('[data-profiledid]')
+                        actionButton.closest('[data-profiledid]'),
+                        actionButton
                     );
                     return;
                 }
@@ -1288,6 +1290,17 @@ var postActions = {
     },
     translatePost: async function (did, rkey, postElement) { 
         window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(getPostText(postElement)) + '&op=translate');
+    },
+    togglePrivateFollow: async function (did, rkey, postElement, toggleButton) { 
+        var did = toggleButton.dataset.did;
+        var flag = toggleButton.dataset.flag;
+        var oldvalue = !!(+toggleButton.dataset.oldvalue);
+        var text = toggleButton.textContent;
+        text = text.substring(text.indexOf(' '));
+        var newvalue = !oldvalue;
+        await httpPost('TogglePrivateFollow', { did, flag, newvalue });
+        toggleButton.dataset.oldvalue = newvalue ? 1 : 0;
+        toggleButton.textContent = (oldvalue ? 'Mute ' : 'Unmute ') + text;
     }
 }
 

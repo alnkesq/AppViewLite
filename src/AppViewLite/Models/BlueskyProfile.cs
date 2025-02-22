@@ -1,5 +1,6 @@
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
+using System;
 
 namespace AppViewLite.Models
 {
@@ -68,6 +69,10 @@ namespace AppViewLite.Models
         public DidDocProto? DidDoc;
 
         public PluggableProtocol? PluggableProtocol;
+
+        public PrivateFollow PrivateFollow;
+
+        public bool IsFollowedEvenPrivatelyBySelf => IsFollowedBySelf != default || (PrivateFollow.Flags & PrivateFollowFlags.PrivateFollow) != 0; 
 
         public override string ToString()
         {

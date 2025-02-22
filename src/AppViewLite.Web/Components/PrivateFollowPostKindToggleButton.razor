@@ -1,0 +1,17 @@
+@code {
+    [Parameter] public required BlueskyProfile User { get; set; }
+    [Parameter] public required PrivateFollowFlags ImageFlag { get; set; }
+    [Parameter] public required PrivateFollowFlags TextualFlag { get; set; }
+    [Parameter] public required bool IsImage { get; set; }
+
+}
+
+@{
+    var allFlag = ImageFlag | TextualFlag;
+
+    var toggleButtonFlag =
+                (User.PrivateFollow.Flags & TextualFlag) != default ? allFlag :
+                IsImage ? ImageFlag : 
+                allFlag;
+}
+<PrivateFollowToggleButton User="User" Flag="@toggleButtonFlag" />

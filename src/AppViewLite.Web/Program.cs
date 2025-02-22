@@ -289,7 +289,7 @@ namespace AppViewLite.Web
                         LastSeen = now,
                         Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
                     };
-                    OnSessionCreatedOrRestoredAsync(did!, plc, session).FireAndForget();
+                    OnSessionCreatedOrRestoredAsync(did!, plc, session, profile).FireAndForget();
                     SessionDictionary[sessionId] = session;
                 }
 
@@ -329,43 +329,47 @@ namespace AppViewLite.Web
             };
 
             Plc plc = default;
+            AppViewLiteProfileProto privateProfile = null!;
             apis.WithRelationshipsWriteLock(rels => 
             {
                 plc = rels.SerializeDid(did);
                 session.LoggedInUser = plc;
                 rels.RegisterForNotifications(session.LoggedInUser.Value);
-                var protobuf = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
-                protobuf!.Sessions ??= new();
+                privateProfile = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
+                privateProfile!.Sessions ??= new();
 
                 if (!isReadOnly)
                 {
-                    protobuf.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession));
+                    privateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession));
                     session.PdsSession = atSession;
                 }
 
-                protobuf.Sessions.Add(new AppViewLiteSessionProto
+                privateProfile.Sessions.Add(new AppViewLiteSessionProto
                 {
                     LastSeen = now,
                     SessionToken = id,
                     IsReadOnlySimulation = isReadOnly,
                 });
-                rels.StoreAppViewLiteProfile(plc, protobuf);
+                rels.StoreAppViewLiteProfile(plc, privateProfile);
             });
 
-            await OnSessionCreatedOrRestoredAsync(did, plc, session);
+            await OnSessionCreatedOrRestoredAsync(did, plc, session, privateProfile);
 
             SessionDictionary[id] = session;
             
             return session;
         }
 
-        private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session)
+        private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session, AppViewLiteProfileProto privateProfile)
         {
             var apis = BlueskyEnrichedApis.Instance;
 
             var haveFollowees = apis.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc));
             session.Profile = await apis.GetProfileAsync(did, RequestContext.CreateInfinite(null));
-            
+
+            session.PrivateProfile = privateProfile;
+            session.PrivateFollows = (privateProfile.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
+
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);

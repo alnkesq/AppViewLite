@@ -81,6 +81,7 @@ namespace AppViewLite.Web
             {
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
+                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy }.Where(x => x != null).ToArray(), newctx);
                 var req = requests[index];
                 var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html);

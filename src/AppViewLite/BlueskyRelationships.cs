@@ -2753,6 +2753,18 @@ namespace AppViewLite
             }
             return null;
         }
+
+        public void UpdatePrivateFollow(PrivateFollow info, RequestContext ctx)
+        {
+            ctx.Session.PrivateProfile!.PrivateFollows = ctx.Session.PrivateFollows.Values.Where(x => x.Plc != info.Plc).Append(info).ToArray();
+            ctx.Session.PrivateFollows = ctx.Session.PrivateProfile!.PrivateFollows.ToDictionary(x => new Plc(x.Plc), x => x);
+            SaveAppViewLiteProfile(ctx);
+        }
+
+        private void SaveAppViewLiteProfile(RequestContext ctx)
+        {
+            StoreAppViewLiteProfile(ctx.LoggedInUser, ctx.Session.PrivateProfile!);
+        }
     }
 
 

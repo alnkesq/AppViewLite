@@ -180,18 +180,7 @@ namespace AppViewLite
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
         {
-            WithRelationshipsLock(rels =>
-            {
-                foreach (var profile in profiles)
-                {
-                    if (ctx.IsLoggedIn && rels.Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
-                        profile.IsFollowedBySelf = followRel.RelationshipRKey;
-                    profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
-                    profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
-                    profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
-                    profile.Labels = rels.GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
-                }
-            }, ctx);
+            PopulateViewerFlags(profiles, ctx);
 
             if (!IsReadOnly)
             {
@@ -214,7 +203,7 @@ namespace AppViewLite
                         onProfileDataAvailable(profile);
                 }
             }
-            
+
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
 
@@ -232,7 +221,7 @@ namespace AppViewLite
 
                     if (onProfileDataAvailable != null)
                         DispatchOutsideTheLock(() => onProfileDataAvailable.Invoke(profile));
-                    
+
                 }
             }
 
@@ -254,8 +243,8 @@ namespace AppViewLite
                         rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
                         OnRecordReceived(rels, plc);
                     });
-                }, 
-                key => 
+                },
+                key =>
                 {
                     WithRelationshipsLock(rels => OnRecordReceived(rels, rels.SerializeDid(key.Did)));
                 }
@@ -264,6 +253,29 @@ namespace AppViewLite
             await task;
 
             return profiles;
+        }
+
+        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext ctx)
+        {
+            if (!profiles.Any(x => x.PrivateFollow == null)) return;
+            WithRelationshipsLock(rels =>
+            {
+                foreach (var profile in profiles)
+                {
+                    if (ctx.IsLoggedIn && rels.Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
+                        profile.IsFollowedBySelf = followRel.RelationshipRKey;
+                    profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
+                    profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
+                    profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
+                    profile.Labels = rels.GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
+                }
+            }, ctx);
+
+            foreach (var profile in profiles)
+            {
+                // ctx.Session is null when logging in (ourselves)
+                profile.PrivateFollow = ctx.Session?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
+            }
         }
 
         public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)

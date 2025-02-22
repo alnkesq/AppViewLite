@@ -75,8 +75,7 @@
 
     private bool isSelfRepost;
     private string? blurReason;
-    private string OriginalAuthorDisplayName => Post.Author.DisplayNameOrFallback;
-    private string ReposterOrAuthorDisplayName => Post.RepostedBy?.DisplayNameOrFallback ?? OriginalAuthorDisplayName;
+
 
     protected override void OnParametersSet()
     {
@@ -126,6 +125,8 @@
         UseSmallImages = Post?.Data?.Media?.Length > 1 || IsQuote;
     }
 
+    public BlueskyProfile OriginalAuthor => Post.Author;
+    public BlueskyProfile ReposterOrAuthor => Post.RepostedBy ?? OriginalAuthor;
 
     private static Uri? TryParseUrl(string? uri) => uri != null && Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
@@ -456,52 +457,20 @@
                             {
                                 @if (Post.IsSelfRepost)
                                 {
-                                    if (Post.IsImagePost)
-                                    {
-                                        <button actionkind="muteSelfRepostsImage" class="menu-item">Mute image self-reposts by @ReposterOrAuthorDisplayName</button>
-                                    }
-                                    else
-                                    {
-                                        <button actionkind="muteSelfRepostsAll" class="menu-item">Mute self-reposts by @ReposterOrAuthorDisplayName</button>
-                                    }
+                                    <PrivateFollowPostKindToggleButton IsImage="@Post.IsImagePost" ImageFlag="PrivateFollowFlags.MuteImageSelfReposts" TextualFlag="PrivateFollowFlags.MuteTextualSelfReposts" User="@ReposterOrAuthor" />
                                 }
                                 else
                                 {
-                                    if(Post.Author.IsFollowedBySelf == null)
+                                    if(!Post.Author.IsFollowedEvenPrivatelyBySelf)
                                     {
-                                        if (Post.IsImagePost)
-                                        {
-                                            <button actionkind="muteNonFollowedRepostsImage" class="menu-item">Mute non-followed image reposts by @ReposterOrAuthorDisplayName</button>
-                                        }
-                                        else
-                                        {
-                                            <button actionkind="muteNonFollowedRepostsAll" class="menu-item">Mute non-followed reposts by @ReposterOrAuthorDisplayName</button>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if (Post.IsImagePost)
-                                        {
-                                            <button actionkind="muteNonSelfRepostsImage" class="menu-item">Mute image reposts by @ReposterOrAuthorDisplayName</button>
-                                        }
-                                        else
-                                        {
-                                            <button actionkind="muteNonSelfRepostsAll" class="menu-item">Mute reposts by @ReposterOrAuthorDisplayName</button>
-                                        }
+                                        <PrivateFollowPostKindToggleButton IsImage="@Post.IsImagePost" ImageFlag="PrivateFollowFlags.MuteImageNonFollowedReposts" TextualFlag="PrivateFollowFlags.MuteTextualNonFollowedReposts" User="@ReposterOrAuthor" />
                                     }
                                 }
                             }
 
                             if (!Post.IsSelfRepost)
                             {
-                                if (Post.IsImagePost)
-                                {
-                                    <button actionkind="muteImages" class="menu-item">Mute images by @OriginalAuthorDisplayName</button>
-                                }
-                                else
-                                {
-                                    <button actionkind="muteAll" class="menu-item">Mute @OriginalAuthorDisplayName</button>
-                                }
+                                <PrivateFollowPostKindToggleButton IsImage="@Post.IsImagePost" ImageFlag="PrivateFollowFlags.MuteImagePosts" TextualFlag="PrivateFollowFlags.MuteTextualPosts" User="@OriginalAuthor" />
                             }
 
                             if (externalDomainForMute != null)

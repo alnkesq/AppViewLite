@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -64,7 +65,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         }
 
         private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions { IncludeFields = true };
-
+        private readonly static Regex? DontIngestTextRegex = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_NOSTR_IGNORE_REGEX) is { } s ? new Regex(s, RegexOptions.Singleline) : null;
         private void OnEventReceived(NostrEvent e)
         {
             var content = e.Content;
@@ -75,6 +76,12 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 var trimmed = content.AsSpan().Trim();
                 if (trimmed.Length >= 30 && !trimmed.Contains(' ') && !trimmed.StartsWith("http", StringComparison.Ordinal))
                     return; // probably not natural language
+            }
+
+            if ((NostrEventKind)e.Kind is NostrEventKind.Short_Text_Note or NostrEventKind.User_Metadata)
+            {
+                if (!string.IsNullOrEmpty(content) && DontIngestTextRegex?.IsMatch(content) == true)
+                    return;
             }
                 
 

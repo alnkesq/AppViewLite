@@ -10,10 +10,12 @@
     [SupplyParameterFromQuery] [Parameter] public string? Continuation { get; set; }
     private BlueskyPost? FocalPost;
     private PostsAndContinuation Posts = new();
+    private string ResolvedFocalDid;
 
     protected override async Task OnParametersSetAsync()
     {
         await ResolveDidAsync();
+        ResolvedFocalDid = Did;
         Posts = await Apis.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext);
         FocalPost = Posts.Posts.FirstOrDefault(x => x.RKey == RKey && x.Did == Did);
     }
@@ -21,7 +23,7 @@
 
 <PageTitle>@(FocalPost != null ? FocalPost.Author.DisplayNameOrFallback + (FocalPost.Data?.Text != null ? ": " + FocalPost.Data.Text : null) : "Post")</PageTitle>
 
-<PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" ShowInReplyTo="false" FocalPostDid="@Did" FocalPostRKey="@RKey" FocalVideoAutoPlay="true" />
+<PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" ShowInReplyTo="false" FocalPostDid="@ResolvedFocalDid" FocalPostRKey="@RKey" FocalVideoAutoPlay="true" />
 
 @if (FocalPost?.OriginalPostUrl != null)
 {

@@ -89,6 +89,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, Tid> ExternalPostIdHashToSyntheticTid;
         public CombinedPersistentMultiDictionary<Plc, PostIdTimeFirst> SeenPosts;
         public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
 
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
@@ -238,6 +239,7 @@ namespace AppViewLite
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
             SeenPosts = RegisterDictionary<Plc, PostIdTimeFirst>("seen-posts");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
+            NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.SingleValue);
 
             
 
@@ -1460,7 +1462,7 @@ namespace AppViewLite
 
         }
 
-        internal BlueskyPostData? TryGetPostData(PostId id)
+        public BlueskyPostData? TryGetPostData(PostId id)
         {
             var isDeleted = PostDeletions.ContainsKey(id);
             

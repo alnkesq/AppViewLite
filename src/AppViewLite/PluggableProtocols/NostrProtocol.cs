@@ -83,7 +83,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 if (!string.IsNullOrEmpty(content) && DontIngestTextRegex?.IsMatch(content) == true)
                     return;
             }
-                
+
 
             var did = GetDidFromPubKey(e.PublicKey);
             var didHash = StringUtils.HashUnicodeToUuid(did);
@@ -92,6 +92,16 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 return;
             if (RecentlyAddedPosts.Count >= 10_000)
                 RecentlyAddedPosts = new();
+
+
+            var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.TryGetLatestValue(didHash, out _));
+            if (!previouslySeen)
+            {
+                // Avoid wasting Plc assignments for single-use spam pubkeys.
+                if (kind == NostrEventKind.Short_Text_Note)
+                    Apis.WithRelationshipsWriteLock(rels => rels.NostrSeenPubkeyHashes.Add(didHash, 0));
+                return;
+            }
 
             if (kind == NostrEventKind.Short_Text_Note)
             {

@@ -612,6 +612,8 @@ namespace AppViewLite
             if (bytes < 1024 * 1024 * 1024) return ((double)bytes / 1024 / 1024).ToString("0.0") + " MB";
             return ((double)bytes / 1024 / 1024 / 1024).ToString("0.0") + " GB";
         }
+
+        public static string[] GetSegments(this Uri url) => url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
     }
 }
 

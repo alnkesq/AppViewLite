@@ -276,6 +276,17 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return "#D4D8F0";
         }
 
+        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
+        {
+            var segments = url.GetSegments();
+            if (segments.Length == 1 || (segments.Length == 2 && segments[1] is "catalog" or "archive"))
+            {
+                if (HostConfiguration.ContainsKey(url.Host))
+                    return DidPrefix + url.Host + ":" + segments[0];
+            }
+            return null;
+        }
+
     }
 
     public record struct YotsubaBoardId(string Host, string BoardName)

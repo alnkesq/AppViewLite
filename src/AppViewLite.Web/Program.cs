@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using System.Text.RegularExpressions;
+using AppViewLite.PluggableProtocols;
 
 namespace AppViewLite.Web
 {
@@ -521,22 +522,13 @@ namespace AppViewLite.Web
                 }
             }
 
-            var pathSegments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            // Mastodon profile
-            if (pathSegments.Length == 1 && pathSegments[0].StartsWith('@'))
+            foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)
             {
-                var fediverseProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(pathSegments[0], url.Host).Normalize();
-                return "/" + fediverseProfile;
+                var did = protocol.TryGetDidOrLocalPathFromUrl(url);
+                if (did != null)
+                    return did.StartsWith("did:", StringComparison.Ordinal) ? "/@" + did : did;
             }
-
-            // Other fediverse profile
-            if (pathSegments.Length == 2 && pathSegments[0] == "users")
-            {
-                var fediverseProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(pathSegments[1], url.Host).Normalize();
-                return "/" + fediverseProfile;
-            }
-
+           
             using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
 
             if (response.Headers.Location != null)

@@ -378,6 +378,8 @@ namespace AppViewLite.PluggableProtocols
         public virtual TimeSpan GetProfilePageMaxPostAge() => TimeSpan.FromDays(90);
 
         public virtual bool ShouldDisplayExternalLinkInBio => true;
+
+        public virtual string? TryGetDidOrLocalPathFromUrl(Uri url) => null;
     }
 }
 

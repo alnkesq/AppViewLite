@@ -284,35 +284,41 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return null;
         }
 
-        private static string? TryGetDidFromUrl(Uri url)
+        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
         {
-            
+            var u = TryGetUserIdFromUrl(url);
+            return u != default ? "/" + u : null;
+        }
+
+        public static string? TryGetDidFromUrl(Uri url)
+        {
+            var u = TryGetUserIdFromUrl(url);
+            return u != default ? GetDid(u) : null;
+        }
+
+
+        private static ActivityPubUserId TryGetUserIdFromUrl(Uri url)
+        {
             try
             {
+                var pathSegments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                var segments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (segments.Length == 2 && segments[0] == "users")
+                // Mastodon profile
+                if (pathSegments.Length == 1 && pathSegments[0].StartsWith('@'))
                 {
-                    return GetDid(new ActivityPubUserId(url.Host, segments[1]));
+                    return ActivityPubUserId.Parse(pathSegments[0], url.Host).Normalize();
                 }
-                if (segments.Length == 1 && segments[0].StartsWith('@') && string.IsNullOrEmpty(url.Query))
+
+                // Other fediverse profile
+                if (pathSegments.Length == 2 && pathSegments[0] == "users")
                 {
-                    var username = segments[0];
-                    if (username.StartsWith('@'))
-                        username = username.Substring(1);
-                    var at = username.IndexOf('@');
-                    if (at != -1)
-                        return GetDid(new ActivityPubUserId(username.Substring(at + 1), username.Substring(0, at)));
-                    else
-                    {
-                        return GetDid(new ActivityPubUserId(url.Host, username));
-                    }
+                    return ActivityPubUserId.Parse(pathSegments[1], url.Host).Normalize();
                 }
             }
             catch
             {
             }
-            return null;
+            return default;
         }
 
         public static string GetDid(ActivityPubUserId author)

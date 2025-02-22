@@ -121,6 +121,13 @@ namespace AppViewLite.PluggableProtocols.HackerNews
         {
             return "#FF6600";
         }
+
+        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
+        {
+            if (url.AbsoluteUri is "https://news.ycombinator.com/" or "https://hckrnews.com/")
+                return DidPrefix;
+            return null;
+        }
     }
 }
 

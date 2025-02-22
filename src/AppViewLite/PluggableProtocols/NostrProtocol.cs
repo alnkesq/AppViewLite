@@ -368,6 +368,16 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         public override bool ShouldDisplayExternalLinkInBio => false;
 
+        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
+        {
+            if (url.Host == "primal.net")
+            {
+                var segments = url.GetSegments();
+                if (segments.Length == 2 && segments[0] == "p" && segments[1].StartsWith("npub", StringComparison.Ordinal))
+                    return DidPrefix + segments[1];
+            }
+            return null;
+        }
     }
 }
 

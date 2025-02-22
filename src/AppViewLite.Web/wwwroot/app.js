@@ -1020,28 +1020,28 @@ function onInitialLoad() {
             var actionKind = actionButton.getAttribute('actionkind');
             if (actionKind) {
                 console.log(actionKind);
-
-                var postAction = postActions[actionKind];
-                if (postAction) {
-                    postAction.call(postActions,
-                        getAncestorData(actionButton, 'postdid'),
-                        getAncestorData(actionButton, 'postrkey'),
-                        actionButton.closest('[data-postrkey]'),
-                        actionButton
-                    );
-                    return;
-                }
-                
-                var userAction = userActions[actionKind];
-                if (userAction) {
-                    userAction.call(postActions,
-                        getAncestorData(actionButton, 'profiledid'),
-                        getAncestorData(actionButton, 'followrkey'),
-                        getAncestorData(actionButton, 'followsyou'),
-                        actionButton.closest('[data-profiledid]'),
-                        actionButton
-                    );
-                    return;
+                var postElement = actionButton.closest('[data-postrkey]');
+                if (postElement) {
+                    var postAction = postActions[actionKind];
+                    if (postAction) {
+                        postAction.call(postActions,
+                            getAncestorData(actionButton, 'postdid'),
+                            getAncestorData(actionButton, 'postrkey'),
+                            postElement,
+                            actionButton
+                        );
+                        return;
+                    }
+                } else {
+                    var userAction = userActions[actionKind];
+                    if (userAction) {
+                        userAction.call(postActions,
+                            getAncestorData(actionButton, 'profiledid'),
+                            actionButton.closest('[data-profiledid]'),
+                            actionButton
+                        );
+                        return;
+                    }
                 }
             } else {
                 if (actionButton == currentlyOpenMenuButton) closeCurrentMenu();
@@ -1248,6 +1248,18 @@ function getPostPreferredUrlElement(postElement) {
     return [...postElement.children].filter(x => x.classList.contains('post-background-link'))[0];
 }
 
+async function togglePrivateFollow(did, toggleButton) { 
+    var did = toggleButton.dataset.did;
+    var flag = toggleButton.dataset.flag;
+    var oldvalue = !!(+toggleButton.dataset.oldvalue);
+    var text = toggleButton.textContent;
+    text = text.substring(text.indexOf(' '));
+    var newvalue = !oldvalue;
+    await httpPost('TogglePrivateFollow', { did, flag, newvalue });
+    toggleButton.dataset.oldvalue = newvalue ? 1 : 0;
+    toggleButton.textContent = (oldvalue ? 'Mute ' : 'Unmute ') + text;
+}
+
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
         getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
@@ -1292,20 +1304,15 @@ var postActions = {
         window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(getPostText(postElement)) + '&op=translate');
     },
     togglePrivateFollow: async function (did, rkey, postElement, toggleButton) { 
-        var did = toggleButton.dataset.did;
-        var flag = toggleButton.dataset.flag;
-        var oldvalue = !!(+toggleButton.dataset.oldvalue);
-        var text = toggleButton.textContent;
-        text = text.substring(text.indexOf(' '));
-        var newvalue = !oldvalue;
-        await httpPost('TogglePrivateFollow', { did, flag, newvalue });
-        toggleButton.dataset.oldvalue = newvalue ? 1 : 0;
-        toggleButton.textContent = (oldvalue ? 'Mute ' : 'Unmute ') + text;
+        await togglePrivateFollow(did, toggleButton);
     }
 }
 
 var userActions = {
-    toggleFollow: async function (profiledid, followrkey, followsyou, postElement) { 
+    toggleFollow: async function (profiledid, postElement) { 
+        
+        var followrkey = getAncestorData(postElement, 'followrkey');
+        var followsyou = getAncestorData(postElement, 'followsyou');
         postElement.followToggler ??= new ActionStateToggler(
             0,
             followrkey,
@@ -1318,6 +1325,14 @@ var userActions = {
         });
         postElement.followToggler.toggleIfNotBusyAsync();
     },
+    
+    copyProfileUrl: async function (did) { 
+        navigator.clipboard.writeText(location.origin + '/@' + did)
+    },
+    
+    togglePrivateFollow: async function (did, profileElement, toggleButton) { 
+        await togglePrivateFollow(did, toggleButton);
+    }
 }
 
 function formatTwoSignificantDigits(displayValue) { 

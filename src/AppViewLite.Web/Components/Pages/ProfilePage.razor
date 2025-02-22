@@ -30,6 +30,7 @@
     private string? description;
     private string? anchorTargetForProfileUrl;
     private string? RssError;
+    public BlueskyProfile SimpleProfile => Profile.Profile;
     private AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId? BridgyMirroredProfile;
     protected override async Task OnParametersSetAsync()
     {
@@ -99,10 +100,56 @@
             <ProfileHandle Profile="@Profile.Profile" />
         </div>
 
-        @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
-        {
-            <FollowButton Profile="@Profile.Profile" />
-        }
+        <div class="profile-follow-area">
+            @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
+            {
+                <FollowButton Profile="@Profile.Profile" />
+            }
+
+            <div class="menu-button-wrapper" data-profiledid="@SimpleProfile.Did">
+                <div class="profile-menu menu">
+                    
+                    @if(SimpleProfile.PluggableProtocol?.TryGetOriginalProfileUrl(SimpleProfile) is {} externalUrl)
+                    {
+                        <a href="@externalUrl" class="menu-item" target="_blank" rel="noreferrer">View on @(new Uri(externalUrl).Host)</a>
+                    }
+                    @if (BlueskyRelationships.IsNativeAtProtoDid(SimpleProfile.Did))
+                    {
+                        <a href="@SimpleProfile.BlueskyUrl" class="menu-item" target="_blank" rel="noreferrer">View on Bluesky</a>
+                    }
+
+                    <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
+                    
+
+                    @if (RequestContext.IsLoggedIn)
+                    {
+                        @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageNonFollowedReposts))
+                        {
+                            <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageNonFollowedReposts" TextualFlag="@PrivateFollowFlags.MuteTextualNonFollowedReposts" />
+                        }
+                        @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageSelfReposts))
+                        {
+                            <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageSelfReposts" TextualFlag="@PrivateFollowFlags.MuteTextualSelfReposts" />
+                        }
+
+
+                        @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteAllPosts) != SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImagePosts))
+                        {
+                            <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteImagePosts" />
+                        }
+
+
+                        <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteAllPosts" />
+                    }
+
+                    <button actionkind="muteKeywords" class="menu-item">Specify words to mute…</button>
+                </div>
+
+                <button class="post-action-bar-button">
+                    <svg fill="none" viewBox="0 0 24 24" width="20" height="20" style="pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm16 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm-6-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path></svg>
+                </button>
+            </div>
+        </div>
 
         @if (Profile.Profile.BlockReason != default || Profile.Profile.FollowsYou || Profile.Profile.IsFollowedBySelf != null)
         {

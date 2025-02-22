@@ -27,6 +27,7 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public int Plc;
         [ProtoMember(2)] public PrivateFollowFlags Flags;
+        [ProtoMember(3)] public DateTime DatePrivateFollowed;
     }
 
 

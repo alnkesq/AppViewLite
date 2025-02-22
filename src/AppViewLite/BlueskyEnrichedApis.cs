@@ -322,6 +322,7 @@ namespace AppViewLite
             var plcs = ctx.Session.PrivateProfile!.PrivateFollows!
                 .Skip(offset)
                 .Where(x => (x.Flags & PrivateFollowFlags.PrivateFollow) != default)
+                .OrderByDescending(x => x.DatePrivateFollowed)
                 .Select(x => new Plc(x.Plc))
                 .Take(limit + 1)
                 .ToArray();

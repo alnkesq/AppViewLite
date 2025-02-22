@@ -1,6 +1,6 @@
 
 
-
+var pageLoadedTimeBeforeInitialScroll = Date.now();
 var liveUpdatesPostIds = new Set();
 var pageTitleOverride = null;
 var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? 0);
@@ -819,6 +819,14 @@ function onInitialLoad() {
     recentPages.push(appliedPageObj);
     
     window.addEventListener('scroll', e => {
+        if (pageLoadedTimeBeforeInitialScroll !== null) { 
+            var scrollTop = document.scrollingElement.scrollTop;
+            if ((Date.now() - pageLoadedTimeBeforeInitialScroll) < 5000 && scrollTop > 200) {
+                // Firefox restored the tab. However, the scroll position is no longer meaningful (infinite scroll).
+                document.scrollingElement.scrollTop = 0;
+            }
+            pageLoadedTimeBeforeInitialScroll = null;
+        }
         updateSidebarButtonScrollVisibility();
         if (currentlyOpenMenu && Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10)
             closeCurrentMenu();

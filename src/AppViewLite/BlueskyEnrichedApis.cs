@@ -313,6 +313,24 @@ namespace AppViewLite
             });
         }
 
+        public async Task<ProfilesAndContinuation> GetFollowingPrivateAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            if (!ctx.IsLoggedIn || did != ctx.Session.Did)
+                return new();
+            EnsureLimit(ref limit, 50);
+            var offset = continuation != null ? int.Parse(continuation) : 0;
+            var plcs = ctx.Session.PrivateProfile!.PrivateFollows!
+                .Skip(offset)
+                .Where(x => (x.Flags & PrivateFollowFlags.PrivateFollow) != default)
+                .Select(x => new Plc(x.Plc))
+                .Take(limit + 1)
+                .ToArray();
+            var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x)).ToArray());
+            await EnrichAsync(profiles, ctx);
+            return (profiles.Take(limit).ToArray(), profiles.Length == limit ? (offset + limit).ToString() : null);
+            
+        }
+
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
@@ -1496,6 +1514,10 @@ namespace AppViewLite
             }
             var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad));
             await EnrichAsync([profile.Profile, ..profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
+            if (profile.Profile.BasicData == null)
+            {
+                await EnrichAsync([profile.Profile], RequestContext.CreateInfinite(ctx.Session));
+            }
             profile.RssFeedInfo = rssFeedInfo;
             return profile;
         }
@@ -1732,7 +1754,7 @@ namespace AppViewLite
             var (possibleFollows, users) = WithRelationshipsLock(rels =>
             {
 
-                var possibleFollows = rels.GetFollowingFast(loggedInUser);
+                var possibleFollows = rels.GetFollowingFast(ctx);
 
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx.LoggedInUser);
 
@@ -3203,6 +3225,20 @@ namespace AppViewLite
                 {
                     rels.PopulateViewerFlags(profile, ctx);
                 }
+            });
+        }
+
+        public void TogglePrivateFollowFlag(string did, PrivateFollowFlags flag, bool enabled, RequestContext ctx)
+        {
+            WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                var info = ctx.Session.GetPrivateFollow(plc);
+                if (enabled)
+                    info.Flags |= flag;
+                else
+                    info.Flags &= ~flag;
+                rels.UpdatePrivateFollow(info, ctx);
             });
         }
     }

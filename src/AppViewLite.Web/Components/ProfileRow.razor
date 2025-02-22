@@ -20,7 +20,7 @@
         GuessedFacets = StringUtils.GuessFacets(Profile.BasicData?.Description);
     }
 }
-<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did" data-profiledid="@Profile.Did" data-pendingload="@(Profile.BasicData == null ? 1 : 0)">
+<li class="profile-row @(Profile.BlockReason != default ? "profile-row-blocked" : null)" @key="@Profile.Did" data-profiledid="@Profile.Did" data-pendingload="@(Profile.BasicData == null ? 1 : 0)" data-followrkey="@Profile.FollowRKeyForAttribute" data-followsyou="@Profile.FollowsYouForAttribute">
     <a href="@Profile.BaseUrl" class="profile-row-avatar" tabindex="-1">
         <img src="@Profile.AvatarUrl" class="profile-image-small">
     </a>

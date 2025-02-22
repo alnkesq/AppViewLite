@@ -9,13 +9,14 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        (Followers, NextContinuation) = await Apis.GetFollowersAsync(await GetResolvedDidAsync(), Continuation, default, RequestContext);
+        await ResolveDidAsync();
+        (Followers, NextContinuation) = await Apis.GetFollowersAsync(Did, Continuation, default, RequestContext);
     }
 }
 
 <PageTitle>Followers</PageTitle>
 
-<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" />
+<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" Did="@Did" />
 
 <ProfileList Profiles="Followers" NextContinuation="@NextContinuation" />
 

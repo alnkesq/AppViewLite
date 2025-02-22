@@ -2091,8 +2091,8 @@ namespace AppViewLite
             var loggedInUser = ctx.LoggedInUser;
             var thresholdDate = minDate != default ? Tid.FromDateTime(minDate) : default;
 
-            
-            var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).ToArray();
+
+            var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).Concat(ctx.Session.PrivateFollowsAsListEntries).ToArray();
             var plcToLatestFollowRkey = new Dictionary<Plc, Tid>();
             foreach (var follow in follows)
             {
@@ -2689,12 +2689,13 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowedRequiresLock) GetFollowingFast(Plc loggedInUser) // The lambda is SAFE to reuse across re-locks
+        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowedRequiresLock) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
             var stillFollowedResult = new Dictionary<Plc, bool>();
             var possibleFollows = RegisteredUserToFollowees
-                .GetValuesSorted(loggedInUser)
+                .GetValuesSorted(ctx.LoggedInUser)
                 .DistinctByAssumingOrderedInputLatest(x => x.Member)
+                .Concat(ctx.Session.PrivateFollowsAsListEntries)
                 .ToDictionary(x => x.Member, x => x.ListItemRKey);
 
             return (possibleFollows.Keys.ToArray(), plc =>
@@ -2702,11 +2703,12 @@ namespace AppViewLite
                 // Callers can assume that this lambda is SAFE to reuse across re-locks (must not capture ManagedOrNativeArrays)
 
                 if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
+                if (rkey == default) return true; // private follow
 
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
                 if (!exists)
                 {
-                    result = !Follows.IsDeleted(new Relationship(loggedInUser, rkey));
+                    result = !Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey));
                 }
                 return result;
             });

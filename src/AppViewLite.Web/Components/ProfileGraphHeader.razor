@@ -12,6 +12,10 @@
     <div class="tabbed-lists-header-inner">
 
         <NavLink href="@(ProfileBaseUrl + "/following")">Following</NavLink>
+        @if (RequestContext.IsLoggedIn && RequestContext.Session.Did == Did)
+        {
+            <NavLink href="@(ProfileBaseUrl + "/following-private")">Following (private)</NavLink>
+        }
         <NavLink href="@(ProfileBaseUrl + "/followers")">Followers</NavLink>
         @if (RequestContext.IsLoggedIn)
         {

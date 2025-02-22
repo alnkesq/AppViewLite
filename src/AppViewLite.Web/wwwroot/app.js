@@ -1021,6 +1021,9 @@ function onInitialLoad() {
             if (actionKind) {
                 console.log(actionKind);
                 var postElement = actionButton.closest('[data-postrkey]');
+                var profileElement = actionButton.closest('[data-profiledid]');
+                if (postElement == profileElement) profileElement = null;
+
                 if (postElement) {
                     var postAction = postActions[actionKind];
                     if (postAction) {
@@ -1032,7 +1035,8 @@ function onInitialLoad() {
                         );
                         return;
                     }
-                } else {
+                }
+                if(profileElement) {
                     var userAction = userActions[actionKind];
                     if (userAction) {
                         userAction.call(postActions,
@@ -1308,28 +1312,44 @@ var postActions = {
     }
 }
 
+
+
 var userActions = {
-    toggleFollow: async function (profiledid, postElement) { 
+    toggleFollow: async function (profiledid, profileElement, button) { 
         
-        var followrkey = getAncestorData(postElement, 'followrkey');
-        var followsyou = getAncestorData(postElement, 'followsyou');
-        postElement.followToggler ??= new ActionStateToggler(
+        var followrkey = profileElement.dataset.followrkey;
+        var followsyou = profileElement.dataset.followsyou;
+        var isPrivateFollow = button.dataset.followkind == 'private';
+        var mandatoryPrivateFollow = !profiledid.startsWith('did:plc:') && !profiledid.startsWith('did:plc:')
+
+        profileElement.followToggler ??= new ActionStateToggler(
             0,
             followrkey,
-            async () => (await httpPost('CreateFollow', { did: profiledid })).rkey,
-            async (rkey) => (await httpPost('DeleteFollow', { rkey })),
+            async () => (await httpPost('CreateFollow', { did: profiledid, private: profileElement.followPrivately })).rkey,
+            async (rkey) => (await httpPost('DeleteFollow', { did: profiledid, rkey })),
             (count, have) => { 
-            var btn = postElement;
-            btn.textContent = have ? 'Unfollow' : +followsyou ? 'Follow back' : 'Follow';
-            btn.classList.toggle('follow-button-unfollow', have);
+                var followButton = profileElement.querySelector('.follow-button');
+                if (followButton) {
+                    followButton.textContent = have ? 'Unfollow' : +followsyou ? 'Follow back' : 'Follow';
+                    followButton.classList.toggle('follow-button-unfollow', have);
+                    followButton.classList.toggle('follow-button-private', profileElement.followPrivately)
+                }
+                var followPrivately = profileElement.querySelector('.menu-item[actionkind="toggleFollow"][data-followkind="private"]');
+                if (followPrivately) { 
+                    followPrivately.textContent = have ? 'Unfollow (private)' : 'Follow privately'
+                    followPrivately.classList.toggle('display-none', have && !profileElement.followPrivately);
+                }
         });
-        postElement.followToggler.toggleIfNotBusyAsync();
+        profileElement.followPrivately = mandatoryPrivateFollow || (isPrivateFollow && !profileElement.followToggler.haveRelationship);
+        profileElement.followToggler.toggleIfNotBusyAsync();
     },
     
     copyProfileUrl: async function (did) { 
         navigator.clipboard.writeText(location.origin + '/@' + did)
     },
-    
+    copyProfileBlueskyUrl: async function (did) { 
+        navigator.clipboard.writeText('https://bsky.app/profile/' + did)
+    },
     togglePrivateFollow: async function (did, profileElement, toggleButton) { 
         await togglePrivateFollow(did, toggleButton);
     }

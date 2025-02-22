@@ -1,5 +1,5 @@
-@page "/@{did}/following"
-@page "/@{did}@{activityPubInstance}/following"
+@page "/@{did}/following-private"
+@page "/@{did}@{activityPubInstance}/following-private"
 @inherits ProfileComponentBase
 
 @code {
@@ -10,11 +10,11 @@
     protected override async Task OnParametersSetAsync()
     {
         await ResolveDidAsync();
-        (Following, NextContinuation) = await Apis.GetFollowingAsync(Did, Continuation, default, RequestContext);
+        (Following, NextContinuation) = await Apis.GetFollowingPrivateAsync(Did, Continuation, default, RequestContext);
     }
 }
 
-<PageTitle>Following</PageTitle>
+<PageTitle>Following (private)</PageTitle>
 
 <ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" Did="@Did" />
 

@@ -3,6 +3,7 @@ using AppViewLite.Models;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AppViewLite
 {
@@ -29,6 +30,7 @@ namespace AppViewLite
 
         public Dictionary<Plc, PrivateFollow> PrivateFollows = new();
         public AppViewLiteProfileProto? PrivateProfile;
+        public IEnumerable<ListEntry> PrivateFollowsAsListEntries => PrivateFollows.Keys.Select(x => new ListEntry(x, default));
 
         public PrivateFollow GetPrivateFollow(Plc plc)
         {

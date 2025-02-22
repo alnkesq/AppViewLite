@@ -100,15 +100,15 @@
             <ProfileHandle Profile="@Profile.Profile" />
         </div>
 
-        <div class="profile-follow-area">
+        <div class="profile-follow-area" data-profiledid="@SimpleProfile.Did" data-followrkey="@SimpleProfile.FollowRKeyForAttribute" data-followsyou="@SimpleProfile.FollowsYouForAttribute">
             @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
             {
-                <FollowButton Profile="@Profile.Profile" />
+                <FollowButton Profile="@SimpleProfile" />
             }
 
-            <div class="menu-button-wrapper" data-profiledid="@SimpleProfile.Did">
+            <div class="menu-button-wrapper">
                 <div class="profile-menu menu">
-                    
+
                     @if(SimpleProfile.PluggableProtocol?.TryGetOriginalProfileUrl(SimpleProfile) is {} externalUrl)
                     {
                         <a href="@externalUrl" class="menu-item" target="_blank" rel="noreferrer">View on @(new Uri(externalUrl).Host)</a>
@@ -118,11 +118,13 @@
                         <a href="@SimpleProfile.BlueskyUrl" class="menu-item" target="_blank" rel="noreferrer">View on Bluesky</a>
                     }
 
+                    <button actionkind="copyProfileBlueskyUrl" class="menu-item">Copy Bluesky URL</button>
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
-                    
 
-                    @if (RequestContext.IsLoggedIn)
+                    @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
                     {
+                        <button actionkind="toggleFollow" data-followkind="private" class="menu-item @(SimpleProfile.IsFollowedBySelf != null ? "display-none" : null)">@(SimpleProfile.IsFollowedEvenPrivatelyBySelf ? "Unfollow (private)" : "Follow privately")</button>
+
                         @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageNonFollowedReposts))
                         {
                             <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageNonFollowedReposts" TextualFlag="@PrivateFollowFlags.MuteTextualNonFollowedReposts" />
@@ -141,8 +143,6 @@
 
                         <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteAllPosts" />
                     }
-
-                    <button actionkind="muteKeywords" class="menu-item">Specify words to mute…</button>
                 </div>
 
                 <button class="post-action-bar-button">
@@ -166,6 +166,11 @@
             @if (shouldShowFollowing)
             {
                 <a href="@followingUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowingCount Following</a>
+            }
+            @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == Profile.Profile.Plc)
+            {
+                <text> · </text>
+                <a href="@Profile.Profile.BaseUrl/following-private" class="underline-on-hover">Following (private)</a>
             }
             @if (shouldShowFollowing && shouldShowFollowers)
             {
@@ -264,6 +269,8 @@
                 <a class="search-link" href="/search?q=from:@Did%20" title="Search"><img src="/assets/search.png"></a>
             </div>
         </div>
+
+
 
 
         <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowMediaOnly" />

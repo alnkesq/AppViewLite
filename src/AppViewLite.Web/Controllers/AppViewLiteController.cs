@@ -46,12 +46,21 @@ namespace AppViewLite.Web
             };
         }
         [HttpPost(nameof(CreateFollow))]
-        public async Task<object> CreateFollow([FromBody] DidOnly did)
+        public async Task<object> CreateFollow([FromBody] ToggleFollowArgs args)
         {
-            return new
+            if (args.Private)
             {
-                rkey = (await apis.CreateFollowAsync(did.Did, ctx)).ToString()
-            };
+                apis.TogglePrivateFollowFlag(args.Did, PrivateFollowFlags.PrivateFollow, true, ctx);
+                return new { rkey = "x" };
+            }
+            else
+            {
+                return new
+                {
+                    rkey = (await apis.CreateFollowAsync(args.Did, ctx)).ToString()
+                };
+            }
+
         }
         [HttpPost(nameof(DeleteRepost))]
         public async Task DeleteRepost([FromBody] RKeyOnly rkey)
@@ -64,30 +73,27 @@ namespace AppViewLite.Web
             await apis.DeletePostAsync(Tid.Parse(rkey.Rkey), ctx);
         }
         [HttpPost(nameof(DeleteFollow))]
-        public async Task DeleteFollow([FromBody] RKeyOnly rkey)
+        public async Task DeleteFollow([FromBody] DidAndRKey args)
         {
-            await apis.DeleteFollowAsync(Tid.Parse(rkey.Rkey), ctx);
+            if (args.Rkey == "x")
+            {
+                apis.TogglePrivateFollowFlag(args.Did, PrivateFollowFlags.PrivateFollow, false, ctx);
+            }
+            else
+            {
+                await apis.DeleteFollowAsync(Tid.Parse(args.Rkey), ctx);
+            }
         }
 
         [HttpPost(nameof(TogglePrivateFollow))]
-        public async Task TogglePrivateFollow([FromBody] TogglePrivateFollowArgs args)
+        public void TogglePrivateFollow([FromBody] TogglePrivateFollowArgs args)
         {
             var flag = Enum.Parse<PrivateFollowFlags>(args.Flag);
-            apis.WithRelationshipsWriteLock(rels =>
-            {
-                var plc = rels.SerializeDid(args.Did);
-                var info = ctx.Session.GetPrivateFollow(plc);
-                if (args.NewValue)
-                    info.Flags |= flag;
-                else
-                    info.Flags &= ~flag;
-                rels.UpdatePrivateFollow(info, ctx);
-            });
-            
+            apis.TogglePrivateFollowFlag(args.Did, flag, args.NewValue, ctx);
         }
 
         [HttpPost(nameof(MarkLastSeenNotification))]
-        public async Task MarkLastSeenNotification([FromBody] NotificationIdArgs notificationId)
+        public void MarkLastSeenNotification([FromBody] NotificationIdArgs notificationId)
         {
             var notification = Notification.Deserialize(notificationId.NotificationId);
             if (notification != default)
@@ -147,7 +153,7 @@ namespace AppViewLite.Web
 
         public record DidAndRKey(string Did, string Rkey);
         public record RKeyOnly(string Rkey);
-        public record DidOnly(string Did);
+        public record ToggleFollowArgs(string Did, bool Private);
         public record NotificationIdArgs(string NotificationId);
         public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);
     }

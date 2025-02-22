@@ -72,9 +72,12 @@ namespace AppViewLite.Models
 
         public PrivateFollow PrivateFollow;
 
+        public string FollowRKeyForAttribute => IsFollowedBySelf?.ToString() ?? (HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow) ? "x" : "-");
+        public int FollowsYouForAttribute => FollowsYou ? 1 : 0;
+
         public bool HasPrivateFollowFlag(PrivateFollowFlags flag) => (PrivateFollow.Flags & flag) == flag;
 
-        public bool IsFollowedEvenPrivatelyBySelf => IsFollowedBySelf != default || (PrivateFollow.Flags & PrivateFollowFlags.PrivateFollow) != 0; 
+        public bool IsFollowedEvenPrivatelyBySelf => IsFollowedBySelf != default || HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow);
 
         public override string ToString()
         {

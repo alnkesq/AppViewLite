@@ -3,8 +3,10 @@
     [Parameter] public BlueskyProfile Profile { get; set; }
 
 }
-<button class="follow-button @(Profile.IsFollowedBySelf != null ? "follow-button-unfollow" : null)" actionkind="toggleFollow" data-profiledid="@Profile.Did" data-followrkey="@(Profile.IsFollowedBySelf?.ToString() ?? "-")" data-followsyou="@(Profile.FollowsYou ? 1 : 0)">
-    @if (Profile.IsFollowedBySelf != null)
+
+
+<button class="follow-button @(Profile.PluggableProtocol != null || (Profile.HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow) && Profile.IsFollowedBySelf == null) ? "follow-button-private" : null) @(Profile.IsFollowedEvenPrivatelyBySelf ? "follow-button-unfollow" : null)" actionkind="toggleFollow">
+    @if (Profile.IsFollowedEvenPrivatelyBySelf)
     {
         <text>Unfollow</text>
     }

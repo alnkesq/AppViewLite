@@ -1199,9 +1199,18 @@ button[disabled], input[type=submit][disabled] {
     border-radius: 50px;
 }
 
+.follow-button.follow-button-private {
+    background-color: rgb(148, 122, 50);
+}
+
 .follow-button-unfollow {
     background-color: #F1F3F5;
     color: #42576C;
+}
+
+.follow-button-unfollow.follow-button-private  {
+    background-color: rgb(255, 234, 178);
+    color: rgb(124, 102, 42);
 }
 .profile-page {
     position: relative;
@@ -1230,7 +1239,7 @@ button[disabled], input[type=submit][disabled] {
 }
 
 .profile-menu {
-    width: 200px !important;
+    width: 300px !important;
 }
 
 .post-post-menu {

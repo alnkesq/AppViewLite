@@ -10,10 +10,12 @@ namespace AppViewLite.Web
         [Parameter] public required string Did { get; set; }
         [Parameter] public string? ActivityPubInstance { get; set; }
 
-        public string ProfileBaseUrl => $"/@{Did}" + (ActivityPubInstance != null ? "@" + ActivityPubInstance : null);
+        private string? _originalProfileBaseUrl;
+        public string ProfileBaseUrl => _originalProfileBaseUrl ?? $"/@{Did}" + (ActivityPubInstance != null ? "@" + ActivityPubInstance : null);
 
         public async Task ResolveDidAsync()
         {
+            _originalProfileBaseUrl = ProfileBaseUrl;
             Did = await Apis.ResolveHandleAsync(Did, ActivityPubInstance);
             ActivityPubInstance = null;
         }

@@ -72,6 +72,8 @@ namespace AppViewLite.Models
 
         public PrivateFollow PrivateFollow;
 
+        public bool HasPrivateFollowFlag(PrivateFollowFlags flag) => (PrivateFollow.Flags & flag) == flag;
+
         public bool IsFollowedEvenPrivatelyBySelf => IsFollowedBySelf != default || (PrivateFollow.Flags & PrivateFollowFlags.PrivateFollow) != 0; 
 
         public override string ToString()

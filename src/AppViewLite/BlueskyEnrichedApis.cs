@@ -255,28 +255,6 @@ namespace AppViewLite
             return profiles;
         }
 
-        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext ctx)
-        {
-            if (!profiles.Any(x => x.PrivateFollow == null)) return;
-            WithRelationshipsLock(rels =>
-            {
-                foreach (var profile in profiles)
-                {
-                    if (ctx.IsLoggedIn && rels.Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
-                        profile.IsFollowedBySelf = followRel.RelationshipRKey;
-                    profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
-                    profile.BlockReason = rels.GetBlockReason(profile.Plc, ctx);
-                    profile.FollowsYou = ctx.IsLoggedIn && rels.Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
-                    profile.Labels = rels.GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
-                }
-            }, ctx);
-
-            foreach (var profile in profiles)
-            {
-                // ctx.Session is null when logging in (ourselves)
-                profile.PrivateFollow = ctx.Session?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
-            }
-        }
 
         public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)
         {
@@ -1726,7 +1704,7 @@ namespace AppViewLite
             var alreadyReturned = new HashSet<PostId>();
             var posts = WithRelationshipsLock(rels =>
             {
-                var posts = rels.EnumerateFollowingFeed(ctx.LoggedInUser, DateTime.Now.AddDays(-7), maxTid);
+                var posts = rels.EnumerateFollowingFeed(ctx, DateTime.Now.AddDays(-7), maxTid);
                 var normalized = rels.EnumerateFeedWithNormalization(posts, alreadyReturned);
                 return normalized.Take(limit).ToArray();
             }, ctx);
@@ -1853,6 +1831,8 @@ namespace AppViewLite
                     {
                         bool ShouldInclude(BlueskyPost post)
                         {
+                            rels.PopulateViewerFlags(post, ctx);
+                            if (post.IsMuted) return false;
                             if (post.RepostedBy != null) return true;
                             if (post.Data?.Deleted == true) return false;
 
@@ -3212,6 +3192,18 @@ namespace AppViewLite
                 return new Uri(pageUrl, href);
             }
             return new Uri(pageUrl.GetLeftPart(UriPartial.Authority) + "/favicon.ico");
+        }
+
+        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext ctx)
+        {
+            if (!profiles.Any(x => x.PrivateFollow == null)) return;
+            WithRelationshipsLock(rels =>
+            {
+                foreach (var profile in profiles)
+                {
+                    rels.PopulateViewerFlags(profile, ctx);
+                }
+            });
         }
     }
 }

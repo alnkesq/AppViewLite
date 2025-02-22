@@ -125,6 +125,48 @@ namespace AppViewLite.Models
         {
             return "[" + Author?.DisplayNameOrFallback + "] " + Data?.Text;
         }
+
+        public bool IsMuted
+        {
+            get
+            {
+                if (RepostedBy != null)
+                {
+                    if (IsSelfRepost)
+                    {
+                        if (IsUserMuted(RepostedBy, PrivateFollowFlags.MuteImageSelfReposts, PrivateFollowFlags.MuteTextualSelfReposts))
+                            return true;
+                    }
+                    else
+                    {
+                        if (!Author.IsFollowedEvenPrivatelyBySelf)
+                        {
+                            if (IsUserMuted(RepostedBy, PrivateFollowFlags.MuteImageNonFollowedReposts, PrivateFollowFlags.MuteTextualNonFollowedReposts))
+                                return true;
+                        }
+                    }
+                }
+
+                if (!IsSelfRepost)
+                {
+                    if (IsUserMuted(Author, PrivateFollowFlags.MuteImagePosts, PrivateFollowFlags.MuteTextualPosts))
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        private bool IsUserMuted(BlueskyProfile user, PrivateFollowFlags imageFlag, PrivateFollowFlags textFlag)
+        {
+            if (IsImagePost)
+            {
+                return user.HasPrivateFollowFlag(imageFlag);
+            }
+            else
+            {
+                return user.HasPrivateFollowFlag(textFlag);
+            }
+        }
     }
 }
 

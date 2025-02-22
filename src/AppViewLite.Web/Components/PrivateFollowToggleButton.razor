@@ -10,19 +10,15 @@
                 PrivateFollowFlags.MuteImageSelfReposts => "image self-reposts by",
                 PrivateFollowFlags.MuteTextualSelfReposts => "textual self-reposts by",
                 PrivateFollowFlags.MuteAllSelfReposts => "self-reposts by",
-                
+
                 PrivateFollowFlags.MuteImageNonFollowedReposts => "non-followed image reposts by",
                 PrivateFollowFlags.MuteTextualNonFollowedReposts => "non-followed textual reposts by",
                 PrivateFollowFlags.MuteAllNonFollowedReposts => "non-followed reposts by",
 
-                PrivateFollowFlags.MuteImageFollowedReposts => "followed image reposts by",
-                PrivateFollowFlags.MuteTextualFollowedReposts => "followed textual reposts by",
-                PrivateFollowFlags.MuteAllFollowedReposts => "followed reposts by",
-
                 PrivateFollowFlags.MuteImagePosts => "images by",
                 PrivateFollowFlags.MuteTextualPosts => "textual posts by",
                 PrivateFollowFlags.MuteAllPosts => "posts by",
-                
+
                 _ => throw new NotSupportedException()
             };
         }
@@ -30,6 +26,6 @@
 }
 
 @{
-    var hasFlag = (User.PrivateFollow.Flags & Flag) == Flag;
+    var hasFlag = User.HasPrivateFollowFlag(Flag);
 }
 <button actionkind="togglePrivateFollow" data-did="@User.Did" data-flag="@Flag" data-oldvalue="@(hasFlag ? 1 : 0)" class="menu-item">@(hasFlag ? "Unmute " : "Mute ")@FlagDisplayText @User.DisplayNameOrFallback</button>

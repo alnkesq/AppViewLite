@@ -2086,8 +2086,9 @@ namespace AppViewLite
             return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDate, default), maxDate != null ? new RecentRepost(maxDate.Value, default) : null);
         }
 
-        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(Plc loggedInUser, DateTime minDate, Tid? maxTid)
+        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTid)
         {
+            var loggedInUser = ctx.LoggedInUser;
             var thresholdDate = minDate != default ? Tid.FromDateTime(minDate) : default;
 
             
@@ -2186,9 +2187,24 @@ namespace AppViewLite
                 .Where(x =>
                 {
                     var triplet = requireFollowStillValid[x];
-                    return IsFollowStillValid(triplet.A) && IsFollowStillValid(triplet.B) && IsFollowStillValid(triplet.C);
+                    
+                    if (!(IsFollowStillValid(triplet.A) && IsFollowStillValid(triplet.B) && IsFollowStillValid(triplet.C)))
+                        return false;
+
+                    PopulateViewerFlags(x, ctx);
+                    if (x.IsMuted)
+                        return false;
+
+                    return true;
                 })!;
             return result;
+        }
+
+        public void PopulateViewerFlags(BlueskyPost post, RequestContext ctx)
+        {
+            PopulateViewerFlags(post.Author, ctx);
+            if (post.RepostedBy != null)
+                PopulateViewerFlags(post.RepostedBy, ctx);
         }
 
         internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId> alreadyReturned)
@@ -2764,6 +2780,20 @@ namespace AppViewLite
         private void SaveAppViewLiteProfile(RequestContext ctx)
         {
             StoreAppViewLiteProfile(ctx.LoggedInUser, ctx.Session.PrivateProfile!);
+        }
+
+
+        public void PopulateViewerFlags(BlueskyProfile profile, RequestContext ctx)
+        {
+            if (ctx.IsLoggedIn && Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
+                profile.IsFollowedBySelf = followRel.RelationshipRKey;
+            profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
+            profile.BlockReason = GetBlockReason(profile.Plc, ctx);
+            profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
+            profile.Labels = GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => GetLabel(x)).ToArray();
+
+            // ctx.Session is null when logging in (ourselves)
+            profile.PrivateFollow = ctx.Session?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
         }
     }
 

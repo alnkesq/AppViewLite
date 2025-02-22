@@ -44,9 +44,7 @@ namespace AppViewLite.Models
         MuteTextualNonFollowedReposts = 16,
         MuteAllNonFollowedReposts = MuteImageNonFollowedReposts | MuteTextualNonFollowedReposts,
 
-        MuteImageFollowedReposts = 32,
-        MuteTextualFollowedReposts = 64,
-        MuteAllFollowedReposts = MuteImageFollowedReposts | MuteTextualFollowedReposts,
+        // 32, 64: never used, can recycle
 
         MuteImagePosts = 128,
         MuteTextualPosts = 256,

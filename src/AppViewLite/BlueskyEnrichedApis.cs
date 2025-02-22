@@ -2177,7 +2177,7 @@ namespace AppViewLite
 
             var authSession = await sessionProtocol.RefreshAuthSessionAsync();
 
-            WithRelationshipsLock(rels =>
+            WithRelationshipsWriteLock(rels =>
             {
                 var proto = rels.TryGetAppViewLiteProfile(session.LoggedInUser!.Value)!;
                 proto.PdsSessionCbor = SerializeAuthSession(authSession!);

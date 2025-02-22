@@ -747,21 +747,24 @@ ul {
     white-space: nowrap;
     width: 100%;
     height: 40px;
-    overflow: hidden;
 }
 
 .tabbed-lists-header-inner {
-    position: absolute;
-    width: 100%;
-    overflow: hidden;
-    height: 40px;
-    
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap; 
+    scrollbar-width: none;
 }
+
+
 .tabbed-lists-header a {
     font-size: 14pt;
     font-weight: bold;
     padding: 10px 20px;
-    
+    flex: 0 0 auto;
+    scroll-snap-align: center;
 }
     .tabbed-lists-header a.active {
         border-bottom: 5px solid black;

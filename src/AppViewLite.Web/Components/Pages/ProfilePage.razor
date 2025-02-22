@@ -249,24 +249,24 @@
         <div class="tabbed-lists-header">
             <div class="tabbed-lists-header-inner">
 
-                <NavLink Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
-                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
-                <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+                <NavLink draggable="false" Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
+                <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
+                <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
                 @if (Profile.Profile.PluggableProtocol == null)
                 {
-                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
-                    <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
                     @if (Profile.HasFeeds)
                     {
-                        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
+                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
                     }
                     @if (Profile.HasLists)
                     {
-                        <NavLink Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
+                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
                     }
                 }
                 @* <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a> *@
-                <a class="search-link" href="/search?q=from:@Did%20" title="Search"><img src="/assets/search.png"></a>
+                <a draggable="false" class="search-link" href="/search?q=from:@Did%20" title="Search"><img src="/assets/search.png"></a>
             </div>
         </div>
 

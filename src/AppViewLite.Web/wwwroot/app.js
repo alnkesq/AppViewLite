@@ -11,7 +11,7 @@ var currentFeedHasNewPostsTimeout = null;
 
 var theaterReturnUrl = null;
 
-
+var previousTabbedListHeaderScrollX = 0;
 var historyStack = [];
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
@@ -331,7 +331,7 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
     var oldMain = document.querySelector('main');
 
 
-
+    previousTabbedListHeaderScrollX = document.querySelector('.tabbed-lists-header-inner')?.scrollLeft ?? 0;
     var theaterForPostInfo = tryTrimMediaSegments(location.href);
     var theaterForPostElement = theaterForPostInfo?.getPostElement();
     if (theaterForPostElement) {
@@ -510,6 +510,9 @@ function applyPageElements() {
         intersectionObserver.observe(post);
     }
     
+    var tabbedHeader = document.querySelector('.tabbed-lists-header-inner');
+    if (tabbedHeader)
+        tabbedHeader.scrollLeft = previousTabbedListHeaderScrollX;
 
     maybeLoadNextPage();
 }

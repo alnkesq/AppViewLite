@@ -540,7 +540,18 @@ namespace AppViewLite.Web
                 if (did != null)
                     return did.StartsWith("did:", StringComparison.Ordinal) ? "/@" + did : did;
             }
-           
+
+            if (url.Host.EndsWith(".tumblr.com", StringComparison.Ordinal) && url.Host != "www.tumblr.com")
+            {
+                return $"/@did:rss:{url.Host}:rss";
+            }
+            if (url.Host == "www.tumblr.com")
+            {
+                var segment = url.GetSegments().FirstOrDefault();
+                if (segment != null)
+                    return $"/@did:rss:{segment}.tumblr.com:rss";
+            }
+
             using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
 
             if (response.Headers.Location != null)

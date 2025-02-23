@@ -203,7 +203,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     refreshInfo.FaviconUrl = UrlToCid(imageUrlFromXml);
                 }
                 
-                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval && !feedUrl.HasHostSuffix("youtube.com") && !feedUrl.HasHostSuffix("reddit.com"))
+                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval && !feedUrl.HasHostSuffix("youtube.com") && !feedUrl.HasHostSuffix("reddit.com") && !feedUrl.HasHostSuffix("tumblr.com"))
                 {
                     try
                     {
@@ -335,11 +335,11 @@ namespace AppViewLite.PluggableProtocols.Rss
             else if (feedUrl.HasHostSuffix("tumblr.com"))
             {
                 hasFullContent = true;
-                var tumblrId = url!.Host.Split('.')[0];
-                if (url.Host != feedUrl.Host) throw new Exception("Non-matching tumblr host");
-                var h = long.Parse(url.GetSegments()[1]);
+
                 title = null;
                 var leafPostId = GetTumblrPostId(url, dateParsed);
+                if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
+                    throw new Exception("Non-matching tumblr host");
                 var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId, dateParsed);
                 var sequence = new List<TumblrPost>();
                 while (leafPost != null)
@@ -497,23 +497,31 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return BlogId + "/" + PostId;
             }
 
-            public QualifiedPluggablePostId AsQualifiedPostId => new QualifiedPluggablePostId($"did:rss:{BlogId}.tumblr.com:rss", new NonQualifiedPluggablePostId(SuggestedTid, PostId));
+            public QualifiedPluggablePostId AsQualifiedPostId
+            {
+                get
+                {
+                    var host = BlogId.Contains('.') ? BlogId : BlogId + ".tumblr.com";
+                    return new QualifiedPluggablePostId($"did:rss:{host}:rss", new NonQualifiedPluggablePostId(SuggestedTid, PostId));
+                }
+            }
         }
 
         private static TumblrPostId GetTumblrPostId(Uri url, DateTime date)
         {
-            if (!url.HasHostSuffix("tumblr.com")) throw new ArgumentException();
+            var customDomain = !url.HasHostSuffix("tumblr.com");
             var segments = url.GetSegments();
 
             string tumblrBlogId;
             long postId;
             if (segments[0] == "post")
             {
-                tumblrBlogId = url.Host.Split('.')[0];
+                tumblrBlogId = customDomain ? url.Host : url.Host.Split('.')[0];
                 postId = long.Parse(segments[1]);
             }
             else
             {
+                if (customDomain) throw new Exception();
                 tumblrBlogId = segments[0];
                 postId = long.Parse(segments[1]);
             }

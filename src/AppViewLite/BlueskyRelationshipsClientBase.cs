@@ -150,14 +150,16 @@ namespace AppViewLite
 
                 urgentReadTasks.Enqueue(task);
 
-                Task.WhenAny(task.Tcs.Task, Task.Run(() => 
+                var race = Task.WhenAny(task.Tcs.Task, Task.Run(() =>
                 {
                     WithRelationshipsLock(rels =>
                     {
                         RunPendingUrgentReadTasks();
                     });
-                })).GetAwaiter().GetResult();
+                }));
 
+                var raceWinner = race.GetAwaiter().GetResult();
+                raceWinner.GetAwaiter().GetResult(); // WhenAny alone doesn't rethrow exceptions.
                 return urgentResult!;
             }
 

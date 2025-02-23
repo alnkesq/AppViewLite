@@ -488,8 +488,11 @@ namespace AppViewLite
                 {
                     var element = (IElement)node;
                     var tagName = element.TagName;
-                    var isBlockElement = tagName is "P" or "DIV" or "BLOCKQUOTE";
+                    var isBlockElement = tagName is "P" or "DIV" or "BLOCKQUOTE" or "LI";
                     if (isBlockElement) AppendNewLineIfNecessary();
+
+                    if (tagName == "LI")
+                        AppendText("• ");
 
                     if (tagName is "PRE" or "CODE")
                         pre = true;

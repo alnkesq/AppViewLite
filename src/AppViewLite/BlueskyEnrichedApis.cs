@@ -3253,6 +3253,8 @@ namespace AppViewLite
                     info.Flags |= flag;
                 else
                     info.Flags &= ~flag;
+                if (enabled && flag == PrivateFollowFlags.PrivateFollow)
+                    info.DatePrivateFollowed = DateTime.UtcNow;
                 rels.UpdatePrivateFollow(info, ctx);
             });
         }

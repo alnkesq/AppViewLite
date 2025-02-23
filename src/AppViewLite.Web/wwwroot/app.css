@@ -1413,9 +1413,15 @@ button[disabled], input[type=submit][disabled] {
     display: flex;
 }
 
+.post-meta-nonfocal .post-author {
+    flex: 0 1 auto;
+}
+
 .post-meta-nonfocal .handle-generic {
     padding-right: 4px;
+    flex: 0 10000 auto;
 }
+
 .post-meta-nonfocal a {
     flex-grow: 0;
     flex-shrink: 1;
@@ -1427,6 +1433,12 @@ button[disabled], input[type=submit][disabled] {
 .post-meta-nonfocal a.post-date{
     flex: 0 0 auto;
     padding: 0 4px;
+}
+
+.post-meta-focal .handle-generic{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .post-blocked > .post-body,

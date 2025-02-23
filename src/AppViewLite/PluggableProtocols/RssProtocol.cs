@@ -343,43 +343,63 @@ namespace AppViewLite.PluggableProtocols.Rss
                 if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
                     throw new Exception("Non-matching tumblr host");
                 var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId, dateParsed);
-                var sequence = new List<TumblrPost>();
-                while (leafPost != null)
+                if (leafPost.QuotedPost == null && leafPost.Content.Length == 1 && leafPost.Content[0] is IText { } shortenedThread && Regex.IsMatch(shortenedThread.Text, @"^[\w\-]+\:\w"))
                 {
-                    sequence.Add(leafPost);
-                    leafPost = leafPost.QuotedPost;
-                }
-                sequence.Reverse();
-
-                leafPost = sequence[^1];
-                if (leafPost.Content.Length == 0)
-                {
-                    sequence.RemoveAt(sequence.Count - 1);
-                    OnRepostDiscovered(leafPostId.AsQualifiedPostId.Did, sequence[^1].PostId.AsQualifiedPostId, dateParsed);
-                }
-
-                QualifiedPluggablePostId? prev = null;
-                var rootPostId = sequence[0].PostId.AsQualifiedPostId;
-                foreach (var post in sequence)
-                {
-                    var pair = StringUtils.HtmlToFacets(post.Content, x => StringUtils.DefaultElementToFacet(x, null));
-                    var subpostData = new BlueskyPostData
+                    var text = shortenedThread.TextContent;
+                    var space = text.IndexOf(' ');
+                    if (space != -1)
                     {
-                        Text = pair.Text,
-                        Facets = pair.Facets,
-                        Media = post.Content.OfType<IElement>().SelectMany(x => x.QuerySelectorAll("img")).Select(x => 
-                        {
-                            return new BlueskyMediaData
-                            {
-                                AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
-                                Cid = UrlToCid(x.GetAttribute("src"))!
-                            };
-                        }).ToArray()
-                    };
+                        var prevColon = text.AsSpan(0, space).LastIndexOf(':');
+                        if (prevColon != -1)
+                            text = text.Substring(prevColon + 1);
+                    }
+                    OnPostDiscovered(leafPostId.AsQualifiedPostId, null, null, new BlueskyPostData 
+                    { 
+                        ExternalTitle = text,
+                        ExternalUrl = url.AbsoluteUri,
+                    });
+                }
+                else
+                {
+                    var sequence = new List<TumblrPost>();
+                    while (leafPost != null)
+                    {
+                        sequence.Add(leafPost);
+                        leafPost = leafPost.QuotedPost;
+                    }
+                    sequence.Reverse();
 
-                    
-                    
-                    OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData);
+                    leafPost = sequence[^1];
+                    if (leafPost.Content.Length == 0)
+                    {
+                        sequence.RemoveAt(sequence.Count - 1);
+                        OnRepostDiscovered(leafPostId.AsQualifiedPostId.Did, sequence[^1].PostId.AsQualifiedPostId, dateParsed);
+                    }
+
+                    QualifiedPluggablePostId? prev = null;
+                    var rootPostId = sequence[0].PostId.AsQualifiedPostId;
+                    foreach (var post in sequence)
+                    {
+                        var pair = StringUtils.HtmlToFacets(post.Content, x => StringUtils.DefaultElementToFacet(x, null));
+                        var subpostData = new BlueskyPostData
+                        {
+                            Text = pair.Text,
+                            Facets = pair.Facets,
+                            Media = post.Content.OfType<IElement>().SelectMany(x => x.QuerySelectorAll("img")).Select(x =>
+                            {
+                                return new BlueskyMediaData
+                                {
+                                    AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                                    Cid = UrlToCid(x.GetAttribute("src"))!
+                                };
+                            }).ToArray()
+                        };
+
+
+
+                        if (post.PostId != default)
+                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData);
+                    }
                 }
                 return (dateParsed, url);
             }
@@ -472,18 +492,26 @@ namespace AppViewLite.PluggableProtocols.Rss
             return BlueskyRelationships.CompressBpe(imageUrl);
         }
 
+
         private static TumblrPost UnfoldTumblrPosts(IElement bodyDom, TumblrPostId postId, DateTime date)
         {
-            if (
-                bodyDom.ChildElementCount >= 2 &&
-                bodyDom.FirstChild is IElement { TagName: "P", FirstChild: IElement { TagName: "A", ClassName: "tumblr_blog" } attributionLink } attributionParagraph  &&
-                bodyDom.ChildNodes[1] is IElement { TagName: "BLOCKQUOTE" } blockquote
-                )
-            {
-                var originalUrl = new Uri(attributionLink.GetAttribute("href")!);
+            var blockquote = bodyDom.Children.FirstOrDefault(x => x.TagName == "BLOCKQUOTE");
+            IElement? attributionLink = null;
+            var attribution = blockquote?.PreviousNonWhiteSpaceSibling() is IElement { TagName: "P", FirstChild: IElement { TagName: "A", ClassName: "tumblr_blog" } } attributionParagraph ? attributionParagraph : null;
 
-                var originalPostId = GetTumblrPostId(originalUrl, date);
-                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId, date), bodyDom.ChildNodes.Skip(2).ToArray());
+
+            if (blockquote != null)
+            {
+                attributionLink = attribution?.FirstElementChild;
+                var originalPostId = attributionLink != null ? GetTumblrPostId(new Uri(attributionLink.GetAttribute("href")!), date) : default;
+                var nextSiblings = new List<INode>();
+                var sibling = blockquote.NextSibling;
+                while (sibling != null)
+                {
+                    nextSiblings.Add(sibling);
+                    sibling = sibling.NextSibling;
+                }
+                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId, date), nextSiblings.ToArray());
                 return quotedPost;
             }
             else
@@ -503,6 +531,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 get
                 {
+                    if (BlogId == null) return default;
                     var host = BlogId.Contains('.') ? BlogId : BlogId + ".tumblr.com";
                     return new QualifiedPluggablePostId($"did:rss:{host}:rss", new NonQualifiedPluggablePostId(SuggestedTid, PostId));
                 }

@@ -55,7 +55,6 @@ namespace AppViewLite.Models
         [ProtoMember(3)] public byte[]? Bytes;
         [ProtoIgnore] public Tid Tid;
 
-
         internal NonQualifiedPluggablePostId CloneWithoutTid() => WithTid(default);
 
         internal NonQualifiedPluggablePostId WithTid(Tid updatedTid) => new NonQualifiedPluggablePostId

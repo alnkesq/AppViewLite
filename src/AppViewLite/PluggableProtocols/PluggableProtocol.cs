@@ -107,9 +107,12 @@ namespace AppViewLite.PluggableProtocols
         }
         public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex = true)
         {
+            if (inReplyTo != null && inReplyTo.Value.Equals(default(QualifiedPluggablePostId))) inReplyTo = null;
+            if (rootPostId != null && rootPostId.Value.Equals(default(QualifiedPluggablePostId))) rootPostId = null;
+
             if (postId.Tid != default)
                 BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.Tid);
-                
+
             rootPostId ??= inReplyTo ?? postId;
             EnsureOwnDid(postId.Did);
 

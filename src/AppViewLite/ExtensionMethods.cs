@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,6 +54,16 @@ namespace AppViewLite
         {
             if (date != null)
                 date = new DateTime(date.Value.Ticks, DateTimeKind.Utc);
+        }
+
+        public static INode? PreviousNonWhiteSpaceSibling(this INode node)
+        {
+            var sibling = node.PreviousSibling;
+            while (sibling != null && sibling is IText { TextContent: { } t } && string.IsNullOrWhiteSpace(t))
+            {
+                sibling = sibling.PreviousSibling;
+            }
+            return sibling;
         }
     }
 

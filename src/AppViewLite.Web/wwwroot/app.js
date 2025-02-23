@@ -13,6 +13,7 @@ var theaterReturnUrl = null;
 
 var previousTabbedListHeaderScrollX = 0;
 var historyStack = [];
+var applyFocusOnNextPopstate = false;
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
 var pendingProfileLoads = new Map();
@@ -296,7 +297,7 @@ function fastNavigateIfLink(event) {
         return false;
 
     if (canFastNavigateTo(url)) {
-        fastNavigateTo(url.href);
+        fastNavigateTo(url.href, null, a.dataset.alwaysfocuspage == '1' ? true : null);
         event.preventDefault();
         return true;
     }
@@ -585,6 +586,7 @@ function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
     } else {
 
         if (href == historyStack[historyStack.length - 1]) { 
+            applyFocusOnNextPopstate = scrollToTop == true;
             history.back();
             return;
         }
@@ -817,7 +819,8 @@ function onInitialLoad() {
         if (popped != location.href) { 
             console.log("History stack (" + popped +") / pushState (" + location.href + ") mismatch");
         }
-        applyPage(location.href, false, false);
+        applyPage(location.href, false, applyFocusOnNextPopstate ? true : false);
+        applyFocusOnNextPopstate = false;
     });
     
     appliedPageObj = {

@@ -1660,7 +1660,7 @@ namespace AppViewLite
         public static string? CdnPrefix = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) is string { } s ? (s.Contains('/') ? s : "https://" + s) : null;
         public static bool ServeImages = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ?? (CdnPrefix != null);
 
-        public string? GetImageUrl(ThumbnailSize size, string did, byte[]? cid, string? pds, string? fileNameForDownload = null)
+        public string? GetImageUrl(ThumbnailSize size, string did, byte[]? cid, string? pds, string? fileNameForDownload = null, bool forceProxy = false)
         {
             if (cid == null) return null;
             var cdn = CdnPrefix;
@@ -1674,6 +1674,7 @@ namespace AppViewLite
             {
                 if (
                     isNativeAtProto &&
+                    !forceProxy &&
                     cdn == null && 
                     size != ThumbnailSize.feed_video_blob &&
                     !DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did)

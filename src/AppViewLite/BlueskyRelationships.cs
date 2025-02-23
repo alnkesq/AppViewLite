@@ -2665,17 +2665,26 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowedRequiresLock) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
+        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowedRequiresLock, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
             var stillFollowedResult = new Dictionary<Plc, bool>();
-            var possibleFollows = RegisteredUserToFollowees
-                .GetValuesSorted(ctx.LoggedInUser)
-                .DistinctByAssumingOrderedInputLatest(x => x.Member)
-                .Concat(ctx.Session.PrivateFollowsAsListEntries)
-                .ToDictionary(x => x.Member, x => x.ListItemRKey);
+            var possibleFollows = new Dictionary<Plc, Tid>();
+            foreach (var item in RegisteredUserToFollowees.GetValuesUnsorted(ctx.LoggedInUser))
+            {
+                ref var rkey = ref CollectionsMarshal.GetValueRefOrAddDefault(possibleFollows, item.Member, out _);
+                if (item.ListItemRKey.CompareTo(rkey) > 0)
+                    rkey = item.ListItemRKey;
+            }
+            foreach (var item in ctx.Session.PrivateFollows)
+            {
+                if((item.Value.Flags & PrivateFollowFlags.PrivateFollow) != default)
+                    possibleFollows[item.Key] = default;
+            }
 
             return (possibleFollows.Keys.ToArray(), plc =>
             {
+                if (plc == default) return true;
+
                 // Callers can assume that this lambda is SAFE to reuse across re-locks (must not capture ManagedOrNativeArrays)
 
                 if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
@@ -2687,7 +2696,22 @@ namespace AppViewLite
                     result = !Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey));
                 }
                 return result;
-            });
+            },
+            plc => 
+            {
+                if (plc == default) return true;
+
+                if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
+                if (rkey == default) return true; // private follow
+
+                ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
+                if (!exists)
+                {
+                    return true; // we don't know, assume yes
+                }
+                return result;
+            }
+            );
         }
 
 

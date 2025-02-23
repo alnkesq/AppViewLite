@@ -587,25 +587,8 @@ namespace AppViewLite
             
         }
 
-        public async Task RetrievePlcDirectoryLoopAsync()
-        {
-            while (true)
-            {
-                try
-                {
-                    await RetrievePlcDirectoryAsync();
-                }
-                catch (Exception ex)
-                {
 
-                    Log("PLC directory sync failed: " + ex.ToString());
-                }
-                await Task.Delay(TimeSpan.FromMinutes(10));
-            }
-        }
-
-
-        private async Task RetrievePlcDirectoryAsync()
+        public async Task RetrievePlcDirectoryAsync()
         {
             var lastRetrievedDidDoc = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey) ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             await RetrievePlcDirectoryAsync(EnumeratePlcDirectoryAsync(lastRetrievedDidDoc));

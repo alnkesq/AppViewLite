@@ -3058,7 +3058,7 @@ namespace AppViewLite
                 {
                     pds = (await GetDidDocAsync(did)).Pds;
                 }
-                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct);
+                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct, preferredSize: preferredSize);
             }
         }
 

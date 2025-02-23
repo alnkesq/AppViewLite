@@ -203,11 +203,13 @@ namespace AppViewLite.PluggableProtocols.Rss
                     refreshInfo.FaviconUrl = UrlToCid(imageUrlFromXml);
                 }
                 
-                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval && !feedUrl.HasHostSuffix("youtube.com") && !feedUrl.HasHostSuffix("reddit.com") && !feedUrl.HasHostSuffix("tumblr.com"))
+                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval && !feedUrl.HasHostSuffix("youtube.com") && !feedUrl.HasHostSuffix("reddit.com"))
                 {
                     try
                     {
-                        refreshInfo.FaviconUrl = UrlToCid("!" + (await BlueskyEnrichedApis.GetFaviconUrlAsync(altUrl ?? firstUrl ?? altUrlOrFallback ?? new Uri(feedUrl.GetLeftPart(UriPartial.Authority)))).AbsoluteUri);
+                        var faviconUrl = await BlueskyEnrichedApis.GetFaviconUrlAsync(altUrl ?? firstUrl ?? altUrlOrFallback ?? new Uri(feedUrl.GetLeftPart(UriPartial.Authority)));
+                        if (faviconUrl.Host != "assets.tumblr.com")
+                            refreshInfo.FaviconUrl = UrlToCid("!" + faviconUrl.AbsoluteUri);
                     }
                     catch (Exception)
                     {

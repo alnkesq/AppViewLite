@@ -182,10 +182,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         private static (string? Text, FacetData[]? Facets) ParseHtml(string? html, YotsubaBoardId boardId)
         {
-            var (text, facets) = StringUtils.HtmlToFacets(StringUtils.ParseHtml(html).Body!, element =>
-            {
-                return ElementToFacet(element, boardId.BaseUrl);
-            });
+            var (text, facets) = StringUtils.HtmlToFacets(StringUtils.ParseHtml(html).Body!, x => StringUtils.DefaultElementToFacet(x, boardId.BaseUrl));
             facets = (facets ?? []).Concat(StringUtils.GuessFacets(text, includeHashtags: false) ?? []).ToArray();
             return (text, facets);
         }
@@ -195,24 +192,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return DidPrefix + boardId.Host + ":" + boardId.BoardName;
         }
 
-        private static FacetData? ElementToFacet(IElement element, Uri baseUrl)
-        {
-            if (element.TagName == "A")
-            {
-                var link = element.GetAttribute("href");
-                if (!string.IsNullOrEmpty(link) && link != "#")
-                {
-                    var url = new Uri(baseUrl, link);
-                    link = url.ToString();
-                    if (link == element.Text())
-                        return new FacetData { SameLinkAsText = true };
-                    else
-                        return new FacetData { Link = link };
-                }
-                
-            }
-            return null;
-        }
+
 
         protected internal override void EnsureValidDid(string did)
         {
@@ -276,15 +256,15 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return "#D4D8F0";
         }
 
-        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
         {
             var segments = url.GetSegments();
             if (segments.Length == 1 || (segments.Length == 2 && segments[1] is "catalog" or "archive"))
             {
                 if (HostConfiguration.ContainsKey(url.Host))
-                    return DidPrefix + url.Host + ":" + segments[0];
+                    return Task.FromResult<string?>(DidPrefix + url.Host + ":" + segments[0]);
             }
-            return null;
+            return Task.FromResult<string?>(null);
         }
 
     }

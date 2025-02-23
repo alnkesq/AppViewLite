@@ -406,7 +406,7 @@
 
                     @if (HasExternalUrl)
                     {
-                        <a href="@originalPostUrl" class="menu-item" target="_blank" rel="noreferrer">View on @(new Uri(originalPostUrl!).Host)</a>
+                        <a href="@originalPostUrl" class="menu-item" target="_blank" rel="noreferrer">View on @StringUtils.GetDisplayHost(new Uri(originalPostUrl!))</a>
                         if (!IsFocalPost)
                         {
                             <a href="@Post.BaseUrl" class="menu-item">View here</a>

@@ -1,15 +1,15 @@
-using AngleSharp.Io;
+using AngleSharp.Dom;
 using AppViewLite.Models;
+using AppViewLite.Numerics;
 using AppViewLite;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.IO.Hashing;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -80,9 +80,16 @@ namespace AppViewLite.PluggableProtocols.Rss
         private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did)
         {
             var feedUrl = DidToUrl(did);
+            if (feedUrl.HasHostSuffix("reddit.com"))
+            {
+                if((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()))
+                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, and the path lowercased.");
+                var segments = feedUrl.GetSegments();
+                if (segments.Length < 2 || segments[0] != "r")
+                    throw new Exception("Only subreddit URLs are supported.");
+            }
             if (UrlToDid(feedUrl) != did)
                 throw new Exception("RSS/did roundtrip failed.");
-
 
             var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)));
             var now = DateTime.UtcNow;
@@ -148,7 +155,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var title = GetValue(rss, "title");
                 if (title != null)
                 {
-                    title = Regex.Replace(Regex.Replace(title, @"\b(RSS feed|Atom feed|RSS|'s blog|blog|'s newsletter|newsletter|posts|articles|medium)\b", string.Empty, RegexOptions.IgnoreCase), @"[\(\[]\s*[\)\]]", string.Empty).Trim([' ', '-', '•']);
+                    title = Regex.Replace(Regex.Replace(title, @"\b(RSS feed|Atom feed|RSS|'s blog|'s newsletter|posts|articles|medium)\b", string.Empty, RegexOptions.IgnoreCase), @"[\(\[]\s*[\)\]]", string.Empty).Trim([' ', '-', '•']);
                     if (string.IsNullOrEmpty(title))
                         title = null;
 
@@ -178,7 +185,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     try
                     {
-                        var (date, postUrl) = AddPost(did, item);
+                        var (date, postUrl) = AddPost(did, item, feedUrl);
                         firstUrl ??= postUrl;
                         if (date < minDate) minDate = date;
                         if (date > maxDate) maxDate = date;
@@ -193,14 +200,14 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var imageUrlFromXml = GetValue(rss.Element("image"), "url");
                 if (imageUrlFromXml != null)
                 {
-                    refreshInfo.FaviconUrl = BlueskyRelationships.CompressBpe(imageUrlFromXml);
+                    refreshInfo.FaviconUrl = UrlToCid(imageUrlFromXml);
                 }
                 
-                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval)
+                if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval && !feedUrl.HasHostSuffix("youtube.com") && !feedUrl.HasHostSuffix("reddit.com"))
                 {
                     try
                     {
-                        refreshInfo.FaviconUrl = BlueskyRelationships.CompressBpe("!" + (await BlueskyEnrichedApis.GetFaviconUrlAsync(altUrl ?? firstUrl ?? altUrlOrFallback ?? new Uri(feedUrl.GetLeftPart(UriPartial.Authority)))).AbsoluteUri);
+                        refreshInfo.FaviconUrl = UrlToCid("!" + (await BlueskyEnrichedApis.GetFaviconUrlAsync(altUrl ?? firstUrl ?? altUrlOrFallback ?? new Uri(feedUrl.GetLeftPart(UriPartial.Authority)))).AbsoluteUri);
                     }
                     catch (Exception)
                     {
@@ -258,14 +265,19 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public const HttpRequestError TimeoutError = (HttpRequestError)1001;
-        private (DateTime Date, Uri? Url) AddPost(string did, XElement item)
+        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl)
         {
             var title = GetValue(item, "title");
+            if (title != null && title.Contains('&')) title = StringUtils.ParseHtmlToText(title, out _, x => null).Text;
             var url = GetAlternateLink(item);
             var summaryHtml = Normalize(GetValue(item, "description") ?? GetValue(item, "summary"));
-            var fullContentHtml = Normalize(item.Element(NsContent + "encoded")) ?? GetValue(item, "content");
+            var mediaGroup = item.Element(NsMedia + "group");
+            var fullContentHtml =
+                Normalize(item.Element(NsContent + "encoded")) ??
+                GetValue(item, "content") ??
+                Normalize(mediaGroup?.Element(NsMedia + "description"));
 
-            var summaryText = StringUtils.ParseHtmlToText(summaryHtml, out var summaryDom);
+            var (summaryText, summaryFacets) = StringUtils.ParseHtmlToText(summaryHtml, out var summaryDom, x => StringUtils.DefaultElementToFacet(x, url));
             var date = GetValue(item, "pubDate") ??
                 GetValue(item, "published") ??
                 GetValue(item, "updated") ??
@@ -273,13 +285,119 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             var guid = GetValue(item, "guid");
 
-            var postId = guid ?? url.AbsoluteUri;
+
+
             var dateParsed = date != null ? DateTime.Parse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal) : DateTime.UtcNow;
-            var bodyAsText = StringUtils.ParseHtmlToText(fullContentHtml ?? summaryHtml, out var bodyDom);
-            if (bodyAsText?.Length >= 500)
-                bodyAsText = string.Concat(bodyAsText.AsSpan(0, 400), "…");
+
+
+            var (bodyAsText, bodyFacets) = StringUtils.ParseHtmlToText(fullContentHtml ?? summaryHtml, out var bodyDom, x => StringUtils.DefaultElementToFacet(x, url));
+            NonQualifiedPluggablePostId postId;
+            var hasFullContent = false;
+            if (feedUrl.HasHostSuffix("reddit.com"))
+            {
+                var commentsUrl = url;
+                var link = bodyDom?.QuerySelectorAll("a").FirstOrDefault(x => x.TextContent == "[link]");
+                if (link != null)
+                {
+                    var comment = bodyDom!.Descendants<IComment>().LastOrDefault(x => x.TextContent.Trim() == "SC_ON");
+                    if (comment != null)
+                    {
+                        while (comment.NextSibling != null)
+                            comment.NextSibling.RemoveFromParent();
+                    }
+                    else
+                    {
+                        var submittedBy = bodyDom!.Descendants<IText>().FirstOrDefault(x => x.TextContent.Trim() == "submitted by");
+                        if (submittedBy != null)
+                        {
+                            submittedBy.NextElementSibling?.Remove();
+                            submittedBy.Remove();
+                        }
+                    }
+                    link.Remove();
+                    bodyDom!.QuerySelectorAll("a").FirstOrDefault(x => x.TextContent == "[comments]")?.Remove();
+                    url = new Uri(feedUrl, link.GetAttribute("href"));
+                    if (url.HasHostSuffix("reddit.com") || url.HasHostSuffix("redd.it"))
+                    {
+                        hasFullContent = true;
+                        foreach (var externalImg in bodyDom!.QuerySelectorAll("img[src*='external-preview.redd.it']").ToArray())
+                        {
+                            externalImg.ParentElement!.Remove();
+                        }
+                    }
+                    (bodyAsText, bodyFacets) = StringUtils.HtmlToFacets(bodyDom, x => StringUtils.DefaultElementToFacet(x, url, includeInlineImages: true));
+
+                }
+                var segments = commentsUrl!.GetSegments();
+                var h = segments[3];
+                postId = new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, h), h);
+            }
+            else if (feedUrl.HasHostSuffix("tumblr.com"))
+            {
+                hasFullContent = true;
+                var tumblrId = url!.Host.Split('.')[0];
+                if (url.Host != feedUrl.Host) throw new Exception("Non-matching tumblr host");
+                var h = long.Parse(url.GetSegments()[1]);
+                title = null;
+                var leafPostId = GetTumblrPostId(url, dateParsed);
+                var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId, dateParsed);
+                var sequence = new List<TumblrPost>();
+                while (leafPost != null)
+                {
+                    sequence.Add(leafPost);
+                    leafPost = leafPost.QuotedPost;
+                }
+                sequence.Reverse();
+
+                leafPost = sequence[^1];
+                if (leafPost.Content.Length == 0)
+                {
+                    sequence.RemoveAt(sequence.Count - 1);
+                    OnRepostDiscovered(leafPostId.AsQualifiedPostId.Did, sequence[^1].PostId.AsQualifiedPostId, dateParsed);
+                }
+
+                QualifiedPluggablePostId? prev = null;
+                var rootPostId = sequence[0].PostId.AsQualifiedPostId;
+                foreach (var post in sequence)
+                {
+                    var pair = StringUtils.HtmlToFacets(post.Content, x => StringUtils.DefaultElementToFacet(x, null));
+                    var subpostData = new BlueskyPostData
+                    {
+                        Text = pair.Text,
+                        Facets = pair.Facets,
+                        Media = post.Content.OfType<IElement>().SelectMany(x => x.QuerySelectorAll("img")).Select(x => 
+                        {
+                            return new BlueskyMediaData
+                            {
+                                AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                                Cid = UrlToCid(x.GetAttribute("src"))!
+                            };
+                        }).ToArray()
+                    };
+
+                    
+                    
+                    OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData);
+                }
+                return (dateParsed, url);
+            }
+            else
+            {
+                var h = guid ?? url?.AbsoluteUri ?? date;
+                postId = new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, h), XxHash64.Hash(MemoryMarshal.AsBytes<char>(h)));
+            }
+
+            
+
+
+            var maxLength = hasFullContent ? 1500 : 500;
+            if (bodyAsText?.Length >= maxLength)
+                bodyAsText = string.Concat(bodyAsText.AsSpan(0, maxLength - 10), "…");
+
             var data = new BlueskyPostData();
-            if (url != null)
+            if (!hasFullContent && url == null) hasFullContent = true;
+
+            if (!hasFullContent)
             {
                 if (summaryText != null)
                 {
@@ -299,28 +417,131 @@ namespace AppViewLite.PluggableProtocols.Rss
                 data.ExternalUrl = url.AbsoluteUri;
                 data.ExternalDescription = bodyAsText;
                 data.ExternalTitle = title;
-                var img = (bodyDom ?? summaryDom)?.QuerySelector("img");
-                if (img != null)
+                
+                var mediaThumb = GetAttribute(mediaGroup?.Element(NsMedia + "thumbnail"), "url");
+                if (mediaThumb != null)
                 {
-                    try
+                    data.ExternalThumbCid = UrlToCid(mediaThumb);
+                }
+                else
+                {
+
+                    var img = bodyDom?.QuerySelector("img");
+                    if (img != null)
                     {
-                        var size = img.GetAttribute("height") ?? img.GetAttribute("width");
-                        if (size == null || int.Parse(size) > 60)
-                        {
-                            data.ExternalThumbCid = BlueskyRelationships.CompressBpe(new Uri(url, img.GetAttribute("src")).AbsoluteUri);
-                        }
-                    }
-                    catch
-                    {
+                        data.ExternalThumbCid = UrlToCid(TryGetImageUrl(img, url)?.AbsoluteUri);
                     }
                 }
             }
             else
             {
-                data.Text = bodyAsText ?? title;
+                data.Facets = bodyAsText != null ? bodyFacets?.Where(x => x.InlineImageUrl == null).ToArray() : null;
+                if (title != null && bodyAsText != null)
+                {
+                    var prefix = title + "\n";
+                    if (data.Facets != null)
+                    {
+                        var offset = Encoding.UTF8.GetByteCount(prefix);
+                        foreach (var facet in data.Facets)
+                        {
+                            facet.Start += offset;
+                        }
+                    }
+                    data.Facets = [new FacetData { Start = 0, Length = Encoding.UTF8.GetByteCount(title), Bold = true }, ..(data.Facets ?? [])];
+                    data.Text = prefix + bodyAsText;
+                }
+                else
+                {
+                    data.Text = bodyAsText ?? title;
+                }
+                
+                data.Media = bodyDom?.QuerySelectorAll("img").Select(x => new BlueskyMediaData
+                {
+                    Cid = UrlToCid(TryGetImageUrl(x, url ?? feedUrl)?.AbsoluteUri)!,
+                    AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                }).Where(x => x.Cid != null).ToArray();
             }
-            OnPostDiscovered(new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, postId), XxHash64.Hash(MemoryMarshal.AsBytes<char>(postId)))), null, null, data);
+            OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data);
             return (dateParsed, url);
+        }
+
+        private static byte[]? UrlToCid(string? imageUrl)
+        {
+            return BlueskyRelationships.CompressBpe(imageUrl);
+        }
+
+        private static TumblrPost UnfoldTumblrPosts(IElement bodyDom, TumblrPostId postId, DateTime date)
+        {
+            if (
+                bodyDom.ChildElementCount >= 2 &&
+                bodyDom.FirstChild is IElement { TagName: "P", FirstChild: IElement { TagName: "A", ClassName: "tumblr_blog" } attributionLink } attributionParagraph  &&
+                bodyDom.ChildNodes[1] is IElement { TagName: "BLOCKQUOTE" } blockquote
+                )
+            {
+                var originalUrl = new Uri(attributionLink.GetAttribute("href")!);
+
+                var originalPostId = GetTumblrPostId(originalUrl, date);
+                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId, date), bodyDom.ChildNodes.Skip(2).ToArray());
+                return quotedPost;
+            }
+            else
+            {
+                return new TumblrPost(postId, null, bodyDom.ChildNodes.ToArray());
+            }
+        }
+
+        public record struct TumblrPostId(string BlogId, long PostId, Tid SuggestedTid)
+        {
+            public override string ToString()
+            {
+                return BlogId + "/" + PostId;
+            }
+
+            public QualifiedPluggablePostId AsQualifiedPostId => new QualifiedPluggablePostId($"did:rss:{BlogId}.tumblr.com:rss", new NonQualifiedPluggablePostId(SuggestedTid, PostId));
+        }
+
+        private static TumblrPostId GetTumblrPostId(Uri url, DateTime date)
+        {
+            if (!url.HasHostSuffix("tumblr.com")) throw new ArgumentException();
+            var segments = url.GetSegments();
+
+            string tumblrBlogId;
+            long postId;
+            if (segments[0] == "post")
+            {
+                tumblrBlogId = url.Host.Split('.')[0];
+                postId = long.Parse(segments[1]);
+            }
+            else
+            {
+                tumblrBlogId = segments[0];
+                postId = long.Parse(segments[1]);
+            }
+            return new(tumblrBlogId, postId, CreateSyntheticTid(date, tumblrBlogId + ":" + postId));
+        }
+
+        public record TumblrPost(TumblrPostId PostId, TumblrPost? QuotedPost, INode[] Content)
+        {
+            public override string ToString()
+            {
+                return PostId + ": " + (QuotedPost != null ? "(quoting post) " : null) + string.Join(" ", Content.Select(x => x.TextContent));
+            }
+        }
+
+        private static Uri? TryGetImageUrl(IElement img, Uri baseUrl)
+        {
+            try
+            {
+                var size = img.GetAttribute("height") ?? img.GetAttribute("width");
+                if (size == null || int.Parse(size) > 60)
+                {
+                    return new Uri(baseUrl, img.GetAttribute("src"));
+                }
+            }
+            catch
+            {
+            }
+            return null;
         }
 
         private static bool IsTrimmedText(string? bodyAsText, string summaryText)
@@ -333,6 +554,10 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? GetDefaultAvatar(string did)
         {
+            var url = DidToUrl(did);
+            if (url.HasHostSuffix("youtube.com")) return "/assets/default-youtube-avatar.png";
+            if (url.HasHostSuffix("reddit.com")) return "/assets/default-reddit-avatar.svg";
+            if (url.HasHostSuffix("tumblr.com")) return "/assets/default-tumblr-avatar.svg";
             return "/assets/default-rss-avatar.svg";
         }
 
@@ -357,6 +582,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         private readonly static XNamespace NsRdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
         private readonly static XNamespace NsRss = "http://purl.org/rss/1.0/";
         private readonly static XNamespace NsDc = "http://purl.org/dc/elements/1.1/";
+        private readonly static XNamespace NsMedia = "http://search.yahoo.com/mrss/";
         private static IEnumerable<XName> GetNames(string name) => [name, NsAtom + name, NsRss + name, NsRdf + name, NsDc + name];
         protected internal override void EnsureValidDid(string did)
         {
@@ -369,9 +595,9 @@ namespace AppViewLite.PluggableProtocols.Rss
             return profile.BasicData?.CustomFields?.FirstOrDefault(x => x.Name == "web")?.Value;
         }
 
-        protected Uri DidToUrl(string did)
+        public static Uri DidToUrl(string did)
         {
-            var parts = did.Substring(DidPrefixLength).Split(':');
+            var parts = did.Substring(DidPrefix.Length).Split(':');
             var schemePrefix = "https://";
             if (parts[0] == "http")
             {
@@ -406,6 +632,15 @@ namespace AppViewLite.PluggableProtocols.Rss
         public override string? GetDisplayNameFromDid(string did)
         {
             var url = DidToUrl(did);
+            if (url.HasHostSuffix("tumblr.com"))
+            {
+                return url.Host.Split('.')[0];
+            }
+            if (url.HasHostSuffix("reddit.com"))
+            {
+                var path = url.GetSegments();
+                return "/" + path[0] + "/" + path[1];
+            }
             var host = url.Host;
             if (host.StartsWith("www.", StringComparison.Ordinal))
                 host = host.Substring(4);
@@ -431,6 +666,16 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
+            var feedUrl = DidToUrl(postId.Did);
+            if (feedUrl.HasHostSuffix("reddit.com"))
+            {
+                var segments = feedUrl.GetSegments();
+                return $"https://www.reddit.com/{segments[0]}/{segments[1]}/comments/{postId.PostId.String}/";
+            }
+            else if (feedUrl.HasHostSuffix("tumblr.com"))
+            {
+                return $"https://{feedUrl.Host}/post/{postId.PostId.Int64}";
+            }
             return post.Data?.ExternalUrl;
         }
 
@@ -456,6 +701,15 @@ namespace AppViewLite.PluggableProtocols.Rss
         public static async Task<Uri?> TryGetFeedUrlFromPageAsync(string responseText, Uri url)
         {
             var dom = StringUtils.ParseHtml(responseText);
+
+            if (url.HasHostSuffix("youtube.com"))
+            {
+                var channelId = dom.QuerySelector("meta[itemprop='identifier']")?.GetAttribute("content");
+                if (channelId != null)
+                    return new Uri("https://www.youtube.com/feeds/videos.xml?channel_id=" + Uri.EscapeDataString(channelId));
+            }
+
+
             var feedUrl = dom.QuerySelectorAll("link[type='application/atom+xml'],link[type='application/rss+xml']")
                 .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
                 .Where(x => x != null)
@@ -490,6 +744,56 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             var initialText = responseText.Substring(0, Math.Min(responseText.Length, 1024));
             return Regex.IsMatch(initialText, @"<(?:rss|feed|rdf)\b");
+        }
+
+        public async override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
+        {
+            if (url.Host.EndsWith(".tumblr.com", StringComparison.Ordinal) && url.Host != "www.tumblr.com")
+            {
+                return $"did:rss:{url.Host}:rss";
+            }
+            if (url.HasHostSuffix("tumblr.com"))
+            {
+                var segment = url.GetSegments().FirstOrDefault();
+                if (segment != null)
+                    return $"did:rss:{segment}.tumblr.com:rss";
+            }
+
+            if (url.HasHostSuffix("reddit.com"))
+            {
+                var segments = url.GetSegments();
+                if (segments.Length != 0)
+                {
+                    if (segments[0] == "r") return $"did:rss:www.reddit.com:r:{segments[1].ToLowerInvariant()}:.rss";
+                    if (segments[0] == "u") return $"did:rss:www.reddit.com:u:{segments[1].ToLowerInvariant()}:.rss";
+                }
+            }
+
+
+
+            using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
+
+            if (response.Headers.Location != null)
+            {
+                if (response.Headers.Location.AbsoluteUri == url.AbsoluteUri)
+                    throw new UnexpectedFirehoseDataException("Redirect loop.");
+                return "/" + response.Headers.Location.AbsoluteUri;
+            }
+
+            response.EnsureSuccessStatusCode();
+            var responseText = (await response.Content.ReadAsStringAsync()).Trim();
+            if (IsFeedXml(responseText))
+            {
+                return UrlToDid(url);
+            }
+
+            var rssFeed = await TryGetFeedUrlFromPageAsync(responseText, url);
+            if (rssFeed != null)
+            {
+                return UrlToDid(rssFeed);
+            }
+
+            return null;
         }
     }
 }

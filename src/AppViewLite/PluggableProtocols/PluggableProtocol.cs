@@ -70,23 +70,40 @@ namespace AppViewLite.PluggableProtocols
         }
 
         public virtual bool RepostsAreCategories => false;
-        public void OnRepostDiscovered(string reposterDid, PostId postId, DateTime repostDate)
+
+        public QualifiedPluggablePostId? GetPostIdWithCorrectTid(QualifiedPluggablePostId qualifiedPostId)
+        {
+            var reversedTid = TryGetTidFromPostId(new QualifiedPluggablePostId(qualifiedPostId.Did, qualifiedPostId.PostId.CloneWithoutTid())) ?? default;
+            if (reversedTid != default)
+            {
+                if (qualifiedPostId.Tid != default && qualifiedPostId.Tid != reversedTid) throw new Exception("TID returned by TryGetTidFromPostId and TID explicitly passed to GetPostId don't match.");
+                return qualifiedPostId.WithTid(reversedTid);
+            }
+
+            var result = Apis.WithRelationshipsLock(rels => rels.TryGetStoredSyntheticTidFromPluggablePostId(qualifiedPostId));
+            if (result.Tid != default) return result;
+            
+            return null;
+            
+        }
+
+        public void OnRepostDiscovered(string reposterDid, QualifiedPluggablePostId qualifiedPostId, DateTime repostDate)
         {
             EnsureOwnDid(reposterDid);
             EnsureValidDid(reposterDid);
-            if (postId == default) throw new ArgumentNullException();
+            var tid = (GetPostIdWithCorrectTid(qualifiedPostId) ?? default).Tid;
+            if (tid == default) throw new ArgumentNullException();
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(reposterDid)) return;
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
+                if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(qualifiedPostId.Did)) return;
                 var reposterPlc = rels.SerializeDid(reposterDid);
-                var postDid = rels.GetDid(postId.Author);
-                if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postDid)) return;
-
+                var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did), tid);
+                
                 rels.UserToRecentReposts.AddIfMissing(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
             });
-
         }
         public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex = true)
         {
@@ -379,7 +396,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool ShouldDisplayExternalLinkInBio => true;
 
-        public virtual string? TryGetDidOrLocalPathFromUrl(Uri url) => null;
+        public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url) => Task.FromResult<string?>(null);
     }
 }
 

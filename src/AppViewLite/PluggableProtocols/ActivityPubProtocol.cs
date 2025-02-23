@@ -174,7 +174,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             }
             else
             {
-                (value, _) = StringUtils.HtmlToFacets(dom, x => null);
+                (value, _) = StringUtils.HtmlToFacets(dom, x => StringUtils.DefaultElementToFacet(x, baseUrl));
             }
 
             if (value == null) return null;
@@ -273,21 +273,16 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 }
                 else
                 {
-                    var link = url.AbsoluteUri;
-                    if (Uri.TryCreate(element.Text(), UriKind.Absolute, out var textLink) && textLink.AbsoluteUri == link)
-                        return new FacetData { SameLinkAsText = true };
-
-                    return new FacetData { Link = link };
-                    
+                    return StringUtils.DefaultElementToFacet(element, baseUrl);
                 }
             }
             return null;
         }
 
-        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
         {
             var u = TryGetUserIdFromUrl(url);
-            return u != default ? "/" + u : null;
+            return Task.FromResult(u != default ? "/" + u : null);
         }
 
         public static string? TryGetDidFromUrl(Uri url)

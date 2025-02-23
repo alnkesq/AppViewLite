@@ -1257,6 +1257,8 @@ namespace AppViewLite
                     foreach (var facet in proto.Facets)
                     {
                         textCompressorUnlocked.CompressInPlace(ref facet.Link, ref facet.LinkBpe);
+                        textCompressorUnlocked.CompressInPlace(ref facet.InlineImageUrl, ref facet.InlineImageUrlBpe);
+                        textCompressorUnlocked.CompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
                     }
                 }
             }
@@ -1309,6 +1311,8 @@ namespace AppViewLite
                         foreach (var facet in proto.Facets)
                         {
                             textCompressorUnlocked.DecompressInPlace(ref facet.Link, ref facet.LinkBpe);
+                            textCompressorUnlocked.DecompressInPlace(ref facet.InlineImageUrl, ref facet.InlineImageUrlBpe);
+                            textCompressorUnlocked.DecompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
                         }
                     }
                 }

@@ -53,10 +53,11 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                             ExternalUrl = hasExternalLink ? titleUrl.AbsoluteUri : null,
                         };
 
-                        var postId = OnPostDiscovered(new QualifiedPluggablePostId(DidPrefix + username, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id)), null, null, data);
+                        var postId = new QualifiedPluggablePostId(DidPrefix + username, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id));
+                        var assignedPostId = OnPostDiscovered(postId, null, null, data);
 
-                        if (postId != null)
-                            OnRepostDiscovered(HackerNewsMainDid, postId.Value, date);
+                        if (assignedPostId != null)
+                            OnRepostDiscovered(HackerNewsMainDid, postId, date);
                     }
 
                     await Task.Delay(TimeSpan.FromMinutes(10), ct);
@@ -122,11 +123,11 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             return "#FF6600";
         }
 
-        public override string? TryGetDidOrLocalPathFromUrl(Uri url)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
         {
             if (url.AbsoluteUri is "https://news.ycombinator.com/" or "https://hckrnews.com/")
-                return DidPrefix;
-            return null;
+                return Task.FromResult<string?>(DidPrefix);
+            return Task.FromResult<string?>(null);
         }
     }
 }

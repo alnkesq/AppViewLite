@@ -18,6 +18,11 @@ namespace AppViewLite.Models
         [ProtoMember(7)] public ulong? CustomEmojiHashHi;
         [ProtoMember(8)] public ulong? CustomEmojiHashLo;
         [ProtoMember(9)] public bool? Bold;
+        [ProtoMember(10)] public string? InlineImageUrl;
+        [ProtoMember(11)] public byte[]? InlineImageUrlBpe;
+        [ProtoMember(12)] public string? InlineImageAlt;
+        [ProtoMember(13)] public byte[]? InlineImageAltBpe;
+        [ProtoMember(14)] public bool? Del;
 
         public DuckDbUuid? CustomEmojiHash
         {

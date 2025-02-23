@@ -31,7 +31,7 @@ namespace AppViewLite.Web
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.HackerNews.HackerNewsProtocol));
-            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Rss.RssProtocol));
+            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Rss.RssProtocol)); // lowest priority for TryGetDidOrLocalPathFromUrlAsync
 
             BlueskyEnrichedApis.Instance = apis;
             var builder = WebApplication.CreateBuilder(args);
@@ -536,43 +536,11 @@ namespace AppViewLite.Web
 
             foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)
             {
-                var did = protocol.TryGetDidOrLocalPathFromUrl(url);
+                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url);
                 if (did != null)
                     return did.StartsWith("did:", StringComparison.Ordinal) ? "/@" + did : did;
             }
 
-            if (url.Host.EndsWith(".tumblr.com", StringComparison.Ordinal) && url.Host != "www.tumblr.com")
-            {
-                return $"/@did:rss:{url.Host}:rss";
-            }
-            if (url.Host == "www.tumblr.com")
-            {
-                var segment = url.GetSegments().FirstOrDefault();
-                if (segment != null)
-                    return $"/@did:rss:{segment}.tumblr.com:rss";
-            }
-
-            using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
-
-            if (response.Headers.Location != null)
-            {
-                if (response.Headers.Location.AbsoluteUri == url.AbsoluteUri)
-                    throw new UnexpectedFirehoseDataException("Redirect loop.");
-                return "/" + response.Headers.Location.AbsoluteUri;
-            }
-
-            response.EnsureSuccessStatusCode();
-            var responseText = (await response.Content.ReadAsStringAsync()).Trim();
-            if (AppViewLite.PluggableProtocols.Rss.RssProtocol.IsFeedXml(responseText)) 
-            {
-                return "/@" + AppViewLite.PluggableProtocols.Rss.RssProtocol.UrlToDid(url);
-            }
-            
-            var rssFeed = await AppViewLite.PluggableProtocols.Rss.RssProtocol.TryGetFeedUrlFromPageAsync(responseText, url);
-            if (rssFeed != null)
-            {
-                return "/@" + AppViewLite.PluggableProtocols.Rss.RssProtocol.UrlToDid(rssFeed);
-            }
 
             throw new UnexpectedFirehoseDataException("No RSS feeds were found at the specified page.");
         }

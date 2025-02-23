@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace AppViewLite
 {
@@ -414,7 +415,11 @@ namespace AppViewLite
             return handle.ToLowerInvariant();
         }
 
-        public static (string? Text, FacetData[]? Facets) HtmlToFacets(IHtmlElement dom, Func<IElement, FacetData?> getFacet)
+        public static (string? Text, FacetData[]? Facets) HtmlToFacets(INode dom, Func<IElement, FacetData?> getFacet)
+        {
+            return HtmlToFacets([dom], getFacet);
+        }
+        public static (string? Text, FacetData[]? Facets) HtmlToFacets(INode[] dom, Func<IElement, FacetData?> getFacet)
         {
             var sb = new StringBuilder();
             var utf8length = 0;
@@ -511,7 +516,7 @@ namespace AppViewLite
                 }
             }
 
-            foreach (var child in dom.ChildNodes)
+            foreach (var child in dom)
             {
                 Recurse(child, pre: false);
             }
@@ -524,21 +529,18 @@ namespace AppViewLite
                 sb.Length--;
             }
 
-            if (sb.Length == 0 && facets == null) return (null, null);
-            return (sb.ToString(), facets?.ToArray());
+            return (sb.Length != 0 ? sb.ToString() : null, facets?.ToArray());
         }
 
-        public static string? ParseHtmlToText(string? html, out IHtmlElement? body)
+        public static (string? Text, FacetData[]? Facets) ParseHtmlToText(string? html, out IHtmlElement? body, Func<IElement, FacetData?> getFacet)
         {
             if (string.IsNullOrWhiteSpace(html))
             {
                 body = null;
-                return null;
+                return default;
             }
             body = ParseHtml(html).Body!;
-            var text = HtmlToFacets(body, x => null).Text?.Trim();
-            if (string.IsNullOrEmpty(text)) return null;
-            return text;
+            return HtmlToFacets(body, getFacet);
         }
         public static IHtmlDocument ParseHtml(string? html)
         {
@@ -570,6 +572,14 @@ namespace AppViewLite
             if (string.IsNullOrEmpty(path))
                 return null;
             return path;
+        }
+
+        public static string GetDisplayHost(Uri url) => GetDisplayHost(url.Host);
+        public static string GetDisplayHost(string host)
+        {
+            if (host.StartsWith("www.", StringComparison.Ordinal))
+                return host.Substring(4);
+            return host;
         }
 
         public static string GetDisplayUrl(Uri url)
@@ -614,6 +624,63 @@ namespace AppViewLite
         }
 
         public static string[] GetSegments(this Uri url) => url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        public static bool HasHostSuffix(this Uri url, string suffix) => url.Host == suffix || url.Host.EndsWith("." + suffix, StringComparison.Ordinal);
+
+        internal static FacetData? DefaultElementToFacet(IElement element, Uri? baseUrl, bool includeInlineImages = false)
+        {
+            if (element.TagName == "A")
+            {
+                var link = element.GetAttribute("href");
+                if (!string.IsNullOrEmpty(link) && link != "#")
+                {
+                    Uri? url;
+                    if (baseUrl != null ? Uri.TryCreate(link, UriKind.Absolute, out url) : Uri.TryCreate(baseUrl, link, out url))
+                    {
+                        link = url.ToString();
+                        FacetData facet;
+                        if (link == element.Text())
+                            facet = new FacetData { SameLinkAsText = true };
+                        else
+                            facet = new FacetData { Link = link };
+                        if (includeInlineImages)
+                        {
+                            var img = element.Children.FirstOrDefault(x => x.TagName == "IMG");
+                            if (img != null)
+                            {
+                                var inner = DefaultElementToFacet(img, baseUrl, true);
+                                if (inner != null)
+                                {
+                                    facet.InlineImageAlt = inner.InlineImageAlt;
+                                    facet.InlineImageUrl = inner.InlineImageUrl;
+                                }
+                            }
+                        }
+                        return facet;
+                    }
+                }
+
+            }
+
+            if (includeInlineImages)
+            {
+                if (element.TagName == "IMG")
+                {
+                    var src = element.GetAttribute("src");
+                    Uri? url;
+                    if (baseUrl != null ? Uri.TryCreate(src, UriKind.Absolute, out url) : Uri.TryCreate(baseUrl, src, out url))
+                    {
+                        return new FacetData { InlineImageUrl = src };
+                    }
+                }
+            }
+
+            if (element.TagName == "DEL")
+            {
+                return new FacetData { Del = true };
+            }
+            return null;
+        }
     }
 }
 

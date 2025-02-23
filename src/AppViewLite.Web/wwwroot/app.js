@@ -515,6 +515,9 @@ function applyPageElements() {
     if (tabbedHeader)
         tabbedHeader.scrollLeft = previousTabbedListHeaderScrollX;
 
+    var loginLink = document.querySelector('#login-link');
+    if (loginLink) 
+        loginLink.href = "/login" + (location.pathname == '/login' || location.pathname == '/@bsky.app/feed/whats-hot' ? '' : '?return=' + encodeURIComponent(location.pathname + location.search))
     maybeLoadNextPage();
 }
 

@@ -13,7 +13,7 @@
     {
         NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext) : -1;
         var url = Navigation.ToAbsoluteUri(Navigation.Uri);
-        LoginUrl = url.AbsolutePath == "/login" ? "/login" : "/login?return=" + Uri.EscapeDataString(url.PathAndQuery);
+        LoginUrl = url.AbsolutePath == "/login" || url.AbsolutePath == "/@bsky.app/feed/whats-hot" ? "/login" : "/login?return=" + Uri.EscapeDataString(url.PathAndQuery);
         var staleness = Apis.PlcDirectoryStaleness;
 
         if (staleness.TotalDays >= 7) 
@@ -97,7 +97,7 @@
     else
     {
         <div>
-            <NavLink href="@LoginUrl">
+            <NavLink href="@LoginUrl" id="login-link">
                 Login
             </NavLink>
         </div>

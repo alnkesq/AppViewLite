@@ -79,9 +79,10 @@ namespace AppViewLite.Web
             var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
             apis.EnrichAsync(posts, newctx, async p =>
             {
+                await Task.Yield();
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
-                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy }.Where(x => x != null).ToArray()!, newctx);
+                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy, p.QuotedPost?.Author }.Where(x => x != null).ToArray()!, newctx);
                 var req = requests[index];
                 var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html).FireAndForget();

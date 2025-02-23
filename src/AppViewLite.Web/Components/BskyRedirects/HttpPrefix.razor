@@ -6,6 +6,6 @@
     [Parameter] public required string Rest { get; set; }
     protected override async Task OnParametersSetAsync()
     {
-        Navigation.NavigateTo(await Program.ResolveUrlAsync(new Uri("http:/" + Rest), new Uri(Navigation.BaseUri)));
+        Navigation.NavigateTo(await Program.ResolveUrlAsync(new Uri("http:/" + Rest + new Uri(Navigation.Uri).Query), new Uri(Navigation.BaseUri)));
     }
 }

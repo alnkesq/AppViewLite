@@ -2092,93 +2092,69 @@ namespace AppViewLite
             var thresholdDate = minDate != default ? Tid.FromDateTime(minDate) : default;
 
 
-            var follows = RegisteredUserToFollowees.GetValuesUnsorted(loggedInUser).Concat(ctx.Session.PrivateFollowsAsListEntries).ToArray();
+            var follows = GetFollowingFast(ctx);
             var plcToLatestFollowRkey = new Dictionary<Plc, Tid>();
-            foreach (var follow in follows)
-            {
-                ref var f = ref CollectionsMarshal.GetValueRefOrAddDefault(plcToLatestFollowRkey, follow.Member, out _);
-                if (f.CompareTo(follow.ListItemRKey) < 0)
-                    f = follow.ListItemRKey;
-            }
-            var requireFollowStillValid = new Dictionary<BlueskyPost, (Tid A, Tid B, Tid C)>();
-            var followPrecise = new Dictionary<Tid, bool>();
 
-            bool IsFollowStillValid(Tid followRkey)
-            {
-                if (followRkey == default) return true;
-                ref var stillValid = ref CollectionsMarshal.GetValueRefOrAddDefault(followPrecise, followRkey, out var exists);
-                if (!exists)
-                    stillValid = !Follows.IsDeleted(new Relationship(loggedInUser, followRkey));
-                return stillValid;
-            }
-            bool IsFollowPossiblyStillValid(Tid followRkey)
-            {
-                if (followRkey == default) return true;
-                if (followPrecise.TryGetValue(followRkey, out var stillValid))
-                    return stillValid;
-                return true;
-            }
-
+            var requireFollowStillValid = new Dictionary<BlueskyPost, (Plc A, Plc B, Plc C)>();
 
             var usersRecentPosts =
-                follows
+                follows.PossibleFollows
                 .Select(author =>
                 {
                     return this
-                        .EnumerateRecentPosts(author.Member, thresholdDate, maxTid)
+                        .EnumerateRecentPosts(author, thresholdDate, maxTid)
                         .Select(x =>
                         {
                             Tid inReplyToTid = default;
                             Tid rootTid = default;
-                            var postAuthor = author.Member;
+                            var postAuthor = author;
                             var parentAuthor = x.InReplyTo;
 
-                            if (!IsFollowPossiblyStillValid(author.ListItemRKey))
+                            if (!follows.IsPossiblyStillFollowed(author))
                                 return null;
 
-                            bool ShouldConsiderPostByAuthor(Plc mustFollow, ref Tid followRkeyToCheckLater)
+                            bool ShouldConsiderPostByAuthor(Plc mustFollow)
                             {
                                 if (mustFollow == loggedInUser) return true;
 
-                                if (!plcToLatestFollowRkey.TryGetValue(mustFollow, out followRkeyToCheckLater))
-                                    return false;
-                                if (!IsFollowPossiblyStillValid(followRkeyToCheckLater))
+                                if (!follows.IsPossiblyStillFollowed(mustFollow))
                                     return false;
                                 return true;
                             }
 
-                            if (parentAuthor != default && parentAuthor != postAuthor && !ShouldConsiderPostByAuthor(parentAuthor, ref inReplyToTid))
+                            if (parentAuthor != default && parentAuthor != postAuthor && !ShouldConsiderPostByAuthor(parentAuthor))
                             {
                                 return null;
                             }
 
                             var post = GetPost(x.PostId);
                             if (post.Data == null) return null;
+                            if (post.Data.IsReplyToUnspecifiedPost == true) return null;
 
                             var rootAuthor = post.RootPostId.Author;
-                            if (rootAuthor != postAuthor && rootAuthor != parentAuthor && !ShouldConsiderPostByAuthor(rootAuthor, ref rootTid))
+                            if (rootAuthor != postAuthor && rootAuthor != parentAuthor && !ShouldConsiderPostByAuthor(rootAuthor))
                             {
                                 return null;
                             }
 
-                            requireFollowStillValid[post] = (author.ListItemRKey, inReplyToTid, rootTid);
+                            requireFollowStillValid[post] = (author, parentAuthor, rootAuthor);
                             return post;
                         })
                         .Where(x => x != null);
                 });
             var usersRecentReposts =
-                follows
+                follows.PossibleFollows
                 .Select(reposter =>
                 {
                     BlueskyProfile? reposterProfile = null;
                     return this
-                        .EnumerateRecentReposts(reposter.Member, thresholdDate, maxTid)
+                        .EnumerateRecentReposts(reposter, thresholdDate, maxTid)
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId);
-                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter.Member));
+                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter));
                             post.RepostDate = x.RepostRKey.Date;
-                            requireFollowStillValid[post] = (reposter.ListItemRKey, default, default);
+                            requireFollowStillValid[post] = (reposter, default, default);
                             return post;
                         });
                 });
@@ -2188,7 +2164,7 @@ namespace AppViewLite
                 {
                     var triplet = requireFollowStillValid[x];
                     
-                    if (!(IsFollowStillValid(triplet.A) && IsFollowStillValid(triplet.B) && IsFollowStillValid(triplet.C)))
+                    if (!(follows.IsStillFollowedRequiresLock(triplet.A) && follows.IsStillFollowedRequiresLock(triplet.B) && follows.IsStillFollowedRequiresLock(triplet.C)))
                         return false;
 
                     PopulateViewerFlags(x, ctx);

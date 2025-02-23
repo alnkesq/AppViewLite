@@ -1791,10 +1791,23 @@ namespace AppViewLite
             var alreadyReturnedPosts = new HashSet<PostId>();
             var finalPosts = new List<BlueskyPost>();
 
-            var bestOriginalPostsByUser = users.Select(user => user.Posts.Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date))).OrderByDescending(x => x.PerUserScore).ToQueue())
+            var bestOriginalPostsByUser = users
+                .Select(
+                    user => 
+                        user.Posts
+                        .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date)))
+                        .OrderByDescending(x => x.PerUserScore)
+                        .ToQueue()
+                )
                 .Where(x => x.Count != 0)
                 .ToList();
-            var bestRepostsByUser = users.Select(user => user.Reposts.Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date))).OrderByDescending(x => x.PerUserScore).ToQueue())
+            var bestRepostsByUser = users
+                .Select(
+                    user => 
+                        user.Reposts
+                        .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date)))
+                        .OrderByDescending(x => x.PerUserScore)
+                        .ToQueue())
                 .Where(x => x.Count != 0)
                 .ToList();
 
@@ -1858,6 +1871,7 @@ namespace AppViewLite
                             if (post.IsMuted) return false;
                             if (post.RepostedBy != null) return true;
                             if (post.Data?.Deleted == true) return false;
+                            if (post.Data?.IsReplyToUnspecifiedPost == true) return false;
 
                             if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
                             {

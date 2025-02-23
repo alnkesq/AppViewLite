@@ -153,7 +153,7 @@
 
 
 
-<li class="post @(IsFocalPost ? "post-focal" : null) @(IsLastOfGroup ? "post-last-of-group" : null) @(blurReason != null ? "post-blocked" : null) @(Post.QuotedPost != null && !IsQuote ? "post-has-quote" : null)"
+<li class="post @(IsFocalPost ? "post-focal" : null) @(Post.IsMuted ? "post-muted" : null) @(IsLastOfGroup ? "post-last-of-group" : null) @(blurReason != null ? "post-blocked" : null) @(Post.QuotedPost != null && !IsQuote ? "post-has-quote" : null)"
     @key="@(Post.RKey + "/" + Post.Did)" 
     data-postdid="@Post.Did" data-postrkey="@Post.RKey"
     data-likecount="@Post.LikeCount"

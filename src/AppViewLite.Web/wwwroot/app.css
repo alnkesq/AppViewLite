@@ -1434,6 +1434,7 @@ button[disabled], input[type=submit][disabled] {
 .post-blocked > .post-image-list,
 .post-blocked > .post-external-preview,
 .post-blocked > .label-badge-list,
+.post-blocked > .post-in-reply-to,
 .post-blocked > .post-author-image-link-container > .post-author-image-link {
     filter: blur(5px);
 }
@@ -1624,4 +1625,13 @@ h1 .profile-badge img{
 
 body:has(.debug-table){
     max-width: 1600px;
+}
+
+.post-muted .post-author-image-link,
+.post-muted .post-meta,
+.post-muted .post-body,
+.post-muted .post-image-list,
+.post-muted .post-external-preview
+{
+    opacity: 0.4;
 }

@@ -1258,7 +1258,7 @@ function getPostPreferredUrlElement(postElement) {
     return [...postElement.children].filter(x => x.classList.contains('post-background-link'))[0];
 }
 
-async function togglePrivateFollow(did, toggleButton) { 
+async function togglePrivateFollow(did, toggleButton, postElement) { 
     var did = toggleButton.dataset.did;
     var flag = toggleButton.dataset.flag;
     var oldvalue = !!(+toggleButton.dataset.oldvalue);
@@ -1268,6 +1268,7 @@ async function togglePrivateFollow(did, toggleButton) {
     await httpPost('TogglePrivateFollow', { did, flag, newvalue });
     toggleButton.dataset.oldvalue = newvalue ? 1 : 0;
     toggleButton.textContent = (oldvalue ? 'Mute ' : 'Unmute ') + text;
+    postElement.classList.toggle('post-muted', newvalue);
 }
 
 var postActions = {
@@ -1314,7 +1315,7 @@ var postActions = {
         window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(getPostText(postElement)) + '&op=translate');
     },
     togglePrivateFollow: async function (did, rkey, postElement, toggleButton) { 
-        await togglePrivateFollow(did, toggleButton);
+        await togglePrivateFollow(did, toggleButton, postElement);
     }
 }
 

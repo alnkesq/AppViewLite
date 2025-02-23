@@ -116,9 +116,10 @@
                     @if (BlueskyRelationships.IsNativeAtProtoDid(SimpleProfile.Did))
                     {
                         <a href="@SimpleProfile.BlueskyUrl" class="menu-item" target="_blank" rel="noreferrer">View on Bluesky</a>
+                        <button actionkind="copyProfileBlueskyUrl" class="menu-item">Copy Bluesky URL</button>
                     }
 
-                    <button actionkind="copyProfileBlueskyUrl" class="menu-item">Copy Bluesky URL</button>
+                    
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
 
                     @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)

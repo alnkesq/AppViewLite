@@ -275,7 +275,7 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
-        public static async Task RetryInfiniteLoopAsync(Func<CancellationToken, Task> attempt, CancellationToken ct)
+        public static async Task RetryInfiniteLoopAsync(Func<CancellationToken, Task> attempt, CancellationToken ct, TimeSpan? intervalBetweenRetries = null)
         {
 
             while (true)
@@ -293,7 +293,7 @@ namespace AppViewLite.PluggableProtocols
                     Console.Error.WriteLine("Pluggable protocol error:");
                     Console.Error.WriteLine(ex);
                 }
-                await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                await Task.Delay(intervalBetweenRetries ?? TimeSpan.FromSeconds(30), ct);
             }
         }
 

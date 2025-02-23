@@ -221,7 +221,15 @@ namespace AppViewLite.Web
                     {
                         await indexer.InitializePlcDirectoryFromBundleAsync(bundle);
                     }
-                    await indexer.RetrievePlcDirectoryLoopAsync();
+                    await PluggableProtocol.RetryInfiniteLoopAsync(async ct => 
+                    {
+                        while (true)
+                        {
+                            await indexer.RetrievePlcDirectoryAsync();
+
+                            await Task.Delay(TimeSpan.FromMinutes(20), ct);
+                        }
+                    }, default, TimeSpan.FromMinutes(5));
                 }).FireAndForget();
                 
             }

@@ -1,0 +1,12 @@
+@page "/r/{subredditId}"
+@inject NavigationManager Navigation
+@inject BlueskyEnrichedApis Apis
+
+@code {
+    [Parameter] public required string SubredditId { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        Navigation.NavigateTo($"/https://www.reddit.com/r/{SubredditId}");
+    }
+}

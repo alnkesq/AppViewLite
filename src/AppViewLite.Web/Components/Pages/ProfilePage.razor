@@ -111,12 +111,16 @@
 
                     @if(SimpleProfile.PluggableProtocol?.TryGetOriginalProfileUrl(SimpleProfile) is {} externalUrl)
                     {
-                        <a href="@externalUrl" class="menu-item" target="_blank" rel="noreferrer">View on @(new Uri(externalUrl).Host)</a>
+                        <a href="@externalUrl" class="menu-item" target="_blank" rel="noreferrer">View on @(StringUtils.GetDisplayHost(new Uri(externalUrl)))</a>
                     }
                     @if (BlueskyRelationships.IsNativeAtProtoDid(SimpleProfile.Did))
                     {
                         <a href="@SimpleProfile.BlueskyUrl" class="menu-item" target="_blank" rel="noreferrer">View on Bluesky</a>
                         <button actionkind="copyProfileBlueskyUrl" class="menu-item">Copy Bluesky URL</button>
+                    }
+                    @if (SimpleProfile.PluggableProtocol is AppViewLite.PluggableProtocols.Rss.RssProtocol)
+                    {
+                        <a href="@(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidToUrl(SimpleProfile.Did))" class="menu-item" target="_blank" rel="noreferrer">View feed source</a>
                     }
 
                     
@@ -278,7 +282,7 @@
         @if (pluggableExternalUrl != null)
         {
             <div class="profile-link-to-full-profile">
-                <a href="@pluggableExternalUrl" target="_blank" rel="noreferrer">See full profile on @(new Uri(pluggableExternalUrl).Host)</a>
+                <a href="@pluggableExternalUrl" target="_blank" rel="noreferrer">See full profile on @StringUtils.GetDisplayHost(new Uri(pluggableExternalUrl))</a>
             </div>
         }
     </div>

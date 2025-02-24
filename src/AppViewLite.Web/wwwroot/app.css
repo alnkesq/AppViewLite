@@ -1515,6 +1515,7 @@ button[disabled], input[type=submit][disabled] {
 
 .profile-badge {
     transition: opacity 0.25s;
+    margin-left: 4px;
 }
 
 .profile-badge-pending{

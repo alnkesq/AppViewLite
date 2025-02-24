@@ -262,7 +262,7 @@ namespace AppViewLite.Storage
         {
         }
 
-        public List<CompactationCandidate> GetCompactationCandidates()
+        public List<CompactationCandidate> GetCompactationCandidates(int minLength)
         {
             var candidates = new List<CompactationCandidate>();
             for (int start = 0; start < slices.Count; start++)
@@ -275,6 +275,7 @@ namespace AppViewLite.Storage
                     largestComponentBytes = Math.Max(largestComponentBytes, componentBytes);
                     totalBytes += componentBytes;
                     var length = end - start;
+                    if (length < minLength) continue;
 
                     var ratioOfLargestComponent = ((double)largestComponentBytes / totalBytes);
                     //var score = (double)length / itemCount * totalCount * (1 - ratioOfLargestComponent);
@@ -286,6 +287,7 @@ namespace AppViewLite.Storage
         }
 
         private const int TargetSliceCount = 15;
+        private const int MinimumCompactationCount = 4;
 
         private void MaybeStartCompactation()
         {
@@ -295,10 +297,12 @@ namespace AppViewLite.Storage
 
             var minLength = (slices.Count - TargetSliceCount) + 1;
 
-            var candidates = GetCompactationCandidates();
-            var compatibleCandidates = candidates.Where(x => x.Length >= minLength).ToArray();
-            var best = compatibleCandidates.MaxBy(x => x.Score);
-            StartCompactation(best.Start, best.Length, best);
+            var candidates = GetCompactationCandidates(Math.Max(minLength, MinimumCompactationCount));
+            if (candidates.Count != 0)
+            {
+                var best = candidates.MaxBy(x => x.Score);
+                StartCompactation(best.Start, best.Length, best);
+            }
 
         }
 

@@ -139,14 +139,16 @@ namespace AppViewLite
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
+            if (ctx != null)
+                ctx.ReadLockEnterCount++;
 
             if (urgent) 
             {
                 var tcs = new TaskCompletionSource<object?>();
-
+                ctx?.TimeSpentWaitingForLocks?.Start();
                 var task = new UrgentReadTask(() => 
                 {
-
+                    ctx?.TimeSpentWaitingForLocks?.Stop();
                     return func(relationshipsUnlocked);
                 }, tcs);
 
@@ -168,10 +170,13 @@ namespace AppViewLite
             int gc = 0;
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterReadLock();
             var restore = MaybeSetThreadName("Lock_Read");
             try
             {
+                ctx?.TimeSpentWaitingForLocks?.Stop();
+
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
@@ -211,14 +216,18 @@ namespace AppViewLite
 
             Stopwatch? sw = null;
             int gc = 0;
+            if (ctx != null)
+                ctx.WriteOrUpgradeLockEnterCount++;
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterWriteLock();
 
             BlueskyRelationships.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
             var restore = MaybeSetThreadName("**** LOCK_WRITE ****");
             try
             {
+                ctx?.TimeSpentWaitingForLocks?.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
@@ -245,11 +254,16 @@ namespace AppViewLite
             Stopwatch? sw = null;
             int gc = 0;
 
+            if (ctx != null)
+                ctx.WriteOrUpgradeLockEnterCount++;
+
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
             var restore = MaybeSetThreadName("**** LOCK_UPGRADEABLE ****");
             try
             {
+                ctx?.TimeSpentWaitingForLocks?.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();

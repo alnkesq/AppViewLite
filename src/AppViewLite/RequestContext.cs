@@ -18,6 +18,9 @@ namespace AppViewLite
 
         public string? RequestUrl;
 
+        public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
+        public int ReadLockEnterCount;
+        public int WriteOrUpgradeLockEnterCount;
 
         public static Func<string, string, object[], Task>? SendSignalrImpl;
 

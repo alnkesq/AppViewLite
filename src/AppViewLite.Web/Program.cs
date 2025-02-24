@@ -60,10 +60,10 @@ namespace AppViewLite.Web
             {
                 var session = provider.GetRequiredService<AppViewLiteSession>();
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
-                var signalrConnectionId = httpContext?.Request.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
-                var urgent = httpContext?.Request.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0";
-                var ctx = RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent);
-                ctx.RequestUrl = httpContext?.Request.GetEncodedPathAndQuery();
+                var request = httpContext?.Request;
+                var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
+                var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
+                var ctx = RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
                 return ctx;
             });
             builder.Services.AddSignalR();

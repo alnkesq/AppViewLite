@@ -1,0 +1,36 @@
+@page "/debug/requests"
+<h3>Requests</h3>
+
+@code {
+
+}
+
+
+
+<table class="debug-table">
+    <tr>
+        <th style="text-align: left">Date</th>
+        <th style="text-align: left">Path</th>
+        <th>Read locks</th>
+        <th>Write/upgr. locks</th>
+        <th>Lock waits</th>
+    </tr>
+
+
+    @foreach (var req in RequestContext.RecentRequestContextsUrgent.OrderByDescending(x => x.StartDate))
+    {
+        var w = req.TimeSpentWaitingForLocks.Elapsed;
+        var wc = req.WriteOrUpgradeLockEnterCount;
+        var rc = req.ReadLockEnterCount;
+        if ((wc == 0 && rc == 0) || req.RequestUrl == "/debug/requests") continue;
+        <tr>
+            <td style="text-align: left">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</td>
+            <td style="text-align: left; white-space: nowrap; max-width: 600px; text-overflow: ellipsis; overflow: hidden;">@req.RequestUrl</td>
+            <td>@(rc != 0 ? rc : "-")</td>
+            <td>@(wc != 0 ? wc : "-")</td>
+            <td>@(w != default ? (w.TotalMilliseconds).ToString("0.000") : "-")</td>
+        </tr>
+    }
+</table>
+
+

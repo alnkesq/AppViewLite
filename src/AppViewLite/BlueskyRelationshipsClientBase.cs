@@ -140,7 +140,10 @@ namespace AppViewLite
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
             if (ctx != null)
+            {
                 ctx.ReadLockEnterCount++;
+                ctx.AddToMetricsTable();
+            }
 
             if (urgent) 
             {
@@ -217,7 +220,10 @@ namespace AppViewLite
             Stopwatch? sw = null;
             int gc = 0;
             if (ctx != null)
+            {
                 ctx.WriteOrUpgradeLockEnterCount++;
+                ctx.AddToMetricsTable();
+            }
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             ctx?.TimeSpentWaitingForLocks?.Start();
@@ -255,7 +261,10 @@ namespace AppViewLite
             int gc = 0;
 
             if (ctx != null)
+            {
                 ctx.WriteOrUpgradeLockEnterCount++;
+                ctx.AddToMetricsTable();
+            }
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             ctx?.TimeSpentWaitingForLocks?.Start();

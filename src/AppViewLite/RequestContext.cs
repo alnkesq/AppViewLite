@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
@@ -16,7 +17,7 @@ namespace AppViewLite
         public string? SignalrConnectionId { get; set; }
         public bool IsUrgent { get; }
 
-        public string? RequestUrl;
+        public string? RequestUrl { get; }
 
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
         public int ReadLockEnterCount;
@@ -30,15 +31,40 @@ namespace AppViewLite
             SendSignalrImpl.Invoke(SignalrConnectionId, method, arguments);
         }
 
-        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false)
+
+        public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
+        public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();
+
+        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false, string? requestUrl = null)
         {
             this.longTimeout = longTimeout;
             this.shortTimeout = shortTimeout;
             this.Session = session;
             this.SignalrConnectionId = signalrConnectionId;
             this.IsUrgent = urgent;
+            this.StartDate = DateTime.UtcNow;
+            this.RequestUrl = requestUrl;
             InitializeDeadlines();
         }
+
+        private bool addedToMetricsTable;
+        public void AddToMetricsTable()
+        {
+            if (addedToMetricsTable) return;
+            addedToMetricsTable = true;
+            if (IsUrgent) { }
+            var queue = IsUrgent ? RecentRequestContextsUrgent : RecentRequestContextsNonUrgent;
+            queue.Enqueue(this);
+            if (queue.Count >= 1000)
+                queue.TryDequeue(out _);
+        }
+
+        public override string? ToString()
+        {
+            return RequestUrl;
+        }
+
+        public DateTime StartDate;
 
         private void InitializeDeadlines()
         {
@@ -46,9 +72,9 @@ namespace AppViewLite
             LongDeadline = longTimeout != null ? Task.Delay(longTimeout.Value) : null;
         }
 
-        public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = false)
+        public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = false, string? requestUrl = null)
         {
-            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent);
+            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent, requestUrl: requestUrl);
         }
 
         public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null, bool urgent = false)

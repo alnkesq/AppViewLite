@@ -91,7 +91,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (UrlToDid(feedUrl) != did)
                 throw new Exception("RSS/did roundtrip failed.");
 
-            var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)));
+            var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)), null);
             var now = DateTime.UtcNow;
             refreshInfo ??= new RssRefreshInfo { FirstRefresh = now };
 
@@ -725,9 +725,9 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         private readonly TaskDictionary<string, RssRefreshInfo> RefreshFeed;
 
-        public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did)
+        public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did, RequestContext? ctx)
         {
-            var refreshData = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetRssRefreshInfo(plc));
+            var refreshData = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetRssRefreshInfo(plc), ctx);
 
             var now = DateTime.UtcNow;
             if (refreshData == null || (now - refreshData.LastRefreshAttempt).TotalHours > 6)

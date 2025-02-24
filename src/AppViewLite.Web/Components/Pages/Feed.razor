@@ -15,7 +15,7 @@
     protected override async Task OnParametersSetAsync()
     {
         await ResolveDidAsync();
-        Info = await Apis.GetFeedGeneratorAsync(Did, RKey);
+        Info = await Apis.GetFeedGeneratorAsync(Did, RKey, RequestContext);
         var ctx = RequestContext;
         (Posts, Info, NextContinuation) = await Apis.GetFeedAsync(Did, RKey, Continuation, ctx, forGrid: ShowAsGrid);
         FeedAuthor = await Apis.GetProfileAsync(Did, ctx);

@@ -113,7 +113,7 @@ namespace AppViewLite
 
                 relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();
-            }, "Delete " + collection);
+            }, reason: "Delete " + collection);
         }
 
         record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);

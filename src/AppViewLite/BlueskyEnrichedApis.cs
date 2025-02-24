@@ -207,7 +207,7 @@ namespace AppViewLite
             var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
             if (toLookup.Length == 0) return profiles;
 
-            toLookup = WithRelationshipsUpgradableLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
+            toLookup = WithRelationshipsLockForDids(toLookup.Select(x => x.Did).ToArray(), (plcs, rels) => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray(), ctx);
             if (toLookup.Length == 0) return profiles;
 
             var plcToProfile = profiles.ToLookup(x => x.Plc);
@@ -246,7 +246,7 @@ namespace AppViewLite
                 },
                 key =>
                 {
-                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.SerializeDid(key.Did)));
+                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.SerializeDid(key.Did)), ctx);
                 }
                 , ctx);
 
@@ -262,7 +262,7 @@ namespace AppViewLite
             {
                 if (did.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
                 {
-                    var bridged = TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(did);
+                    var bridged = TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(did, ctx);
                     if (bridged != null) return null; // URL explicitly requested did:fedi:
                     return AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.Instance!.TryGetHandleFromDid(did);
                 }
@@ -270,13 +270,13 @@ namespace AppViewLite
             }
             try
             {
-                var profile = GetSingleProfile(did);
+                var profile = GetSingleProfile(did, ctx);
                 var handle = profile.PossibleHandle;
                 if (profile.HandleIsUncertain)
                 {
                     if (handle == null)
                     {
-                        var diddoc = await GetDidDocAsync(did);
+                        var diddoc = await GetDidDocAsync(did, ctx);
                         handle = diddoc.Handle;
                         if (handle == null) return null;
                     }
@@ -301,7 +301,7 @@ namespace AppViewLite
             {
                 // happens when the PLC directory is not synced.
                 // Note that handle-based badges won't be live-updated.
-                var diddoc = await GetDidDocAsync(did);
+                var diddoc = await GetDidDocAsync(did, ctx);
                 handle = diddoc.Handle;
                 if (handle == null) return;
             }
@@ -326,7 +326,7 @@ namespace AppViewLite
                 .Select(x => new Plc(x.Plc))
                 .Take(limit + 1)
                 .ToArray();
-            var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x)).ToArray());
+            var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x)).ToArray(), ctx);
             await EnrichAsync(profiles, ctx);
             return (profiles.Take(limit).ToArray(), profiles.Length == limit ? (offset + limit).ToString() : null);
             
@@ -335,7 +335,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var response = await ListRecordsAsync(did, Follow.RecordType, limit: limit + 1, cursor: continuation);
+            var response = await ListRecordsAsync(did, Follow.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var following = WithRelationshipsUpgradableLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
@@ -346,7 +346,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowersYouFollowAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var r = WithRelationshipsLock(rels => rels.GetFollowersYouFollow(did, continuation, limit, ctx));
+            var r = WithRelationshipsLock(rels => rels.GetFollowersYouFollow(did, continuation, limit, ctx), ctx);
             await EnrichAsync(r.Profiles, ctx);
             return r;
         }
@@ -492,7 +492,7 @@ namespace AppViewLite
                 },
                 key =>
                 {
-                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.GetPostId(key.Did, key.RKey)));
+                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.GetPostId(key.Did, key.RKey)), ctx);
                 },
                 ctx);
 
@@ -585,7 +585,7 @@ namespace AppViewLite
                             {
                                 try
                                 {
-                                    var response = await GetRecordAsync(key.Did, collection, key.RKey, ct);
+                                    var response = await GetRecordAsync(key.Did, collection, key.RKey, ctx, ct);
                                     var obj = (TValue)response.Value!;
                                     onItemSuccess(key, obj);
                                 }
@@ -700,7 +700,7 @@ namespace AppViewLite
                 if (cursor.PageIndex < searchSession.Pages.Count)
                 {
                     var page = searchSession.Pages[cursor.PageIndex];
-                    mandatoryPosts = WithRelationshipsLock(rels => page.Posts.Select(x => rels.GetPost(x)).ToArray());
+                    mandatoryPosts = WithRelationshipsLock(rels => page.Posts.Select(x => rels.GetPost(x)).ToArray(), ctx);
                     mandatoryNextContinuation = page.NextContinuationMinLikes != -1 ? new TopPostSearchCursor(page.NextContinuationMinLikes, cursor.SearchId, cursor.PageIndex + 1) : null;
                 }
             }
@@ -739,7 +739,7 @@ namespace AppViewLite
                 .OrderByDescending(x => x.Value.LikeCount)
                 .Take(limit + 1)
                 .ToArray();
-            var result = WithRelationshipsLock(rels => resultCore.Select(x => x.Value.Post ?? rels.GetPost(x.Key)).ToArray());
+            var result = WithRelationshipsLock(rels => resultCore.Select(x => x.Value.Post ?? rels.GetPost(x.Key)).ToArray(), ctx);
 
 
             var hasMorePages = result.Length > limit;
@@ -781,7 +781,7 @@ namespace AppViewLite
             options = await InitializeSearchOptionsAsync(options, ctx);
             var until = options.Until;
             var query = options.Query;
-            var author = options.Author != null ? SerializeSingleDid(options.Author) : default;
+            var author = options.Author != null ? SerializeSingleDid(options.Author, ctx) : default;
             var queryWords = StringUtils.GetDistinctWords(query);
             if (queryWords.Length == 0) return ([], null);
             var queryPhrases = StringUtils.GetExactPhrases(query);
@@ -885,7 +885,7 @@ namespace AppViewLite
                     .DistinctBy(x => x.PostId)
                     .Take(limit + 1)
                     .ToArray();
-            });
+            }, ctx);
             if (enrichOutput)
                 await EnrichAsync(posts, ctx);
             return (posts, posts.Length > limit ? posts.LastOrDefault()?.PostId.Serialize() : null);
@@ -1009,7 +1009,7 @@ namespace AppViewLite
                         .Where(x => x != null)
                         .Take(canFetchFromServer && !mediaOnly ? 10 : 50)
                         .ToArray();
-                });
+                }, ctx);
 
                 await EnrichAsync(recentPosts, ctx);
                 if (recentPosts.Length != 0)
@@ -1029,7 +1029,7 @@ namespace AppViewLite
 
                 new MergeablePostEnumerator(parsedContinuation.MaxTidPosts, async max =>
                 {
-                    var posts = await ListRecordsAsync(did, Post.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
+                    var posts = await ListRecordsAsync(did, Post.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
                     return posts.Records.Select(x =>
                     {
                         return TryGetPostReference(() => new PostReference(x.Uri.Rkey, new PostIdString(did, x.Uri.Rkey), (Post)x.Value));
@@ -1037,7 +1037,7 @@ namespace AppViewLite
                 }, CollectionKind.Posts),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidReposts, async max =>
                 {
-                    var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
+                    var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
                     return posts.Records.Select(x => 
                     {
                         return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!)));
@@ -1045,7 +1045,7 @@ namespace AppViewLite
                 }, CollectionKind.Reposts),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidLikes, async max =>
                 {
-                    var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null);
+                    var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
                     return posts.Records.Select(x => 
                     {
                         return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!)));
@@ -1117,7 +1117,7 @@ namespace AppViewLite
                         
                         return post;
                     }).Where(x => x != null).ToArray();
-                });
+                }, ctx);
 
 
                 var exceededIterations = iterationCount >= 5;
@@ -1164,7 +1164,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 100);
             var thread = new List<BlueskyPost>();
-            var focalPost = GetSinglePost(did, rkey);
+            var focalPost = GetSinglePost(did, rkey, ctx);
             if (focalPost!.Data == null && !BlueskyRelationships.IsNativeAtProtoDid(did))
                 throw new Exception("Post not found.");
 
@@ -1181,7 +1181,7 @@ namespace AppViewLite
                 while (thread[0].IsReply)
                 {
                     var p = thread[0];
-                    var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value));
+                    var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value), ctx);
                     if (before++ >= 20) break;
                     if (prepend.Data == null)
                     {
@@ -1207,7 +1207,7 @@ namespace AppViewLite
                         }
                     }
                     AddOpExhaustiveReplies(focalPostId);
-                });
+                }, ctx);
                 thread.AddRange(opReplies.OrderBy(x => x.Date));
             }
 
@@ -1245,7 +1245,7 @@ namespace AppViewLite
                 }
 
                 return groups;
-            });
+            }, ctx);
 
             string? nextContinuation = null;
             if (otherReplyGroups.Count == wantMore)
@@ -1259,26 +1259,26 @@ namespace AppViewLite
             return new(thread.ToArray(), nextContinuation);
         }
 
-        public BlueskyPost GetSinglePost(string did, string rkey)
+        public BlueskyPost GetSinglePost(string did, string rkey, RequestContext ctx)
         {
-            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPost(plc, Tid.Parse(rkey)));
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPost(plc, Tid.Parse(rkey)), ctx);
         }
 
-        public BlueskyProfile GetSingleProfile(string did)
+        public BlueskyProfile GetSingleProfile(string did, RequestContext ctx)
         {
-            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc));
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc), ctx);
         }
 
-        private Plc SerializeSingleDid(string did)
+        private Plc SerializeSingleDid(string did, RequestContext ctx)
         {
-            return WithRelationshipsLockForDid(did, (plc, rels) => plc);
+            return WithRelationshipsLockForDid(did, (plc, rels) => plc, ctx);
         }
 
         //private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
 
         public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx, bool forGrid = false)
         {
-            var feedGenInfo = await GetFeedGeneratorAsync(did, rkey);
+            var feedGenInfo = await GetFeedGeneratorAsync(did, rkey, ctx);
             if (!feedGenInfo.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
             var domain = feedGenInfo.Data.ImplementationDid.Substring(8);
 
@@ -1363,12 +1363,12 @@ namespace AppViewLite
             return subjectDisplayText + " could not be reached: " + ex.Message;
         }
 
-        private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey)
+        private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey, RequestContext? ctx)
         {
             var (plc, result) = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
                 return (plc, rels.TryGetFeedGeneratorData(new(plc, rkey)));
-            });
+            }, ctx);
 
             var now = DateTime.UtcNow;
 
@@ -1416,7 +1416,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetPostLikersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostLikers(plc, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostLikers(plc, rkey, DeserializeRelationshipContinuation(continuation), limit + 1), ctx);
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did + rkey);
@@ -1440,7 +1440,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetPostRepostersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostReposts(plc, rkey, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostReposts(plc, rkey, DeserializeRelationshipContinuation(continuation), limit + 1), ctx);
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did + rkey);
@@ -1451,7 +1451,7 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 30);
-            var posts = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostQuotes(plc, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1));
+            var posts = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostQuotes(plc, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1), ctx);
             var nextContinuation = SerializeRelationshipContinuationPlcFirst(posts, limit);
             SortByDescendingRelationshipRKey(ref posts);
             //DeterministicShuffle(posts, did + rkey);
@@ -1463,7 +1463,7 @@ namespace AppViewLite
         public async Task<ProfilesAndContinuation> GetFollowersAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFollowers(plc, DeserializeRelationshipContinuation(continuation), limit + 1));
+            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFollowers(plc, DeserializeRelationshipContinuation(continuation), limit + 1), ctx);
             var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
             SortByDescendingRelationshipRKey(ref profiles);
             //DeterministicShuffle(profiles, did);
@@ -1511,9 +1511,9 @@ namespace AppViewLite
             RssRefreshInfo? rssFeedInfo = null;
             if (did.StartsWith(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidPrefix, StringComparison.Ordinal))
             {
-                rssFeedInfo = await AppViewLite.PluggableProtocols.Rss.RssProtocol.Instance!.MaybeRefreshFeedAsync(did);
+                rssFeedInfo = await AppViewLite.PluggableProtocols.Rss.RssProtocol.Instance!.MaybeRefreshFeedAsync(did, ctx);
             }
-            var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad));
+            var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad), ctx);
             await EnrichAsync([profile.Profile, ..profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
             if (profile.Profile.BasicData == null)
             {
@@ -1524,7 +1524,7 @@ namespace AppViewLite
         }
         public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)
         {
-            var profile = GetSingleProfile(did);
+            var profile = GetSingleProfile(did, ctx);
             await EnrichAsync([profile], ctx);
             return profile;
         }
@@ -1554,14 +1554,14 @@ namespace AppViewLite
                         
                     }
                 }
-            });
+            }, ctx);
             await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).Where(x => x != null)!, .. posts.Select(x => x.RootFullPost).Where(x => x != null)!], ctx);
         }
 
-        public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey)
+        public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext? ctx)
         {
-            var data = await GetFeedGeneratorDataAsync(did, rkey);
-            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data));
+            var data = await GetFeedGeneratorDataAsync(did, rkey, ctx);
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data), ctx);
         }
 
         public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx)
@@ -1570,7 +1570,7 @@ namespace AppViewLite
             var session = ctx.Session;
             var user = session.LoggedInUser!.Value;
 
-            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user));
+            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user), ctx);
             var nonHiddenNotifications = notifications.NewNotifications.Concat(notifications.OldNotifications).Where(x => !x.Hidden).ToArray();
             await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
             await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
@@ -2199,6 +2199,7 @@ namespace AppViewLite
 
         private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
         {
+            
             var session = ctx.Session;
             using var sessionProtocol = await GetSessionProtocolAsync(ctx);
             if (sessionProtocol.AuthSession!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)
@@ -2241,27 +2242,27 @@ namespace AppViewLite
             if (!ctx.IsLoggedIn) throw new ArgumentException();
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.Session.PdsSession!;
-            var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler);
+            var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler, ctx);
             (await sessionProtocol.AuthenticateWithPasswordSessionResultAsync(new AuthSession(pdsSession))).HandleResult();
             return sessionProtocol;
 
         }
 
-        public async Task<Session> LoginToPdsAsync(string did, string password)
+        public async Task<Session> LoginToPdsAsync(string did, string password, RequestContext? ctx)
         {
-            var sessionProtocol = await CreateProtocolForDidAsync(did);
+            var sessionProtocol = await CreateProtocolForDidAsync(did, ctx);
             var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
             return session;
         }
 
-        public async Task<ATProtocol?> TryCreateProtocolForDidAsync(string did)
+        public async Task<ATProtocol?> TryCreateProtocolForDidAsync(string did, RequestContext? ctx)
         {
             if (!BlueskyRelationships.IsNativeAtProtoDid(did)) return null;
-            return await CreateProtocolForDidAsync(did)!;
+            return await CreateProtocolForDidAsync(did, ctx)!;
         }
-        public async Task<ATProtocol> CreateProtocolForDidAsync(string did)
+        public async Task<ATProtocol> CreateProtocolForDidAsync(string did, RequestContext? ctx = null)
         {
-            var diddoc = await GetDidDocAsync(did);
+            var diddoc = await GetDidDocAsync(did, ctx);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
             
             var pds = diddoc.Pds;
@@ -2352,7 +2353,7 @@ namespace AppViewLite
 
         public async Task<BlueskyPost> GetPostAsync(string did, string rkey, RequestContext ctx)
         {
-            var post = GetSinglePost(did, rkey);
+            var post = GetSinglePost(did, rkey, ctx);
             await EnrichAsync([post], ctx);
             return post;
         }
@@ -2374,7 +2375,7 @@ namespace AppViewLite
                     .Where(x => x.Data?.Deleted != true)
                     .Take(limit + 1)
                     .ToArray();
-            });
+            }, ctx);
 
             await EnrichAsync(lists, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => x.ListId.Serialize());
@@ -2412,7 +2413,7 @@ namespace AppViewLite
             var toLookup = lists.Where(x => x.Data == null).Select(x => x.ListIdStr).Distinct().ToArray();
             if (toLookup.Length == 0) return lists;
 
-            toLookup = WithRelationshipsUpgradableLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray());
+            toLookup = WithRelationshipsUpgradableLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray(), ctx);
             if (toLookup.Length == 0) return lists;
 
             var idToList = lists.ToLookup(x => x.ListId);
@@ -2434,7 +2435,7 @@ namespace AppViewLite
                         var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
                         rels.Lists.AddRange(id, BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(listRecord)));
                         OnRecordReceived(rels, id);
-                    });
+                    }, ctx);
                 },
                 key =>
                 {
@@ -2443,7 +2444,7 @@ namespace AppViewLite
                         var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
                         rels.FailedListLookups.Add(id, DateTime.UtcNow);
                         OnRecordReceived(rels, id);
-                    });
+                    }, ctx);
                 },
                 key =>
                 {
@@ -2451,7 +2452,7 @@ namespace AppViewLite
                     {
                         var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
                         OnRecordReceived(rels, id);
-                    });
+                    }, ctx);
                 }
                 , ctx);
 
@@ -2464,8 +2465,8 @@ namespace AppViewLite
         public async Task<(BlueskyList List, BlueskyProfile[] Page, string? NextContinuation)> GetListMembersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
-            var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)));
-            var list = WithRelationshipsLock(rels => rels.GetList(listId));
+            var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)), ctx);
+            var list = WithRelationshipsLock(rels => rels.GetList(listId), ctx);
             
             await EnrichAsync([list], ctx);
 #if false
@@ -2478,20 +2479,20 @@ namespace AppViewLite
             return (list, members, hasMore ? new ListEntry(members[^1].Plc, members[^1].RelationshipRKey!.Value).Serialize() : null);
 #else
 
-            var response = await ListRecordsAsync(did, Listitem.RecordType, limit: limit + 1, cursor: continuation);
+            var response = await ListRecordsAsync(did, Listitem.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var members = WithRelationshipsUpgradableLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler))).ToArray();
-            });
+            }, ctx);
             await EnrichAsync(members, ctx);
             return (list, members, response.Records.Count > limit ? response!.Cursor : null);
 
 #endif
         }
 
-        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, CancellationToken ct = default)
+        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, RequestContext? ctx, CancellationToken ct = default)
         {
-            using var proto = await TryCreateProtocolForDidAsync(did);
+            using var proto = await TryCreateProtocolForDidAsync(did, ctx);
             if (proto == null) return new ListRecordsOutput(null, []);
             try
             {
@@ -2504,9 +2505,9 @@ namespace AppViewLite
             
         }
 
-        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, CancellationToken ct = default)
+        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx = null, CancellationToken ct = default)
         {
-            using var proto = await CreateProtocolForDidAsync(did);
+            using var proto = await CreateProtocolForDidAsync(did, ctx);
             try
             {
                 return (await proto.GetRecordAsync(GetAtId(did), collection, rkey, cancellationToken: ct)).HandleResult()!;
@@ -2552,7 +2553,7 @@ namespace AppViewLite
                 }
                 return list;
                 
-            });
+            }, ctx);
             
             return (await EnrichAsync(feeds.ToArray(), ctx), null);
         }
@@ -2576,7 +2577,7 @@ namespace AppViewLite
                 .Where(x => x != null && x.Data?.Deleted != true)
                 .Take(limit + 1)
                 .ToArray();
-            });
+            }, ctx);
             await EnrichAsync(feeds, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());
         }
@@ -2613,7 +2614,7 @@ namespace AppViewLite
                     })
                     .Take(limit + 1 - profiles.Count)
                     .ToArray();
-                });
+                }, ctx);
 
                 profiles.AddRange(items);
                 if (!parsedContinuation.AlsoSearchDescriptions && !(profiles.Count > limit))
@@ -2656,7 +2657,7 @@ namespace AppViewLite
                             .Take(limit)
                             .Where(x => alreadyReturned.Add(x.Plc))
                             .ToArray();
-                    });
+                    }, ctx);
                     result.Items = result.Items.Concat(extra).ToArray();
                 }
             }
@@ -2686,7 +2687,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = await ListRecordsAsync(did, List.RecordType, limit: limit + 1, cursor: continuation);
+            var response = await ListRecordsAsync(did, List.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var lists = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
                 return response!.Records!.Select(x =>
@@ -2694,7 +2695,7 @@ namespace AppViewLite
                     var listId = new Models.Relationship(plc, Tid.Parse(x.Uri.Rkey));
                     return rels.GetList(listId, BlueskyRelationships.ListToProto((List)x.Value));
                 }).ToArray();
-            });
+            }, ctx);
             await EnrichAsync(lists, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => x.RKey);
 
@@ -2705,7 +2706,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation);
+            var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var feeds = WithRelationshipsUpgradableLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
@@ -2718,7 +2719,7 @@ namespace AppViewLite
                     }
                     return rels.TryGetFeedGenerator(feedId)!;
                 }).ToArray();
-            });
+            }, ctx);
             await EnrichAsync(feeds, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.RKey);
 
@@ -2727,7 +2728,7 @@ namespace AppViewLite
         public static TimeSpan HandleToDidMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_HANDLE_TO_DID_MAX_STALE_HOURS) ?? (10 * 24)));
         public static TimeSpan DidDocMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DID_DOC_MAX_STALE_HOURS) ?? (2 * 24)));
 
-        public async Task<string> ResolveHandleAsync(string handle, string? activityPubInstance = null, bool forceRefresh = false, CancellationToken ct = default)
+        public async Task<string> ResolveHandleAsync(string handle, string? activityPubInstance = null, bool forceRefresh = false, RequestContext? ctx = null, CancellationToken ct = default)
         {
             if (activityPubInstance != null)
                 handle += "@" + activityPubInstance;
@@ -2750,7 +2751,7 @@ namespace AppViewLite
                 {
                     AdministrativeBlocklist.ThrowIfBlockedDisplay(pluggableDid);
 
-                    var bridged = await TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(pluggableDid);
+                    var bridged = await TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(pluggableDid, ctx);
                     if (bridged != null)
                         return bridged;
                     return pluggableDid;
@@ -2784,25 +2785,25 @@ namespace AppViewLite
                 }
 
                 return (lastVerification.VerificationDate, plc, did);
-            });
+            }, ctx);
 
 
 
             if (forceRefresh || plc == default || (DateTime.UtcNow - handleToDidVerificationDate) > HandleToDidMaxStale)
             {
-                await HandleToDidCoreAsync(handle, ct);
+                await HandleToDidCoreAsync(handle, ctx, ct);
                 (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
                 {
                     var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
                     var did = lastVerification.Plc != default ? rels.GetDid(lastVerification.Plc) : null;
                     return (lastVerification.VerificationDate, lastVerification.Plc, did);
-                });
+                }, ctx);
             }
             if (plc == default) throw new Exception();
             var didDoc = WithRelationshipsLock(rels =>
             {
                 return rels.TryGetLatestDidDoc(plc);
-            });
+            }, ctx);
 
 
 
@@ -2869,7 +2870,7 @@ namespace AppViewLite
         private readonly static bool DnsUseHttps = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_DNS_OVER_HTTPS) ?? true;
 
 
-        private async Task<string> HandleToDidCoreAsync(string handle, CancellationToken ct)
+        private async Task<string> HandleToDidCoreAsync(string handle, RequestContext? ctx, CancellationToken ct)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(handle);
 
@@ -2906,7 +2907,7 @@ namespace AppViewLite
                         {
                             rels.IndexHandle(handle, did);
                             rels.AddHandleToDidVerification(handle, rels.SerializeDid(did));
-                        });
+                        }, ctx);
                         return did;
                     }
                 }
@@ -2917,7 +2918,7 @@ namespace AppViewLite
                 {
                     rels.IndexHandle(handle, s);
                     rels.AddHandleToDidVerification(handle, rels.SerializeDid(s));
-                });
+                }, ctx);
                 return s;
             }
             catch
@@ -2925,7 +2926,7 @@ namespace AppViewLite
                 WithRelationshipsWriteLock(rels =>
                 {
                     rels.AddHandleToDidVerification(handle, default);
-                });
+                }, ctx);
                 throw;
             }
         }
@@ -3032,7 +3033,7 @@ namespace AppViewLite
 
 
 
-        public async Task<BlobResult> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize, CancellationToken ct)
+        public async Task<BlobResult> GetBlobAsync(string did, string cid, string? pds, ThumbnailSize preferredSize, RequestContext ctx, CancellationToken ct)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
@@ -3057,13 +3058,13 @@ namespace AppViewLite
                 }
                 if (pds == null)
                 {
-                    pds = (await GetDidDocAsync(did)).Pds;
+                    pds = (await GetDidDocAsync(did, ctx)).Pds;
                 }
                 return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct, preferredSize: preferredSize);
             }
         }
 
-        private async Task<DidDocProto> GetDidDocAsync(string did)
+        private async Task<DidDocProto> GetDidDocAsync(string did, RequestContext? ctx)
         {
             var didDocOverride = DidDocOverrides.GetValue().TryGetOverride(did);
             if (didDocOverride != null) return didDocOverride;
@@ -3072,7 +3073,7 @@ namespace AppViewLite
             (var plc, doc) = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
                 return (plc, rels.TryGetLatestDidDoc(plc));
-            });
+            }, ctx);
             if (IsDidDocStale(did, doc))
             {
                 doc = await FetchAndStoreDidDoc.GetValueAsync((plc, did));
@@ -3111,14 +3112,14 @@ namespace AppViewLite
             });
         }
 
-        public CustomEmoji? TryGetCustomEmoji(DuckDbUuid hash)
+        public CustomEmoji? TryGetCustomEmoji(DuckDbUuid hash, RequestContext ctx)
         {
             return WithRelationshipsLock(rels =>
             {
                 if (rels.CustomEmojis.TryGetPreserveOrderSpanAny(hash, out var bytes))
                     return BlueskyRelationships.DeserializeProto<CustomEmoji>(bytes.AsSmallSpan());
                 return null;
-            });
+            }, ctx);
         }
 
         private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
@@ -3146,7 +3147,7 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(string maybeFediverseDid)
+        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(string maybeFediverseDid, RequestContext ctx)
         {
             if (!maybeFediverseDid.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
                 return null;
@@ -3154,7 +3155,7 @@ namespace AppViewLite
             var userId = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.ParseDid(maybeFediverseDid);
 
             var possibleHandle = userId.UserName + "." + userId.Instance + ".ap.brid.gy";
-            if (!WithRelationshipsLock(rels => rels.HandleToPossibleDids.ContainsKey(BlueskyRelationships.HashWord(possibleHandle))))
+            if (!WithRelationshipsLock(rels => rels.HandleToPossibleDids.ContainsKey(BlueskyRelationships.HashWord(possibleHandle)), ctx))
                 return null;
 
             try
@@ -3241,7 +3242,7 @@ namespace AppViewLite
                 {
                     rels.PopulateViewerFlags(profile, ctx);
                 }
-            });
+            }, ctx);
         }
 
         public void TogglePrivateFollowFlag(string did, PrivateFollowFlags flag, bool enabled, RequestContext ctx)

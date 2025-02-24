@@ -11,6 +11,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using System.Text.RegularExpressions;
 using AppViewLite.PluggableProtocols;
+using Microsoft.AspNetCore.Http.Extensions;
 
 namespace AppViewLite.Web
 {
@@ -61,7 +62,9 @@ namespace AppViewLite.Web
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
                 var signalrConnectionId = httpContext?.Request.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = httpContext?.Request.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0";
-                return RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent);
+                var ctx = RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent);
+                ctx.RequestUrl = httpContext?.Request.GetEncodedPathAndQuery();
+                return ctx;
             });
             builder.Services.AddSignalR();
 
@@ -286,7 +289,7 @@ namespace AppViewLite.Web
                             did = unverifiedDid;
                             bskyProfile = rels.GetProfile(plc);
                         }
-                    });
+                    }, RequestContext.CreateInfinite(null, urgent: true));
                     if (profile == null) return null;
 
                     session = new AppViewLiteSession
@@ -297,7 +300,7 @@ namespace AppViewLite.Web
                         LastSeen = now,
                         Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
                     };
-                    OnSessionCreatedOrRestoredAsync(did!, plc, session, profile).FireAndForget();
+                    OnSessionCreatedOrRestoredAsync(did!, plc, session, profile, RequestContext.CreateInfinite(null, urgent: true)).FireAndForget();
                     SessionDictionary[sessionId] = session;
                 }
 
@@ -315,7 +318,7 @@ namespace AppViewLite.Web
         }
 
 
-        public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle, string password)
+        public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle, string password, RequestContext ctx)
         {
             var apis = BlueskyEnrichedApis.Instance;
             if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException();
@@ -323,7 +326,7 @@ namespace AppViewLite.Web
             var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
 
             var did = await apis.ResolveHandleAsync(handle);
-            var atSession = isReadOnly ? null : await apis.LoginToPdsAsync(did, password);
+            var atSession = isReadOnly ? null : await apis.LoginToPdsAsync(did, password, ctx);
 
 
 
@@ -359,21 +362,21 @@ namespace AppViewLite.Web
                     IsReadOnlySimulation = isReadOnly,
                 });
                 rels.StoreAppViewLiteProfile(plc, privateProfile);
-            });
+            }, ctx);
 
-            await OnSessionCreatedOrRestoredAsync(did, plc, session, privateProfile);
+            await OnSessionCreatedOrRestoredAsync(did, plc, session, privateProfile, ctx);
 
             SessionDictionary[id] = session;
             
             return session;
         }
 
-        private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session, AppViewLiteProfileProto privateProfile)
+        private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session, AppViewLiteProfileProto privateProfile, RequestContext ctx)
         {
             var apis = BlueskyEnrichedApis.Instance;
 
-            var haveFollowees = apis.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc));
-            session.Profile = await apis.GetProfileAsync(did, RequestContext.CreateInfinite(null));
+            var haveFollowees = apis.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc), ctx);
+            session.Profile = await apis.GetProfileAsync(did, ctx);
 
             session.PrivateProfile = privateProfile;
             session.PrivateFollows = (privateProfile.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);

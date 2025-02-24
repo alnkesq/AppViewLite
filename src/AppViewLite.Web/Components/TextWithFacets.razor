@@ -1,5 +1,6 @@
 @using System.Text.RegularExpressions
 @inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
 
 @code {
     [Parameter] public string? Text { get; set; }
@@ -75,7 +76,7 @@
             string? link = null;
             if (facet.CustomEmojiHashHi != null)
             {
-                customEmojiUrl = Apis.TryGetCustomEmoji(facet.CustomEmojiHash.Value);
+                customEmojiUrl = Apis.TryGetCustomEmoji(facet.CustomEmojiHash.Value, RequestContext);
             }
             else 
             {

@@ -16,12 +16,12 @@ namespace AppViewLite.Web
         public async Task ResolveDidAsync()
         {
             _originalProfileBaseUrl = ProfileBaseUrl;
-            Did = await Apis.ResolveHandleAsync(Did, ActivityPubInstance);
+            Did = await Apis.ResolveHandleAsync(Did, ActivityPubInstance, ctx: RequestContext);
             ActivityPubInstance = null;
         }
         public async Task<string> GetResolvedDidAsync()
         {
-            return await Apis.ResolveHandleAsync(Did, ActivityPubInstance);
+            return await Apis.ResolveHandleAsync(Did, ActivityPubInstance, ctx: RequestContext);
         }
     }
 }

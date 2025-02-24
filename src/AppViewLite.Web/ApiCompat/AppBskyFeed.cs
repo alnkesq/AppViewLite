@@ -89,7 +89,7 @@ namespace AppViewLite.Web.ApiCompat
             var uri = await apis.ResolveUriAsync(feed);
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
-            var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey);
+            var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey, null);
             var creator = await apis.GetProfileAsync(feedDid, RequestContext.Create());
             return new GetFeedGeneratorOutput
             {

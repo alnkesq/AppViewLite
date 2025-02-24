@@ -63,7 +63,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 var description = ParseHtml(board.meta_description, boardId);
 
                 var did = ToDid(boardId);
-                var prev = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfileBasicInfo(plc));
+                var prev = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfileBasicInfo(plc), null);
 
                 var avatarCidBytes = prev?.AvatarCidBytes;
                 if (avatarCidBytes == null)

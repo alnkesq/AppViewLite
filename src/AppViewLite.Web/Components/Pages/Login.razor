@@ -45,7 +45,7 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle) && !string.IsNullOrEmpty(Model!.Password))
         {
-            await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle, Model.Password);
+            await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle, Model.Password, RequestContext);
             Navigation.NavigateTo(Return ?? "/following", true);
         }
     }

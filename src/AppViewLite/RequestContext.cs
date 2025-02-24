@@ -16,6 +16,8 @@ namespace AppViewLite
         public string? SignalrConnectionId { get; set; }
         public bool IsUrgent { get; }
 
+        public string? RequestUrl;
+
 
         public static Func<string, string, object[], Task>? SendSignalrImpl;
 
@@ -46,9 +48,9 @@ namespace AppViewLite
             return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent);
         }
 
-        public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null)
+        public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null, bool urgent = false)
         {
-            return new RequestContext(session, null, null, signalrConnectionId);
+            return new RequestContext(session, null, null, signalrConnectionId, urgent: urgent);
         }
 
 #if false

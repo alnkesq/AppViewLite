@@ -75,7 +75,7 @@ namespace AppViewLite.Web
                     return post;
                 }).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
-            });
+            }, null);
             var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
             apis.EnrichAsync(posts, newctx, async p =>
             {
@@ -109,11 +109,13 @@ namespace AppViewLite.Web
             var ctx = HubContext;
 
             var dangerousRels = apis.DangerousUnlockedRelationships;
-            var (postIdsToSubscribe, postIdsToUnsubscribe) = apis.WithRelationshipsUpgradableLock(rels =>
+            var toSubscribeParsed = toSubscribe.Select(x => PostIdString.Deserialize(x)).ToArray();
+            var toUnsubscribeParsed = toUnsubscribe.Select(x => PostIdString.Deserialize(x)).ToArray();
+            var (postIdsToSubscribe, postIdsToUnsubscribe) = apis.WithRelationshipsLockForDids(toSubscribeParsed.Concat(toUnsubscribeParsed).Select(x => x.Did).ToArray(), (_, rels) =>
             {
                 return (
-                    toSubscribe.Select(x => PostIdString.Deserialize(x)).Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray(),
-                    toUnsubscribe.Select(x => PostIdString.Deserialize(x)).Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray());
+                    toSubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray(),
+                    toUnsubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray());
             });
             lock (ctx)
             {
@@ -156,7 +158,7 @@ namespace AppViewLite.Web
                             likeRkey = userLike.RelationshipRKey.ToString() ?? "-",
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
                         };
-                    });
+                    }, null);
 
                 }
                 client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange).FireAndForget();

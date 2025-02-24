@@ -16,10 +16,11 @@ namespace AppViewLite.Web.Controllers
     public class MediaController : ControllerBase
     {
         private readonly BlueskyEnrichedApis apis;
-
-        public MediaController(BlueskyEnrichedApis apis)
+        private readonly RequestContext ctx;
+        public MediaController(BlueskyEnrichedApis apis, RequestContext ctx)
         {
             this.apis = apis;
+            this.ctx = ctx;
         }
 
         public AdministrativeBlocklist AdministrativeBlocklist => apis.AdministrativeBlocklist;
@@ -192,7 +193,7 @@ namespace AppViewLite.Web.Controllers
             {
                 if (sizeEnum == ThumbnailSize.feed_video_blob)
                 {
-                    using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
+                    using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ctx, ct);
                     InitFileName(blob.FileNameForDownload);
                     SetMediaHeaders(name, "video/mp4");
                     if (blob.Bytes != null)
@@ -260,7 +261,7 @@ namespace AppViewLite.Web.Controllers
         {
             try
             {
-                using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ct);
+                using var blob = await apis.GetBlobAsync(did, cid, pds, sizeEnum, ctx, ct);
 
                 var bytes = await blob.ReadAsBytesAsync();
 

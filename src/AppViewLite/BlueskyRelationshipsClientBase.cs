@@ -1,14 +1,9 @@
 using AppViewLite.Models;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AppViewLite
@@ -22,29 +17,29 @@ namespace AppViewLite
             this.relationshipsUnlocked = relationshipsUnlocked;
         }
 
-        public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func)
+        public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func, RequestContext? ctx)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
                 var plc = rels.TrySerializeDidMaybeReadOnly(did);
                 if (plc == default) return PreambleResult<Plc>.NeedsWrite;
                 return plc;
-            }, func);
+            }, func, ctx);
         }
-        public void WithRelationshipsLockForDid(string did, Action<Plc, BlueskyRelationships> func)
+        public void WithRelationshipsLockForDid(string did, Action<Plc, BlueskyRelationships> func, RequestContext? ctx = null)
         {
             WithRelationshipsLockWithPreamble(rels =>
             {
                 var plc = rels.TrySerializeDidMaybeReadOnly(did);
                 if (plc == default) return PreambleResult<Plc>.NeedsWrite;
                 return plc;
-            }, func);
+            }, func, ctx);
         }
-        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func)
+        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func, RequestContext? ctx = null)
         {
-            WithRelationshipsLockForDids(dids, (plcs, rels) => { func(plcs, rels); return 0; });
+            WithRelationshipsLockForDids(dids, (plcs, rels) => { func(plcs, rels); return 0; }, ctx);
         }
-        public T WithRelationshipsLockForDids<T>(string[] dids, Func<Plc[], BlueskyRelationships, T> func)
+        public T WithRelationshipsLockForDids<T>(string[] dids, Func<Plc[], BlueskyRelationships, T> func, RequestContext? ctx = null)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
@@ -56,20 +51,20 @@ namespace AppViewLite
                     result[i] = plc;
                 }
                 return result;
-            }, func);
+            }, func, ctx);
         }
 
-        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func)
+        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
                 var preambleResult = preamble(rels);
                 return preambleResult.Succeeded ? new PreambleResult<int>(1) : PreambleResult<int>.NeedsWrite;
-            }, (_, rels) => func(rels));
+            }, (_, rels) => func(rels), ctx);
         }
 
  
-        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Func<TPreamble, BlueskyRelationships, T> func)
+        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Func<TPreamble, BlueskyRelationships, T> func, RequestContext? ctx = null)
         {
             // Preamble might be executed twice, if the first attempt in readonly mode fails.
 
@@ -85,7 +80,7 @@ namespace AppViewLite
                     return func(preambleResult.Value, rels);
                 }
                 return default!;
-            });
+            }, ctx);
 
             if (succeeded) return result;
 
@@ -103,64 +98,69 @@ namespace AppViewLite
                 {
                     rels.ForbidUpgrades--;
                 }
-            });
+            }, ctx);
         }
 
 
-        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Action<TPreamble, BlueskyRelationships> func)
+        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Action<TPreamble, BlueskyRelationships> func, RequestContext? ctx = null)
         {
             WithRelationshipsLockWithPreamble(preamble, (p, rels) =>
             {
                 func(p, rels);
                 return 1;
-            });
+            }, ctx);
         }
 
 
         private ConcurrentQueue<UrgentReadTask> urgentReadTasks = new();
 
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx)
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
         {
-            return WithRelationshipsLock(func, ctx?.IsUrgent == true);
+            return WithRelationshipsLock(func, ctx, ctx?.IsUrgent == true);
         }
         public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext? ctx)
         {
-            WithRelationshipsLock<int>(rels => 
+            WithRelationshipsLock<int>(rels =>
             {
                 func(rels);
                 return 0;
             }, ctx);
         }
+        public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext? ctx, bool urgent)
+        {
+            WithRelationshipsLock<int>(rels =>
+            {
+                func(rels);
+                return 0;
+            }, ctx, urgent);
+        }
 
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, bool urgent = false)
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx, bool urgent)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
 
             if (urgent) 
             {
-                var tcs = new TaskCompletionSource();
-                T urgentResult = default!;
+                var tcs = new TaskCompletionSource<object?>();
 
                 var task = new UrgentReadTask(() => 
                 {
 
-                    urgentResult = func(relationshipsUnlocked);
+                    return func(relationshipsUnlocked);
                 }, tcs);
 
                 urgentReadTasks.Enqueue(task);
 
-                var race = Task.WhenAny(task.Tcs.Task, Task.Run(() =>
+                Task.Run(() =>
                 {
                     WithRelationshipsLock(rels =>
                     {
                         RunPendingUrgentReadTasks();
-                    });
-                }));
+                    }, ctx, urgent: false);
+                });
 
-                var raceWinner = race.GetAwaiter().GetResult();
-                raceWinner.GetAwaiter().GetResult(); // WhenAny alone doesn't rethrow exceptions.
-                return urgentResult!;
+                return (T)tcs.Task.GetAwaiter().GetResult()!;
             }
 
 
@@ -185,7 +185,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitReadLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.Read, PrintLongReadLocksThreshold);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Read, PrintLongReadLocksThreshold, ctx);
             }
 
         }
@@ -196,8 +196,7 @@ namespace AppViewLite
             {
                 try
                 {
-                    urgentReadTask.Run();
-                    urgentReadTask.Tcs.SetResult();
+                    urgentReadTask.Tcs.SetResult(urgentReadTask.Run());
                 }
                 catch (Exception ex)
                 {
@@ -206,7 +205,7 @@ namespace AppViewLite
             }
         }
 
-        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, string? reason = null)
+        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null, string? reason = null)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
@@ -235,11 +234,11 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold, reason);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold, ctx, reason);
             }
         }
 
-        public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func)
+        public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
@@ -263,7 +262,7 @@ namespace AppViewLite
             {
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
-                MaybeLogLongLockUsage(sw, gc, LockKind.Upgradeable, PrintLongUpgradeableLocksThreshold);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Upgradeable, PrintLongUpgradeableLocksThreshold, ctx);
             }
 
         }
@@ -288,36 +287,28 @@ namespace AppViewLite
 
         }
 
-        public void WithRelationshipsLock(Action<BlueskyRelationships> func)
-        {
-            WithRelationshipsLock(rels =>
-            {
-                func(rels);
-                return false;
-            });
-        }
-        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, string? reason = null)
+        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext? ctx = null, string? reason = null)
         {
             WithRelationshipsWriteLock(rels =>
             {
                 func(rels);
                 return false;
-            }, reason);
+            }, ctx, reason);
         }
-        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func)
+        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func, RequestContext? ctx = null)
         {
             WithRelationshipsUpgradableLock(rels =>
             {
                 func(rels);
                 return false;
-            });
+            }, ctx);
         }
 
         public readonly static int PrintLongReadLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS) ?? 30;
         public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
         public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
 
-        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold, string? reason = null)
+        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold, RequestContext? ctx, string? reason = null)
         {
             if (sw == null) return;
 
@@ -343,7 +334,7 @@ namespace AppViewLite
                         break;
                 }
  
-                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason);
+                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason +" " + ctx?.RequestUrl);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();
@@ -408,6 +399,6 @@ namespace AppViewLite
         Upgradeable,
     }
 
-    public record UrgentReadTask(Action Run, TaskCompletionSource Tcs);
+    public record UrgentReadTask(Func<object?> Run, TaskCompletionSource<object?> Tcs);
 }
 

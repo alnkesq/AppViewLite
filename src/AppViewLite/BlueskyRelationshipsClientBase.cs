@@ -4,24 +4,29 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public abstract class BlueskyRelationshipsClientBase
+    public abstract class BlueskyRelationshipsClientBase : IDisposable
     {
 
         protected readonly BlueskyRelationships relationshipsUnlocked;
-        public BlueskyRelationshipsClientBase(BlueskyRelationships relationshipsUnlocked)
+        protected BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked;
+        private Lock buildNewReadOnlyReplicaLock = new Lock();
+        public BlueskyRelationshipsClientBase(BlueskyRelationships relationshipsUnlocked, bool useReadOnlyReplica = false)
         {
             this.relationshipsUnlocked = relationshipsUnlocked;
+            if (useReadOnlyReplica && (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_READONLY_REPLICA) ?? false))
+                this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
         }
 
         public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func, RequestContext? ctx)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
-                var plc = rels.TrySerializeDidMaybeReadOnly(did);
+                var plc = rels.TrySerializeDidMaybeReadOnly(did, ctx);
                 if (plc == default) return PreambleResult<Plc>.NeedsWrite;
                 return plc;
             }, func, ctx);
@@ -30,12 +35,12 @@ namespace AppViewLite
         {
             WithRelationshipsLockWithPreamble(rels =>
             {
-                var plc = rels.TrySerializeDidMaybeReadOnly(did);
+                var plc = rels.TrySerializeDidMaybeReadOnly(did, ctx);
                 if (plc == default) return PreambleResult<Plc>.NeedsWrite;
                 return plc;
             }, func, ctx);
         }
-        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func, RequestContext? ctx = null)
+        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func, RequestContext? ctx)
         {
             WithRelationshipsLockForDids(dids, (plcs, rels) => { func(plcs, rels); return 0; }, ctx);
         }
@@ -46,7 +51,7 @@ namespace AppViewLite
                 var result = new Plc[dids.Length];
                 for (int i = 0; i < dids.Length; i++)
                 {
-                    var plc = rels.TrySerializeDidMaybeReadOnly(dids[i]);
+                    var plc = rels.TrySerializeDidMaybeReadOnly(dids[i], ctx);
                     if(plc == default) return PreambleResult<Plc[]>.NeedsWrite;
                     result[i] = plc;
                 }
@@ -54,7 +59,7 @@ namespace AppViewLite
             }, func, ctx);
         }
 
-        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
+        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func, RequestContext? ctx)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
@@ -145,6 +150,31 @@ namespace AppViewLite
                 ctx.AddToMetricsTable();
             }
 
+
+            if (ctx != null && readOnlyReplicaRelationshipsUnlocked != null)
+            {
+
+                if (ctx.MinVersion > readOnlyReplicaRelationshipsUnlocked.Version)
+                { 
+                    /* continue without readonly replica optimization (cloning the queue would would probably be more expensive) */
+                }
+                else
+                {
+                    var minVersion = ctx.MinVersion;
+                    EnsureUpToDateReadOnlyReplica(minVersion);
+                    var replica = this.readOnlyReplicaRelationshipsUnlocked;
+                    replica.Lock.EnterReadLock();
+                    try
+                    {
+                        return func(replica);
+                    }
+                    finally
+                    {
+                        replica.Lock.ExitReadLock();
+                    }
+                }
+            }
+
             if (urgent) 
             {
                 var tcs = new TaskCompletionSource<object?>();
@@ -168,34 +198,54 @@ namespace AppViewLite
                 return (T)tcs.Task.GetAwaiter().GetResult()!;
             }
 
+            var rels = relationshipsUnlocked;
+
 
             Stopwatch? sw = null;
             int gc = 0;
 
-            relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            rels.EnsureLockNotAlreadyHeld();
             ctx?.TimeSpentWaitingForLocks?.Start();
-            relationshipsUnlocked.Lock.EnterReadLock();
+            rels.Lock.EnterReadLock();
             var restore = MaybeSetThreadName("Lock_Read");
             try
             {
                 ctx?.TimeSpentWaitingForLocks?.Stop();
 
-                relationshipsUnlocked.EnsureNotDisposed();
+                rels.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
                 gc = GC.CollectionCount(0);
 
-                var result = func(relationshipsUnlocked);
+                var result = func(rels);
                 return result;
             }
             finally
             {
                 MaybeRestoreThreadName(restore);
-                relationshipsUnlocked.Lock.ExitReadLock();
+                rels.Lock.ExitReadLock();
 
                 MaybeLogLongLockUsage(sw, gc, LockKind.Read, PrintLongReadLocksThreshold, ctx);
             }
 
+        }
+
+        private void EnsureUpToDateReadOnlyReplica(long minVersion)
+        {
+            var oldReplica = readOnlyReplicaRelationshipsUnlocked;
+            if (minVersion > oldReplica.Version)
+            {
+                lock (buildNewReadOnlyReplicaLock)
+                {
+                    oldReplica = readOnlyReplicaRelationshipsUnlocked;
+                    if (minVersion > oldReplica.Version)
+                    {
+                        this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
+
+                        oldReplica.Dispose(); // takes its own write lock
+                    }
+                }
+            }
         }
 
         private void RunPendingUrgentReadTasks()
@@ -233,6 +283,8 @@ namespace AppViewLite
             var restore = MaybeSetThreadName("**** LOCK_WRITE ****");
             try
             {
+                relationshipsUnlocked.Version++;
+                if (ctx != null) ctx.MinVersion = relationshipsUnlocked.Version;
                 ctx?.TimeSpentWaitingForLocks?.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
@@ -335,6 +387,8 @@ namespace AppViewLite
         {
             if (sw == null) return;
 
+            //Console.Error.WriteLine(DateTime.UtcNow +" " + lockKind + " " + ctx?.RequestUrl);
+
             if (sw.ElapsedMilliseconds > threshold)
             {
                 sw.Stop();
@@ -411,6 +465,11 @@ namespace AppViewLite
                 return true;
             }
             return false;
+        }
+
+        public void Dispose()
+        {
+            readOnlyReplicaRelationshipsUnlocked?.Dispose();
         }
     }
 

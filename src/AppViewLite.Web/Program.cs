@@ -27,7 +27,7 @@ namespace AppViewLite.Web
         public static async Task Main(string[] args)
         {
             Relationships = new();
-            var apis = new BlueskyEnrichedApis(Relationships);
+            using var apis = new BlueskyEnrichedApis(Relationships, useReadOnlyReplica: true);
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));

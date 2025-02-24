@@ -42,8 +42,8 @@ namespace AppViewLite
                 }
             }
 
-            internal SortedSet<TValue> _manyValuesSorted;
-            internal TValue[] _manyValuesPreserved;
+            internal SortedSet<TValue>? _manyValuesSorted;
+            internal TValue[]? _manyValuesPreserved; // Contents of this array must NOT change.
             internal TValue _singleValue;
 
             public readonly IEnumerable<TValue> ValuesSorted
@@ -228,6 +228,24 @@ namespace AppViewLite
         public Dictionary<TKey, ValueGroup> Groups => dict;
 
         public IEnumerable<(TKey Key, TValue Value)> AllEntries => dict.SelectMany(x => x.Value.ValuesUnsorted, (group, list) => (group.Key, list));
+
+        public MultiDictionary2<TKey, TValue> Clone()
+        {
+            var d = new Dictionary<TKey, ValueGroup>(this.dict.Capacity);
+            foreach (var item in this.dict)
+            {
+                var v = item.Value;
+                d.Add(item.Key, new ValueGroup 
+                { 
+                    _singleValue = v._singleValue,
+                    _manyValuesPreserved = v._manyValuesPreserved,
+                    _manyValuesSorted = v._manyValuesSorted != null ? new SortedSet<TValue>(v._manyValuesSorted) : null
+                });
+            }
+            var copy = new MultiDictionary2<TKey, TValue>(sortedValues: !preserveOrder);
+            copy.dict = d;
+            return copy;
+        }
     }
 }
 

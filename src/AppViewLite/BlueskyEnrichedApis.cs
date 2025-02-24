@@ -41,8 +41,8 @@ namespace AppViewLite
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
 
-        public BlueskyEnrichedApis(BlueskyRelationships relationships)
-            : base(relationships)
+        public BlueskyEnrichedApis(BlueskyRelationships relationships, bool useReadOnlyReplica = false)
+            : base(relationships, useReadOnlyReplica)
         {
             PendingHandleVerifications = new(handle => ResolveHandleAsync(handle));
             FetchAndStoreDidDoc = new(pair => FetchAndStoreDidDocNoOverrideAsync(pair.Did, pair.Plc));
@@ -985,7 +985,7 @@ namespace AppViewLite
                 var recentThreshold = Tid.FromDateTime(DateTime.UtcNow - (canFetchFromServer ? TimeSpan.FromDays(7) : BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.GetProfilePageMaxPostAge()));
                 var recentPosts = WithRelationshipsLock(rels =>
                 {
-                    var plc = rels.TrySerializeDidMaybeReadOnly(did);
+                    var plc = rels.TrySerializeDidMaybeReadOnly(did, ctx);
                     if (plc == default) return [];
                     BlueskyProfile? profile = null;
 
@@ -1305,7 +1305,7 @@ namespace AppViewLite
                     foreach (var item in postsJsonParsed)
                     {
                         if (item.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Incorrect collection for feed skeleton entry");
-                        var author = rels.TrySerializeDidMaybeReadOnly(item.Did!.Handler);
+                        var author = rels.TrySerializeDidMaybeReadOnly(item.Did!.Handler, ctx);
                         if (author == default) return default;
                         postIds.Add(new PostId(author, Tid.Parse(item.Rkey)));
                     }
@@ -2715,7 +2715,7 @@ namespace AppViewLite
                     var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);
                     if (!rels.FeedGenerators.ContainsKey(feedId))
                     {
-                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value));
+                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value), ctx);
                     }
                     return rels.TryGetFeedGenerator(feedId)!;
                 }).ToArray();

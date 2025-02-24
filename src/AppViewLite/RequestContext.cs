@@ -35,6 +35,8 @@ namespace AppViewLite
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();
 
+        public long MinVersion;
+
         public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false, string? requestUrl = null)
         {
             this.longTimeout = longTimeout;

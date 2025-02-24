@@ -72,7 +72,7 @@ namespace AppViewLite.Storage
         }
     }
 
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
+    public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
         public int WriteBufferSize = 128 * 1024;
 
@@ -82,6 +82,11 @@ namespace AppViewLite.Storage
 
         public event EventHandler AfterCompactation;
         private bool DeleteOldFilesOnCompactation;
+        private CombinedPersistentMultiDictionary(string directory, List<SliceInfo> slices, PersistentDictionaryBehavior behavior)
+            : base(directory, behavior)
+        {
+            this.slices = slices;
+        }
         public CombinedPersistentMultiDictionary(string directory, string[]? slices, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
             : base(directory, behavior)
         {
@@ -118,7 +123,7 @@ namespace AppViewLite.Storage
             {
                 foreach (var slice in this.slices)
                 {
-                    slice.Reader.Dispose();
+                    slice.ReaderHandle.Dispose();
                 }
                 throw;
             }
@@ -148,7 +153,7 @@ namespace AppViewLite.Storage
             return new SliceInfo(
                 interval.StartTime,
                 interval.EndTime,
-                reader);
+                new(reader));
         }
 
         private MultiDictionary2<TKey, TValue> queue;
@@ -160,14 +165,14 @@ namespace AppViewLite.Storage
         public event EventHandler BeforeWrite;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader, long SizeInBytes)
+        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, long SizeInBytes)
         {
-            public SliceInfo(DateTime StartTime, DateTime EndTime, ImmutableMultiDictionaryReader<TKey, TValue> Reader)
-                 :this(StartTime, EndTime, Reader, Reader.SizeInBytes)
+            public SliceInfo(DateTime startTime, DateTime endTime, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> readerHandle)
+                 :this(startTime, endTime, readerHandle, readerHandle.Value.SizeInBytes)
             { 
            
             }
-
+            public ImmutableMultiDictionaryReader<TKey, TValue> Reader => ReaderHandle.Value;
         }
 
         public void DisposeNoFlush()
@@ -176,7 +181,7 @@ namespace AppViewLite.Storage
 
             foreach (var slice in slices)
             {
-                slice.Reader.Dispose();
+                slice.ReaderHandle.Dispose();
             }
         }
         
@@ -243,7 +248,7 @@ namespace AppViewLite.Storage
                 OriginalWriteBytes += size;
                 queue.Clear();
                 LastFlushed = DateTime.UtcNow;
-                slices.Add(new(date, date, new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior)));
+                slices.Add(new(date, date, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {StringUtils.ToHumanBytes(size)}");
 
                 if (!disposing)
@@ -343,12 +348,11 @@ namespace AppViewLite.Storage
                     // Here we are again inside the lock.
                     var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
                     CompactationWriteBytes += size;
-
                     Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => StringUtils.ToHumanBytes(x.SizeInBytes))) + " => " + StringUtils.ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     foreach (var input in inputs)
                     {
-                        input.Reader.Dispose();
+                        input.ReaderHandle.Dispose();
                         if (DeleteOldFilesOnCompactation)
                         {
                             for (int i = 0; i < (IsSingleValue ? 2 : 3); i++)
@@ -360,7 +364,7 @@ namespace AppViewLite.Storage
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
-                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, new(mergedPrefix, behavior)));
+                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, new(new(mergedPrefix, behavior))));
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
@@ -874,6 +878,21 @@ namespace AppViewLite.Storage
         }
 
         
+
+        public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
+        {
+            var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.ReaderHandle.AddRef())).ToList(), behavior);
+            copy.Version = this.Version;
+            var queueCopy = new MultiDictionary2<TKey, TValue>(sortedValues: this.behavior != PersistentDictionaryBehavior.PreserveOrder);
+            copy.queue = this.queue.Clone();
+            copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
+            copy.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
+            return copy;
+        }
+
+        ICloneableAsReadOnly ICloneableAsReadOnly.CloneAsReadOnly() => CloneAsReadOnly();
+
+        public long Version;
     }
 
 }

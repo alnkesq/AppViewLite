@@ -25,8 +25,10 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace AppViewLite
 {
-    public class BlueskyRelationships : IDisposable
+    public class BlueskyRelationships : IDisposable, ICloneableAsReadOnly
     {
+
+        public long Version;
         public static int ManagedThreadIdWithWriteLock;
         public int ForbidUpgrades;
         private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
@@ -139,8 +141,9 @@ namespace AppViewLite
         }
 
         public bool IsReadOnly { get; private set; }
-        public BlueskyRelationships(string basedir, bool isReadOnly)
+        public BlueskyRelationships(string? basedir, bool isReadOnly)
         {
+            if (basedir == null) return;
             Lock = new ReaderWriterLockSlim();
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
             ProtoBuf.Serializer.PrepareSerializer<RepositoryImportEntry>();
@@ -360,7 +363,7 @@ namespace AppViewLite
                     }
                     if (!IsReadOnly)
                         CaptureCheckpoint();
-                    lockFile.Dispose();
+                    lockFile?.Dispose();
                     _disposed = true;
                 }
 
@@ -494,15 +497,15 @@ namespace AppViewLite
 
 
 
-        public Plc SerializeDid(string did)
+        public Plc SerializeDid(string did, RequestContext? ctx = null) // TODO: actually very important to pass ctx
         {
 
-            var plc = TrySerializeDidMaybeReadOnly(did);
+            var plc = TrySerializeDidMaybeReadOnly(did, ctx);
             if (plc == default)
                 throw ThrowIncorrectLockUsageException("Cannot serialize new did, because a write or upgradable lock is not held.");
             return plc;
         }
-        public Plc TrySerializeDidMaybeReadOnly(string did)
+        public Plc TrySerializeDidMaybeReadOnly(string did, RequestContext ctx)
         {
             BlueskyEnrichedApis.EnsureValidDid(did);
             var hash = StringUtils.HashUnicodeToUuid(did);
@@ -532,7 +535,7 @@ namespace AppViewLite
                 }
 
                 DidHashToUserId.Add(hash, plc);
-            });
+            }, ctx);
 
 
 
@@ -543,7 +546,7 @@ namespace AppViewLite
 
         public bool CanUpgradeToWrite => Lock.IsWriteLockHeld || (Lock.IsUpgradeableReadLockHeld && ForbidUpgrades == 0);
 
-        public void WithWriteUpgrade(Action value)
+        public void WithWriteUpgrade(Action value, RequestContext ctx)
         {
             if (ForbidUpgrades != 0) throw ThrowIncorrectLockUsageException("Cannot upgrade to write lock after the upgradable preamble.");
             if (Lock.IsWriteLockHeld)
@@ -556,6 +559,10 @@ namespace AppViewLite
                 Lock.EnterWriteLock();
                 try
                 {
+                    Version++;
+                    if (ctx != null)
+                        ctx.MinVersion = Version;
+
                     value();
                 }
                 finally
@@ -2800,6 +2807,30 @@ namespace AppViewLite
 
             // ctx.Session is null when logging in (ourselves)
             profile.PrivateFollow = ctx.Session?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
+        }
+
+        public ICloneableAsReadOnly CloneAsReadOnly()
+        {
+            var copy = new BlueskyRelationships(basedir: null, isReadOnly: true);
+            copy.Version = this.Version;
+            copy.Lock = new();
+            copy.IsReadOnly = true;
+            copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
+            var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            foreach (var field in fields)
+            {
+                if (field.FieldType.IsAssignableTo(typeof(ICloneableAsReadOnly)))
+                {
+                    var copiedField = ((ICloneableAsReadOnly)field.GetValue(this)!).CloneAsReadOnly();
+                    field.SetValue(copy, copiedField);
+                    copy.disposables.Add((ICheckpointable)copiedField);
+                }
+                else
+                {
+                    // Console.Error.WriteLine("Extra field: " + field.Name);
+                }
+            }
+            return copy;
         }
     }
 

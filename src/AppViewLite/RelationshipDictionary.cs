@@ -15,7 +15,7 @@ namespace AppViewLite
     { 
         public abstract IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
     }
-    public class RelationshipDictionary<TTarget> : RelationshipDictionary, ICheckpointable where TTarget : unmanaged, IComparable<TTarget>
+    public class RelationshipDictionary<TTarget> : RelationshipDictionary, ICheckpointable, ICloneableAsReadOnly where TTarget : unmanaged, IComparable<TTarget>
     {
 
         internal CombinedPersistentMultiDictionary<TTarget, Relationship> creations;
@@ -27,7 +27,11 @@ namespace AppViewLite
         public event EventHandler? AfterFlush;
         public event EventHandler<CancelEventArgs>? ShouldFlush;
         public event EventHandler? BeforeWrite;
-        public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
+        private IReadOnlyList<CombinedPersistentMultiDictionary> _multidictionaries;
+        public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries => _multidictionaries;
+        internal RelationshipDictionary()
+        { 
+        }
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -48,7 +52,7 @@ namespace AppViewLite
                 this.relationshipIdHashToApproxTarget = CreateMultiDictionary<RelationshipHash, UInt24>("-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
                 SetUpEventHandlers(relationshipIdHashToApproxTarget);
             }
-            Multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
+            _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
         }
 
         private void SetUpEventHandlers(IFlushable inner)
@@ -339,6 +343,21 @@ namespace AppViewLite
                 component.DisposeNoFlush();
             }
         }
+
+        public RelationshipDictionary<TTarget> CloneAsReadOnly()
+        {
+            var copy = new RelationshipDictionary<TTarget>();
+            copy.creations = this.creations.CloneAsReadOnly();
+            copy.deletions = this.deletions.CloneAsReadOnly();
+            copy.deletionCounts = this.deletionCounts.CloneAsReadOnly();
+            copy.relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly();
+            copy.targetToApproxTarget = this.targetToApproxTarget;
+            copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
+            return copy;
+
+        }
+
+        ICloneableAsReadOnly ICloneableAsReadOnly.CloneAsReadOnly() => CloneAsReadOnly();
     }
 }
 

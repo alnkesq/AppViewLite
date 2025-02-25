@@ -2741,6 +2741,7 @@ namespace AppViewLite
             if (handle.StartsWith("did:", StringComparison.Ordinal))
             {
                 EnsureValidDid(handle);
+                WarmUpDidAssignment(handle, ctx);
                 return handle;
             }
 
@@ -2754,6 +2755,8 @@ namespace AppViewLite
                     var bridged = await TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(pluggableDid, ctx);
                     if (bridged != null)
                         return bridged;
+
+                    WarmUpDidAssignment(pluggableDid, ctx);
                     return pluggableDid;
                 }
             }
@@ -2831,6 +2834,13 @@ namespace AppViewLite
             }
 
             return did!;
+        }
+
+        private void WarmUpDidAssignment(string did, RequestContext? ctx)
+        {
+            // assign a Plc (in case not all future code paths properly pass ctx to SerializeDid)
+            var plc2 = WithRelationshipsLock(rels => rels.TrySerializeDidMaybeReadOnly(did, ctx));
+            if (plc2 == default) WithRelationshipsWriteLock(rels => rels.SerializeDid(did, ctx));
         }
 
         private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideAsync(string did, Plc plc)

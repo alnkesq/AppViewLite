@@ -505,7 +505,7 @@ namespace AppViewLite
                 throw ThrowIncorrectLockUsageException("Cannot serialize new did, because a write or upgradable lock is not held.");
             return plc;
         }
-        public Plc TrySerializeDidMaybeReadOnly(string did, RequestContext ctx)
+        public Plc TrySerializeDidMaybeReadOnly(string did, RequestContext? ctx)
         {
             BlueskyEnrichedApis.EnsureValidDid(did);
             var hash = StringUtils.HashUnicodeToUuid(did);

@@ -739,6 +739,7 @@ namespace AppViewLite.Storage
 
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)
         {
+            using var _ = new ThreadPriorityScope(System.Threading.ThreadPriority.Lowest);
             var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), (x, i) => (x.Key, i));
             var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
 

@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AppViewLite
+namespace AppViewLite.Storage
 {
     public ref struct ThreadPriorityScope : IDisposable
     {

@@ -42,7 +42,7 @@ namespace AppViewLite
                 }
             }
 
-            internal SortedSet<TValue>? _manyValuesSorted;
+            public SortedSet<TValue>? _manyValuesSorted;
             internal TValue[]? _manyValuesPreserved; // Contents of this array must NOT change.
             internal TValue _singleValue;
 

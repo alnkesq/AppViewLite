@@ -14,6 +14,7 @@ namespace AppViewLite
     public abstract class RelationshipDictionary
     { 
         public abstract IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
+        public virtual long NonReusableQueueBytes { get; }
     }
     public class RelationshipDictionary<TTarget> : RelationshipDictionary, ICheckpointable, ICloneableAsReadOnly where TTarget : unmanaged, IComparable<TTarget>
     {
@@ -54,7 +55,11 @@ namespace AppViewLite
             }
             _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
         }
-
+        public override long NonReusableQueueBytes =>
+            creations.NonReusableQueueBytes +
+            deletions.NonReusableQueueBytes +
+            deletionCounts.NonReusableQueueBytes +
+            relationshipIdHashToApproxTarget?.NonReusableQueueBytes ?? 0;
         private void SetUpEventHandlers(IFlushable inner)
         {
             inner.BeforeFlush += OnBeforeFlush;

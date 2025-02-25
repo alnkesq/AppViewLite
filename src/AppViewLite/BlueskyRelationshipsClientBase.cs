@@ -155,8 +155,8 @@ namespace AppViewLite
 
 
 
-        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromSeconds(3);
-        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromSeconds(5);
+        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC) ?? 10000);
+        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ) ?? 30000);
 
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx, bool urgent)
         {

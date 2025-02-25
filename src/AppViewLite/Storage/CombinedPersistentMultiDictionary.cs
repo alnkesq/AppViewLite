@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace AppViewLite.Storage
 {
@@ -33,6 +34,7 @@ namespace AppViewLite.Storage
         public DateTime LastFlushed;
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
+        public virtual long NonReusableQueueBytes { get; }
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
             this.DirectoryPath = directory;
@@ -132,6 +134,15 @@ namespace AppViewLite.Storage
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
         }
 
+        public override long NonReusableQueueBytes
+        {
+            get
+            {
+                return
+                    queue.GroupCount * (Unsafe.SizeOf<TKey>() + Unsafe.SizeOf<MultiDictionary2<TKey, TValue>.ValueGroup>()) +
+                    queue.Groups.Values.Sum(x => (long)(x._manyValuesSorted?.Count ?? 0) * Unsafe.SizeOf<TValue>() );
+            }
+        }
         private static SliceInfo OpenSlice(string directory, string fileName, PersistentDictionaryBehavior behavior, bool mandatory)
         {
             var baseName = fileName.Substring(0, fileName.LastIndexOf(".col", StringComparison.Ordinal));

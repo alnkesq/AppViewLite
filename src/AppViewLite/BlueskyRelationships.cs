@@ -2829,19 +2829,31 @@ namespace AppViewLite
 
         public ICloneableAsReadOnly CloneAsReadOnly()
         {
-            Console.Error.WriteLine("Capturing readonly replica.");
             AssertCanRead();
+            var sw = Stopwatch.StartNew();
             var copy = new BlueskyRelationships(basedir: null, isReadOnly: true);
             copy.Version = this.Version;
             copy.Lock = new();
             copy.IsReadOnly = true;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            long copiedQueueBytes = 0;
             foreach (var field in fields)
             {
                 if (field.FieldType.IsAssignableTo(typeof(ICloneableAsReadOnly)))
                 {
                     var copiedField = ((ICloneableAsReadOnly)field.GetValue(this)!).CloneAsReadOnly();
+                    long copiedBytes = 0;
+                    if (copiedField is CombinedPersistentMultiDictionary p)
+                    {
+                        copiedBytes = p.NonReusableQueueBytes;
+                    }
+                    else if (copiedField is RelationshipDictionary r)
+                    {
+                        copiedBytes = r.NonReusableQueueBytes;
+                    }
+                    if (copiedBytes > 100000) Console.Error.WriteLine("Large copy for " + field.Name + ": " + StringUtils.ToHumanBytes(copiedBytes));
+                    copiedQueueBytes += copiedBytes;
                     field.SetValue(copy, copiedField);
                     copy.disposables.Add((ICheckpointable)copiedField);
                 }
@@ -2851,6 +2863,8 @@ namespace AppViewLite
                 }
             }
             copy.ReplicaAge = Stopwatch.StartNew();
+
+            Console.Error.WriteLine("Captured readonly replica. Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + ", time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
             return copy;
         }
     }

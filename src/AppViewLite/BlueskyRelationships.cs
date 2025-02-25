@@ -2175,7 +2175,7 @@ namespace AppViewLite
                 {
                     var triplet = requireFollowStillValid[x];
                     
-                    if (!(follows.IsStillFollowedRequiresLock(triplet.A) && follows.IsStillFollowedRequiresLock(triplet.B) && follows.IsStillFollowedRequiresLock(triplet.C)))
+                    if (!(follows.IsStillFollowed(triplet.A, this) && follows.IsStillFollowed(triplet.B, this) && follows.IsStillFollowed(triplet.C, this)))
                         return false;
 
                     PopulateViewerFlags(x, ctx);
@@ -2676,7 +2676,7 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public (Plc[] PossibleFollows, Func<Plc, bool> IsStillFollowedRequiresLock, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
+        public (Plc[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
             var stillFollowedResult = new Dictionary<Plc, bool>();
             var possibleFollows = new Dictionary<Plc, Tid>();
@@ -2692,7 +2692,7 @@ namespace AppViewLite
                     possibleFollows[item.Key] = default;
             }
 
-            return (possibleFollows.Keys.ToArray(), plc =>
+            return (possibleFollows.Keys.ToArray(), (plc, rels) =>
             {
                 if (plc == default) return true;
 
@@ -2704,7 +2704,7 @@ namespace AppViewLite
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
                 if (!exists)
                 {
-                    result = !Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey));
+                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey));
                 }
                 return result;
             },

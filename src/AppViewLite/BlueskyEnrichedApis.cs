@@ -1772,16 +1772,16 @@ namespace AppViewLite
                         .ToArray();
 
                     if (posts.Length == 0 && reposts.Length == 0) return default;
-                    if (!possibleFollows.IsStillFollowedRequiresLock(plc)) return default;
+                    if (!possibleFollows.IsStillFollowed(plc, rels)) return default;
 
                     return (
                         Plc: plc,
                         Posts: posts
-                            .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowedRequiresLock(x.InReplyTo))
+                            .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
                             .Select(x => (x.InReplyTo, PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
                             .ToArray(), 
                        Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowedRequiresLock(x.PostId.Author), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))
                             .ToArray()
                        );
                 }).Where(x => x.Plc != default).ToArray();
@@ -1876,12 +1876,12 @@ namespace AppViewLite
 
                             if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
                             {
-                                if (!possibleFollows.IsStillFollowedRequiresLock(rootAuthor) && rootAuthor != loggedInUser)
+                                if (!possibleFollows.IsStillFollowed(rootAuthor, rels) && rootAuthor != loggedInUser)
                                     return false;
                             }
                             if (post.InReplyToPostId is { Author: var inReplyTo } && inReplyTo != post.AuthorId)
                             {
-                                if (!possibleFollows.IsStillFollowedRequiresLock(inReplyTo) && inReplyTo != loggedInUser)
+                                if (!possibleFollows.IsStillFollowed(inReplyTo, rels) && inReplyTo != loggedInUser)
                                     return false;
                             }
                             return true;

@@ -93,6 +93,9 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
 
+        public ConcurrentFullEvictionCache<DuckDbUuid, Plc> DidToPlcConcurrentCache;
+        public ConcurrentFullEvictionCache<Plc, string> PlcToDidConcurrentCache;
+
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
         public TimeSpan PlcDirectoryStaleness => DateTime.UtcNow - PlcDirectorySyncDate;
@@ -151,6 +154,8 @@ namespace AppViewLite
         public BlueskyRelationships(string? basedir, bool isReadOnly)
         {
             if (basedir == null) return;
+            DidToPlcConcurrentCache = new(512 * 1024);
+            PlcToDidConcurrentCache = new(128 * 1024);
             Lock = new ReaderWriterLockSlim();
             ProtoBuf.Serializer.PrepareSerializer<BlueskyPostData>();
             ProtoBuf.Serializer.PrepareSerializer<RepositoryImportEntry>();
@@ -485,6 +490,12 @@ namespace AppViewLite
         public string GetDid(Plc plc)
         {
             string did;
+
+            if (PlcToDidConcurrentCache.TryGetValue(plc, out var cached))
+            {
+                return cached;
+            }
+
             if (PlcToDidPlc.TryGetSingleValue(plc, out var plc128))
             {
                 did = DeserializeDidPlcFromUInt128(plc128);
@@ -499,6 +510,7 @@ namespace AppViewLite
 
             }
             if (SerializeDid(did) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + did));
+            PlcToDidConcurrentCache[plc] = did;
             return did;
         }
 
@@ -518,10 +530,15 @@ namespace AppViewLite
             var hash = StringUtils.HashUnicodeToUuid(did);
 
 
+            if (DidToPlcConcurrentCache.TryGetValue(hash, out var cached))
+            {
+                return cached;
+            }
 
 
             if (DidHashToUserId.TryGetSingleValue(hash, out var plc))
             {
+                DidToPlcConcurrentCache[hash] = plc;
                 return plc;
             }
 
@@ -545,7 +562,7 @@ namespace AppViewLite
             }, ctx);
 
 
-
+            DidToPlcConcurrentCache[hash] = plc;
             return plc;
 
         }
@@ -2835,6 +2852,8 @@ namespace AppViewLite
             copy.Version = this.Version;
             copy.Lock = new();
             copy.IsReadOnly = true;
+            copy.DidToPlcConcurrentCache = this.DidToPlcConcurrentCache;
+            copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             long copiedQueueBytes = 0;

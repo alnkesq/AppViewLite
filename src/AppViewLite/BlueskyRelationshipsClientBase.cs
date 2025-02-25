@@ -544,6 +544,9 @@ namespace AppViewLite
         {
             readOnlyReplicaRelationshipsUnlocked?.Dispose();
         }
+
+
+        public static ThreadPriorityScope CreateIngestionThreadPriorityScope() => new ThreadPriorityScope(ThreadPriority.Lowest);
     }
 
     public enum LockKind

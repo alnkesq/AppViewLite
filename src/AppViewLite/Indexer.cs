@@ -42,6 +42,8 @@ namespace AppViewLite
 
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
         {
+            using var _ = CreateIngestionThreadPriorityScope();
+
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
             var slash = path!.IndexOf('/');
@@ -131,6 +133,7 @@ namespace AppViewLite
 
         private void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false)
         {
+            using var priorityScope = CreateIngestionThreadPriorityScope();
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
             

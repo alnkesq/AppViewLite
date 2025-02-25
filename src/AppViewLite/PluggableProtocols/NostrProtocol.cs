@@ -47,6 +47,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
             client.EventsReceived += (s, e) =>
             {
+                using var _ = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
                 foreach (var evt in e.events)
                 {
                     try

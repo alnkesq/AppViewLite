@@ -109,7 +109,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         private async Task BoardIterationAsync(YotsubaBoardId boardId, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-
+            
             var threadPages = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaThreadPageJson[]>(GetApiPrefix(boardId) + "/catalog.json", JsonOptions, ct);
             var boardDid = ToDid(boardId);
             var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid));
@@ -138,8 +138,9 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         private void IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread)
         {
+            using var _ = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
+
             var date = DateTime.UnixEpoch.AddSeconds(thread.Time);
-            if (date < ApproximateDateTime32.MinValueAsDateTime) return;
 
             var threadNumber = thread.No;
             var threadId = new QualifiedPluggablePostId(ToDid(boardId), new NonQualifiedPluggablePostId(CreateSyntheticTid(date, threadNumber.ToString()), threadNumber));

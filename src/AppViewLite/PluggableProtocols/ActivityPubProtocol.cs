@@ -50,7 +50,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             while (await reader.ReadAsync(ct) is { } evt)
             {
-
+                using var _ = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
                 try
                 {
 

@@ -125,7 +125,7 @@ namespace AppViewLite
             // Some spam bots?
             // Avoid noisy exceptions.
             var rkey = path.Split('/')[1];
-            return long.TryParse(rkey, out _) || rkey.StartsWith("follow_did:", StringComparison.Ordinal);
+            return long.TryParse(rkey, out _) || rkey.StartsWith("follow_", StringComparison.Ordinal);
         }
 
 

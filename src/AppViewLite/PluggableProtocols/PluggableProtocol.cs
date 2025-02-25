@@ -71,7 +71,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool RepostsAreCategories => false;
 
-        public QualifiedPluggablePostId? GetPostIdWithCorrectTid(QualifiedPluggablePostId qualifiedPostId)
+        public QualifiedPluggablePostId? GetPostIdWithCorrectTid(QualifiedPluggablePostId qualifiedPostId, RequestContext? ctx)
         {
             var reversedTid = TryGetTidFromPostId(new QualifiedPluggablePostId(qualifiedPostId.Did, qualifiedPostId.PostId.CloneWithoutTid())) ?? default;
             if (reversedTid != default)
@@ -80,7 +80,7 @@ namespace AppViewLite.PluggableProtocols
                 return qualifiedPostId.WithTid(reversedTid);
             }
 
-            var result = Apis.WithRelationshipsLock(rels => rels.TryGetStoredSyntheticTidFromPluggablePostId(qualifiedPostId));
+            var result = Apis.WithRelationshipsLock(rels => rels.TryGetStoredSyntheticTidFromPluggablePostId(qualifiedPostId), ctx);
             if (result.Tid != default) return result;
             
             return null;
@@ -91,7 +91,7 @@ namespace AppViewLite.PluggableProtocols
         {
             EnsureOwnDid(reposterDid);
             EnsureValidDid(reposterDid);
-            var tid = (GetPostIdWithCorrectTid(qualifiedPostId) ?? default).Tid;
+            var tid = (GetPostIdWithCorrectTid(qualifiedPostId, ctx) ?? default).Tid;
             if (tid == default) throw new ArgumentNullException();
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(reposterDid)) return;

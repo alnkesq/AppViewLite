@@ -44,9 +44,9 @@ namespace AppViewLite
         public BlueskyEnrichedApis(BlueskyRelationships relationships, bool useReadOnlyReplica = false)
             : base(relationships, useReadOnlyReplica)
         {
-            PendingHandleVerifications = new(handle => ResolveHandleAsync(handle));
-            FetchAndStoreDidDoc = new(pair => FetchAndStoreDidDocNoOverrideAsync(pair.Did, pair.Plc));
-            FetchAndStoreLabelerServiceMetadata = new(did => FetchAndStoreLabelerServiceMetadataAsync(did));
+            PendingHandleVerifications = new((handle, anyCtx) => ResolveHandleAsync(handle, ctx: anyCtx));
+            FetchAndStoreDidDocNoOverride = new((pair, anyCtx) => FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx));
+            FetchAndStoreLabelerServiceMetadata = new((did, anyCtx) => FetchAndStoreLabelerServiceMetadataAsync(did, anyCtx));
 
 
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
@@ -141,15 +141,15 @@ namespace AppViewLite
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
         private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingListRetrievals = new();
-        public TaskDictionary<string, string> PendingHandleVerifications;
-        public TaskDictionary<(Plc Plc, string Did), DidDocProto> FetchAndStoreDidDoc;
-        public TaskDictionary<string> FetchAndStoreLabelerServiceMetadata;
+        public TaskDictionary<string, RequestContext?, string> PendingHandleVerifications;
+        public TaskDictionary<(Plc Plc, string Did), RequestContext?, DidDocProto> FetchAndStoreDidDocNoOverride;
+        public TaskDictionary<string, RequestContext?> FetchAndStoreLabelerServiceMetadata;
 
   
 
-        private async Task FetchAndStoreLabelerServiceMetadataAsync(string did)
+        private async Task FetchAndStoreLabelerServiceMetadataAsync(string did, RequestContext? ctx)
         {
-            var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self")).Value;
+            var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value;
 
             var defs = (record.Policies?.LabelValueDefinitions ?? [])?.ToDictionary(x => x.Identifier);
 
@@ -175,7 +175,7 @@ namespace AppViewLite
                     };
                     rels.LabelData.AddRange(new LabelId(plc, BlueskyRelationships.HashLabelName(policy)), BlueskyRelationships.SerializeProto(labelInfo, x => x.Dummy = true));
                 }
-            });
+            }, ctx);
         }
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
@@ -226,25 +226,25 @@ namespace AppViewLite
             }
 
             var task = LookupManyRecordsWithinShortDeadlineAsync<Profile>(toLookup, pendingProfileRetrievals, Profile.RecordType, ct,
-                (key, profileRecord) =>
+                (key, profileRecord, ctx) =>
                 {
                     WithRelationshipsWriteLock(rels =>
                     {
                         var plc = rels.SerializeDid(key.Did);
                         rels.StoreProfileBasicInfo(plc, profileRecord);
                         OnRecordReceived(rels, plc);
-                    });
+                    }, ctx);
                 },
-                key =>
+                (key, ctx) =>
                 {
                     WithRelationshipsWriteLock(rels =>
                     {
                         var plc = rels.SerializeDid(key.Did);
                         rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
                         OnRecordReceived(rels, plc);
-                    });
+                    }, ctx);
                 },
-                key =>
+                (key, ctx) =>
                 {
                     WithRelationshipsLock(rels => OnRecordReceived(rels, rels.SerializeDid(key.Did)), ctx);
                 }
@@ -280,7 +280,7 @@ namespace AppViewLite
                         handle = diddoc.Handle;
                         if (handle == null) return null;
                     }
-                    var did2 = await PendingHandleVerifications.GetValueAsync(handle);
+                    var did2 = await PendingHandleVerifications.GetValueAsync(handle, ctx);
                     if (did != did2) return null;
                 }
 
@@ -306,7 +306,7 @@ namespace AppViewLite
                 if (handle == null) return;
             }
             
-            PendingHandleVerifications.StartAsync(handle, task =>
+            PendingHandleVerifications.StartAsync(handle, ctx, task =>
             {
                 var k = task.IsCompletedSuccessfully && task.Result == did ? handle : null;
                 ctx.SendSignalrAsync("HandleVerificationResult", did, BlueskyRelationships.MaybeBridyHandleToFediHandle(k));
@@ -339,7 +339,7 @@ namespace AppViewLite
             var following = WithRelationshipsUpgradableLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler))).ToArray();
-            });
+            }, ctx);
             await EnrichAsync(following, ctx);
             return (following, response.Records.Count > limit ? response!.Cursor : null);
         }
@@ -463,8 +463,10 @@ namespace AppViewLite
             }
 
 
+            
+
             var task = LookupManyRecordsWithinShortDeadlineAsync<Post>(toLookup, pendingPostRetrievals, Post.RecordType, ct,
-                (key, postRecord) =>
+                (key, postRecord, ctx) =>
                 {
                     WithRelationshipsWriteLock(rels =>
                     {
@@ -479,18 +481,18 @@ namespace AppViewLite
                         {
                             rels.SuppressNotificationGeneration--;
                         }
-                    });
+                    }, ctx);
                 },
-                key =>
+                (key, ctx) =>
                 {
                     WithRelationshipsWriteLock(rels =>
                     {
                         var postId = rels.GetPostId(key.Did, key.RKey);
                         rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow);
                         OnRecordReceived(rels, postId);
-                    });
+                    }, ctx);
                 },
-                key =>
+                (key, ctx) =>
                 {
                     WithRelationshipsLock(rels => OnRecordReceived(rels, rels.GetPostId(key.Did, key.RKey)), ctx);
                 },
@@ -548,7 +550,7 @@ namespace AppViewLite
 
 
 
-        private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue> onItemSuccess, Action<RelationshipStr> onItemFailure, Action<RelationshipStr> onPreexistingTaskCompleted, RequestContext ctx) where TValue : ATObject
+        private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue, RequestContext> onItemSuccess, Action<RelationshipStr, RequestContext> onItemFailure, Action<RelationshipStr, RequestContext> onPreexistingTaskCompleted, RequestContext ctx) where TValue : ATObject
         {
             if (relationshipsUnlocked.IsReadOnly) return Task.CompletedTask;
 
@@ -565,7 +567,7 @@ namespace AppViewLite
                     {
                         task.Task.GetAwaiter().OnCompleted(() => 
                         {
-                            onPreexistingTaskCompleted?.Invoke(key);
+                            onPreexistingTaskCompleted?.Invoke(key, ctx);
                         });
                         allTasksToAwait.Add(task.Task);
                     }
@@ -576,6 +578,7 @@ namespace AppViewLite
                 if (keysToLookup.Count != 0)
                 {
                     Console.Error.WriteLine("  Firing " + keysToLookup.Count + " lookups for " + collection);
+                    var delayedCtx = RequestContext.CreateInfinite(null, null);
                     allTasksToAwait.AddRange(keysToLookup.Select(key =>
                     {
                         async Task RunAsync()
@@ -585,13 +588,13 @@ namespace AppViewLite
                             {
                                 try
                                 {
-                                    var response = await GetRecordAsync(key.Did, collection, key.RKey, ctx, ct);
+                                    var response = await GetRecordAsync(key.Did, collection, key.RKey, delayedCtx, ct);
                                     var obj = (TValue)response.Value!;
-                                    onItemSuccess(key, obj);
+                                    onItemSuccess(key, obj, delayedCtx);
                                 }
                                 catch (Exception)
                                 {
-                                    onItemFailure(key);
+                                    onItemFailure(key, delayedCtx);
                                     Console.Error.WriteLine("     > Failure: " + key);
                                 }
 
@@ -1087,18 +1090,30 @@ namespace AppViewLite
                         enumerator.LastReturnedTid = default;
                 }
 
+                var alreadyHasAllPosts = WithRelationshipsLock(rels =>
+                {
+                    return merged.Where(x => x.PostRecord != null).All(x => 
+                    {
+                        var plc = rels.TrySerializeDidMaybeReadOnly(x.PostId.Did, ctx);
+                        if (plc == default) return false;
+                        return rels.PostData.ContainsKey(new PostIdTimeFirst(x.RKey, plc));
+                    });
+                }, ctx);
 
-                var posts = WithRelationshipsWriteLock(rels =>
+
+                BlueskyPost[] StoreAndGetAllPosts(BlueskyRelationships rels)
                 {
                     var plc = rels.SerializeDid(did);
                     BlueskyProfile? profile = null;
                     return merged.Select(x =>
                     {
                         var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey);
-                        if (x.PostRecord != null && !rels.PostData.ContainsKey(postId))
+                            
+                        if (!alreadyHasAllPosts && x.PostRecord != null && !rels.PostData.ContainsKey(postId))
                         {
                             rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did);
                         }
+
 
                         var post = GetPostIfRelevant(rels, postId, x.Kind);
                         if (post != null)
@@ -1114,10 +1129,16 @@ namespace AppViewLite
                                 post.RepostDate = x.RKey.Date;
                             }
                         }
-                        
+
                         return post;
-                    }).Where(x => x != null).ToArray();
-                }, ctx);
+                    }).Where(x => x != null).ToArray()!;
+                    
+                }
+
+                var posts =
+                    alreadyHasAllPosts 
+                        ? WithRelationshipsLock(StoreAndGetAllPosts, ctx)
+                        : WithRelationshipsWriteLock(StoreAndGetAllPosts, ctx);
 
 
                 var exceededIterations = iterationCount >= 5;
@@ -1314,7 +1335,7 @@ namespace AppViewLite
                 (p, rels) =>
                 {
                     return p.Select(x => rels.GetPost(x)).ToArray();
-                });
+                }, ctx);
             if (continuation == null && posts.Length == 0)
                 throw new Exception("The feed provider didn't return any results." + (ctx.IsLoggedIn ? " Note that feeds that require a logged-in user are not currently supported." : null));
 
@@ -1374,13 +1395,13 @@ namespace AppViewLite
 
             if (result == null || ((now - result.RetrievalDate).TotalHours > 6 && !IsReadOnly))
             { 
-                var recordOutput = await GetRecordAsync(did, Generator.RecordType, rkey);
+                var recordOutput = await GetRecordAsync(did, Generator.RecordType, rkey, ctx);
                 var generator = (Generator)recordOutput!.Value!;
                 WithRelationshipsWriteLock(rels =>
                 {
-                    rels.IndexFeedGenerator(plc, rkey, (Generator)recordOutput.Value);
+                    rels.IndexFeedGenerator(plc, rkey, (Generator)recordOutput.Value, DateTime.UtcNow);
                     result = rels.TryGetFeedGeneratorData(new(plc, rkey));
-                });
+                }, ctx);
             }
 
             return result!;
@@ -2393,7 +2414,7 @@ namespace AppViewLite
             if (toLookup.Length == 0) return labels;
             var all = Task.WhenAll(toLookup.Select(async x =>
             {
-                await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(x.Key.LabelerDid);
+                await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(x.Key.LabelerDid, ctx);
                 foreach (var label in x)
                 {
                     var data = WithRelationshipsLock(rels => rels.TryGetLabelData(label.LabelId), ctx);
@@ -2428,7 +2449,7 @@ namespace AppViewLite
             }
 
             var task = LookupManyRecordsWithinShortDeadlineAsync<List>(toLookup, pendingProfileRetrievals, List.RecordType, ct,
-                (key, listRecord) =>
+                (key, listRecord, ctx) =>
                 {
                     WithRelationshipsWriteLock(rels =>
                     {
@@ -2437,7 +2458,7 @@ namespace AppViewLite
                         OnRecordReceived(rels, id);
                     }, ctx);
                 },
-                key =>
+                (key, ctx) =>
                 {
                     WithRelationshipsWriteLock(rels =>
                     {
@@ -2446,7 +2467,7 @@ namespace AppViewLite
                         OnRecordReceived(rels, id);
                     }, ctx);
                 },
-                key =>
+                (key, ctx) =>
                 {
                     WithRelationshipsLock(rels =>
                     {
@@ -2505,7 +2526,7 @@ namespace AppViewLite
             
         }
 
-        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx = null, CancellationToken ct = default)
+        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext? ctx = null, CancellationToken ct = default)
         {
             using var proto = await CreateProtocolForDidAsync(did, ctx);
             try
@@ -2715,7 +2736,7 @@ namespace AppViewLite
                     var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);
                     if (!rels.FeedGenerators.ContainsKey(feedId))
                     {
-                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value), ctx);
+                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value, DateTime.UtcNow), ctx);
                     }
                     return rels.TryGetFeedGenerator(feedId)!;
                 }).ToArray();
@@ -2814,13 +2835,13 @@ namespace AppViewLite
             {
                 // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
                 // otherwise did:web, but they're in a different namespace
-                didDoc = DidDocOverrides.GetValue().TryGetOverride(did!) ?? await FetchAndStoreDidDocNoOverrideAsync(did!, plc);
+                didDoc = DidDocOverrides.GetValue().TryGetOverride(did!) ?? await FetchAndStoreDidDocNoOverride.GetValueAsync((plc, did!), ctx);
             }
             if (!didDoc!.HasHandle(handle))
             {
                 if (!forceRefresh)
                 {
-                    return await ResolveHandleAsync(handle, forceRefresh: true, ct: ct);
+                    return await ResolveHandleAsync(handle, forceRefresh: true, ct: ct, ctx: ctx);
                 }
 
 
@@ -2839,11 +2860,11 @@ namespace AppViewLite
         private void WarmUpDidAssignment(string did, RequestContext? ctx)
         {
             // assign a Plc (in case not all future code paths properly pass ctx to SerializeDid)
-            var plc2 = WithRelationshipsLock(rels => rels.TrySerializeDidMaybeReadOnly(did, ctx));
-            if (plc2 == default) WithRelationshipsWriteLock(rels => rels.SerializeDid(did, ctx));
+            var plc2 = WithRelationshipsLock(rels => rels.TrySerializeDidMaybeReadOnly(did, ctx), ctx);
+            if (plc2 == default) WithRelationshipsWriteLock(rels => rels.SerializeDid(did, ctx), ctx);
         }
 
-        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideAsync(string did, Plc plc)
+        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext? anyCtx)
         {
             var didDoc = await GetDidDocCoreNoOverrideAsync(did);
             didDoc.Date = DateTime.UtcNow;
@@ -2852,7 +2873,7 @@ namespace AppViewLite
                 rels.CompressDidDoc(didDoc);
                 rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
                 didDoc = rels.TryGetLatestDidDoc(plc);
-            });
+            }, anyCtx);
             return didDoc;
         }
 
@@ -3018,7 +3039,7 @@ namespace AppViewLite
                 throw new ArgumentException("Domain or handle contains parts that start or end with dashes.");
         }
 
-        internal async Task<DidDocProto> GetDidDocCoreNoOverrideAsync(string did)
+        internal static async Task<DidDocProto> GetDidDocCoreNoOverrideAsync(string did)
         {
             Console.Error.WriteLine("GetDidDocAsync: " + did);
             string didDocUrl;
@@ -3034,8 +3055,8 @@ namespace AppViewLite
             else throw new ArgumentException("Unsupported did method: " + did);
 
 
-            var didDocJson = await DefaultHttpClient.GetFromJsonAsync<DidWebRoot>(didDocUrl)!;
-            var didDoc = Indexer.DidDocToProto(didDocJson);
+            var didDocJson = await DefaultHttpClient.GetFromJsonAsync<DidWebRoot>(didDocUrl);
+            var didDoc = Indexer.DidDocToProto(didDocJson!);
             return didDoc;
         }
 
@@ -3086,7 +3107,7 @@ namespace AppViewLite
             }, ctx);
             if (IsDidDocStale(did, doc))
             {
-                doc = await FetchAndStoreDidDoc.GetValueAsync((plc, did));
+                doc = await FetchAndStoreDidDocNoOverride.GetValueAsync((plc, did), ctx);
             }
 
             return doc!;
@@ -3220,7 +3241,7 @@ namespace AppViewLite
             }
         }
 
-        public void MarkAsRead(PostIdString[] postIdsStr, Plc loggedInUser)
+        public void MarkAsRead(PostIdString[] postIdsStr, Plc loggedInUser, RequestContext? ctx)
         {
             WithRelationshipsWriteLock(rels =>
             {
@@ -3229,7 +3250,7 @@ namespace AppViewLite
                     var postId = rels.GetPostId(postIdStr.Did, postIdStr.RKey);
                     rels.SeenPosts.Add(loggedInUser, postId);
                 }
-            });
+            }, ctx);
         }
 
         public static async Task<Uri> GetFaviconUrlAsync(Uri pageUrl)

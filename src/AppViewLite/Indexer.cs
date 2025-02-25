@@ -133,6 +133,8 @@ namespace AppViewLite
         {
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
+            
+            var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
             WithRelationshipsWriteLock(relationships =>
@@ -274,7 +276,7 @@ namespace AppViewLite
                     else if (record is Generator generator)
                     {
                         var rkey = GetMessageRKey(path, Generator.RecordType + "/");
-                        relationships.IndexFeedGenerator(commitPlc, rkey, generator);
+                        relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
                     }
                     //else Console.Error.WriteLine("Creation of unknown object type: " + path);
                     relationships.LogPerformance(sw, "Create-" + path);

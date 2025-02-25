@@ -28,7 +28,7 @@ namespace AppViewLite
     public class BlueskyRelationships : IDisposable, ICloneableAsReadOnly
     {
 
-        public long Version;
+        public long Version = 1;
         public static int ManagedThreadIdWithWriteLock;
         public int ForbidUpgrades;
         private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
@@ -96,7 +96,8 @@ namespace AppViewLite
         public DateTime PlcDirectorySyncDate;
         private Plc LastAssignedPlc;
         public TimeSpan PlcDirectoryStaleness => DateTime.UtcNow - PlcDirectorySyncDate;
-       
+
+        public Stopwatch? ReplicaAge;
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<ICheckpointable> disposables = new();
@@ -107,6 +108,12 @@ namespace AppViewLite
         public static int TableWriteBufferSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE) ?? (10 * 1024 * 1024);
         public int AvoidFlushes;
         public ReaderWriterLockSlim Lock;
+
+        public bool IsAtLeastVersion(long minVersion, TimeSpan maxStaleness, long latestKnownVersion)
+        {
+            return this.Version >= minVersion && (this.Version == latestKnownVersion || ReplicaAge!.Elapsed <= maxStaleness);
+        }
+
         public BlueskyRelationships()
             : this(
                   AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"), 
@@ -564,6 +571,7 @@ namespace AppViewLite
                         ctx.MinVersion = Version;
 
                     value();
+                    BeforeExitingLockUpgrade?.Invoke(this, EventArgs.Empty);
                 }
                 finally
                 {
@@ -571,6 +579,8 @@ namespace AppViewLite
                 }
             }
         }
+
+        public event EventHandler BeforeExitingLockUpgrade;
 
         public static PostId GetPostId(Plc Plc, string rkey)
         {
@@ -2325,7 +2335,7 @@ namespace AppViewLite
         }
 
 
-        public void IndexFeedGenerator(Plc plc, string rkey, Generator generator)
+        public void IndexFeedGenerator(Plc plc, string rkey, Generator generator, DateTime retrievalDate)
         {
             var key = new RelationshipHashedRKey(plc, rkey);
 
@@ -2335,7 +2345,7 @@ namespace AppViewLite
                 AvatarCid = generator.Avatar?.Ref?.Link?.ToArray(),
                 Description = generator.Description,
                 DescriptionFacets = GetFacetsAsProtos(generator.DescriptionFacets),
-                RetrievalDate = generator.CreatedAt ?? DateTime.UtcNow,
+                RetrievalDate = retrievalDate,
                 ImplementationDid = generator.Did!.Handler,
                 //IsVideo = generator.ContentMode == "contentModeVideo",
                 AcceptsInteractions = generator.AcceptsInteractions,
@@ -2809,8 +2819,18 @@ namespace AppViewLite
             profile.PrivateFollow = ctx.Session?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
         }
 
+        public void AssertCanRead()
+        {
+            if (!IsLockHeld)
+            {
+                ThrowIncorrectLockUsageException("Attempting to read without holding a read lock.");
+            }
+        }
+
         public ICloneableAsReadOnly CloneAsReadOnly()
         {
+            Console.Error.WriteLine("Capturing readonly replica.");
+            AssertCanRead();
             var copy = new BlueskyRelationships(basedir: null, isReadOnly: true);
             copy.Version = this.Version;
             copy.Lock = new();
@@ -2830,6 +2850,7 @@ namespace AppViewLite
                     // Console.Error.WriteLine("Extra field: " + field.Name);
                 }
             }
+            copy.ReplicaAge = Stopwatch.StartNew();
             return copy;
         }
     }

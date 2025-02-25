@@ -15,7 +15,7 @@ namespace AppViewLite
         public Guid Id = Guid.NewGuid();
 
         public DateTime LastSeen;
-        public required bool IsReadOnlySimulation;
+        public bool IsReadOnlySimulation;
 
         public string? LoggedInUserString => Profile?.Did;
         public Plc? LoggedInUser;

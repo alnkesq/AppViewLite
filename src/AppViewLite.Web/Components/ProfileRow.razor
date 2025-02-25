@@ -5,7 +5,8 @@
     [Parameter]
     public required BlueskyProfile Profile { get; set; }
 
-    public void SetRequestContext(RequestContext ctx) => RequestContext = ctx;
+    [Parameter]
+    public RequestContext? RequestContextOverride { get; set; }
 
     public void AddToTree(RenderTreeBuilder builder)
     {
@@ -16,6 +17,9 @@
 
     protected override void OnParametersSet()
     {
+        if (RequestContextOverride != null)
+            RequestContext = RequestContextOverride;
+
         // Facets are not stored explicitly in the profile lexicon
         GuessedFacets = StringUtils.GuessFacets(Profile.BasicData?.Description);
     }

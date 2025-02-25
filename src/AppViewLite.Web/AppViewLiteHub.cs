@@ -20,8 +20,6 @@ namespace AppViewLite.Web
         {
             get
             {
-                _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
-                _ctxWithoutConnectionId.Session = Program.TryGetSessionFromCookie(this.HubContext.SessionCookie);
                 return _ctxWithoutConnectionId;
             }
         }
@@ -32,13 +30,16 @@ namespace AppViewLite.Web
             var hub = HubContext;
 
             var connectionId = Context.ConnectionId;
-            var profiles = apis.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray());
-            var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
-            apis.EnrichAsync(profiles, newctx, async p =>
+            var profiles = apis.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray(), RequestContext);
+            apis.EnrichAsync(profiles, RequestContext, async p =>
             {
-                var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object>() { { nameof(ProfileRow.Profile), p } });
+                var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object?>() 
+                {
+                        { nameof(ProfileRow.Profile), p },
+                        { nameof(ProfileRow.RequestContextOverride), RequestContext }
+                });
                 var index = Array.IndexOf(profiles, p);
-                Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("ProfileRendered", requests[index].nodeId, html);
+                Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("ProfileRendered", requests[index].nodeId, html).FireAndForget();
             }).FireAndForget();
 
         }
@@ -51,7 +52,7 @@ namespace AppViewLite.Web
             var pairs = apis.WithRelationshipsLockForDids(dids, (plcs, rels) =>
             {
                 return plcs.Select((plc, i) => (Did: dids[i], PossibleHandle: rels.TryGetLatestDidDoc(plc)?.Handle)).ToArray();
-            });
+            }, ctx);
             foreach (var pair in pairs)
             {
                 apis.VerifyHandleAndNotifyAsync(pair.Did, pair.PossibleHandle, ctx).FireAndForget();
@@ -66,7 +67,7 @@ namespace AppViewLite.Web
             var connectionId = Context.ConnectionId;
             BlueskyPost[] posts = null!;
             Plc? focalPlc = null;
-            apis.WithRelationshipsLock(rels =>
+            apis.WithRelationshipsLockForDids(requests.Select(x => x.did).Concat(requests.Select(x => x.repostedBy).Where(x => x != null)).ToArray(), (_, rels) =>
             {
                 posts = requests.Select(x =>
                 {
@@ -75,16 +76,15 @@ namespace AppViewLite.Web
                     return post;
                 }).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
-            }, null);
-            var newctx = new RequestContext(RequestContext.Session, null, null, connectionId);
-            apis.EnrichAsync(posts, newctx, async p =>
+            }, RequestContext);
+            apis.EnrichAsync(posts, RequestContext, async p =>
             {
                 await Task.Yield();
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
-                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy, p.QuotedPost?.Author }.Where(x => x != null).ToArray()!, newctx);
+                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy, p.QuotedPost?.Author }.Where(x => x != null).ToArray()!, RequestContext);
                 var req = requests[index];
-                var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags));
+                var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags, RequestContext));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html).FireAndForget();
             }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc).FireAndForget();
 
@@ -116,7 +116,7 @@ namespace AppViewLite.Web
                 return (
                     toSubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray(),
                     toUnsubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray());
-            });
+            }, this.RequestContext);
             lock (ctx)
             {
                 foreach (var postId in postIdsToSubscribe)
@@ -141,6 +141,9 @@ namespace AppViewLite.Web
             var ctx = Program.TryGetSession(httpContext);
             var userPlc = ctx != null && ctx.IsLoggedIn ? ctx.LoggedInUser : default;
             var connectionId = Context.ConnectionId;
+
+            _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
+            _ctxWithoutConnectionId.Session = ctx ?? new AppViewLiteSession();
 
             void SubmitLivePostEngagement(PostStatsNotification notification, Plc commitPlc)
             {
@@ -198,7 +201,7 @@ namespace AppViewLite.Web
                         markAsReadPendingArray = context.MarkAsReadPending.ToArray();
                         context.MarkAsReadPending.Clear();
                     }
-                    apis.MarkAsRead(markAsReadPendingArray, userPlc.Value);
+                    apis.MarkAsRead(markAsReadPendingArray, userPlc.Value, RequestContext);
                 });
             }
             return Task.CompletedTask;

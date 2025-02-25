@@ -1,13 +1,11 @@
 @page "/profile/{did}/follows"
 @inject NavigationManager Navigation
-@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
 
-    protected override async Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
         Navigation.NavigateTo($"/@{Did}/following");
     }
 }

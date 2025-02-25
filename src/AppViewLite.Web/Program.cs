@@ -54,7 +54,7 @@ namespace AppViewLite.Web
             builder.Services.AddScoped(provider =>
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
-                return TryGetSession(httpContext) ?? new() { IsReadOnlySimulation = true };
+                return TryGetSession(httpContext) ?? new();
             });
             builder.Services.AddScoped(provider =>
             {
@@ -71,6 +71,19 @@ namespace AppViewLite.Web
             var app = builder.Build();
 
             StaticServiceProvider = app.Services;
+
+#if DEBUG
+            apis.BeforeLockEnter += (ctx) =>
+            {
+                if (ctx != null) return;
+                var httpContext = StaticServiceProvider.GetRequiredService<IHttpContextAccessor>()?.HttpContext;
+                if (httpContext != null)
+                {
+                    Console.Error.WriteLine("Ctx was not passed for " + httpContext.Request.GetEncodedPathAndQuery());
+                    // we might have forgotten to pass a ctx
+                }
+            };
+#endif
             app.Lifetime.ApplicationStopping.Register(Relationships.NotifyShutdownRequested);
 
 
@@ -512,7 +525,7 @@ namespace AppViewLite.Web
             return message;
         }
 
-        public async static Task<string> ResolveUrlAsync(Uri url, Uri baseUrl)
+        public async static Task<string> ResolveUrlAsync(Uri url, Uri baseUrl, RequestContext? ctx)
         {
             // bsky.app links
             if (url.Host == "bsky.app")

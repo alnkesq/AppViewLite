@@ -30,7 +30,7 @@ namespace AppViewLite.PluggableProtocols
                 throw new ArgumentException();
         }
 
-        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex = true)
+        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex = true, RequestContext? ctx = null)
         {
             EnsureOwnDid(did);
             EnsureValidDid(did);
@@ -66,7 +66,7 @@ namespace AppViewLite.PluggableProtocols
                 }
                 
                 rels.StoreProfileBasicInfo(plc, data);
-            });
+            }, ctx);
         }
 
         public virtual bool RepostsAreCategories => false;
@@ -87,7 +87,7 @@ namespace AppViewLite.PluggableProtocols
             
         }
 
-        public void OnRepostDiscovered(string reposterDid, QualifiedPluggablePostId qualifiedPostId, DateTime repostDate)
+        public void OnRepostDiscovered(string reposterDid, QualifiedPluggablePostId qualifiedPostId, DateTime repostDate, RequestContext? ctx = null)
         {
             EnsureOwnDid(reposterDid);
             EnsureValidDid(reposterDid);
@@ -103,9 +103,9 @@ namespace AppViewLite.PluggableProtocols
                 var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did), tid);
                 
                 rels.UserToRecentReposts.AddIfMissing(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
-            });
+            }, ctx);
         }
-        public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex = true)
+        public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, bool shouldIndex = true, RequestContext? ctx = null)
         {
             if (inReplyTo != null && inReplyTo.Value.Equals(default(QualifiedPluggablePostId))) inReplyTo = null;
             if (rootPostId != null && rootPostId.Value.Equals(default(QualifiedPluggablePostId))) rootPostId = null;
@@ -205,7 +205,7 @@ namespace AppViewLite.PluggableProtocols
 
 
                 return (PostId?)simplePostId;
-            });
+            }, ctx);
         }
         private bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId? postId)
         {

@@ -77,7 +77,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return "#999";
         }
-        private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did)
+        private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext? ctx)
         {
             var feedUrl = DidToUrl(did);
             if (feedUrl.HasHostSuffix("reddit.com"))
@@ -91,7 +91,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (UrlToDid(feedUrl) != did)
                 throw new Exception("RSS/did roundtrip failed.");
 
-            var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)), null);
+            var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)), ctx);
             var now = DateTime.UtcNow;
             refreshInfo ??= new RssRefreshInfo { FirstRefresh = now };
 
@@ -185,7 +185,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     try
                     {
-                        var (date, postUrl) = AddPost(did, item, feedUrl);
+                        var (date, postUrl) = AddPost(did, item, feedUrl, ctx);
                         firstUrl ??= postUrl;
                         if (date < minDate) minDate = date;
                         if (date > maxDate) maxDate = date;
@@ -224,7 +224,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     Description = (subtitle + "\n\n" + description)?.Trim(),
                     CustomFields = [new CustomFieldProto("web", altUrlOrFallback?.AbsoluteUri)],
                     AvatarCidBytes = refreshInfo.FaviconUrl,
-                });
+                }, ctx: ctx);
 
                 if (postCount != 0)
                 {
@@ -253,7 +253,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             finally
             {
-                Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)));
+                Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)), ctx);
             }
             return refreshInfo;
         }
@@ -267,7 +267,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public const HttpRequestError TimeoutError = (HttpRequestError)1001;
-        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl)
+        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl, RequestContext? ctx)
         {
             var title = GetValue(item, "title");
             if (title != null && title.Contains('&')) title = StringUtils.ParseHtmlToText(title, out _, x => null).Text;
@@ -357,7 +357,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     { 
                         ExternalTitle = text,
                         ExternalUrl = url.AbsoluteUri,
-                    });
+                    }, ctx: ctx);
                 }
                 else
                 {
@@ -373,7 +373,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     if (leafPost.Content.Length == 0)
                     {
                         sequence.RemoveAt(sequence.Count - 1);
-                        OnRepostDiscovered(leafPostId.AsQualifiedPostId.Did, sequence[^1].PostId.AsQualifiedPostId, dateParsed);
+                        OnRepostDiscovered(leafPostId.AsQualifiedPostId.Did, sequence[^1].PostId.AsQualifiedPostId, dateParsed, ctx: ctx);
                     }
 
                     QualifiedPluggablePostId? prev = null;
@@ -398,7 +398,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
 
                         if (post.PostId != default)
-                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData);
+                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData, ctx: ctx);
                     }
                 }
                 return (dateParsed, url);
@@ -483,7 +483,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
                 }).Where(x => x.Cid != null).ToArray();
             }
-            OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data);
+            OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data, ctx: ctx);
             return (dateParsed, url);
         }
 
@@ -723,7 +723,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return TimeSpan.FromDays(365 * 50);
         }
 
-        private readonly TaskDictionary<string, RssRefreshInfo> RefreshFeed;
+        private readonly TaskDictionary<string, RequestContext?, RssRefreshInfo> RefreshFeed;
 
         public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did, RequestContext? ctx)
         {
@@ -732,7 +732,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var now = DateTime.UtcNow;
             if (refreshData == null || (now - refreshData.LastRefreshAttempt).TotalHours > 6)
             {
-                return await RefreshFeed.GetValueAsync(did);
+                return await RefreshFeed.GetValueAsync(did, ctx);
             }
             return refreshData;
         }

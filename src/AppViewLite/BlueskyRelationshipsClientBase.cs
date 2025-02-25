@@ -18,9 +18,22 @@ namespace AppViewLite
         public BlueskyRelationshipsClientBase(BlueskyRelationships relationshipsUnlocked, bool useReadOnlyReplica = false)
         {
             this.relationshipsUnlocked = relationshipsUnlocked;
-            if (useReadOnlyReplica && (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_READONLY_REPLICA) ?? false))
-                this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
+            if (useReadOnlyReplica && (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_READONLY_REPLICA) ?? true))
+            {
+                this.relationshipsUnlocked.BeforeExitingLockUpgrade += (_, _) => MaybeUpdateReadOnlyReplica(0, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock: true);
+                relationshipsUnlocked.Lock.EnterReadLock();
+                try
+                {
+                    this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
+                }
+                finally
+                {
+                    relationshipsUnlocked.Lock.ExitReadLock();
+                }
+                
+            }
         }
+
 
         public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func, RequestContext? ctx)
         {
@@ -90,7 +103,7 @@ namespace AppViewLite
             if (succeeded) return result;
 
 
-            return WithRelationshipsUpgradableLock(rels =>
+            return WithRelationshipsWriteLock(rels =>
             {
                 var preambleResult = preamble(rels);
                 rels.ForbidUpgrades++;
@@ -140,28 +153,33 @@ namespace AppViewLite
             }, ctx, urgent);
         }
 
+
+
+        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromSeconds(3);
+        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromSeconds(5);
+
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx, bool urgent)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
-            if (ctx != null)
-            {
-                ctx.ReadLockEnterCount++;
-                ctx.AddToMetricsTable();
-            }
 
+
+
+            // We capture a new replica only due to age (very rare, since ReadOnlyReplicaMaxStalenessOnExplicitRead >> ReadOnlyReplicaMaxStalenessOpportunistic),
+            // not due to version. If version is not sufficient, it's probably cheaper to use the primary than copying the whole queue.
+            MaybeUpdateReadOnlyReplica(minVersion: 0, ReadOnlyReplicaMaxStalenessOnExplicitRead, alreadyHoldsLock: false);
 
             if (ctx != null && readOnlyReplicaRelationshipsUnlocked != null)
             {
 
                 if (ctx.MinVersion > readOnlyReplicaRelationshipsUnlocked.Version)
-                { 
-                    /* continue without readonly replica optimization (cloning the queue would would probably be more expensive) */
+                {
+                    Console.Error.WriteLine("Performing read from primary for " + ctx.RequestUrl);
+                    /* continue with primary instead */
                 }
                 else
                 {
                     var minVersion = ctx.MinVersion;
-                    EnsureUpToDateReadOnlyReplica(minVersion);
                     var replica = this.readOnlyReplicaRelationshipsUnlocked;
                     replica.Lock.EnterReadLock();
                     try
@@ -174,6 +192,16 @@ namespace AppViewLite
                     }
                 }
             }
+
+
+            if (ctx != null)
+            {
+                ctx.ReadLockEnterCount++;
+                ctx.AddToMetricsTable();
+            }
+
+
+            BeforeLockEnter?.Invoke(ctx);
 
             if (urgent) 
             {
@@ -230,21 +258,61 @@ namespace AppViewLite
 
         }
 
-        private void EnsureUpToDateReadOnlyReplica(long minVersion)
+        private void MaybeUpdateReadOnlyReplica(long minVersion, TimeSpan maxStaleness, bool alreadyHoldsLock)
         {
             var oldReplica = readOnlyReplicaRelationshipsUnlocked;
-            if (minVersion > oldReplica.Version)
-            {
-                lock (buildNewReadOnlyReplicaLock)
-                {
-                    oldReplica = readOnlyReplicaRelationshipsUnlocked;
-                    if (minVersion > oldReplica.Version)
-                    {
-                        this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
+            if (oldReplica == null) return;
 
-                        oldReplica.Dispose(); // takes its own write lock
+            var latestKnownVersion = relationshipsUnlocked.Version;
+
+            if (!oldReplica!.IsAtLeastVersion(minVersion, maxStaleness, latestKnownVersion))
+            {
+
+                if (!alreadyHoldsLock) relationshipsUnlocked.Lock.EnterReadLock();
+                try
+                {
+                    lock (buildNewReadOnlyReplicaLock)
+                    {
+                        oldReplica = readOnlyReplicaRelationshipsUnlocked!;
+                        if (!oldReplica!.IsAtLeastVersion(minVersion, maxStaleness, latestKnownVersion))
+                        {
+                            this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
+                            Task.Run(() => DisposeWhenNotInUse(oldReplica));
+                        }
                     }
                 }
+                finally
+                {
+                    if (!alreadyHoldsLock) relationshipsUnlocked.Lock.ExitReadLock();
+                }
+            }
+        }
+
+        private static void DisposeWhenNotInUse(BlueskyRelationships oldReplica)
+        {
+            var l = oldReplica.Lock;
+            while (true)
+            {
+                Thread.Sleep(1000);
+                var hasWaitingThreads = l.WaitingReadCount != 0 || l.WaitingUpgradeCount != 0 || l.WaitingWriteCount != 0;
+                if (hasWaitingThreads)
+                {
+                    continue;
+                }
+                
+                Thread.Sleep(1000);
+                // any late readers past this point will throw. too late for them.
+                oldReplica.Dispose(); // takes its own write lock
+                try
+                {
+                    oldReplica.Lock.Dispose();
+                }
+                catch (SynchronizationLockException)
+                {
+                    // let the finalizer get rid of it
+                }
+                return;
+                
             }
         }
 
@@ -263,6 +331,8 @@ namespace AppViewLite
             }
         }
 
+        public Action<RequestContext?>? BeforeLockEnter;
+
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null, string? reason = null)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
@@ -276,6 +346,7 @@ namespace AppViewLite
             }
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            BeforeLockEnter?.Invoke(ctx);
             ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterWriteLock();
 
@@ -293,6 +364,7 @@ namespace AppViewLite
 
                 var result = func(relationshipsUnlocked);
                 relationshipsUnlocked.MaybeGlobalFlush();
+                MaybeUpdateReadOnlyReplica(0, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock: true);
                 return result;
             }
             finally
@@ -319,6 +391,7 @@ namespace AppViewLite
             }
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            BeforeLockEnter?.Invoke(ctx);
             ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
             var restore = MaybeSetThreadName("**** LOCK_UPGRADEABLE ****");

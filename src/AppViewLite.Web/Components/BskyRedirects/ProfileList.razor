@@ -1,14 +1,12 @@
 @page "/profile/{did}/lists/{rkey}"
 @inject NavigationManager Navigation
-@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Did { get; set; }
     [Parameter] public required string RKey { get; set; }
 
-    protected override async Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        Did = (await Apis.ResolveHandleAsync(Did));
         Navigation.NavigateTo($"/@{Did}/lists/{RKey}");
     }
 }

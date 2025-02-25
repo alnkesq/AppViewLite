@@ -9,59 +9,59 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public class TaskDictionary<TKey> where TKey : notnull
+    public class TaskDictionary<TKey, TExtraArgs> where TKey : notnull
     {
-        private TaskDictionary<TKey, byte> inner;
-        public TaskDictionary(Func<TKey, Task> compute)
+        private TaskDictionary<TKey, TExtraArgs, byte> inner;
+        public TaskDictionary(Func<TKey, TExtraArgs, Task> compute)
         {
-            inner = new TaskDictionary<TKey, byte>(async key => 
+            inner = new TaskDictionary<TKey, TExtraArgs, byte>(async (key, extraArgs) => 
             {
-                await compute(key);
+                await compute(key, extraArgs);
                 return 0;
             });
         }
 
-        public TaskDictionary(Func<TKey, Task> compute, TimeSpan evictTime)
+        public TaskDictionary(Func<TKey, TExtraArgs, Task> compute, TimeSpan evictTime)
         {
-            inner = new TaskDictionary<TKey, byte>(async key =>
+            inner = new TaskDictionary<TKey, TExtraArgs, byte>(async (key, extraArgs) =>
             {
-                await compute(key);
+                await compute(key, extraArgs);
                 return 0;
             }, evictTime);
         }
 
-        public Task GetTaskAsync(TKey key)
+        public Task GetTaskAsync(TKey key, TExtraArgs extraArgs)
         {
-            return inner.GetValueAsync(key);
+            return inner.GetValueAsync(key, extraArgs);
         }
 
-        public void StartAsync(TKey key, Action<Task>? onCompleted = null)
+        public void StartAsync(TKey key, TExtraArgs extraArgs, Action<Task>? onCompleted = null)
         {
-            inner.StartAsync(key, onCompleted);
+            inner.StartAsync(key, extraArgs, onCompleted);
         }
 
     }
-    public class TaskDictionary<TKey, TValue> where TKey: notnull
+    public class TaskDictionary<TKey, TExtraArgs, TValue> where TKey: notnull
     {
-        private readonly Func<TKey, Task<TValue>> compute;
+        private readonly Func<TKey, TExtraArgs, Task<TValue>> compute;
         private readonly TimeSpan EvictTime;
         private readonly ConcurrentDictionary<TKey, Lazy<Task<TValue>>> dict = new();
-        public TaskDictionary(Func<TKey, Task<TValue>> compute)
+        public TaskDictionary(Func<TKey, TExtraArgs, Task<TValue>> compute)
             : this(compute, TimeSpan.FromSeconds(30))
         { 
         
         }
-        public TaskDictionary(Func<TKey, Task<TValue>> compute, TimeSpan evictTime)
+        public TaskDictionary(Func<TKey, TExtraArgs, Task<TValue>> compute, TimeSpan evictTime)
         {
             this.compute = compute;
             this.EvictTime = evictTime;
         }
         
-        public Task<TValue> GetValueAsync(TKey key)
+        public Task<TValue> GetValueAsync(TKey key, TExtraArgs extraArgs)
         {
             var lazy = new Lazy<Task<TValue>>(() =>
             {
-                var p = CreateTaskAsync(key);
+                var p = CreateTaskAsync(key, extraArgs);
                 return p;
             }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -70,12 +70,12 @@ namespace AppViewLite
         }
 
 
-        private async Task<TValue> CreateTaskAsync(TKey key)
+        private async Task<TValue> CreateTaskAsync(TKey key, TExtraArgs extraArgs)
         {
             await Task.Yield(); // gets out of the lock, and allows us to store early exceptions
             try
             {
-                return await compute(key);
+                return await compute(key, extraArgs);
             }
             catch(Exception ex)
             {
@@ -91,9 +91,9 @@ namespace AppViewLite
             }
         }
 
-        public void StartAsync(TKey key, Action<Task<TValue>>? onCompleted = null)
+        public void StartAsync(TKey key, TExtraArgs extraArgs, Action<Task<TValue>>? onCompleted = null)
         {
-            var task = GetValueAsync(key);
+            var task = GetValueAsync(key, extraArgs);
             if (onCompleted != null)
             {
                 task.ContinueWith(onCompleted).FireAndForget();

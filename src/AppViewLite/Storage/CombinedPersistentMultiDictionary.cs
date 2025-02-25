@@ -882,7 +882,6 @@ namespace AppViewLite.Storage
         public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
         {
             var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.ReaderHandle.AddRef())).ToList(), behavior);
-            copy.Version = this.Version;
             var queueCopy = new MultiDictionary2<TKey, TValue>(sortedValues: this.behavior != PersistentDictionaryBehavior.PreserveOrder);
             copy.queue = this.queue.Clone();
             copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
@@ -892,7 +891,6 @@ namespace AppViewLite.Storage
 
         ICloneableAsReadOnly ICloneableAsReadOnly.CloneAsReadOnly() => CloneAsReadOnly();
 
-        public long Version;
     }
 
 }

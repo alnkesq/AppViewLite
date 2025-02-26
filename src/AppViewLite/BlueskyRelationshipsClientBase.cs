@@ -351,7 +351,7 @@ namespace AppViewLite
             ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterWriteLock();
 
-            BlueskyRelationships.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
+            relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
             var restore = MaybeSetThreadName("**** LOCK_WRITE ****");
             try
             {
@@ -370,7 +370,7 @@ namespace AppViewLite
             }
             finally
             {
-                BlueskyRelationships.ManagedThreadIdWithWriteLock = 0;
+                relationshipsUnlocked.ManagedThreadIdWithWriteLock = 0;
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 

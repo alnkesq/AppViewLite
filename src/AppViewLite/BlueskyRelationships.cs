@@ -29,7 +29,7 @@ namespace AppViewLite
     {
 
         public long Version = 1;
-        public static int ManagedThreadIdWithWriteLock;
+        public int ManagedThreadIdWithWriteLock;
         public int ForbidUpgrades;
         private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
         public CombinedPersistentMultiDictionary<DuckDbUuid, Plc> DidHashToUserId;

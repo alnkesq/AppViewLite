@@ -14,6 +14,7 @@ var theaterReturnUrl = null;
 var previousTabbedListHeaderScrollX = 0;
 var historyStack = [];
 var applyFocusOnNextPopstate = false;
+var isNoLayout = !document.querySelector('.page')
 
 /** @type {Map<string, WeakRef<HTMLElement>>} */
 var pendingProfileLoads = new Map();
@@ -144,7 +145,8 @@ var liveUpdatesConnectionFuture = (async () => {
     });
     liveUpdatesConnection = connection;
 
-    await connection.start();
+    if(!isNoLayout)
+        await connection.start();
     return connection;
 })();
 
@@ -817,6 +819,7 @@ function enableMenuFocus() {
 }
 
 function onInitialLoad() {
+    if (isNoLayout) return;
     window.addEventListener('popstate', e => {
         var popped = historyStack.pop();
         if (popped != location.href) { 

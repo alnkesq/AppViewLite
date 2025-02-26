@@ -40,6 +40,7 @@ namespace AppViewLite
         public bool IsReadOnly => relationshipsUnlocked.IsReadOnly;
 
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
+        public BlueskyRelationships? DangerousReadOnlyReplicaUnlockedRelationships => readOnlyReplicaRelationshipsUnlocked;
 
         public BlueskyEnrichedApis(BlueskyRelationships relationships, bool useReadOnlyReplica = false)
             : base(relationships, useReadOnlyReplica)

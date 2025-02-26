@@ -54,6 +54,7 @@ namespace AppViewLite.Web
             builder.Services.AddScoped(provider =>
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
+                if (httpContext?.Request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return new(); }
                 return TryGetSession(httpContext) ?? new();
             });
             builder.Services.AddScoped(provider =>
@@ -61,6 +62,7 @@ namespace AppViewLite.Web
                 var session = provider.GetRequiredService<AppViewLiteSession>();
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
                 var request = httpContext?.Request;
+                if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateInfinite(null); }
                 var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
                 var ctx = RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());

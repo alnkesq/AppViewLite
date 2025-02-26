@@ -1,0 +1,12 @@
+@page "/debug/locks"
+@using AppViewLite.Web.Components.Layout
+@layout NoLayout
+
+<h2>Primary</h2>
+<ReadWriteLockDebugComponent Lock="@BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.Lock" />
+
+@if (BlueskyEnrichedApis.Instance.DangerousReadOnlyReplicaUnlockedRelationships != null)
+{
+    <h2>Readonly replica</h2>
+    <ReadWriteLockDebugComponent Lock="@BlueskyEnrichedApis.Instance.DangerousReadOnlyReplicaUnlockedRelationships.Lock" />
+}

@@ -962,7 +962,7 @@ namespace AppViewLite.Storage
                     if (!lastSliceIsEmpty)
                         this.queue.CreateVirtualSlice(); // nobody else is writing to primary.
 
-                    Console.Error.WriteLine("Queue copied incrementally.");
+                    //Console.Error.WriteLine("Queue copied incrementally.");
                 }
 
                 
@@ -971,7 +971,7 @@ namespace AppViewLite.Storage
             if (copy.queue == null)
             {
                 copy.queue = this.queue.CloneAndMaybeCreateNewVirtualSlice();
-                Console.Error.WriteLine("Queued copied from scratch.");
+                //Console.Error.WriteLine("Queued copied from scratch.");
             }
             copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
             copy.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly copy.");

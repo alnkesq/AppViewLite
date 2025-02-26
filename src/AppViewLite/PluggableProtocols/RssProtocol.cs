@@ -339,6 +339,12 @@ namespace AppViewLite.PluggableProtocols.Rss
                 hasFullContent = true;
 
                 title = null;
+
+                foreach (var altTag in bodyDom!.QuerySelectorAll(".tmblr-alt-text-helper").ToArray())
+                {
+                    altTag.Remove();
+                }
+
                 var leafPostId = GetTumblrPostId(url, dateParsed);
                 if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
                     throw new Exception("Non-matching tumblr host");

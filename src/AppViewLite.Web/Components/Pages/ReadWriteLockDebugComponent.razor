@@ -24,9 +24,11 @@ CurrentReadCount: @Lock.CurrentReadCount
 }
 
 Write held by thread: @(heldByThreadId?.ToString() ?? "(nobody)")
+<br>
 
-@if (heldByThreadId != null && heldByThreadId.Value == LastWriterStackTrace?.Value.ManagedThreadId)
+@if (LastWriterStackTrace?.Value != null)
 {
+    <text>Last write stack:</text>
     <br>
     <code style="white-space: pre-wrap;">
     @LastWriterStackTrace.Value.StackTrace.ToString()

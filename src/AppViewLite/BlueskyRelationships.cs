@@ -360,11 +360,13 @@ namespace AppViewLite
         public bool IsDisposed => _disposed;
 
         public StrongBox<(StackTrace StackTrace, int ManagedThreadId)>? LastStackTraceOnWriteLockEnter;
+
+        private readonly static bool WriteStackTracesOnLockEnter = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_WRITE_STACK_TRACES_ON_LOCK_ENTER) ?? false;
         internal void OnBeforeWriteLockEnter()
         {
-#if DEBUG
-            LastStackTraceOnWriteLockEnter = new((new StackTrace(), Environment.CurrentManagedThreadId));
-#endif
+            if (WriteStackTracesOnLockEnter)
+                LastStackTraceOnWriteLockEnter = new((new StackTrace(true), Environment.CurrentManagedThreadId));
+
             //var managedThreadId = Environment.CurrentManagedThreadId;
             //var currentThread = Thread.CurrentThread;
             //if (!managedThreadIdToThread.TryGetValue(managedThreadId, out var wr) || !wr.TryGetTarget(out var existing) || existing != currentThread)

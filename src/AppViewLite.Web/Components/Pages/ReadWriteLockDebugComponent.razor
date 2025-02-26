@@ -28,7 +28,7 @@ Write held by thread: @(heldByThreadId?.ToString() ?? "(nobody)")
 @if (heldByThreadId != null && heldByThreadId.Value == LastWriterStackTrace?.Value.ManagedThreadId)
 {
     <br>
-    <code>
+    <code style="white-space: pre-wrap;">
     @LastWriterStackTrace.Value.StackTrace.ToString()
     </code>
 }

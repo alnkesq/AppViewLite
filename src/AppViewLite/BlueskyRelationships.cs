@@ -362,7 +362,9 @@ namespace AppViewLite
         public StrongBox<(StackTrace StackTrace, int ManagedThreadId)>? LastStackTraceOnWriteLockEnter;
         internal void OnBeforeWriteLockEnter()
         {
+#if DEBUG
             LastStackTraceOnWriteLockEnter = new((new StackTrace(), Environment.CurrentManagedThreadId));
+#endif
             //var managedThreadId = Environment.CurrentManagedThreadId;
             //var currentThread = Thread.CurrentThread;
             //if (!managedThreadIdToThread.TryGetValue(managedThreadId, out var wr) || !wr.TryGetTarget(out var existing) || existing != currentThread)

@@ -41,6 +41,11 @@ namespace AppViewLite
             if (!dict.ContainsKey(key))
                 dict[key] = value;
         }
+
+        public void Remove(TKey key)
+        {
+            dict.TryRemove(key, out _);
+        }
     }
 }
 

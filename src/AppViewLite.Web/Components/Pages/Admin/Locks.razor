@@ -3,10 +3,10 @@
 @layout NoLayout
 
 <h2>Primary</h2>
-<ReadWriteLockDebugComponent Lock="@BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.Lock" />
+<ReadWriteLockDebugComponent Lock="@BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.Lock" LastWriterStackTrace="@BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.LastStackTraceOnWriteLockEnter" />
 
 @if (BlueskyEnrichedApis.Instance.DangerousReadOnlyReplicaUnlockedRelationships != null)
 {
     <h2>Readonly replica</h2>
-    <ReadWriteLockDebugComponent Lock="@BlueskyEnrichedApis.Instance.DangerousReadOnlyReplicaUnlockedRelationships.Lock" />
+    <ReadWriteLockDebugComponent Lock="@BlueskyEnrichedApis.Instance.DangerousReadOnlyReplicaUnlockedRelationships.Lock" LastWriterStackTrace="@BlueskyEnrichedApis.Instance.DangerousReadOnlyReplicaUnlockedRelationships.LastStackTraceOnWriteLockEnter" />
 }

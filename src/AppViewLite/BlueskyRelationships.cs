@@ -22,6 +22,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace AppViewLite
 {
@@ -357,10 +359,23 @@ namespace AppViewLite
         protected bool IsDisposing;
         public bool IsDisposed => _disposed;
 
+        public StrongBox<(StackTrace StackTrace, int ManagedThreadId)>? LastStackTraceOnWriteLockEnter;
+        internal void OnBeforeWriteLockEnter()
+        {
+            LastStackTraceOnWriteLockEnter = new((new StackTrace(), Environment.CurrentManagedThreadId));
+            //var managedThreadId = Environment.CurrentManagedThreadId;
+            //var currentThread = Thread.CurrentThread;
+            //if (!managedThreadIdToThread.TryGetValue(managedThreadId, out var wr) || !wr.TryGetTarget(out var existing) || existing != currentThread)
+            //{
+            //    managedThreadIdToThread[managedThreadId] = new WeakReference<Thread>(currentThread);
+            //}
+        }
+        //internal ConcurrentDictionary<int, WeakReference<Thread>> managedThreadIdToThread = new();
 
         public void Dispose()
         {
             if (Lock == null) return;
+            OnBeforeWriteLockEnter();
             Lock.EnterWriteLock();
             try
             {
@@ -589,6 +604,7 @@ namespace AppViewLite
             else
             {
                 if (Lock.IsReadLockHeld) throw ThrowIncorrectLockUsageException("Lock should've been entered in upgradable mode, but read mode was used.");
+                OnBeforeWriteLockEnter();
                 Lock.EnterWriteLock();
                 try
                 {

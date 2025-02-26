@@ -347,6 +347,7 @@ namespace AppViewLite
             }
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
+            relationshipsUnlocked.OnBeforeWriteLockEnter();
             BeforeLockEnter?.Invoke(ctx);
             ctx?.TimeSpentWaitingForLocks?.Start();
             relationshipsUnlocked.Lock.EnterWriteLock();

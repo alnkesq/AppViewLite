@@ -1,5 +1,9 @@
+@using System.Diagnostics
+@using System.Runtime.CompilerServices
 @code {
     [Parameter] public ReaderWriterLockSlim Lock { get; set; }
+    [Parameter] public StrongBox<(StackTrace StackTrace, int ManagedThreadId)>? LastWriterStackTrace { get; set; }
+
     public int? WriteLockHeldByThreadId => ((int)typeof(ReaderWriterLockSlim).GetField("_writeLockOwnerId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(Lock)!) is { } id && id != -1 ? id : null;
 }
 
@@ -14,5 +18,18 @@ WaitingWriteCount: @Lock.WaitingWriteCount
 
 CurrentReadCount: @Lock.CurrentReadCount
 <br>
-Write held by thread: @(WriteLockHeldByThreadId?.ToString() ?? "(nobody)")
+@{
+    var heldByThreadId = WriteLockHeldByThreadId;
+
+}
+
+Write held by thread: @(heldByThreadId?.ToString() ?? "(nobody)")
+
+@if (heldByThreadId != null && heldByThreadId.Value == LastWriterStackTrace?.Value.ManagedThreadId)
+{
+    <br>
+    <code>
+    @LastWriterStackTrace.Value.StackTrace.ToString()
+    </code>
+}
 <br>

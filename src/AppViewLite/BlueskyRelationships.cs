@@ -358,7 +358,6 @@ namespace AppViewLite
         public bool IsDisposed => _disposed;
 
 
-
         public void Dispose()
         {
             if (Lock == null) return;
@@ -368,13 +367,23 @@ namespace AppViewLite
                 IsDisposing = true;
                 if (!_disposed)
                 {
+
                     foreach (var d in disposables)
                     {
                         if (IsReadOnly) d.DisposeNoFlush();
                         else d.Dispose();
                     }
-                    if (!IsReadOnly)
+                    if (IsReadOnly)
+                    {
+                        foreach (var d in AllMultidictionaries)
+                        {
+                            d.ReturnQueueForNextReplica();
+                        }
+                    }
+                    else
+                    {
                         CaptureCheckpoint();
+                    }
                     lockFile?.Dispose();
                     _disposed = true;
                 }
@@ -2862,6 +2871,7 @@ namespace AppViewLite
                 if (field.FieldType.IsAssignableTo(typeof(ICloneableAsReadOnly)))
                 {
                     var copiedField = ((ICloneableAsReadOnly)field.GetValue(this)!).CloneAsReadOnly();
+#if false
                     long copiedBytes = 0;
                     if (copiedField is CombinedPersistentMultiDictionary p)
                     {
@@ -2873,6 +2883,7 @@ namespace AppViewLite
                     }
                     if (copiedBytes > 100000) Console.Error.WriteLine("Large copy for " + field.Name + ": " + StringUtils.ToHumanBytes(copiedBytes));
                     copiedQueueBytes += copiedBytes;
+#endif
                     field.SetValue(copy, copiedField);
                     copy.disposables.Add((ICheckpointable)copiedField);
                 }
@@ -2883,7 +2894,8 @@ namespace AppViewLite
             }
             copy.ReplicaAge = Stopwatch.StartNew();
 
-            Console.Error.WriteLine("Captured readonly replica. Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + ", time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
+            // . Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + "
+            Console.Error.WriteLine("Captured readonly replica, time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
             return copy;
         }
     }

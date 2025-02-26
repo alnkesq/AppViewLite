@@ -72,6 +72,8 @@ namespace AppViewLite.Storage
             if (!condition)
                 Abort(new Exception("Failed assertion."));
         }
+
+        public abstract void ReturnQueueForNextReplica();
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -891,11 +893,86 @@ namespace AppViewLite.Storage
 
         
 
+        private MultiDictionary2<TKey, TValue>? AcquireOldReplicaForRecycling()
+        {
+            var nextReplicaCanBeBuiltFrom = NextReplicaCanBeBuiltFrom;
+            lock (nextReplicaCanBeBuiltFrom)
+            {
+                if (nextReplicaCanBeBuiltFrom.Count != 0)
+                {
+                    var q = nextReplicaCanBeBuiltFrom[^1];
+                    nextReplicaCanBeBuiltFrom.RemoveAt(nextReplicaCanBeBuiltFrom.Count - 1);
+                    return q;
+                }
+            }
+            return null;
+        }
+
         public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
         {
             var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.ReaderHandle.AddRef())).ToList(), behavior);
-            var queueCopy = new MultiDictionary2<TKey, TValue>(sortedValues: this.behavior != PersistentDictionaryBehavior.PreserveOrder);
-            copy.queue = this.queue.Clone();
+            copy.ReplicatedFrom = this;
+
+            // The root CloneAsReadOnly() is called from within a traditional lock.
+            // Additionally, we hold a Read lock for the primary (so there can be no writers in the primary)
+            // We CAN write NextReplicaCanBeBuiltFrom to the primary, even without holding the primary write lock (it's not used in reads).
+
+            var q = AcquireOldReplicaForRecycling();
+            if (q != null)
+            {
+
+                if (q.FirstVirtualSliceId == this.queue.virtualSlices[0].Id)
+                {
+                    copy.queue = q;
+                    var alreadyExistingSlices = checked((int)(q.LastVirtualSliceIdExclusive - q.FirstVirtualSliceId));
+                    
+
+                    var virtualSliceCount = this.queue.virtualSlices.Count;
+                    var lastSliceIsEmpty = this.queue.currentVirtualSlice.DirtyKeys.Count == 0;
+                    if (lastSliceIsEmpty)
+                        virtualSliceCount--;
+
+                    HashSet<TKey> keysToCopy;
+                    if (alreadyExistingSlices == virtualSliceCount - 1)
+                    {
+                        // fast path
+                        keysToCopy = this.queue.virtualSlices[alreadyExistingSlices].DirtyKeys;
+                        copy.queue.LastVirtualSliceIdExclusive++;
+                    }
+                    else
+                    {
+
+                        keysToCopy = new();
+                        for (int i = alreadyExistingSlices; i < virtualSliceCount; i++)
+                        {
+                            var slice = this.queue.virtualSlices[i];
+                            foreach (var key in slice.DirtyKeys)
+                            {
+                                keysToCopy.Add(key);
+                            }
+                            copy.queue.LastVirtualSliceIdExclusive++;
+                        }
+                    }
+
+                    foreach (var key in keysToCopy)
+                    {
+                        copy.queue.Groups[key] = this.queue.Groups[key];
+                    }
+
+                    if (!lastSliceIsEmpty)
+                        this.queue.CreateVirtualSlice(); // nobody else is writing to primary.
+
+                    Console.Error.WriteLine("Queue copied incrementally.");
+                }
+
+                
+            }
+
+            if (copy.queue == null)
+            {
+                copy.queue = this.queue.CloneAndMaybeCreateNewVirtualSlice();
+                Console.Error.WriteLine("Queued copied from scratch.");
+            }
             copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
             copy.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
             return copy;
@@ -903,7 +980,33 @@ namespace AppViewLite.Storage
 
         ICloneableAsReadOnly ICloneableAsReadOnly.CloneAsReadOnly() => CloneAsReadOnly();
 
+        public override void ReturnQueueForNextReplica()
+        {
+            if (this.queue == null) return;
+            if (this.ReplicatedFrom == null) return;
+
+            var nextReplicaCanBeBuiltFrom = this.ReplicatedFrom.NextReplicaCanBeBuiltFrom;
+            lock (nextReplicaCanBeBuiltFrom)
+            {
+                if (nextReplicaCanBeBuiltFrom.Contains(this.queue))
+                    throw new InvalidOperationException();
+
+                nextReplicaCanBeBuiltFrom.Add(this.queue);
+
+                const int MaxVersionsToKeep = 3;
+                while (nextReplicaCanBeBuiltFrom.Count > MaxVersionsToKeep)
+                {
+                    nextReplicaCanBeBuiltFrom.RemoveAt(0);
+                }
+            }
+            this.queue = null!;
+        }
+
+        private List<MultiDictionary2<TKey, TValue>> NextReplicaCanBeBuiltFrom = new(); // only populated in primary
+        private CombinedPersistentMultiDictionary<TKey, TValue>? ReplicatedFrom; // only populated in replica
+
     }
+
 
 }
 

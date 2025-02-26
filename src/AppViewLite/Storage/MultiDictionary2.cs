@@ -26,6 +26,7 @@ namespace AppViewLite
         public MultiDictionary2(bool sortedValues)
         {
             preserveOrder = !sortedValues;
+            CreateVirtualSlice();
         }
 
 
@@ -45,6 +46,16 @@ namespace AppViewLite
             public SortedSet<TValue>? _manyValuesSorted;
             internal TValue[]? _manyValuesPreserved; // Contents of this array must NOT change.
             internal TValue _singleValue;
+
+            public ValueGroup Clone()
+            {
+                return new()
+                {
+                    _singleValue = _singleValue,
+                    _manyValuesPreserved = _manyValuesPreserved,
+                    _manyValuesSorted = _manyValuesSorted != null ? new SortedSet<TValue>(_manyValuesSorted) : null
+                };
+            }
 
             public readonly IEnumerable<TValue> ValuesSorted
             {
@@ -125,6 +136,11 @@ namespace AppViewLite
         }
 
         private Dictionary<TKey, ValueGroup> dict = new();
+        public List<MultiDictionary2VirtualSlice> virtualSlices = new();
+        public MultiDictionary2VirtualSlice currentVirtualSlice;
+
+        public long FirstVirtualSliceId;
+        public long LastVirtualSliceIdExclusive;
 
         public int GroupCount => dict.Count;
 
@@ -145,6 +161,7 @@ namespace AppViewLite
             if (!exists) 
                 AddMemoryPressure(PerKeySize);
             slot = new ValueGroup { _singleValue = value };
+            MarkKeyAsDirty(key);
         }
 
         public void Add(TKey key, TValue value)
@@ -172,6 +189,7 @@ namespace AppViewLite
                 AddMemoryPressure(PerValueSize * 2);
             }
 
+            MarkKeyAsDirty(key);
         }
 
         public void AddRange(TKey key, ReadOnlySpan<TValue> values)
@@ -184,8 +202,14 @@ namespace AppViewLite
                 slot = new ValueGroup { _manyValuesPreserved = values.ToArray() };
                 AddMemoryPressure(PerKeySize);
                 AddMemoryPressure(PerValueSize * values.Length);
+                MarkKeyAsDirty(key);
             }
             else throw new InvalidOperationException();
+        }
+
+        private void MarkKeyAsDirty(TKey key)
+        {
+            currentVirtualSlice.DirtyKeys.Add(key);
         }
 
         public bool ContainsKey(TKey key) => dict.ContainsKey(key);
@@ -223,29 +247,58 @@ namespace AppViewLite
         {
             _sizeInBytes = 0;
             dict.Clear();
+            virtualSlices.Clear();
+            CreateVirtualSlice();
         }
+
+        public void CreateVirtualSlice()
+        {
+            currentVirtualSlice = new() { Id = ++LastVirtualSliceId };
+            virtualSlices.Add(currentVirtualSlice);
+        }
+
+        internal long LastVirtualSliceId;
 
         public Dictionary<TKey, ValueGroup> Groups => dict;
 
         public IEnumerable<(TKey Key, TValue Value)> AllEntries => dict.SelectMany(x => x.Value.ValuesUnsorted, (group, list) => (group.Key, list));
 
-        public MultiDictionary2<TKey, TValue> Clone()
+        public MultiDictionary2<TKey, TValue> CloneAndMaybeCreateNewVirtualSlice()
         {
             var d = new Dictionary<TKey, ValueGroup>(this.dict.Capacity);
             foreach (var item in this.dict)
             {
                 var v = item.Value;
-                d.Add(item.Key, new ValueGroup 
-                { 
-                    _singleValue = v._singleValue,
-                    _manyValuesPreserved = v._manyValuesPreserved,
-                    _manyValuesSorted = v._manyValuesSorted != null ? new SortedSet<TValue>(v._manyValuesSorted) : null
-                });
+                d.Add(item.Key, item.Value.Clone());
             }
             var copy = new MultiDictionary2<TKey, TValue>(sortedValues: !preserveOrder);
             copy.dict = d;
+            copy.FirstVirtualSliceId = this.virtualSlices[0].Id;
+            copy.LastVirtualSliceIdExclusive = this.virtualSlices[^1].Id + 1;
+            if (this.currentVirtualSlice.DirtyKeys.Count != 0)
+            {
+                this.CreateVirtualSlice();
+            } 
+            else
+            {
+                copy.LastVirtualSliceIdExclusive--;
+            }
             return copy;
         }
+
+
+        public class MultiDictionary2VirtualSlice
+        {
+            public required long Id;
+            public HashSet<TKey> DirtyKeys = new();
+
+            public override string ToString()
+            {
+                return $"#{Id} ({DirtyKeys.Count} keys)";
+            }
+        }
     }
+
+
 }
 

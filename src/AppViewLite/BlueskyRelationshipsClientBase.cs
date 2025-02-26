@@ -350,6 +350,7 @@ namespace AppViewLite
             relationshipsUnlocked.OnBeforeWriteLockEnter();
             BeforeLockEnter?.Invoke(ctx);
             ctx?.TimeSpentWaitingForLocks?.Start();
+            using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
             relationshipsUnlocked.Lock.EnterWriteLock();
 
             relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;

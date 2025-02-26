@@ -1509,7 +1509,7 @@ namespace AppViewLite
 
         }
 
-        public BlueskyPostData? TryGetPostData(PostId id)
+        public BlueskyPostData? TryGetPostData(PostId id, bool skipBpeDecompression = false)
         {
             var isDeleted = PostDeletions.ContainsKey(id);
             
@@ -1519,7 +1519,7 @@ namespace AppViewLite
             // latest instead of any (pluggable posts include their own like count)
             if (PostData.TryGetPreserveOrderSpanLatest(id, out postDataCompressed))
             {
-                proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id);
+                proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id, skipBpeDecompression: skipBpeDecompression);
             }
             else if (!isDeleted && FailedPostLookups.ContainsKey(id))
             {

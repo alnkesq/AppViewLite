@@ -140,20 +140,20 @@ namespace AppViewLite
 
         public TaskDictionary<string, RequestContext?, string> PendingHandleVerifications;
         public TaskDictionary<(Plc Plc, string Did), RequestContext?, DidDocProto> FetchAndStoreDidDocNoOverride;
-        public TaskDictionary<string, RequestContext?> FetchAndStoreLabelerServiceMetadata;
-        public TaskDictionary<string, RequestContext?> FetchAndStoreProfile;
-        public TaskDictionary<RelationshipStr, RequestContext?> FetchAndStoreListMetadata;
-        public TaskDictionary<PostIdString, RequestContext?> FetchAndStorePost;
+        public TaskDictionary<string, RequestContext?, long> FetchAndStoreLabelerServiceMetadata;
+        public TaskDictionary<string, RequestContext?, long> FetchAndStoreProfile;
+        public TaskDictionary<RelationshipStr, RequestContext?, long> FetchAndStoreListMetadata;
+        public TaskDictionary<PostIdString, RequestContext?, long> FetchAndStorePost;
 
 
 
-        private async Task FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext? ctx)
+        private async Task<long> FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext? ctx)
         {
             var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value;
 
             var defs = (record.Policies?.LabelValueDefinitions ?? [])?.ToDictionary(x => x.Identifier);
 
-            WithRelationshipsWriteLock(rels =>
+            return WithRelationshipsWriteLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
                 foreach (var policy in record.Policies?.LabelValues ?? [])
@@ -175,6 +175,7 @@ namespace AppViewLite
                     };
                     rels.LabelData.AddRange(new LabelId(plc, BlueskyRelationships.HashLabelName(policy)), BlueskyRelationships.SerializeProto(labelInfo, x => x.Dummy = true));
                 }
+                return rels.Version;
             }, ctx);
         }
 
@@ -194,7 +195,8 @@ namespace AppViewLite
 
                 await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
                 {
-                    await FetchAndStoreProfile.GetTaskAsync(profile.Did, ctx);
+                    var version = await FetchAndStoreProfile.GetValueAsync(profile.Did, ctx);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
@@ -222,7 +224,7 @@ namespace AppViewLite
         }
 
 
-        private async Task FetchAndStoreProfileCoreAsync(string did, RequestContext? anyCtx)
+        private async Task<long> FetchAndStoreProfileCoreAsync(string did, RequestContext? anyCtx)
         {
             Profile? response = null;
             try
@@ -233,7 +235,7 @@ namespace AppViewLite
             {
             }
 
-            WithRelationshipsWriteLock(rels =>
+            return WithRelationshipsWriteLock(rels =>
             {
                 var plc = rels.SerializeDid(did);
                 if (response != null)
@@ -244,13 +246,14 @@ namespace AppViewLite
                 {
                     rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
                 }
+                return rels.Version;
             }, anyCtx);
         }
 
 
 
 
-        private async Task FetchAndStoreListMetadataCoreAsync(RelationshipStr listId, RequestContext? anyCtx)
+        private async Task<long> FetchAndStoreListMetadataCoreAsync(RelationshipStr listId, RequestContext? anyCtx)
         {
             List? response = null;
             try
@@ -261,7 +264,7 @@ namespace AppViewLite
             {
             }
 
-            WithRelationshipsWriteLock(rels =>
+            return WithRelationshipsWriteLock(rels =>
             {
                 var id = new Models.Relationship(rels.SerializeDid(listId.Did), Tid.Parse(listId.RKey));
                 if (response != null)
@@ -272,10 +275,11 @@ namespace AppViewLite
                 {
                     rels.FailedListLookups.Add(id, DateTime.UtcNow);
                 }
+                return rels.Version;
             }, anyCtx);
         }
 
-        private async Task FetchAndStorePostCoreAsync(PostIdString postId, RequestContext? anyCtx)
+        private async Task<long> FetchAndStorePostCoreAsync(PostIdString postId, RequestContext? anyCtx)
         {
             Post? response = null;
             try
@@ -286,7 +290,7 @@ namespace AppViewLite
             {
             }
 
-            WithRelationshipsWriteLock(rels =>
+            return WithRelationshipsWriteLock(rels =>
             {
                 var id = rels.GetPostId(postId.Did, postId.RKey);
                 rels.SuppressNotificationGeneration++;
@@ -305,6 +309,7 @@ namespace AppViewLite
                 {
                     rels.SuppressNotificationGeneration--;
                 }
+                return rels.Version;
             }, anyCtx);
         }
 
@@ -508,7 +513,8 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.Data == null).Select(async post =>
                 {
-                    await FetchAndStorePost.GetTaskAsync(post.PostIdStr, ctx);
+                    var version = await FetchAndStorePost.GetValueAsync(post.PostIdStr, ctx);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         OnPostDataAvailable(rels, post);
@@ -2343,7 +2349,8 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
-                    await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(label.LabelerDid, ctx);
+                    var version = await FetchAndStoreLabelerServiceMetadata.GetValueAsync(label.LabelerDid, ctx);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         label.Data = rels.TryGetLabelData(label.LabelId);
@@ -2359,7 +2366,8 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(lists.Where(x => x.Data == null).Select(async list =>
                 {
-                    await FetchAndStoreListMetadata.GetTaskAsync(list.ListIdStr, ctx);
+                    var version = await FetchAndStoreListMetadata.GetValueAsync(list.ListIdStr, ctx);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         list.Data = rels.TryGetListData(list.ListId);

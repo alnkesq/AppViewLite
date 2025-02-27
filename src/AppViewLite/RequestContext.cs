@@ -84,6 +84,17 @@ namespace AppViewLite
             return new RequestContext(session, null, null, signalrConnectionId, urgent: urgent);
         }
 
+        internal void BumpMinimumVersion(long version)
+        {
+            while (true)
+            {
+                var oldVersion = this.MinVersion;
+                if (oldVersion >= version) return;
+
+                Interlocked.CompareExchange(ref MinVersion, version, oldVersion);
+            }
+        }
+
 #if false
         // Blazor server code
         public RequestContext OnStateChanged(Action a)

@@ -50,6 +50,7 @@ namespace AppViewLite
             FetchAndStoreLabelerServiceMetadata = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
             FetchAndStoreProfile = new(FetchAndStoreProfileCoreAsync);
             FetchAndStoreListMetadata = new(FetchAndStoreListMetadataCoreAsync);
+            FetchAndStorePost = new(FetchAndStorePostCoreAsync);
 
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
@@ -137,17 +138,12 @@ namespace AppViewLite
 
         public ReloadableFile<DidDocOverridesConfiguration> DidDocOverrides;
 
-
-
-
-        private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingProfileRetrievals = new();
-        private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingPostRetrievals = new();
-        private ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingListRetrievals = new();
         public TaskDictionary<string, RequestContext?, string> PendingHandleVerifications;
         public TaskDictionary<(Plc Plc, string Did), RequestContext?, DidDocProto> FetchAndStoreDidDocNoOverride;
         public TaskDictionary<string, RequestContext?> FetchAndStoreLabelerServiceMetadata;
         public TaskDictionary<string, RequestContext?> FetchAndStoreProfile;
         public TaskDictionary<RelationshipStr, RequestContext?> FetchAndStoreListMetadata;
+        public TaskDictionary<PostIdString, RequestContext?> FetchAndStorePost;
 
 
 
@@ -201,8 +197,7 @@ namespace AppViewLite
                     await FetchAndStoreProfile.GetTaskAsync(profile.Did, ctx);
                     WithRelationshipsLock(rels =>
                     {
-                        if (profile.BasicData == null)
-                            profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
+                        profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
                     }, ctx);
 
                     onLateDataAvailable?.Invoke(profile);
@@ -276,6 +271,39 @@ namespace AppViewLite
                 else
                 {
                     rels.FailedListLookups.Add(id, DateTime.UtcNow);
+                }
+            }, anyCtx);
+        }
+
+        private async Task FetchAndStorePostCoreAsync(PostIdString postId, RequestContext? anyCtx)
+        {
+            Post? response = null;
+            try
+            {
+                response = (Post)(await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, anyCtx)).Value;
+            }
+            catch (Exception)
+            {
+            }
+
+            WithRelationshipsWriteLock(rels =>
+            {
+                var id = rels.GetPostId(postId.Did, postId.RKey);
+                rels.SuppressNotificationGeneration++;
+                try
+                {
+                    if (response != null)
+                    {
+                        rels.StorePostInfo(id, response, postId.Did);
+                    }
+                    else
+                    {
+                        rels.FailedPostLookups.Add(id, DateTime.UtcNow);
+                    }
+                }
+                finally 
+                {
+                    rels.SuppressNotificationGeneration--;
                 }
             }, anyCtx);
         }
@@ -396,140 +424,104 @@ namespace AppViewLite
             }, ctx);
 
 
-            var postIdToPost = posts.ToLookup(x => x.PostId);
-
-            var toLookup = posts.Where(x => x.Data == null).Select(x => new RelationshipStr(x.Author.Did, x.RKey)).ToArray();
-
-            WithRelationshipsLock(rels =>
+            void OnPostDataAvailable(BlueskyRelationships rels, BlueskyPost post)
             {
-                toLookup = toLookup.Where(x => !rels.FailedPostLookups.ContainsKey(rels.GetPostId(x.Did, x.RKey))).ToArray();
-
-                foreach (var post in posts.Where(x => x.Data != null))
+                if (post.Data == null)
                 {
-                    OnRecordReceived(rels, post.PostId);
+                    (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey));
                 }
-            }, ctx);
 
-     
-
-            void OnRecordReceived(BlueskyRelationships rels, PostId postId)
-            {
-                foreach (var post in postIdToPost[postId])
+                if (loadQuotes && post.Data?.QuotedPlc != null && post.QuotedPost == null)
                 {
-                    if (post.Data == null)
+                    post.QuotedPost = rels.GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
+                }
+
+                if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
+                {
+                    post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
+                }
+
+
+                var author = post.Author.Plc;
+                post.EmbedRecord = relationshipsUnlocked.TryGetAtObject(post.Data?.EmbedRecordUri);
+
+                if (focalPostAuthor != null)
+                {
+                    post.FocalAndAuthorBlockReason = rels.UsersHaveBlockRelationship(focalPostAuthor.Value, post.AuthorId);
+                }
+
+
+                if (post.Data?.InReplyToPostId is { Author: { } inReplyToAuthor })
+                {
+                    post.ParentAndAuthorBlockReason = rels.UsersHaveBlockRelationship(inReplyToAuthor, author);
+
+                    if (post.RootPostId.Author != inReplyToAuthor)
                     {
-                        (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey));
+                        post.RootAndAuthorBlockReason = rels.UsersHaveBlockRelationship(post.RootPostId.Author, author);
                     }
+                }
 
-                    if (loadQuotes && post.Data?.QuotedPlc != null && post.QuotedPost == null)
+
+
+                post.Threadgate = rels.TryGetThreadgate(post.RootPostId);
+                if (post.Threadgate != null)
+                {
+                    if (post.Threadgate.HiddenReplies?.Any(x => x.PostId == post.PostId) == true)
                     {
-                        post.QuotedPost = rels.GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
-                    }
-
-                    if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
-                    {
-                        post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
-                    }
-
-
-                    var author = post.Author.Plc;
-                    post.EmbedRecord = relationshipsUnlocked.TryGetAtObject(post.Data?.EmbedRecordUri);
-
-                    if (focalPostAuthor != null)
-                    {
-                        post.FocalAndAuthorBlockReason = rels.UsersHaveBlockRelationship(focalPostAuthor.Value, postId.Author);
-                    }
-
-
-                    if (post.Data?.InReplyToPostId is { Author: { } inReplyToAuthor })
-                    {
-                        post.ParentAndAuthorBlockReason = rels.UsersHaveBlockRelationship(inReplyToAuthor, author);
-
-                        if (post.RootPostId.Author != inReplyToAuthor)
-                        {
-                            post.RootAndAuthorBlockReason = rels.UsersHaveBlockRelationship(post.RootPostId.Author, author);
-                        }
-                    }
-
-
-
-                    post.Threadgate = rels.TryGetThreadgate(post.RootPostId);
-                    if (post.Threadgate != null)
-                    {
-                        if (post.Threadgate.HiddenReplies?.Any(x => x.PostId == post.PostId) == true)
-                        {
-                            if (post.PostBlockReason == default)
-                                post.PostBlockReason = PostBlockReasonKind.HiddenReply;
-                            post.ViolatesThreadgate = true;
-                        }
-                        else if (!rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, post.PostId.Author))
-                        {
-                            if (post.PostBlockReason == default)
-                                post.PostBlockReason = PostBlockReasonKind.NotAllowlistedReply;
-                            post.ViolatesThreadgate = true;
-                        }
-                    }
-
-
-                    if (post.RootAndAuthorBlockReason != default)
-                    {
+                        if (post.PostBlockReason == default)
+                            post.PostBlockReason = PostBlockReasonKind.HiddenReply;
                         post.ViolatesThreadgate = true;
                     }
-
-
-                    if (onPostDataAvailable != null)
+                    else if (!rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, post.PostId.Author))
                     {
-                        // The user callback must run outside the lock.
-                        DispatchOutsideTheLock(() => onPostDataAvailable.Invoke(post));
+                        if (post.PostBlockReason == default)
+                            post.PostBlockReason = PostBlockReasonKind.NotAllowlistedReply;
+                        post.ViolatesThreadgate = true;
                     }
-                    
+                }
 
+
+                if (post.RootAndAuthorBlockReason != default)
+                {
+                    post.ViolatesThreadgate = true;
+                }
+
+
+                if (onPostDataAvailable != null)
+                {
+                    // The user callback must run outside the lock.
+                    DispatchOutsideTheLock(() => onPostDataAvailable.Invoke(post));
                 }
             }
 
 
-            
+            WithRelationshipsLock(rels =>
+            {
 
-            var task = LookupManyRecordsWithinShortDeadlineAsync<Post>(toLookup, pendingPostRetrievals, Post.RecordType, ct,
-                (key, postRecord, ctx) =>
+                foreach (var post in posts.Where(x => x.Data != null))
                 {
-                    WithRelationshipsWriteLock(rels =>
-                    {
-                        rels.SuppressNotificationGeneration++;
-                        try
-                        {
-                            var postId = rels.GetPostId(key.Did, key.RKey);
-                            rels.StorePostInfo(postId, postRecord, key.Did);
-                            OnRecordReceived(rels, postId);
-                        }
-                        finally
-                        {
-                            rels.SuppressNotificationGeneration--;
-                        }
-                    }, ctx);
-                },
-                (key, ctx) =>
-                {
-                    WithRelationshipsWriteLock(rels =>
-                    {
-                        var postId = rels.GetPostId(key.Did, key.RKey);
-                        rels.FailedPostLookups.Add(rels.GetPostId(key.Did, key.RKey), DateTime.UtcNow);
-                        OnRecordReceived(rels, postId);
-                    }, ctx);
-                },
-                (key, ctx) =>
-                {
-                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.GetPostId(key.Did, key.RKey)), ctx);
-                },
-                ctx);
+                    OnPostDataAvailable(rels, post);
+                }
+            }, ctx);
 
+            if (!IsReadOnly)
+            {
+                await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.Data == null).Select(async post =>
+                {
+                    await FetchAndStorePost.GetTaskAsync(post.PostIdStr, ctx);
+                    WithRelationshipsLock(rels =>
+                    {
+                        OnPostDataAvailable(rels, post);
+                    }, ctx);
+                })), ctx);
+            }
 
             await EnrichAsync(posts.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
-            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray(), ctx, ct: ct);
+            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray()!, ctx, ct: ct);
             
             if (loadQuotes)
             {
-                var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray();
+                var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray()!;
                 if (r.Length != 0)
                 {
                     await EnrichAsync(r, ctx, onPostDataAvailable, loadQuotes: false, focalPostAuthor: focalPostAuthor, ct: ct);
@@ -574,94 +566,6 @@ namespace AppViewLite
         }
 
 
-
-        private Task LookupManyRecordsWithinShortDeadlineAsync<TValue>(IReadOnlyList<RelationshipStr> keys, ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals, string collection, CancellationToken ct, Action<RelationshipStr, TValue, RequestContext> onItemSuccess, Action<RelationshipStr, RequestContext> onItemFailure, Action<RelationshipStr, RequestContext> onPreexistingTaskCompleted, RequestContext ctx) where TValue : ATObject
-        {
-            if (relationshipsUnlocked.IsReadOnly) return Task.CompletedTask;
-
-            if (keys.Count != 0 && (ctx.LongDeadline == null || !ctx.LongDeadline.IsCompleted))
-            {
-                CleanupOldRetrievals(pendingRetrievals);
-
-                var keysToLookup = new List<RelationshipStr>();
-                var allTasksToAwait = new List<Task>();
-                foreach (var key in keys)
-                {
-                    if (!BlueskyRelationships.IsNativeAtProtoDid(key.Did)) continue;
-                    if (pendingRetrievals.TryGetValue(key, out var task))
-                    {
-                        task.Task.GetAwaiter().OnCompleted(() => 
-                        {
-                            onPreexistingTaskCompleted?.Invoke(key, ctx);
-                        });
-                        allTasksToAwait.Add(task.Task);
-                    }
-                    else if (keysToLookup.Count + 1 < 100)
-                        keysToLookup.Add(key);
-                }
-
-                if (keysToLookup.Count != 0)
-                {
-                    Console.Error.WriteLine("  Firing " + keysToLookup.Count + " lookups for " + collection);
-                    var delayedCtx = RequestContext.CreateInfinite(null, null);
-                    allTasksToAwait.AddRange(keysToLookup.Select(key =>
-                    {
-                        async Task RunAsync()
-                        {
-                            await Task.Yield();
-                            try
-                            {
-                                try
-                                {
-                                    var response = await GetRecordAsync(key.Did, collection, key.RKey, delayedCtx, ct);
-                                    var obj = (TValue)response.Value!;
-                                    onItemSuccess(key, obj, delayedCtx);
-                                }
-                                catch (Exception)
-                                {
-                                    onItemFailure(key, delayedCtx);
-                                    Console.Error.WriteLine("     > Failure: " + key);
-                                }
-
-
-                            }
-                            catch (Exception ex)
-                            {
-                                // Should we cache network errors? Maybe we should save the error code to the failure dictionary
-                                Console.Error.WriteLine("     > Exception: " + key);
-                            }
-
-
-                        }
-
-                        var task = RunAsync();
-                        pendingRetrievals[key] = (task, DateTime.UtcNow);
-                        return task;
-                    }));
-                }
-
-                var fullTask = Task.WhenAll(allTasksToAwait);
-
-                fullTask = ctx.LongDeadline != null ? Task.WhenAny(fullTask, ctx.LongDeadline) : fullTask;
-                fullTask = ctx.ShortDeadline != null ? Task.WhenAny(fullTask, ctx.ShortDeadline) : fullTask;
-                return fullTask;
-            }
-            return Task.CompletedTask;
-
-        }
-
-        private static void CleanupOldRetrievals(ConcurrentDictionary<RelationshipStr, (Task Task, DateTime DateStarted)> pendingRetrievals)
-        {
-            if (pendingRetrievals.Count >= 10000)
-            {
-                var now = DateTime.UtcNow;
-                foreach (var item in pendingRetrievals)
-                {
-                    if ((now - item.Value.DateStarted).TotalMinutes > 1)
-                        pendingRetrievals.TryRemove(item.Key, out _);
-                }
-            }
-        }
 
         private static ATIdentifier GetAtId(string did)
         {
@@ -2442,8 +2346,7 @@ namespace AppViewLite
                     await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(label.LabelerDid, ctx);
                     WithRelationshipsLock(rels =>
                     {
-                        if (label.Data == null)
-                            label.Data = rels.TryGetLabelData(label.LabelId);
+                        label.Data = rels.TryGetLabelData(label.LabelId);
                     }, ctx);
                 })), ctx);
             }
@@ -2459,8 +2362,7 @@ namespace AppViewLite
                     await FetchAndStoreListMetadata.GetTaskAsync(list.ListIdStr, ctx);
                     WithRelationshipsLock(rels =>
                     {
-                        if (list.Data == null)
-                            list.Data = rels.TryGetListData(list.ListId);
+                        list.Data = rels.TryGetListData(list.ListId);
                     }, ctx);
 
                 })), ctx);

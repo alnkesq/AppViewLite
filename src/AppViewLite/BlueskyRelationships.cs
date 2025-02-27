@@ -1667,7 +1667,7 @@ namespace AppViewLite
                 }
             }
 
-            possibleHandle = MaybeBridgyHandleToFediHandle(possibleHandle);
+            possibleHandle = MaybeBridyHandleToFediHandle(possibleHandle);
 
             if (isBlockedByAdministrativeRule)
             {
@@ -1702,7 +1702,7 @@ namespace AppViewLite
             };
         }
 
-        public static string? MaybeBridgyHandleToFediHandle(string? handle)
+        public static string? MaybeBridyHandleToFediHandle(string? handle)
         {
             if (handle != null && handle.EndsWith(".ap.brid.gy", StringComparison.Ordinal))
             {

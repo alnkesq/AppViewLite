@@ -48,10 +48,13 @@ namespace AppViewLite
             RunHandleVerificationDict = new(async (handle, anyCtx) =>
             {
                 anyCtx ??= RequestContext.CreateInfinite(null);
-                var did = await ResolveHandleAsync(handle, ctx: anyCtx);
-                return new(did, anyCtx.MinVersion);
+                return new(await ResolveHandleAsync(handle, ctx: anyCtx), anyCtx.MinVersion);
             });
-            FetchAndStoreDidDocNoOverrideDict = new((pair, anyCtx) => FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx));
+            FetchAndStoreDidDocNoOverrideDict = new(async (pair, anyCtx) =>
+            {
+                anyCtx ??= RequestContext.CreateInfinite(null);
+                return new(await FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx), anyCtx.MinVersion);
+            });
             FetchAndStoreLabelerServiceMetadata = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
             FetchAndStoreProfile = new(FetchAndStoreProfileCoreAsync);
             FetchAndStoreListMetadata = new(FetchAndStoreListMetadataCoreAsync);
@@ -2778,7 +2781,7 @@ namespace AppViewLite
             if (plc2 == default) WithRelationshipsWriteLock(rels => rels.SerializeDid(did, ctx), ctx);
         }
 
-        private async Task<Versioned<DidDocProto>> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext? anyCtx)
+        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext? anyCtx)
         {
             var didDoc = await GetDidDocCoreNoOverrideAsync(did);
             didDoc.Date = DateTime.UtcNow;
@@ -2786,7 +2789,7 @@ namespace AppViewLite
             {
                 rels.CompressDidDoc(didDoc);
                 rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
-                return new Versioned<DidDocProto>(rels.TryGetLatestDidDoc(plc)!, rels.Version);
+                return rels.TryGetLatestDidDoc(plc)!;
             }, anyCtx);
         }
 

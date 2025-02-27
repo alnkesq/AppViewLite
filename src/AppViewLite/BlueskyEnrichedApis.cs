@@ -139,7 +139,7 @@ namespace AppViewLite
         public ReloadableFile<DidDocOverridesConfiguration> DidDocOverrides;
 
         public TaskDictionary<string, RequestContext?, string> PendingHandleVerifications;
-        public TaskDictionary<(Plc Plc, string Did), RequestContext?, DidDocProto> FetchAndStoreDidDocNoOverride;
+        public TaskDictionary<(Plc Plc, string Did), RequestContext?, (DidDocProto DidDoc, long MinVersion)> FetchAndStoreDidDocNoOverride;
         public TaskDictionary<string, RequestContext?, long> FetchAndStoreLabelerServiceMetadata;
         public TaskDictionary<string, RequestContext?, long> FetchAndStoreProfile;
         public TaskDictionary<RelationshipStr, RequestContext?, long> FetchAndStoreListMetadata;
@@ -335,7 +335,7 @@ namespace AppViewLite
                     if (handle == null)
                     {
                         var diddoc = await GetDidDocAsync(did, ctx);
-                        handle = diddoc.Handle;
+                        handle = diddoc.DidDoc.Handle;
                         if (handle == null) return null;
                     }
                     var did2 = await PendingHandleVerifications.GetValueAsync(handle, ctx);
@@ -359,7 +359,8 @@ namespace AppViewLite
             {
                 // happens when the PLC directory is not synced.
                 // Note that handle-based badges won't be live-updated.
-                var diddoc = await GetDidDocAsync(did, ctx);
+                var (diddoc, version) = await GetDidDocAsync(did, ctx);
+                ctx.BumpMinimumVersion(version);
                 handle = diddoc.Handle;
                 if (handle == null) return;
             }
@@ -2218,7 +2219,9 @@ namespace AppViewLite
         }
         public async Task<ATProtocol> CreateProtocolForDidAsync(string did, RequestContext? ctx = null)
         {
-            var diddoc = await GetDidDocAsync(did, ctx);
+            var (diddoc, version) = await GetDidDocAsync(did, ctx);
+            ctx?.BumpMinimumVersion(version);
+
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
             
             var pds = diddoc.Pds;
@@ -2731,7 +2734,15 @@ namespace AppViewLite
             {
                 // if this is did:plc, the did-doc will be retrieved from plc.directory (as trustworthy as RetrievePlcDirectoryAsync())
                 // otherwise did:web, but they're in a different namespace
-                didDoc = DidDocOverrides.GetValue().TryGetOverride(did!) ?? await FetchAndStoreDidDocNoOverride.GetValueAsync((plc, did!), ctx);
+                if (DidDocOverrides.GetValue().TryGetOverride(did!) is { } ov)
+                {
+                    didDoc = ov;
+                }
+                else 
+                {
+                    (didDoc, var minVersion) = await FetchAndStoreDidDocNoOverride.GetValueAsync((plc, did!), ctx);
+                    ctx?.BumpMinimumVersion(minVersion);
+                }
             }
             if (!didDoc!.HasHandle(handle))
             {
@@ -2760,17 +2771,18 @@ namespace AppViewLite
             if (plc2 == default) WithRelationshipsWriteLock(rels => rels.SerializeDid(did, ctx), ctx);
         }
 
-        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext? anyCtx)
+        private async Task<(DidDocProto DidDoc, long Version)> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext? anyCtx)
         {
             var didDoc = await GetDidDocCoreNoOverrideAsync(did);
             didDoc.Date = DateTime.UtcNow;
-            WithRelationshipsWriteLock(rels =>
+            var version = WithRelationshipsWriteLock(rels =>
             {
                 rels.CompressDidDoc(didDoc);
                 rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
                 didDoc = rels.TryGetLatestDidDoc(plc);
+                return rels.Version;
             }, anyCtx);
-            return didDoc;
+            return (didDoc, version);
         }
 
         private bool IsDidDocStale(string did, DidDocProto? didDoc)
@@ -2985,28 +2997,31 @@ namespace AppViewLite
                 }
                 if (pds == null)
                 {
-                    pds = (await GetDidDocAsync(did, ctx)).Pds;
+                    pds = (await GetDidDocAsync(did, ctx)).DidDoc.Pds;
                 }
                 return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct, preferredSize: preferredSize);
             }
         }
 
-        private async Task<DidDocProto> GetDidDocAsync(string did, RequestContext? ctx)
+        private async Task<(DidDocProto DidDoc, long MinVersion)> GetDidDocAsync(string did, RequestContext? ctx)
         {
             var didDocOverride = DidDocOverrides.GetValue().TryGetOverride(did);
-            if (didDocOverride != null) return didDocOverride;
+            if (didDocOverride != null) return (didDocOverride, 0);
 
-            DidDocProto? doc;
-            (var plc, doc) = WithRelationshipsLockForDid(did, (plc, rels) =>
+            
+            var (plc, doc, version) = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
-                return (plc, rels.TryGetLatestDidDoc(plc));
+                return (plc, rels.TryGetLatestDidDoc(plc), rels.Version);
             }, ctx);
+            ctx?.BumpMinimumVersion(version);
             if (IsDidDocStale(did, doc))
             {
-                doc = await FetchAndStoreDidDocNoOverride.GetValueAsync((plc, did), ctx);
+                (doc, var version2) = await FetchAndStoreDidDocNoOverride.GetValueAsync((plc, did), ctx);
+                version = Math.Max(version, version2);
+                ctx?.BumpMinimumVersion(version);
             }
 
-            return doc!;
+            return (doc!, version);
         }
         public async Task<ATUri> ResolveUriAsync(string uri)
         {

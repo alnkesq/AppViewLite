@@ -193,27 +193,37 @@ namespace AppViewLite
                         VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx).FireAndForget();
                     }
                 }
+
+                await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
+                {
+                    await FetchAndStoreProfile.GetTaskAsync(profile.Did, ctx);
+                    WithRelationshipsLock(rels =>
+                    {
+                        if (profile.BasicData == null)
+                            profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
+                    }, ctx);
+
+                    onLateDataAvailable?.Invoke(profile);
+                })), ctx);
             }
 
             await EnrichAsync(profiles.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
 
-            var all = Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
-            {
-                await FetchAndStoreProfile.GetTaskAsync(profile.Did, ctx);
-                WithRelationshipsLock(rels =>
-                {
-                    if (profile.BasicData == null)
-                        profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
-                }, ctx);
-
-                onLateDataAvailable?.Invoke(profile);
-
-            }));
-            
-            await (ctx.ShortDeadline != null ? Task.WhenAny(all, ctx.ShortDeadline) : all);
-
             return profiles;
         }
+
+        private static Task AwaitWithShortDeadline(Task task, RequestContext? ctx)
+        {
+            if (ctx?.ShortDeadline != null)
+            {
+                return Task.WhenAny(task, ctx.ShortDeadline);
+            }
+            else
+            {
+                return task;
+            }
+        }
+
 
         private async Task FetchAndStoreProfileCoreAsync(string did, RequestContext? anyCtx)
         {
@@ -2394,21 +2404,15 @@ namespace AppViewLite
 
         public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
         {
-            var toLookup = labels.Where(x => x.Data == null).GroupBy(x => (x.LabelerPlc, x.LabelerDid)).ToArray();
-            if (toLookup.Length == 0) return labels;
-            var all = Task.WhenAll(toLookup.Select(async x =>
+            await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
             {
-                await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(x.Key.LabelerDid, ctx);
-                foreach (var label in x)
+                await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(label.LabelerDid, ctx);
+                WithRelationshipsLock(rels =>
                 {
-                    var data = WithRelationshipsLock(rels => rels.TryGetLabelData(label.LabelId), ctx);
-                    label.Data = data;
-                }
-            }));
-            if (ctx.ShortDeadline != null)
-                all = Task.WhenAny(all, ctx.ShortDeadline);
-
-            await all;
+                    if (label.Data == null)
+                        label.Data = rels.TryGetLabelData(label.LabelId);
+                }, ctx);
+            })), ctx);
             return labels;
         }
 

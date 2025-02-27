@@ -93,8 +93,10 @@ namespace AppViewLite.PluggableProtocols
             EnsureValidDid(reposterDid);
             var tid = (GetPostIdWithCorrectTid(qualifiedPostId, ctx) ?? default).Tid;
             if (tid == default) throw new ArgumentNullException();
+            BlueskyRelationships.EnsureNotExcessivelyFutureDate(tid);
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(reposterDid)) return;
+            
 
             Apis.WithRelationshipsWriteLock(rels =>
             {

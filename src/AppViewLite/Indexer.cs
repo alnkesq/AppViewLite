@@ -161,7 +161,11 @@ namespace AppViewLite
                         if (l.Subject!.Uri!.Collection == Post.RecordType)
                         {
                             // quick check to avoid noisy exceptions
+                            
                             var postId = relationships.GetPostId(l.Subject);
+
+                            // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
+                            BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                             relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc);
@@ -202,6 +206,8 @@ namespace AppViewLite
                     else if (record is Repost r)
                     {
                         var postId = relationships.GetPostId(r.Subject!);
+                        BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
+
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
                         relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc);
                         relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));

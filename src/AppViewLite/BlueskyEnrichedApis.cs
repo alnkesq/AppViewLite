@@ -49,6 +49,7 @@ namespace AppViewLite
             FetchAndStoreDidDocNoOverride = new((pair, anyCtx) => FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx));
             FetchAndStoreLabelerServiceMetadata = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
             FetchAndStoreProfile = new(FetchAndStoreProfileCoreAsync);
+            FetchAndStoreListMetadata = new(FetchAndStoreListMetadataCoreAsync);
 
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
@@ -146,8 +147,9 @@ namespace AppViewLite
         public TaskDictionary<(Plc Plc, string Did), RequestContext?, DidDocProto> FetchAndStoreDidDocNoOverride;
         public TaskDictionary<string, RequestContext?> FetchAndStoreLabelerServiceMetadata;
         public TaskDictionary<string, RequestContext?> FetchAndStoreProfile;
+        public TaskDictionary<RelationshipStr, RequestContext?> FetchAndStoreListMetadata;
 
-  
+
 
         private async Task FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext? ctx)
         {
@@ -249,6 +251,35 @@ namespace AppViewLite
                 }
             }, anyCtx);
         }
+
+
+
+
+        private async Task FetchAndStoreListMetadataCoreAsync(RelationshipStr listId, RequestContext? anyCtx)
+        {
+            List? response = null;
+            try
+            {
+                response = (List)(await GetRecordAsync(listId.Did, List.RecordType, listId.RKey, anyCtx)).Value;
+            }
+            catch (Exception)
+            {
+            }
+
+            WithRelationshipsWriteLock(rels =>
+            {
+                var id = new Models.Relationship(rels.SerializeDid(listId.Did), Tid.Parse(listId.RKey));
+                if (response != null)
+                {
+                    rels.Lists.AddRange(id, BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(response)));
+                }
+                else
+                {
+                    rels.FailedListLookups.Add(id, DateTime.UtcNow);
+                }
+            }, anyCtx);
+        }
+
 
         public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)
         {
@@ -2404,69 +2435,36 @@ namespace AppViewLite
 
         public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
         {
-            await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
+            if (!IsReadOnly)
             {
-                await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(label.LabelerDid, ctx);
-                WithRelationshipsLock(rels =>
+                await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
-                    if (label.Data == null)
-                        label.Data = rels.TryGetLabelData(label.LabelId);
-                }, ctx);
-            })), ctx);
+                    await FetchAndStoreLabelerServiceMetadata.GetTaskAsync(label.LabelerDid, ctx);
+                    WithRelationshipsLock(rels =>
+                    {
+                        if (label.Data == null)
+                            label.Data = rels.TryGetLabelData(label.LabelId);
+                    }, ctx);
+                })), ctx);
+            }
             return labels;
         }
 
         private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
         {
-
-            var toLookup = lists.Where(x => x.Data == null).Select(x => x.ListIdStr).Distinct().ToArray();
-            if (toLookup.Length == 0) return lists;
-
-            toLookup = WithRelationshipsUpgradableLock(rels => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray(), ctx);
-            if (toLookup.Length == 0) return lists;
-
-            var idToList = lists.ToLookup(x => x.ListId);
-
-            void OnRecordReceived(BlueskyRelationships rels, Models.Relationship listId)
+            if (!IsReadOnly)
             {
-                foreach (var list in idToList[listId])
+                await AwaitWithShortDeadline(Task.WhenAll(lists.Where(x => x.Data == null).Select(async list =>
                 {
-                    if (list.Data == null)
-                        list.Data = rels.TryGetListData(list.ListId);
-                }
-            }
-
-            var task = LookupManyRecordsWithinShortDeadlineAsync<List>(toLookup, pendingProfileRetrievals, List.RecordType, ct,
-                (key, listRecord, ctx) =>
-                {
-                    WithRelationshipsWriteLock(rels =>
-                    {
-                        var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
-                        rels.Lists.AddRange(id, BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(listRecord)));
-                        OnRecordReceived(rels, id);
-                    }, ctx);
-                },
-                (key, ctx) =>
-                {
-                    WithRelationshipsWriteLock(rels =>
-                    {
-                        var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
-                        rels.FailedListLookups.Add(id, DateTime.UtcNow);
-                        OnRecordReceived(rels, id);
-                    }, ctx);
-                },
-                (key, ctx) =>
-                {
+                    await FetchAndStoreListMetadata.GetTaskAsync(list.ListIdStr, ctx);
                     WithRelationshipsLock(rels =>
                     {
-                        var id = new Models.Relationship(rels.SerializeDid(key.Did), Tid.Parse(key.RKey));
-                        OnRecordReceived(rels, id);
+                        if (list.Data == null)
+                            list.Data = rels.TryGetListData(list.ListId);
                     }, ctx);
-                }
-                , ctx);
 
-            
-            await task;
+                })), ctx);
+            }
             await EnrichAsync(lists.Select(x => x.Author).ToArray(), ctx, ct: ct);
             return lists;
         }

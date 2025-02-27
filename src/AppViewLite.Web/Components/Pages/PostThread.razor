@@ -18,6 +18,12 @@
         ResolvedFocalDid = Did;
         Posts = await Apis.GetPostThreadAsync(Did, RKey, default, Continuation, RequestContext);
         FocalPost = Posts.Posts.FirstOrDefault(x => x.RKey == RKey && x.Did == Did);
+
+        if (FocalPost != null && FocalPost.Data == null)
+        {
+            // Theater requires this data immediately.
+            await Apis.EnrichAsync([FocalPost], RequestContext.CreateInfinite(RequestContext.Session, urgent: true));
+        }
     }
 }
 

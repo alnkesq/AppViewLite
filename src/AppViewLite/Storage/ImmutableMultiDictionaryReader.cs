@@ -208,7 +208,7 @@ namespace AppViewLite.Storage
             if (comparable.CompareTo(MinimumKey) < 0) return ~0;
             if (comparable.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
 
-#if true
+#if false
             var result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))

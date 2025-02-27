@@ -47,8 +47,8 @@ namespace AppViewLite
         {
             PendingHandleVerifications = new((handle, anyCtx) => ResolveHandleAsync(handle, ctx: anyCtx));
             FetchAndStoreDidDocNoOverride = new((pair, anyCtx) => FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx));
-            FetchAndStoreLabelerServiceMetadata = new((did, anyCtx) => FetchAndStoreLabelerServiceMetadataAsync(did, anyCtx));
-
+            FetchAndStoreLabelerServiceMetadata = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
+            FetchAndStoreProfile = new(FetchAndStoreProfileCoreAsync);
 
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
@@ -145,10 +145,11 @@ namespace AppViewLite
         public TaskDictionary<string, RequestContext?, string> PendingHandleVerifications;
         public TaskDictionary<(Plc Plc, string Did), RequestContext?, DidDocProto> FetchAndStoreDidDocNoOverride;
         public TaskDictionary<string, RequestContext?> FetchAndStoreLabelerServiceMetadata;
+        public TaskDictionary<string, RequestContext?> FetchAndStoreProfile;
 
   
 
-        private async Task FetchAndStoreLabelerServiceMetadataAsync(string did, RequestContext? ctx)
+        private async Task FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext? ctx)
         {
             var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value;
 
@@ -179,7 +180,7 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
         {
             PopulateViewerFlags(profiles, ctx);
 
@@ -196,66 +197,48 @@ namespace AppViewLite
 
             await EnrichAsync(profiles.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
 
-            if (onProfileDataAvailable != null)
+            var all = Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
             {
-                foreach (var profile in profiles)
-                {
-                    if (profile.BasicData != null)
-                        onProfileDataAvailable(profile);
-                }
-            }
-
-            var toLookup = profiles.Where(x => x.BasicData == null).Select(x => new RelationshipStr(x.Did, "self")).Distinct().ToArray();
-            if (toLookup.Length == 0) return profiles;
-
-            toLookup = WithRelationshipsLockForDids(toLookup.Select(x => x.Did).ToArray(), (plcs, rels) => toLookup.Where(x => !rels.FailedProfileLookups.ContainsKey(rels.SerializeDid(x.Did))).ToArray(), ctx);
-            if (toLookup.Length == 0) return profiles;
-
-            var plcToProfile = profiles.ToLookup(x => x.Plc);
-
-            void OnRecordReceived(BlueskyRelationships rels, Plc plc)
-            {
-                foreach (var profile in plcToProfile[plc])
+                await FetchAndStoreProfile.GetTaskAsync(profile.Did, ctx);
+                WithRelationshipsLock(rels =>
                 {
                     if (profile.BasicData == null)
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
+                }, ctx);
 
-                    if (onProfileDataAvailable != null)
-                        DispatchOutsideTheLock(() => onProfileDataAvailable.Invoke(profile));
+                onLateDataAvailable?.Invoke(profile);
 
-                }
-            }
-
-            var task = LookupManyRecordsWithinShortDeadlineAsync<Profile>(toLookup, pendingProfileRetrievals, Profile.RecordType, ct,
-                (key, profileRecord, ctx) =>
-                {
-                    WithRelationshipsWriteLock(rels =>
-                    {
-                        var plc = rels.SerializeDid(key.Did);
-                        rels.StoreProfileBasicInfo(plc, profileRecord);
-                        OnRecordReceived(rels, plc);
-                    }, ctx);
-                },
-                (key, ctx) =>
-                {
-                    WithRelationshipsWriteLock(rels =>
-                    {
-                        var plc = rels.SerializeDid(key.Did);
-                        rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
-                        OnRecordReceived(rels, plc);
-                    }, ctx);
-                },
-                (key, ctx) =>
-                {
-                    WithRelationshipsLock(rels => OnRecordReceived(rels, rels.SerializeDid(key.Did)), ctx);
-                }
-                , ctx);
-
-            await task;
+            }));
+            
+            await (ctx.ShortDeadline != null ? Task.WhenAny(all, ctx.ShortDeadline) : all);
 
             return profiles;
         }
 
+        private async Task FetchAndStoreProfileCoreAsync(string did, RequestContext? anyCtx)
+        {
+            Profile? response = null;
+            try
+            {
+                response = (Profile)(await GetRecordAsync(did, Profile.RecordType, "self", anyCtx)).Value;
+            }
+            catch (Exception)
+            {
+            }
+
+            WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did);
+                if (response != null)
+                {
+                    rels.StoreProfileBasicInfo(plc, response);
+                }
+                else
+                {
+                    rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
+                }
+            }, anyCtx);
+        }
 
         public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)
         {
@@ -2606,7 +2589,7 @@ namespace AppViewLite
 
         
 
-        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null)
+        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null)
         {
             EnsureLimit(ref limit);
 
@@ -2684,7 +2667,7 @@ namespace AppViewLite
                 }
             }
 
-            await EnrichAsync(result.Items, ctx, onProfileDataAvailable: onProfileDataAvailable);
+            await EnrichAsync(result.Items, ctx, onLateDataAvailable: onLateDataAvailable);
             
 
             return (result.Items.OrderByDescending(x => followerCount[x.Plc]).ToArray(), result.NextContinuation);

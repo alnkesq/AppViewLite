@@ -1,4 +1,6 @@
 using AngleSharp.Dom;
+using AppViewLite;
+using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -69,6 +71,61 @@ namespace AppViewLite
         public static IEnumerable<T> WhereNonNull<T>(this IEnumerable<T?> items) where T : class
         {
             return items.Where(x => x != null)!;
+        }
+
+        private static long OffsetBinarySearchResult(long offset, long index)
+        {
+            if (index < 0) return ~(offset + ~index);
+            return offset + index;
+        }
+
+        public static long BinarySearchRightBiased<T>(this HugeReadOnlySpan<T> span, T needle) where T : IComparable<T>
+        {
+            var a = span.BinarySearchRightBiasedCore(needle);
+            var b = span.BinarySearch(needle);
+            if (a != b)
+            {
+                if (a >= 0 && b >= 0 && span[a].Equals(span[b]))
+                {
+                    // actually ok (duplicates)
+                }
+                else
+                {
+                    BlueskyRelationships.ThrowFatalError("BinarySearchRightBiased mismatch");
+                }
+            }
+            return a;
+        }
+        public static long BinarySearchRightBiasedCore<T>(this HugeReadOnlySpan<T> span, T needle) where T : IComparable<T>
+        {
+            long increment = 4;
+            while (true)
+            {
+                var index = span.Length - increment;
+
+                if (index < 0) return span.BinarySearch(needle);
+
+                var val = span[index];
+                var cmp = needle.CompareTo(val);
+                if (cmp > 0)
+                {
+                    var offset = index + 1;
+                    var result = span.Slice(offset).BinarySearch(needle);
+                    return OffsetBinarySearchResult(offset, result);
+                }
+                else if (cmp < 0)
+                {
+                    span = span.Slice(0, index);
+                }
+                else
+                {
+                    return index;
+                }
+
+
+                increment <<= 2;
+            }
+
         }
     }
 

@@ -1107,7 +1107,7 @@ namespace AppViewLite
             for (int sliceIdx = 0; sliceIdx < slices.Count; sliceIdx++)
             {
                 var slice = slices[sliceIdx];
-                var index = slice.AsSpan().BinarySearch(maxPost);
+                var index = slice.AsSpan().BinarySearchRightBiased(maxPost);
                 long trimPosition;
                 if (index < 0)
                 {

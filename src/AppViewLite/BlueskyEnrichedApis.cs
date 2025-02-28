@@ -200,7 +200,7 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext? ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
         {
             PopulateViewerFlags(profiles, ctx);
 
@@ -217,7 +217,7 @@ namespace AppViewLite
                 await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
                 {
                     var version = await FetchAndStoreProfile.GetValueAsync(profile.Did, ctx);
-                    ctx.BumpMinimumVersion(version);
+                    ctx?.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
@@ -432,14 +432,14 @@ namespace AppViewLite
             return r;
         }
 
-        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
+        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext? ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
             {
                 foreach (var post in posts)
                 {
 
-                    if (ctx.IsLoggedIn)
+                    if (ctx?.IsLoggedIn == true)
                     {
                         var loggedInUser = ctx.LoggedInUser;
                         if (rels.Likes.HasActor(post.PostId, loggedInUser, out var likeTid))
@@ -447,7 +447,7 @@ namespace AppViewLite
                         if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
                             post.IsRepostedBySelf = repostTid.RelationshipRKey;
                     }
-                    post.Labels = rels.GetPostLabels(post.PostId, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
+                    post.Labels = rels.GetPostLabels(post.PostId, ctx?.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
             }, ctx);
 
@@ -537,7 +537,7 @@ namespace AppViewLite
                 await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.Data == null).Select(async post =>
                 {
                     var version = await FetchAndStorePost.GetValueAsync(post.PostIdStr, ctx);
-                    ctx.BumpMinimumVersion(version);
+                    ctx?.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         OnPostDataAvailable(rels, post);
@@ -2367,14 +2367,14 @@ namespace AppViewLite
             return feeds;
         }
 
-        public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
+        public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext? ctx)
         {
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
                     var version = await FetchAndStoreLabelerServiceMetadata.GetValueAsync(label.LabelerDid, ctx);
-                    ctx.BumpMinimumVersion(version);
+                    ctx?.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         label.Data = rels.TryGetLabelData(label.LabelId);
@@ -3186,7 +3186,7 @@ namespace AppViewLite
             return new Uri(pageUrl.GetLeftPart(UriPartial.Authority) + "/favicon.ico");
         }
 
-        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext ctx)
+        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext? ctx)
         {
             if (!profiles.Any(x => x.PrivateFollow == null)) return;
             WithRelationshipsLock(rels =>

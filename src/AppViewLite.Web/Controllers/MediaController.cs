@@ -241,7 +241,7 @@ namespace AppViewLite.Web.Controllers
                     await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
                     {
                         Quality =
-                        image.Width <= 16 ? 98 :
+                        image!.Width <= 16 ? 98 :
                         image.Width <= 32 ? 90 :
                         70
                     }, cancellationToken: ct);

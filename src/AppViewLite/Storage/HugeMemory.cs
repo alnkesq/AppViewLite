@@ -75,7 +75,7 @@ namespace AppViewLite.Storage
         }
         public static explicit operator DangerousHugeReadOnlyMemory<T>(HugeReadOnlyMemory<T> mem) => new(mem.ptr, mem.length);
 
-        public ref readonly T this[long index] => ref Unsafe.AsRef(ptr[index]);
+        public ref readonly T this[long index] => ref Unsafe.AsRef(in ptr[index]);
 
     }
     public unsafe struct DangerousHugeReadOnlyMemory<T> : IDisposable, IEnumerable<T> where T : unmanaged
@@ -135,7 +135,7 @@ namespace AppViewLite.Storage
             }
         }
 
-        public ref readonly T this[long index] => ref Unsafe.AsRef(this.ptr[index]);
+        public ref readonly T this[long index] => ref Unsafe.AsRef(in this.ptr[index]);
         public unsafe struct Enumerator : IEnumerator<T>
         {
             internal T* ptr;

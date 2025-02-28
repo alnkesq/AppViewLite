@@ -18,7 +18,7 @@ namespace AppViewLite.PluggableProtocols
             if (didPrefix == "did:plc:" || didPrefix == "did:web:" || !Regex.IsMatch(didPrefix, @"^did:[\w\-]+:$"))
                 throw new ArgumentException();
             DidPrefix = didPrefix;
-
+            Apis = null!;
         }
         public string DidPrefix { get; private set; }
         internal BlueskyEnrichedApis Apis;

@@ -698,7 +698,7 @@ namespace AppViewLite.Storage
             if (InMemorySize >= WriteBufferSize || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
                 var shouldFlushArgs = new CancelEventArgs();
-                ShouldFlush(this, shouldFlushArgs);
+                ShouldFlush?.Invoke(this, shouldFlushArgs);
                 if (shouldFlushArgs.Cancel) return;
                 Flush(false);
             }
@@ -922,7 +922,7 @@ namespace AppViewLite.Storage
                     
 
                     var virtualSliceCount = this.queue.virtualSlices.Count;
-                    var lastSliceIsEmpty = this.queue.currentVirtualSlice.DirtyKeys.Count == 0;
+                    var lastSliceIsEmpty = this.queue.currentVirtualSlice!.DirtyKeys.Count == 0;
                     if (lastSliceIsEmpty)
                         virtualSliceCount--;
 

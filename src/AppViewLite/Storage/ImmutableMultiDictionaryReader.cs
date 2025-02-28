@@ -71,7 +71,7 @@ namespace AppViewLite.Storage
 
         public HugeReadOnlyMemory<TKey> Keys;
         public DangerousHugeReadOnlyMemory<TValue> Values => columnarReader.GetColumnDangerousHugeMemory<TValue>(1);
-        public HugeReadOnlyMemory<UInt48> Offsets;
+        public HugeReadOnlyMemory<UInt48>? Offsets;
 
 
 
@@ -101,7 +101,7 @@ namespace AppViewLite.Storage
             if (index == -1) return 0;
             if (IsSingleValue)
                 return 1;
-            var offsets = this.Offsets;
+            var offsets = this.Offsets!;
             ulong startOffset = offsets[index];
             ulong endOffset = index == offsets.Length - 1 ? (ulong)Values.Length : offsets[index + 1];
             return checked((int)(endOffset - startOffset));
@@ -162,7 +162,7 @@ namespace AppViewLite.Storage
         {
             if (index == -1) return default;
             if (IsSingleValue) return Values.Slice(index, 1);
-            return Values.Slice(Offsets[index], GetValueCount(index));
+            return Values.Slice(Offsets![index], GetValueCount(index));
         }
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()
@@ -194,7 +194,7 @@ namespace AppViewLite.Storage
             else
             {
 
-                var offsets = this.Offsets;
+                var offsets = this.Offsets!;
                 for (long i = 0; i < count; i++)
                 {
                     var values = allValues.Slice(offsets[i], GetValueCount(i));

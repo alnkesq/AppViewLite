@@ -363,7 +363,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     OnPostDiscovered(leafPostId.AsQualifiedPostId, null, null, new BlueskyPostData 
                     { 
                         ExternalTitle = text,
-                        ExternalUrl = url.AbsoluteUri,
+                        ExternalUrl = url!.AbsoluteUri,
                     }, ctx: ctx);
                 }
                 else

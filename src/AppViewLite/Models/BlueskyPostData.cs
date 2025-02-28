@@ -75,7 +75,7 @@ namespace AppViewLite.Models
 
         public byte[]? GetUtf8IfNeededByCompactFacets()
         {
-            return Facets != null && Facets.Any(x => x.SameLinkAsText == true) ? Encoding.UTF8.GetBytes(Text) : default;
+            return Facets != null && Facets.Any(x => x.SameLinkAsText == true) ? Encoding.UTF8.GetBytes(Text!) : default;
         }
 
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;

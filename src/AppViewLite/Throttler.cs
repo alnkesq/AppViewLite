@@ -18,7 +18,7 @@ namespace AppViewLite
             {
                 if (Interlocked.Exchange(ref _isPending, 0) == 1)
                 {
-                    callback(_latestArgs!.Value);
+                    callback(_latestArgs!.Value!);
                 }
             }, null, Timeout.Infinite, Timeout.Infinite);
         }

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.PluggableProtocols.Yotsuba
 {
-#nullable disable
+#nullable disable warnings
 
     [ProtoContract]
     public class YotsubaCatalogThreadJson

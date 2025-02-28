@@ -26,7 +26,7 @@ namespace AppViewLite
 
         public Session? PdsSession;
 
-        public HashSet<LabelId> NeedLabels;
+        public HashSet<LabelId>? NeedLabels;
 
         public Dictionary<Plc, PrivateFollow> PrivateFollows = new();
         public AppViewLiteProfileProto? PrivateProfile;

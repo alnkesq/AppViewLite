@@ -46,7 +46,7 @@ namespace AppViewLite
                     Reply = post.IsReply ? new ReplyRefDef 
                     { 
                         Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
-                        Root = rootPost != null ? GetPostStrongRef(rootPost.Did, rootPost.RKey) : null
+                        Root = GetPostStrongRef(rootPost!.Did, rootPost.RKey)
                     } : null,
                 },
                 Author = post.Author.ToApiCompatBasic(),

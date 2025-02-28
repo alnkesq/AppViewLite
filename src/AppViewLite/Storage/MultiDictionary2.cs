@@ -137,7 +137,7 @@ namespace AppViewLite
 
         private Dictionary<TKey, ValueGroup> dict = new();
         public List<MultiDictionary2VirtualSlice> virtualSlices = new();
-        public MultiDictionary2VirtualSlice currentVirtualSlice;
+        public MultiDictionary2VirtualSlice? currentVirtualSlice;
 
         public long FirstVirtualSliceId;
         public long LastVirtualSliceIdExclusive;
@@ -209,7 +209,7 @@ namespace AppViewLite
 
         private void MarkKeyAsDirty(TKey key)
         {
-            currentVirtualSlice.DirtyKeys.Add(key);
+            currentVirtualSlice!.DirtyKeys.Add(key);
         }
 
         public bool ContainsKey(TKey key) => dict.ContainsKey(key);
@@ -275,7 +275,7 @@ namespace AppViewLite
             copy.dict = d;
             copy.FirstVirtualSliceId = this.virtualSlices[0].Id;
             copy.LastVirtualSliceIdExclusive = this.virtualSlices[^1].Id + 1;
-            if (this.currentVirtualSlice.DirtyKeys.Count != 0)
+            if (this.currentVirtualSlice!.DirtyKeys.Count != 0)
             {
                 this.CreateVirtualSlice();
             } 

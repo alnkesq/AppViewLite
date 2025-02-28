@@ -385,9 +385,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
 
                     QualifiedPluggablePostId? prev = null;
-                    var rootPostId = sequence[0].PostId.AsQualifiedPostId;
+                    TumblrPostId rootPostId = default;
                     foreach (var post in sequence)
                     {
+                        if (rootPostId == default) rootPostId = post.PostId;
+
                         var pair = StringUtils.HtmlToFacets(post.Content, x => StringUtils.DefaultElementToFacet(x, null));
                         var subpostData = new BlueskyPostData
                         {
@@ -407,7 +409,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                         if (post.PostId != default)
                         {
-                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData, ctx: ctx, replyIsSemanticallyRepost: true);
+                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId.AsQualifiedPostId, subpostData, ctx: ctx, replyIsSemanticallyRepost: true);
                             prev = post.PostId.AsQualifiedPostId;
                         }
                         
@@ -511,6 +513,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             IElement? attributionLink = null;
             var attribution = blockquote?.PreviousNonWhiteSpaceSibling() is IElement { TagName: "P", FirstChild: IElement { TagName: "A", ClassName: "tumblr_blog" } } attributionParagraph ? attributionParagraph : null;
 
+            if (blockquote != null && attribution == null)
+            {
+                blockquote = null;
+            }
 
             if (blockquote != null)
             {

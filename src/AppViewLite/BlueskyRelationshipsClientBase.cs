@@ -528,7 +528,7 @@ namespace AppViewLite
 
             if (ns.StartsWith("AppViewLite", StringComparison.Ordinal))
             {
-                var fullName = method.DeclaringType.ToString() + "::" + method.Name;
+                var fullName = method.DeclaringType!.ToString() + "::" + method.Name;
                 if (fullName.Contains("Main", StringComparison.Ordinal) && fullName.Contains("Program"))
                 {
                     // very noisy ASP.NET stacks

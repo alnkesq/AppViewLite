@@ -4,7 +4,7 @@
 
 @code {
     [Parameter] public string? Text { get; set; }
-    [Parameter] public FacetData?[] Facets { get; set; }
+    [Parameter] public FacetData[]? Facets { get; set; }
     [Parameter] public bool IsProfileDisplayName { get; set; }
 
     private List<(string Text, string? Link, CustomEmoji? CustomEmoji, bool Bold, bool Del)> Parts;

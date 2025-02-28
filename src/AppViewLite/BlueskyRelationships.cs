@@ -605,7 +605,7 @@ namespace AppViewLite
 
         public bool CanUpgradeToWrite => Lock.IsWriteLockHeld || (Lock.IsUpgradeableReadLockHeld && ForbidUpgrades == 0);
 
-        public void WithWriteUpgrade(Action value, RequestContext ctx)
+        public void WithWriteUpgrade(Action value, RequestContext? ctx)
         {
             if (ForbidUpgrades != 0) throw ThrowIncorrectLockUsageException("Cannot upgrade to write lock after the upgradable preamble.");
             if (Lock.IsWriteLockHeld)
@@ -870,7 +870,7 @@ namespace AppViewLite
                 return facet;
             }).Where(x => x != null).ToArray()!;
             if (facetProtos.Length == 0) return null;
-            return facetProtos;
+            return facetProtos!;
         }
 
         public static LanguageEnum ParseLanguage(string? lang)
@@ -2121,7 +2121,7 @@ namespace AppViewLite
                 newNotificationsCore
                 .Select(x => RehydrateNotification(x, user))
                 .Where(x => x != null)
-                .ToArray();
+                .ToArray()!;
 
             Notification? oldestNew = newNotificationsCore.Length != 0 ? newNotificationsCore[^1] : null;
 
@@ -2141,7 +2141,7 @@ namespace AppViewLite
                     if (distinctOldCoalesceKeys.Count > 10) return false;
                     return true;
                 })
-                .ToArray();
+                .ToArray()!;
 
             return (newNotifications, oldNotifications, newestNotification ?? default);
 
@@ -2179,8 +2179,6 @@ namespace AppViewLite
                         .EnumerateRecentPosts(author, thresholdDate, maxTid)
                         .Select(x =>
                         {
-                            Tid inReplyToTid = default;
-                            Tid rootTid = default;
                             var postAuthor = author;
                             var parentAuthor = x.InReplyTo;
 
@@ -2363,7 +2361,7 @@ namespace AppViewLite
                 Did = did,
                 ListId = listId,
                 Data = listData ?? TryGetListData(listId),
-                ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()),
+                ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()!),
                 Author = GetProfile(listId.Actor)
             };
         }
@@ -2898,19 +2896,6 @@ namespace AppViewLite
                 if (field.FieldType.IsAssignableTo(typeof(ICloneableAsReadOnly)))
                 {
                     var copiedField = ((ICloneableAsReadOnly)field.GetValue(this)!).CloneAsReadOnly();
-#if false
-                    long copiedBytes = 0;
-                    if (copiedField is CombinedPersistentMultiDictionary p)
-                    {
-                        copiedBytes = p.NonReusableQueueBytes;
-                    }
-                    else if (copiedField is RelationshipDictionary r)
-                    {
-                        copiedBytes = r.NonReusableQueueBytes;
-                    }
-                    if (copiedBytes > 100000) Console.Error.WriteLine("Large copy for " + field.Name + ": " + StringUtils.ToHumanBytes(copiedBytes));
-                    copiedQueueBytes += copiedBytes;
-#endif
                     field.SetValue(copy, copiedField);
                     copy.disposables.Add((ICheckpointable)copiedField);
                 }

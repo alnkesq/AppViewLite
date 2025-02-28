@@ -14,7 +14,6 @@ namespace AppViewLite
     public abstract class RelationshipDictionary
     { 
         public abstract IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
-        public virtual long NonReusableQueueBytes { get; }
     }
     public class RelationshipDictionary<TTarget> : RelationshipDictionary, ICheckpointable, ICloneableAsReadOnly where TTarget : unmanaged, IComparable<TTarget>
     {
@@ -30,9 +29,12 @@ namespace AppViewLite
         public event EventHandler? BeforeWrite;
         private IReadOnlyList<CombinedPersistentMultiDictionary> _multidictionaries;
         public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries => _multidictionaries;
+
+#nullable disable
         internal RelationshipDictionary()
         { 
         }
+#nullable restore
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -55,11 +57,7 @@ namespace AppViewLite
             }
             _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
         }
-        public override long NonReusableQueueBytes =>
-            creations.NonReusableQueueBytes +
-            deletions.NonReusableQueueBytes +
-            deletionCounts.NonReusableQueueBytes +
-            relationshipIdHashToApproxTarget?.NonReusableQueueBytes ?? 0;
+        
         private void SetUpEventHandlers(IFlushable inner)
         {
             inner.BeforeFlush += OnBeforeFlush;
@@ -226,7 +224,7 @@ namespace AppViewLite
                 var slice = sliceTuple.Reader;
 
                 var keySpan = slice.Keys.Span;
-                var z = slice.BinarySearch(new LambdaComparable<TTarget, UInt24>(approxTarget, x => targetToApproxTarget(x, true)));
+                var z = slice.BinarySearch(new LambdaComparable<TTarget, UInt24>(approxTarget, x => targetToApproxTarget!(x, true)));
                 if (z < 0) continue;
 
                 for (long i = z; i < keySpan.Length; i++)
@@ -325,7 +323,7 @@ namespace AppViewLite
                     creations,
                     deletions,
                     deletionCounts,
-                    relationshipIdHashToApproxTarget
+                    relationshipIdHashToApproxTarget!
                 }.Where(x => x != null);
         }
 

@@ -34,7 +34,6 @@ namespace AppViewLite.Storage
         public DateTime LastFlushed;
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
-        public virtual long NonReusableQueueBytes { get; }
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
             this.DirectoryPath = directory;
@@ -84,13 +83,17 @@ namespace AppViewLite.Storage
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public Func<IEnumerable<TValue>, IEnumerable<TValue>>? OnCompactation;
 
-        public event EventHandler AfterCompactation;
+        public event EventHandler? AfterCompactation;
         private bool DeleteOldFilesOnCompactation;
+
+#nullable disable
         private CombinedPersistentMultiDictionary(string directory, List<SliceInfo> slices, PersistentDictionaryBehavior behavior)
             : base(directory, behavior)
         {
             this.slices = slices;
         }
+#nullable restore
+
         public CombinedPersistentMultiDictionary(string directory, string[]? slices, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
             : base(directory, behavior)
         {
@@ -136,15 +139,6 @@ namespace AppViewLite.Storage
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
         }
 
-        public override long NonReusableQueueBytes
-        {
-            get
-            {
-                return
-                    queue.GroupCount * (Unsafe.SizeOf<TKey>() + Unsafe.SizeOf<MultiDictionary2<TKey, TValue>.ValueGroup>()) +
-                    queue.Groups.Values.Sum(x => (long)(x._manyValuesSorted?.Count ?? 0) * Unsafe.SizeOf<TValue>() );
-            }
-        }
         private static SliceInfo OpenSlice(string directory, string fileName, PersistentDictionaryBehavior behavior, bool mandatory)
         {
             var baseName = fileName.Substring(0, fileName.LastIndexOf(".col", StringComparison.Ordinal));
@@ -172,10 +166,10 @@ namespace AppViewLite.Storage
         private MultiDictionary2<TKey, TValue> queue;
         public List<SliceInfo> slices;
 
-        public event EventHandler BeforeFlush;
-        public event EventHandler AfterFlush;
-        public event EventHandler<CancelEventArgs> ShouldFlush;
-        public event EventHandler BeforeWrite;
+        public event EventHandler? BeforeFlush;
+        public event EventHandler? AfterFlush;
+        public event EventHandler<CancelEventArgs>? ShouldFlush;
+        public event EventHandler? BeforeWrite;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
         public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, long SizeInBytes)
@@ -318,7 +312,7 @@ namespace AppViewLite.Storage
             var candidates = GetCompactationCandidates(Math.Max(minLength, MinimumCompactationCount));
             if (candidates.Count != 0)
             {
-                var best = candidates.MaxBy(x => x.Score);
+                var best = candidates.MaxBy(x => x.Score)!;
                 StartCompactation(best.Start, best.Length, best);
             }
 

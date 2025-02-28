@@ -2265,28 +2265,40 @@ namespace AppViewLite
                 PopulateViewerFlags(post.RepostedBy, ctx);
         }
 
-        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId> alreadyReturned)
+        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId>? alreadyReturned = null)
         {
-
+            alreadyReturned ??= [];
             foreach (var post in posts)
             {
                 var postId = post.PostId;
                 if (!alreadyReturned.Add(postId)) continue;
                 if (post.Data?.Deleted == true) continue;
-                if (post.IsReply && !post.IsRepost)
+
+                if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                 {
-                    var parentId = post.InReplyToPostId!.Value;
-                    if (alreadyReturned.Add(parentId))
+                    var chain = MakeFullReplyChain(post);
+                    foreach (var item in chain)
                     {
-                        var rootId = post.RootPostId;
-                        if (rootId != postId && rootId != parentId)
+                        yield return item;
+                    }
+                }
+                else
+                {
+                    if (post.IsReply && !post.IsRepost)
+                    {
+                        var parentId = post.InReplyToPostId!.Value;
+                        if (alreadyReturned.Add(parentId))
                         {
-                            if (alreadyReturned.Add(rootId))
+                            var rootId = post.RootPostId;
+                            if (rootId != postId && rootId != parentId)
                             {
-                                yield return GetPost(rootId);
+                                if (alreadyReturned.Add(rootId))
+                                {
+                                    yield return GetPost(rootId);
+                                }
                             }
+                            yield return GetPost(parentId);
                         }
-                        yield return GetPost(parentId);
                     }
                 }
                 yield return post;

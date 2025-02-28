@@ -1,6 +1,7 @@
 using FishyFlip.Models;
 using AppViewLite.Numerics;
 using System;
+using AppViewLite.PluggableProtocols;
 
 namespace AppViewLite.Models
 {
@@ -57,6 +58,8 @@ namespace AppViewLite.Models
         public bool ViolatesThreadgate;
 
         public BlueskyLabel[]? Labels;
+        public PluggableProtocol? PluggableProtocol => Author.PluggableProtocol;
+
         public PostIdString PostIdStr => new PostIdString(Did, RKey);
 
         public bool IsSelfRepost => RepostedBy?.Plc == PostId.Author;

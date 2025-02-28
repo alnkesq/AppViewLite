@@ -406,7 +406,11 @@ namespace AppViewLite.PluggableProtocols.Rss
 
 
                         if (post.PostId != default)
+                        {
                             OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData, ctx: ctx, replyIsSemanticallyRepost: true);
+                            prev = post.PostId.AsQualifiedPostId;
+                        }
+                        
                     }
                 }
                 return (dateParsed, url);
@@ -842,6 +846,8 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             return null;
         }
+
+        public override bool ShouldIncludeFullReplyChain(BlueskyPost post) => DidToUrl(post.Did).HasHostSuffix("tumblr.com");
     }
 }
 

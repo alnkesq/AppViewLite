@@ -402,6 +402,8 @@ namespace AppViewLite.PluggableProtocols
         public virtual bool ShouldDisplayExternalLinkInBio => true;
 
         public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url) => Task.FromResult<string?>(null);
+
+        public virtual bool ShouldIncludeFullReplyChain(BlueskyPost post) => false;
     }
 }
 

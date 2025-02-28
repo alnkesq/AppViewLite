@@ -955,7 +955,8 @@ namespace AppViewLite
                     ) : [];
                     var recentReposts = includeReposts ? rels.EnumerateRecentReposts(plc, recentThreshold, null).Select(x => (RKey: x.RepostRKey, x.PostId, IsRepost: true)) : [];
 
-                    return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([recentPosts, recentReposts], x => x.RKey, new ReverseComparer<Tid>())
+                    return rels.EnumerateFeedWithNormalization(
+                        SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([recentPosts, recentReposts], x => x.RKey, new ReverseComparer<Tid>())
                         .Select(x =>
                         {
                             var post = GetPostIfRelevant(rels, x.PostId, x.IsRepost ? CollectionKind.Reposts : CollectionKind.Posts);
@@ -968,6 +969,7 @@ namespace AppViewLite
                         })
                         .WhereNonNull()
                         .Take(canFetchFromServer && !mediaOnly ? 10 : 50)
+                        )
                         .ToArray();
                 }, ctx);
 
@@ -1918,7 +1920,8 @@ namespace AppViewLite
                                 threadLength++;
                             }
 
-                            if (post.InReplyToPostId is { } inReplyToPostId && (!post.IsRepost || allOriginalPostsAndReplies.Contains(inReplyToPostId)))
+                            var shouldIncludeFullReplyChain = post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true;
+                            if (post.InReplyToPostId is { } inReplyToPostId && (!post.IsRepost || shouldIncludeFullReplyChain || allOriginalPostsAndReplies.Contains(inReplyToPostId)))
                             {
                                 if (
                                     post.RootPostId != inReplyToPostId &&
@@ -1929,17 +1932,27 @@ namespace AppViewLite
                                 {
                                     return false;
                                 }
-                                
 
-                                var parent = rels.GetPost(inReplyToPostId);
-
-                                if (post.RootPostId != inReplyToPostId)
+                                if (shouldIncludeFullReplyChain)
                                 {
-                                    var rootPost = rels.GetPost(post.RootPostId);
-                                    AddCore(rootPost);
+                                    foreach (var item in rels.MakeFullReplyChain(post))
+                                    {
+                                        AddCore(item);
+                                    }
                                 }
+                                else
+                                {
 
-                                AddCore(parent);
+                                    var parent = rels.GetPost(inReplyToPostId);
+
+                                    if (post.RootPostId != inReplyToPostId)
+                                    {
+                                        var rootPost = rels.GetPost(post.RootPostId);
+                                        AddCore(rootPost);
+                                    }
+
+                                    AddCore(parent);
+                                }
                             }
 
                             AddCore(post);

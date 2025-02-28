@@ -1662,7 +1662,22 @@ namespace AppViewLite
                     ) cdn = "https://cdn.bsky.app";
             }
 
-            var cidString = isNativeAtProto ? Cid.Read(cid).ToString() : Ipfs.Base32.ToBase32(cid);
+            string cidString;
+            if (isNativeAtProto)
+            {
+                try
+                {
+                    cidString = Cid.Read(cid).ToString();
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+            else
+            {
+                cidString = Ipfs.Base32.ToBase32(cid);
+            }
 
             if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video_playlist or ThumbnailSize.feed_video_blob)
             {

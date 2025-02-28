@@ -296,6 +296,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var (bodyAsText, bodyFacets) = StringUtils.ParseHtmlToText(fullContentHtml ?? summaryHtml, out var bodyDom, x => StringUtils.DefaultElementToFacet(x, url));
             NonQualifiedPluggablePostId postId;
             var hasFullContent = false;
+
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
                 var commentsUrl = url;
@@ -405,7 +406,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
 
                         if (post.PostId != default)
-                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData, ctx: ctx);
+                            OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId, subpostData, ctx: ctx, replyIsSemanticallyRepost: true);
                     }
                 }
                 return (dateParsed, url);

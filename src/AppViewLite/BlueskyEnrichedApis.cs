@@ -1757,7 +1757,7 @@ namespace AppViewLite
                         Plc: plc,
                         Posts: posts
                             .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
-                            .Select(x => (x.InReplyTo, PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
+                            .Select(x => (PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
                             .ToArray(), 
                        Reposts: reposts
                             .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))

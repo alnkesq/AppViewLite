@@ -9,9 +9,7 @@ namespace AppViewLite
 {
     public class RequestContext
     {
-        private TimeSpan? longTimeout;
         private TimeSpan? shortTimeout;
-        public Task? LongDeadline { get; private set; }
         public Task? ShortDeadline { get; private set; }
         public AppViewLiteSession Session { get; set; }
         public string? SignalrConnectionId { get; set; }
@@ -37,9 +35,8 @@ namespace AppViewLite
 
         public long MinVersion;
 
-        public RequestContext(AppViewLiteSession? session, TimeSpan? longTimeout, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false, string? requestUrl = null)
+        public RequestContext(AppViewLiteSession? session, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false, string? requestUrl = null)
         {
-            this.longTimeout = longTimeout;
             this.shortTimeout = shortTimeout;
             this.Session = session;
             this.SignalrConnectionId = signalrConnectionId;
@@ -71,17 +68,24 @@ namespace AppViewLite
         private void InitializeDeadlines()
         {
             ShortDeadline = shortTimeout != null ? Task.Delay(shortTimeout.Value) : null;
-            LongDeadline = longTimeout != null ? Task.Delay(longTimeout.Value) : null;
         }
 
         public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = false, string? requestUrl = null)
         {
-            return new RequestContext(session, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent, requestUrl: requestUrl);
+            return new RequestContext(session, TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent, requestUrl: requestUrl);
         }
 
         public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null, bool urgent = false)
         {
-            return new RequestContext(session, null, null, signalrConnectionId, urgent: urgent);
+            return new RequestContext(session, null, signalrConnectionId, urgent: urgent);
+        }
+
+        public static RequestContext CreateForTaskDictionary(RequestContext? originalCtx)
+        {
+            return new RequestContext(null, null, null, urgent: originalCtx?.IsUrgent ?? false, originalCtx?.RequestUrl)
+            {
+                MinVersion = originalCtx?.MinVersion ?? 0
+            };
         }
 
         internal void BumpMinimumVersion(long version)

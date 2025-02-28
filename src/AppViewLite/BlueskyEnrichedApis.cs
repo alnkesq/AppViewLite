@@ -45,20 +45,18 @@ namespace AppViewLite
         public BlueskyEnrichedApis(BlueskyRelationships relationships, bool useReadOnlyReplica = false)
             : base(relationships, useReadOnlyReplica)
         {
-            RunHandleVerificationDict = new(async (handle, anyCtx) =>
+            RunHandleVerificationDict = new(async (handle, ctx) =>
             {
-                anyCtx ??= RequestContext.CreateInfinite(null);
-                return new(await ResolveHandleAsync(handle, ctx: anyCtx), anyCtx.MinVersion);
+                return new(await ResolveHandleAsync(handle, ctx: ctx), ctx.MinVersion);
             });
             FetchAndStoreDidDocNoOverrideDict = new(async (pair, anyCtx) =>
             {
-                anyCtx ??= RequestContext.CreateInfinite(null);
                 return new(await FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx), anyCtx.MinVersion);
             });
-            FetchAndStoreLabelerServiceMetadata = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
-            FetchAndStoreProfile = new(FetchAndStoreProfileCoreAsync);
-            FetchAndStoreListMetadata = new(FetchAndStoreListMetadataCoreAsync);
-            FetchAndStorePost = new(FetchAndStorePostCoreAsync);
+            FetchAndStoreLabelerServiceMetadataDict = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
+            FetchAndStoreProfileDict = new(FetchAndStoreProfileCoreAsync);
+            FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
+            FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
 
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
@@ -146,24 +144,24 @@ namespace AppViewLite
 
         public ReloadableFile<DidDocOverridesConfiguration> DidDocOverrides;
 
-        public TaskDictionary<string, RequestContext?, Versioned<string>> RunHandleVerificationDict;
-        public TaskDictionary<(Plc Plc, string Did), RequestContext?, Versioned<DidDocProto>> FetchAndStoreDidDocNoOverrideDict;
-        public TaskDictionary<string, RequestContext?, long> FetchAndStoreLabelerServiceMetadata;
-        public TaskDictionary<string, RequestContext?, long> FetchAndStoreProfile;
-        public TaskDictionary<RelationshipStr, RequestContext?, long> FetchAndStoreListMetadata;
-        public TaskDictionary<PostIdString, RequestContext?, long> FetchAndStorePost;
+        public TaskDictionary<string, RequestContext, Versioned<string>> RunHandleVerificationDict;
+        public TaskDictionary<(Plc Plc, string Did), RequestContext, Versioned<DidDocProto>> FetchAndStoreDidDocNoOverrideDict;
+        public TaskDictionary<string, RequestContext, long> FetchAndStoreLabelerServiceMetadataDict;
+        public TaskDictionary<string, RequestContext, long> FetchAndStoreProfileDict;
+        public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
+        public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
 
 
         public async Task<string> RunHandleVerificationAsync(string handle, RequestContext? ctx)
         {
-            var result = await RunHandleVerificationDict.GetValueAsync(handle, ctx);
+            var result = await RunHandleVerificationDict.GetValueAsync(handle, RequestContext.CreateForTaskDictionary(ctx));
             result.BumpMinimumVersion(ctx);
             return result.Value;
         }
 
         public async Task<DidDocProto> FetchAndStoreDidDocNoOverrideAsync(Plc plc, string did, RequestContext? ctx)
         {
-            var result = await FetchAndStoreDidDocNoOverrideDict.GetValueAsync((plc, did), ctx);
+            var result = await FetchAndStoreDidDocNoOverrideDict.GetValueAsync((plc, did), RequestContext.CreateForTaskDictionary(ctx));
             result.BumpMinimumVersion(ctx);
             return result.Value;
         }
@@ -216,7 +214,7 @@ namespace AppViewLite
 
                 await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
                 {
-                    var version = await FetchAndStoreProfile.GetValueAsync(profile.Did, ctx);
+                    var version = await FetchAndStoreProfileDict.GetValueAsync(profile.Did, RequestContext.CreateForTaskDictionary(ctx));
                     ctx?.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
@@ -536,7 +534,7 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.Data == null).Select(async post =>
                 {
-                    var version = await FetchAndStorePost.GetValueAsync(post.PostIdStr, ctx);
+                    var version = await FetchAndStorePostDict.GetValueAsync(post.PostIdStr, RequestContext.CreateForTaskDictionary(ctx));
                     ctx?.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
@@ -1298,7 +1296,7 @@ namespace AppViewLite
                 throw new Exception("The feed provider didn't return any results." + (ctx.IsLoggedIn ? " Note that feeds that require a logged-in user are not currently supported." : null));
 
             if (forGrid)
-                ctx = new RequestContext(ctx.Session, null, TimeSpan.FromSeconds(3), ctx.SignalrConnectionId); // the grid doesn't support automatic refresh
+                ctx = new RequestContext(ctx.Session, TimeSpan.FromSeconds(3), ctx.SignalrConnectionId); // the grid doesn't support automatic refresh
             return (await EnrichAsync(posts, ctx), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 
@@ -2373,7 +2371,7 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
-                    var version = await FetchAndStoreLabelerServiceMetadata.GetValueAsync(label.LabelerDid, ctx);
+                    var version = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(label.LabelerDid, RequestContext.CreateForTaskDictionary(ctx));
                     ctx?.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
@@ -2390,7 +2388,7 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(lists.Where(x => x.Data == null).Select(async list =>
                 {
-                    var version = await FetchAndStoreListMetadata.GetValueAsync(list.ListIdStr, ctx);
+                    var version = await FetchAndStoreListMetadataDict.GetValueAsync(list.ListIdStr, RequestContext.CreateForTaskDictionary(ctx));
                     ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {

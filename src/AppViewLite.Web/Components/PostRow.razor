@@ -40,16 +40,17 @@
     // If you add [Parameter] flags, update RenderFlags serialization and deserialization.
 
 
+#nullable disable
     private AsyncStateToggler IsLiked;
     private AsyncStateToggler IsReposted;
-
+    private string baseUrlPreferExternal;
+    public string RenderFlags;
+#nullable restore
 
     private string? externalDomainForMute;
     private string? originalPostUrl;
-    private string baseUrlPreferExternal;
     private string? targetForBaseUrlPreferExternal;
 
-    public string RenderFlags;
 
     private bool HasBskyAppUrl => BlueskyRelationships.IsNativeAtProtoDid(Post.Did);
     private bool HasExternalUrl => originalPostUrl != null;

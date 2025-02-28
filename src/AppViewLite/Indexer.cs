@@ -332,7 +332,7 @@ namespace AppViewLite
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {
 
-            VerifyValidForCurrentRelay(e.Record.Did!.ToString());
+            VerifyValidForCurrentRelay!(e.Record.Did!.ToString());
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
             {

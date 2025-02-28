@@ -1659,8 +1659,8 @@ namespace AppViewLite
 
 
 
-            var isBlockedByAdministrativeRule = AdministrativeBlocklist.ShouldBlockDisplay(did, didDoc);
-            var isMediaBlockedByAdministrativeRule = AdministrativeBlocklist.ShouldBlockOutboundConnection(did, didDoc);
+            var isBlockedByAdministrativeRule = AdministrativeBlocklist.Instance.GetValue().ShouldBlockDisplay(did, didDoc);
+            var isMediaBlockedByAdministrativeRule = AdministrativeBlocklist.Instance.GetValue().ShouldBlockOutboundConnection(did, didDoc);
 
             var possibleHandle = didDoc?.Handle;
             bool handleIsCertain = false;
@@ -2745,8 +2745,6 @@ namespace AppViewLite
             var hash = StringUtils.HashUnicodeToUuid(did);
             return KnownMirrorsToIgnore.ContainsKey(hash);
         }
-
-        public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
         public (Plc[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {

@@ -2026,7 +2026,7 @@ namespace AppViewLite
             }
         }
 
-        private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.5);
+        private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.3);
         private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age) => GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8);
 
         private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity)

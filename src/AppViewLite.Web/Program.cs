@@ -62,7 +62,7 @@ namespace AppViewLite.Web
                 var session = provider.GetRequiredService<AppViewLiteSession>();
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
                 var request = httpContext?.Request;
-                if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateInfinite(null); }
+                if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateForRequest(); }
                 var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
                 var ctx = RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
@@ -292,7 +292,7 @@ namespace AppViewLite.Web
                     Plc plc = default;
                     string? did = null;
                     BlueskyProfile? bskyProfile = null;
-
+                    var ctx = RequestContext.CreateForRequest();
                     apis.WithRelationshipsLockForDid(unverifiedDid!, (unverifiedPlc, rels) =>
                     {
                         var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
@@ -304,7 +304,7 @@ namespace AppViewLite.Web
                             did = unverifiedDid;
                             bskyProfile = rels.GetProfile(plc);
                         }
-                    }, RequestContext.CreateInfinite(null, urgent: true));
+                    }, ctx);
                     if (profile == null) return null;
 
                     session = new AppViewLiteSession
@@ -315,7 +315,7 @@ namespace AppViewLite.Web
                         LastSeen = now,
                         Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
                     };
-                    OnSessionCreatedOrRestoredAsync(did!, plc, session, profile, RequestContext.CreateInfinite(null, urgent: true)).FireAndForget();
+                    OnSessionCreatedOrRestoredAsync(did!, plc, session, profile, ctx).FireAndForget();
                     SessionDictionary[sessionId] = session;
                 }
 

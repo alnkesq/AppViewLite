@@ -1296,7 +1296,7 @@ namespace AppViewLite
                 throw new Exception("The feed provider didn't return any results." + (ctx.IsLoggedIn ? " Note that feeds that require a logged-in user are not currently supported." : null));
 
             if (forGrid)
-                ctx = new RequestContext(ctx.Session, TimeSpan.FromSeconds(3), ctx.SignalrConnectionId); // the grid doesn't support automatic refresh
+                ctx.IncreaseTimeout(TimeSpan.FromSeconds(3)); // the grid doesn't support automatic refresh
             return (await EnrichAsync(posts, ctx), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
         }
 
@@ -1494,7 +1494,8 @@ namespace AppViewLite
             await EnrichAsync([profile.Profile, ..profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
             if (profile.Profile.BasicData == null)
             {
-                await EnrichAsync([profile.Profile], RequestContext.CreateInfinite(ctx.Session));
+                ctx.IncreaseTimeout();
+                await EnrichAsync([profile.Profile], ctx);
             }
             profile.RssFeedInfo = rssFeedInfo;
             return profile;

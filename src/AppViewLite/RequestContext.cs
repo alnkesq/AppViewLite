@@ -75,9 +75,9 @@ namespace AppViewLite
             return new RequestContext(session, TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent, requestUrl: requestUrl);
         }
 
-        public static RequestContext CreateInfinite(AppViewLiteSession? session, string? signalrConnectionId = null, bool urgent = false)
+        public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null)
         {
-            return new RequestContext(session, null, signalrConnectionId, urgent: urgent);
+            return new RequestContext(session, TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent, requestUrl: requestUrl);
         }
 
         public static RequestContext CreateForTaskDictionary(RequestContext? originalCtx)
@@ -86,6 +86,12 @@ namespace AppViewLite
             {
                 MinVersion = originalCtx?.MinVersion ?? 0
             };
+        }
+
+        public void IncreaseTimeout(TimeSpan? shortTimeout = null)
+        {
+            this.shortTimeout = shortTimeout;
+            InitializeDeadlines();
         }
 
         internal void BumpMinimumVersion(long version)

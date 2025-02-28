@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
+#pragma warning disable CS1998
+
 namespace AppViewLite.Web.ApiCompat
 {
     [Route("/xrpc")]

@@ -446,7 +446,7 @@ namespace AppViewLite
             if (commitAuthor == null) return;
             var message = e.Message;
 
-            VerifyValidForCurrentRelay(commitAuthor);
+            VerifyValidForCurrentRelay!(commitAuthor);
 
             foreach (var del in (message.Commit?.Ops ?? []).Where(x => x.Action == "delete"))
             {
@@ -466,7 +466,7 @@ namespace AppViewLite
 
             foreach (var label in labels)
             {
-                VerifyValidForCurrentRelay(label.Src.Handler);
+                VerifyValidForCurrentRelay!(label.Src.Handler);
                 OnLabelCreated(label.Src.Handler, label);
             }
 
@@ -505,7 +505,7 @@ namespace AppViewLite
             });
         }
 
-        public Action<string> VerifyValidForCurrentRelay;
+        public Action<string>? VerifyValidForCurrentRelay;
         
         public async Task<Tid> ImportCarAsync(string did, string carPath)
         {

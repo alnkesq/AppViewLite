@@ -243,7 +243,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 refreshInfo.LastHttpStatus = ex.StatusCode ?? default;
                 refreshInfo.LastHttpError = ex.HttpRequestError;
             }
-            catch (TaskCanceledException ex)
+            catch (TaskCanceledException)
             {
                 refreshInfo.LastHttpError = TimeoutError;
             }
@@ -606,7 +606,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return "/assets/default-rss-avatar.svg";
         }
 
-        private static Uri? GetAlternateLink(XElement item)
+        private static Uri? GetAlternateLink(XElement? item)
         {
             var links = GetChildren(item, "link");
             var link = links.FirstOrDefault(x => GetAttribute(x, "rel") == "alternate") ??
@@ -615,8 +615,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             return url != null ? new Uri(url) : null;
         }
 
-        private static string Normalize(XElement? element) => Normalize(element?.Value);
-        private static string Normalize(string? value)
+        private static string? Normalize(XElement? element) => Normalize(element?.Value);
+        private static string? Normalize(string? value)
         {
             var v = value?.Trim();
             return !string.IsNullOrEmpty(v) ? v : null;
@@ -667,8 +667,8 @@ namespace AppViewLite.PluggableProtocols.Rss
         public async override Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize, CancellationToken ct)
         {
             var url = BlueskyRelationships.DecompressBpe(cid)!;
-            bool isFavicon = false;
-            if (url.StartsWith('!')) { url = url.Substring(1); isFavicon = true; }
+            //bool isFavicon = false;
+            if (url.StartsWith('!')) { url = url.Substring(1); /*isFavicon = true;*/ }
             var result = await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
             //result.IsFavIcon = isFavicon;
             return result;

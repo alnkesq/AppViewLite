@@ -388,7 +388,9 @@ namespace AppViewLite
             RunHandleVerificationAsync(handle, ctx).ContinueWith(task =>
             {
                 var k = task.IsCompletedSuccessfully && task.Result == did ? handle : null;
+#nullable disable
                 ctx.SendSignalrAsync("HandleVerificationResult", did, BlueskyRelationships.MaybeBridyHandleToFediHandle(k));
+#nullable restore
             }).FireAndForget();
         }
 
@@ -2171,7 +2173,7 @@ namespace AppViewLite
 
         public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx)
         {
-            return await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
+            return await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
         }
 
         private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
@@ -2211,7 +2213,7 @@ namespace AppViewLite
         }
         public static AuthSession DeserializeAuthSession(byte[] bytes)
         {
-            return AuthSession.FromString(CBORObject.DecodeFromBytes(bytes).ToJSONString());
+            return AuthSession.FromString(CBORObject.DecodeFromBytes(bytes).ToJSONString())!;
         }
 
         public async Task<ATProtocol> GetSessionProtocolAsync(RequestContext ctx)
@@ -2228,7 +2230,7 @@ namespace AppViewLite
         public async Task<Session> LoginToPdsAsync(string did, string password, RequestContext? ctx)
         {
             var sessionProtocol = await CreateProtocolForDidAsync(did, ctx);
-            var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult();
+            var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult()!;
             return session;
         }
 
@@ -2243,6 +2245,7 @@ namespace AppViewLite
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
             
             var pds = diddoc.Pds;
+            if (pds == null) throw new UnexpectedFirehoseDataException("No PDS is specified in the DID doc of this user.");
             var builder = new ATProtocolBuilder();
             builder.WithInstanceUrl(new Uri(pds));
             var dict = new Dictionary<ATDid, Uri>
@@ -2286,7 +2289,7 @@ namespace AppViewLite
         }
         public async Task DeleteRecordAsync(string collection, Tid rkey, RequestContext ctx)
         {
-            await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session.Did, collection, rkey.ToString()), ctx);
+            await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session!.Did, collection, rkey.ToString()!), ctx);
         }
 
         public async Task<Tid> CreatePostAsync(string text, PostIdString? inReplyTo, PostIdString? quotedPost, RequestContext ctx)
@@ -3077,6 +3080,7 @@ namespace AppViewLite
         {
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
+            Instance = null!;
         }
 
         private static HttpClient CreateHttpClient(bool autoredirect)
@@ -3094,7 +3098,7 @@ namespace AppViewLite
 
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
 
-        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(string maybeFediverseDid, RequestContext ctx)
+        public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(string maybeFediverseDid, RequestContext? ctx)
         {
             if (!maybeFediverseDid.StartsWith(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.DidPrefix, StringComparison.Ordinal))
                 return null;

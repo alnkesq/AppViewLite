@@ -32,9 +32,9 @@ namespace AppViewLite.Storage
     }
     public class DelegateEqualityComparer<T> : IEqualityComparer<T>
     {
-        private readonly Func<T, T, bool> equals;
+        private readonly Func<T?, T?, bool> equals;
         private readonly Func<T, int>? hash;
-        public DelegateEqualityComparer(Func<T, T, bool> equals, Func<T, int>? hash = null)
+        public DelegateEqualityComparer(Func<T?, T?, bool> equals, Func<T, int>? hash = null)
         {
             this.equals = equals;
             this.hash = hash;

@@ -2284,9 +2284,8 @@ namespace AppViewLite
                 }
                 else
                 {
-                    if (post.IsReply && !post.IsRepost)
+                    if (!post.IsRepost && post.InReplyToPostId is { } parentId)
                     {
-                        var parentId = post.InReplyToPostId!.Value;
                         if (alreadyReturned.Add(parentId))
                         {
                             var rootId = post.RootPostId;

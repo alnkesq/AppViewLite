@@ -160,7 +160,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             
         }
 
-        private CustomFieldProto? ConvertFieldToProto(ActivityPubAccountFieldJson x, Uri baseUrl)
+        private static CustomFieldProto? ConvertFieldToProto(ActivityPubAccountFieldJson x, Uri baseUrl)
         {
             var dom = StringUtils.ParseHtml(x.value).Body!;
             while (ShouldTrimEmptyNode(dom.FirstChild))

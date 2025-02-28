@@ -30,7 +30,7 @@
     private string? description;
     private string? anchorTargetForProfileUrl;
     private string? RssError;
-    public BlueskyProfile SimpleProfile => Profile.Profile;
+    public BlueskyProfile SimpleProfile => Profile!.Profile;
     private AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId? BridgyMirroredProfile;
     protected override async Task OnParametersSetAsync()
     {

@@ -1,7 +1,7 @@
 @using System.Diagnostics
 @using System.Runtime.CompilerServices
 @code {
-    [Parameter] public ReaderWriterLockSlim Lock { get; set; }
+    [Parameter] public required ReaderWriterLockSlim Lock { get; set; }
     [Parameter] public StrongBox<(StackTrace StackTrace, int ManagedThreadId)>? LastWriterStackTrace { get; set; }
 
     public int? WriteLockHeldByThreadId => ((int)typeof(ReaderWriterLockSlim).GetField("_writeLockOwnerId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(Lock)!) is { } id && id != -1 ? id : null;

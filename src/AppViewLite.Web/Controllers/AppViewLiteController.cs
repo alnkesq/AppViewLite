@@ -136,7 +136,7 @@ namespace AppViewLite.Web
             }
             else
             {
-                profiles = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, 5, ctx, onLateDataAvailable: profile => NotifySearchAutocompleteUpdates());
+                profiles = await apis.SearchProfilesAsync(q ?? string.Empty, allowPrefixForLastWord: true, null, 5, ctx, onLateDataAvailable: profile => NotifySearchAutocompleteUpdates());
             }
             responseAlreadySent = true;
             return new

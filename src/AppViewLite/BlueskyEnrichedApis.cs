@@ -27,7 +27,6 @@ using FishyFlip.Lexicon.App.Bsky.Embed;
 using DnsClient;
 using System.Text;
 using System.Net.Http.Json;
-using AppViewLite;
 using System.Buffers;
 using Ipfs;
 using AppViewLite;
@@ -217,7 +216,7 @@ namespace AppViewLite
                 await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
                 {
                     var version = await FetchAndStoreProfileDict.GetValueAsync(profile.Did, RequestContext.CreateForTaskDictionary(ctx));
-                    ctx?.BumpMinimumVersion(version);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         profile.BasicData = rels.GetProfileBasicInfo(profile.Plc);
@@ -234,7 +233,7 @@ namespace AppViewLite
 
         private static Task AwaitWithShortDeadline(Task task, RequestContext ctx)
         {
-            if (ctx?.ShortDeadline != null)
+            if (ctx.ShortDeadline != null)
             {
                 return Task.WhenAny(task, ctx.ShortDeadline);
             }
@@ -439,7 +438,7 @@ namespace AppViewLite
                 foreach (var post in posts)
                 {
 
-                    if (ctx?.IsLoggedIn == true)
+                    if (ctx.IsLoggedIn)
                     {
                         var loggedInUser = ctx.LoggedInUser;
                         if (rels.Likes.HasActor(post.PostId, loggedInUser, out var likeTid))
@@ -447,7 +446,7 @@ namespace AppViewLite
                         if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
                             post.IsRepostedBySelf = repostTid.RelationshipRKey;
                     }
-                    post.Labels = rels.GetPostLabels(post.PostId, ctx?.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
+                    post.Labels = rels.GetPostLabels(post.PostId, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
             }, ctx);
 
@@ -537,7 +536,7 @@ namespace AppViewLite
                 await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.Data == null).Select(async post =>
                 {
                     var version = await FetchAndStorePostDict.GetValueAsync(post.PostIdStr, RequestContext.CreateForTaskDictionary(ctx));
-                    ctx?.BumpMinimumVersion(version);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         OnPostDataAvailable(rels, post);
@@ -880,7 +879,7 @@ namespace AppViewLite
                 return true;
             });
 
-            if (author == "me" && ctx?.Session.IsLoggedIn == true)
+            if (author == "me" && ctx.Session.IsLoggedIn == true)
                 author = ctx.Session?.Did;
 
             if (author != null && author.StartsWith('@'))
@@ -2375,7 +2374,7 @@ namespace AppViewLite
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
                     var version = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(label.LabelerDid, RequestContext.CreateForTaskDictionary(ctx));
-                    ctx?.BumpMinimumVersion(version);
+                    ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
                         label.Data = rels.TryGetLabelData(label.LabelId);
@@ -3299,7 +3298,7 @@ namespace AppViewLite
         }
 
 
-        public AppViewLiteSessionProto? TryGetAppViewLiteSession(AppViewLiteProfileProto? unverifiedProfile, string sessionId)
+        public static AppViewLiteSessionProto? TryGetAppViewLiteSession(AppViewLiteProfileProto? unverifiedProfile, string sessionId)
         {
             return unverifiedProfile?.Sessions?.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
         }

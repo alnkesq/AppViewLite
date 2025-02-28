@@ -62,7 +62,7 @@
                     return;
                 }
             }
-            (Profiles, NextContinuation) = await Apis.SearchProfilesAsync(Q, allowPrefixForLastWord: false, Continuation, default, RequestContext);
+            (Profiles, NextContinuation) = await Apis.SearchProfilesAsync(Q ?? string.Empty, allowPrefixForLastWord: false, Continuation, default, RequestContext);
 
         }
         else if (Kind == "feeds")

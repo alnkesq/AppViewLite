@@ -48,7 +48,7 @@ namespace AppViewLite.Web
                     if(ActorCount > 0)
                         ActorCount--;
                     notifyChange();
-                    await deleteRelationship(rkey.Value);
+                    await deleteRelationship(rkey!.Value);
                 }
 
 

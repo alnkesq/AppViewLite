@@ -7,7 +7,7 @@
     [Parameter] public FacetData[]? Facets { get; set; }
     [Parameter] public bool IsProfileDisplayName { get; set; }
 
-    private List<(string Text, string? Link, CustomEmoji? CustomEmoji, bool Bold, bool Del)> Parts;
+    private List<(string Text, string? Link, CustomEmoji? CustomEmoji, bool Bold, bool Del)> Parts = null!;
     private bool HasLinks;
 
     private void AddPart(string text, string? link, CustomEmoji? customEmoji, bool bold, bool del)
@@ -76,7 +76,7 @@
             string? link = null;
             if (facet.CustomEmojiHashHi != null)
             {
-                customEmojiUrl = Apis.TryGetCustomEmoji(facet.CustomEmojiHash.Value, RequestContext);
+                customEmojiUrl = Apis.TryGetCustomEmoji(facet.CustomEmojiHash!.Value, RequestContext);
             }
             else 
             {

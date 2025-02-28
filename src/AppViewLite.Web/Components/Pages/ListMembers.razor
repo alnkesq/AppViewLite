@@ -4,7 +4,7 @@
 
 @code {
     [Parameter] public required string RKey { get; set; }
-    private BlueskyList ListMetadata;
+    private BlueskyList? ListMetadata;
     private BlueskyProfile[] Members = [];
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;

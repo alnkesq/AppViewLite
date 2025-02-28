@@ -64,7 +64,7 @@
                 inReplyTo: IsReply && BlueskyRelationships.TryGetPluggableProtocolForDid(ReplyDid!) == null ? new PostIdString(ReplyDid!, ReplyRkey!) : null, 
                 quotedPost: IsQuote && BlueskyRelationships.TryGetPluggableProtocolForDid(QuoteDid!) == null ? new PostIdString(QuoteDid!, QuoteRkey!) : null,
                 RequestContext);
-            Navigation.NavigateTo(RequestContext.Session.Profile.BaseUrl + "/" + rkey, true);
+            Navigation.NavigateTo(RequestContext.Session.Profile!.BaseUrl + "/" + rkey, true);
         }
     }
 
@@ -105,7 +105,7 @@ else
         <button class="compose-submit" type="submit">@(IsReply ? "Reply" : "Post")</button>
         @if (ReplyToPost != null || QuotedPost != null)
         {
-            <a href="@((ReplyToPost ?? QuotedPost).BaseUrl)" class="compose-cancel-button">Cancel</a>
+            <a href="@((ReplyToPost ?? QuotedPost)!.BaseUrl)" class="compose-cancel-button">Cancel</a>
         }
     </div>
 </form>

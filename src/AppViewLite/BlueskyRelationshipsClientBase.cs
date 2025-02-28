@@ -135,7 +135,7 @@ namespace AppViewLite
 
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
-            return WithRelationshipsLock(func, ctx, ctx?.IsUrgent == true);
+            return WithRelationshipsLock(func, ctx, ctx.IsUrgent);
         }
         public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext ctx)
         {
@@ -171,7 +171,7 @@ namespace AppViewLite
             // not due to version. If version is not sufficient, it's probably cheaper to use the primary than copying the whole queue.
             MaybeUpdateReadOnlyReplica(minVersion: 0, ReadOnlyReplicaMaxStalenessOnExplicitRead, alreadyHoldsLock: false);
 
-            if (ctx != null && readOnlyReplicaRelationshipsUnlocked != null && ctx.AllowStale)
+            if (ctx.AllowStale && readOnlyReplicaRelationshipsUnlocked != null)
             {
 
                 if (ctx.MinVersion > readOnlyReplicaRelationshipsUnlocked.Version)
@@ -196,11 +196,10 @@ namespace AppViewLite
             }
 
 
-            if (ctx != null)
-            {
-                ctx.ReadLockEnterCount++;
-                ctx.AddToMetricsTable();
-            }
+
+            ctx.ReadLockEnterCount++;
+            ctx.AddToMetricsTable();
+            
 
 
             BeforeLockEnter?.Invoke(ctx);
@@ -208,10 +207,10 @@ namespace AppViewLite
             if (urgent) 
             {
                 var tcs = new TaskCompletionSource<object?>();
-                ctx?.TimeSpentWaitingForLocks?.Start();
+                ctx.TimeSpentWaitingForLocks.Start();
                 var task = new UrgentReadTask(() => 
                 {
-                    ctx?.TimeSpentWaitingForLocks?.Stop();
+                    ctx.TimeSpentWaitingForLocks.Stop();
                     return func(relationshipsUnlocked);
                 }, tcs);
 
@@ -235,12 +234,12 @@ namespace AppViewLite
             int gc = 0;
 
             rels.EnsureLockNotAlreadyHeld();
-            ctx?.TimeSpentWaitingForLocks?.Start();
+            ctx.TimeSpentWaitingForLocks.Start();
             rels.Lock.EnterReadLock();
             var restore = MaybeSetThreadName("Lock_Read");
             try
             {
-                ctx?.TimeSpentWaitingForLocks?.Stop();
+                ctx.TimeSpentWaitingForLocks.Stop();
 
                 rels.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
@@ -342,16 +341,15 @@ namespace AppViewLite
 
             Stopwatch? sw = null;
             int gc = 0;
-            if (ctx != null)
-            {
-                ctx.WriteOrUpgradeLockEnterCount++;
-                ctx.AddToMetricsTable();
-            }
+
+            ctx.WriteOrUpgradeLockEnterCount++;
+            ctx.AddToMetricsTable();
+            
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             relationshipsUnlocked.OnBeforeWriteLockEnter();
             BeforeLockEnter?.Invoke(ctx);
-            ctx?.TimeSpentWaitingForLocks?.Start();
+            ctx.TimeSpentWaitingForLocks.Start();
             using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
             relationshipsUnlocked.Lock.EnterWriteLock();
 
@@ -360,8 +358,8 @@ namespace AppViewLite
             try
             {
                 relationshipsUnlocked.Version++;
-                ctx?.BumpMinimumVersion(relationshipsUnlocked.Version);
-                ctx?.TimeSpentWaitingForLocks?.Stop();
+                ctx.BumpMinimumVersion(relationshipsUnlocked.Version);
+                ctx.TimeSpentWaitingForLocks.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
@@ -390,20 +388,19 @@ namespace AppViewLite
             Stopwatch? sw = null;
             int gc = 0;
 
-            if (ctx != null)
-            {
-                ctx.WriteOrUpgradeLockEnterCount++;
-                ctx.AddToMetricsTable();
-            }
+
+            ctx.WriteOrUpgradeLockEnterCount++;
+            ctx.AddToMetricsTable();
+            
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             BeforeLockEnter?.Invoke(ctx);
-            ctx?.TimeSpentWaitingForLocks?.Start();
+            ctx.TimeSpentWaitingForLocks.Start();
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
             var restore = MaybeSetThreadName("**** LOCK_UPGRADEABLE ****");
             try
             {
-                ctx?.TimeSpentWaitingForLocks?.Stop();
+                ctx.TimeSpentWaitingForLocks.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
@@ -466,8 +463,6 @@ namespace AppViewLite
         {
             if (sw == null) return;
 
-            //Console.Error.WriteLine(DateTime.UtcNow +" " + lockKind + " " + ctx?.RequestUrl);
-
             if (sw.ElapsedMilliseconds > threshold)
             {
                 sw.Stop();
@@ -490,7 +485,7 @@ namespace AppViewLite
                         break;
                 }
  
-                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason +" " + ctx?.RequestUrl);
+                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason +" " + ctx.RequestUrl);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();

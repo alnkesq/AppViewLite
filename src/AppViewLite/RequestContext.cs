@@ -88,14 +88,14 @@ namespace AppViewLite
             return new RequestContext()
             {
                 Session = null!,
-                IsUrgent = originalCtx?.IsUrgent ?? false,
-                RequestUrl = originalCtx?.RequestUrl,
-                MinVersion = originalCtx?.MinVersion ?? 0,
+                IsUrgent = originalCtx.IsUrgent,
+                RequestUrl = originalCtx.RequestUrl,
+                MinVersion = originalCtx.MinVersion,
                 StartDate = DateTime.UtcNow,
             };
         }
 
-        internal static RequestContext CreateForFirehose(string reason)
+        public static RequestContext CreateForFirehose(string reason)
         {
             return new RequestContext()
             {

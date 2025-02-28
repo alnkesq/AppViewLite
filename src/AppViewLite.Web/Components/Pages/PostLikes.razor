@@ -3,7 +3,7 @@
 @inherits ProfileComponentBase
 
 @code {
-    [Parameter] public string RKey { get; set; }
+    [Parameter] public required string RKey { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
 

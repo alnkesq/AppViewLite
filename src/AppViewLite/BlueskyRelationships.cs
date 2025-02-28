@@ -6,10 +6,8 @@ using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using AppViewLite;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
-using AppViewLite.Numerics;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -633,7 +631,7 @@ namespace AppViewLite
                 try
                 {
                     Version++;
-                    ctx?.BumpMinimumVersion(Version);
+                    ctx.BumpMinimumVersion(Version);
 
                     value();
                     BeforeExitingLockUpgrade?.Invoke(this, EventArgs.Empty);
@@ -1754,7 +1752,7 @@ namespace AppViewLite
 
         public BlockReason GetBlockReason(Plc plc, RequestContext ctx)
         {
-            return ctx?.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
+            return ctx.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
         }
 
         public PostId GetPostId(string did, string rkey, RequestContext ctx)

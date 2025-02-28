@@ -10,7 +10,7 @@
     [SupplyParameterFromQuery] [Parameter] public string? Continuation { get; set; }
     private BlueskyPost? FocalPost;
     private PostsAndContinuation Posts = new();
-    private string ResolvedFocalDid;
+    private string? ResolvedFocalDid;
 
     protected override async Task OnParametersSetAsync()
     {

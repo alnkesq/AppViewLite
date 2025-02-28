@@ -162,7 +162,7 @@ namespace AppViewLite.Web
                             likeRkey = userLike.RelationshipRKey.ToString() ?? "-",
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
                         };
-                    }, null);
+                    }, RequestContext.CreateForRequest(ctx, urgent: false));
 
                 }
                 client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange).FireAndForget();

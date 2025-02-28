@@ -2,7 +2,7 @@
 @using System.Diagnostics
 @inject IHttpContextAccessor ContextAccessor
 @code{
-    private string errorMessage;
+    private string? errorMessage;
     protected override void OnInitialized()
     {
         var code = int.Parse(ContextAccessor.HttpContext!.Request.Query["code"]!);

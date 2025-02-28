@@ -1845,6 +1845,8 @@ namespace AppViewLite
 
                     WithRelationshipsLock(rels =>
                     {
+                        var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(loggedInUser);
+
                         bool ShouldInclude(BlueskyPost post)
                         {
                             rels.PopulateViewerFlags(post, ctx);
@@ -1875,7 +1877,7 @@ namespace AppViewLite
                             {
                                 foreach (var reply in chunk.AsSmallSpan())
                                 {
-                                    if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPosts.Contains(reply))
+                                    if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPosts.Contains(reply) && !isPostSeen(reply))
                                     {
                                         var likeCount = rels.Likes.GetApproximateActorCount(reply);
                                         replies.Add(new ScoredBlueskyPost(reply, default, true, likeCount, GetBalancedFeedPerUserScore(likeCount, now - reply.PostRKey.Date), 0));
@@ -1883,7 +1885,7 @@ namespace AppViewLite
                                 }
                             }
                             if (replies.Count == 0) return null;
-                            foreach (var reply in replies.OrderByDescending(x => (x.PostId.Author == post.AuthorId, x.PerUserScore)))
+                            foreach (var reply in replies.OrderByDescending(x => (x.PostId.Author == post.AuthorId, x.PerUserScore)).Where(x => !isPostSeen(x.PostId)))
                             {
                                 var p = rels.GetPost(reply.PostId);
                                 if (ShouldInclude(p)) return p;

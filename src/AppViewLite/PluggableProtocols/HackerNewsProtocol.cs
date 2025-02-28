@@ -24,6 +24,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                 {
                     // Official API would require polling scores for every individual thread: https://hacker-news.firebaseio.com/v0/newstories.json
 
+                    var ctx = RequestContext.CreateForFirehose("HackerNews");
                     var hackerNewsHomeUrl = new Uri("https://news.ycombinator.com/");
                     var dom = StringUtils.ParseHtml(await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(hackerNewsHomeUrl, ct));
 
@@ -54,10 +55,10 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                         };
 
                         var postId = new QualifiedPluggablePostId(DidPrefix + username, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id));
-                        var assignedPostId = OnPostDiscovered(postId, null, null, data);
+                        var assignedPostId = OnPostDiscovered(postId, null, null, data, ctx);
 
                         if (assignedPostId != null)
-                            OnRepostDiscovered(HackerNewsMainDid, postId, date);
+                            OnRepostDiscovered(HackerNewsMainDid, postId, date, ctx);
                     }
 
                     await Task.Delay(TimeSpan.FromMinutes(10), ct);

@@ -1510,7 +1510,7 @@ namespace AppViewLite
         }
         public async Task<BlueskyProfile[]> GetProfilesAsync(string[] dids, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null)
         {
-            var profiles = WithRelationshipsUpgradableLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x))).ToArray());
+            var profiles = WithRelationshipsUpgradableLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x))).ToArray(), ctx);
             await EnrichAsync(profiles, ctx, onProfileDataAvailable);
             return profiles;
         }
@@ -2043,13 +2043,14 @@ namespace AppViewLite
         public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, bool startIfNotRunning = true, TimeSpan ignoreIfRecentlyRan = default, CancellationToken ct = default)
         {
 
+            var ctx = RequestContext.CreateForFirehose("CarImport");
             Plc plc = default;
             RepositoryImportEntry? previousImport = null;
             WithRelationshipsLockForDid(did, (plc_, rels) =>
             {
                 plc = plc_;
                 previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
-            });
+            }, ctx);
             if (!startIfNotRunning)
             {
                 Task<RepositoryImportEntry>? running;
@@ -2071,19 +2072,18 @@ namespace AppViewLite
                 if (!carImports.TryGetValue(key, out r))
                 {
                     if (!startIfNotRunning) return null;
-                    r = ImportCarIncrementalCoreAsync(did, kind, plc, previousImport != null && previousImport.LastRevOrTid != 0 ? new Tid(previousImport.LastRevOrTid) : default, ct);
+                    r = ImportCarIncrementalCoreAsync(did, kind, plc, previousImport != null && previousImport.LastRevOrTid != 0 ? new Tid(previousImport.LastRevOrTid) : default, ct, ctx);
                     carImports[key] = r;
                 }
             }
             return await r;
         }
 
-        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct)
+        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx)
         {
             await Task.Yield();
             var startDate = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
-            var ctx = RequestContext.CreateForFirehose("CarImport");
             var indexer = new Indexer(this);
             Tid lastTid;
             Exception? exception = null;

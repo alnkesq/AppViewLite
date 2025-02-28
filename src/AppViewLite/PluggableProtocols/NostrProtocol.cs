@@ -188,7 +188,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 
 
-                OnPostDiscovered(postId, null, null, data);
+                OnPostDiscovered(postId, null, null, data, ctx);
             }
             else if (kind == NostrEventKind.User_Metadata)
             {

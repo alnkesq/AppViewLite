@@ -113,7 +113,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(data.Text, ref data.Facets, customEmojis);
 
-            OnPostDiscovered(postId, null, null, data, shouldIndex: shouldIndex);
+            OnPostDiscovered(postId, null, null, data, ctx, shouldIndex: shouldIndex);
 
             OnProfileReceived(did, author, post.account!, url, shouldIndex, customEmojis);
         }

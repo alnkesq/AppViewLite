@@ -45,7 +45,7 @@ namespace AppViewLite
                 return plc;
             }, func, ctx);
         }
-        public void WithRelationshipsLockForDid(string did, Action<Plc, BlueskyRelationships> func, RequestContext? ctx = null)
+        public void WithRelationshipsLockForDid(string did, Action<Plc, BlueskyRelationships> func, RequestContext ctx)
         {
             WithRelationshipsLockWithPreamble(rels =>
             {
@@ -54,11 +54,11 @@ namespace AppViewLite
                 return plc;
             }, func, ctx);
         }
-        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func, RequestContext? ctx)
+        public void WithRelationshipsLockForDids(string[] dids, Action<Plc[], BlueskyRelationships> func, RequestContext ctx)
         {
             WithRelationshipsLockForDids(dids, (plcs, rels) => { func(plcs, rels); return 0; }, ctx);
         }
-        public T WithRelationshipsLockForDids<T>(string[] dids, Func<Plc[], BlueskyRelationships, T> func, RequestContext? ctx = null)
+        public T WithRelationshipsLockForDids<T>(string[] dids, Func<Plc[], BlueskyRelationships, T> func, RequestContext ctx)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
@@ -83,7 +83,7 @@ namespace AppViewLite
         }
 
  
-        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Func<TPreamble, BlueskyRelationships, T> func, RequestContext? ctx = null)
+        public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Func<TPreamble, BlueskyRelationships, T> func, RequestContext ctx)
         {
             // Preamble might be executed twice, if the first attempt in readonly mode fails.
 
@@ -137,7 +137,7 @@ namespace AppViewLite
         {
             return WithRelationshipsLock(func, ctx, ctx?.IsUrgent == true);
         }
-        public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext? ctx)
+        public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext ctx)
         {
             WithRelationshipsLock<int>(rels =>
             {
@@ -145,7 +145,7 @@ namespace AppViewLite
                 return 0;
             }, ctx);
         }
-        public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext? ctx, bool urgent)
+        public void WithRelationshipsLock(Action<BlueskyRelationships> func, RequestContext ctx, bool urgent)
         {
             WithRelationshipsLock<int>(rels =>
             {
@@ -159,8 +159,9 @@ namespace AppViewLite
         private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = false && Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC) ?? 2000);
         private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = false && Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ) ?? 4000);
 
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx, bool urgent)
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool urgent)
         {
+            ArgumentNullException.ThrowIfNull(ctx);
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
 
@@ -334,8 +335,9 @@ namespace AppViewLite
 
         public Action<RequestContext?>? BeforeLockEnter;
 
-        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
+        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
+            ArgumentNullException.ThrowIfNull(ctx);
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
             Stopwatch? sw = null;
@@ -380,8 +382,9 @@ namespace AppViewLite
             }
         }
 
-        public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
+        public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
+            ArgumentNullException.ThrowIfNull(ctx);
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
             Stopwatch? sw = null;
@@ -438,7 +441,7 @@ namespace AppViewLite
 
         }
 
-        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext? ctx)
+        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext ctx)
         {
             WithRelationshipsWriteLock(rels =>
             {
@@ -446,7 +449,7 @@ namespace AppViewLite
                 return false;
             }, ctx);
         }
-        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func, RequestContext? ctx)
+        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func, RequestContext ctx)
         {
             WithRelationshipsUpgradableLock(rels =>
             {

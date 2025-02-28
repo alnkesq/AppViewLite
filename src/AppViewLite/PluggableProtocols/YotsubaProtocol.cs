@@ -109,17 +109,18 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         private async Task BoardIterationAsync(YotsubaBoardId boardId, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            
+            var ctx = RequestContext.CreateForFirehose("Yotsuba:" + boardId.Host);
+
             var threadPages = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaThreadPageJson[]>(GetApiPrefix(boardId) + "/catalog.json", JsonOptions, ct);
             var boardDid = ToDid(boardId);
-            var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid));
+            var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid), ctx);
             foreach (var threadPage in threadPages!)
             {
                 foreach (var thread in threadPage.Threads)
                 {
                     try
                     {
-                        IndexThread(plc, boardId, thread);
+                        IndexThread(plc, boardId, thread, ctx);
                     }
                     catch (Exception ex)
                     {
@@ -136,7 +137,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         private string GetImagePrefix(YotsubaBoardId boardId) => GetImagePrefix(boardId.Host) + "/" + boardId.BoardName;
 
 
-        private void IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread)
+        private void IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread, RequestContext ctx)
         {
             using var _ = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
 
@@ -178,7 +179,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 PluggableReplyCount = (int)thread.Replies,
                 PluggableLikeCount = (int)thread.Replies,
             };
-            OnPostDiscovered(threadId, null, null, threadData);
+            OnPostDiscovered(threadId, null, null, threadData, ctx);
         }
 
         private static (string? Text, FacetData[]? Facets) ParseHtml(string? html, YotsubaBoardId boardId)

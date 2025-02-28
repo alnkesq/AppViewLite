@@ -1847,6 +1847,8 @@ namespace AppViewLite
                     {
                         var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(loggedInUser);
 
+                        bool IsPostSeenOrAlreadyReturned(PostId postId) => alreadyReturnedPosts.Contains(postId) || isPostSeen(postId);
+
                         bool ShouldInclude(BlueskyPost post)
                         {
                             rels.PopulateViewerFlags(post, ctx);
@@ -1918,10 +1920,20 @@ namespace AppViewLite
 
                             if (post.InReplyToPostId is { } inReplyToPostId && (!post.IsRepost || allOriginalPostsAndReplies.Contains(inReplyToPostId)))
                             {
+                                if (
+                                    post.RootPostId != inReplyToPostId &&
+                                    IsPostSeenOrAlreadyReturned(inReplyToPostId) && 
+                                    IsPostSeenOrAlreadyReturned(post.RootPostId) &&
+                                    (post.Date - inReplyToPostId.PostRKey.Date).TotalHours < 36
+                                    )
+                                {
+                                    return false;
+                                }
+                                
 
                                 var parent = rels.GetPost(inReplyToPostId);
 
-                                if (post.RootPostId != parent.PostId)
+                                if (post.RootPostId != inReplyToPostId)
                                 {
                                     var rootPost = rels.GetPost(post.RootPostId);
                                     AddCore(rootPost);

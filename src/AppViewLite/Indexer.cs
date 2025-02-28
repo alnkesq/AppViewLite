@@ -50,7 +50,7 @@ namespace AppViewLite
             var collection = path.Substring(0, slash);
             var rkey = path.Substring(slash + 1);
             var deletionDate = DateTime.UtcNow;
-
+            var ctx = RequestContext.CreateForFirehose("Delete:" + collection);
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
@@ -115,7 +115,7 @@ namespace AppViewLite
 
                 relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();
-            }, reason: "Delete " + collection);
+            }, ctx);
         }
 
         record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
@@ -140,6 +140,7 @@ namespace AppViewLite
             var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
+            var ctx = RequestContext.CreateForFirehose("Create:" + record.Type);
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
@@ -168,7 +169,7 @@ namespace AppViewLite
                             BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                             relationships.Likes.Add(postId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
-                            relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc);
+                            relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx);
                             var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
                             relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
                             relationships.NotifyPostStatsChange(postId, commitPlc);
@@ -182,7 +183,7 @@ namespace AppViewLite
                             relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
                             relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
-                            relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/);
+                            relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/, ctx);
                             if (!relationships.FeedGenerators.ContainsKey(feedId))
                             {
                                 ScheduleRecordIndexing(l.Subject.Uri);
@@ -194,7 +195,7 @@ namespace AppViewLite
                         if (HasNumericRKey(path)) return;
                         var followed = relationships.SerializeDid(f.Subject!.Handler);
                         if (relationships.IsRegisteredForNotifications(followed))
-                            relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc);
+                            relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
                         relationships.Follows.Add(followed, new Relationship(commitPlc, rkey));
                         if (relationships.IsRegisteredForNotifications(commitPlc))
@@ -209,7 +210,7 @@ namespace AppViewLite
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
-                        relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc);
+                        relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx);
                         relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));
                         relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
                         relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
@@ -224,7 +225,7 @@ namespace AppViewLite
                     {
                         var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
-                        var proto = relationships.StorePostInfoExceptData(p, postId);
+                        var proto = relationships.StorePostInfoExceptData(p, postId, ctx);
                         if (proto != null)
                         {
                             
@@ -295,7 +296,7 @@ namespace AppViewLite
                 {
                     if (!generateNotifications) relationships.SuppressNotificationGeneration--;
                 }
-            }, reason: "Create " + record.Type);
+            }, ctx);
 
             if (continueOutsideLock != null)
             {
@@ -306,7 +307,7 @@ namespace AppViewLite
                     var sw = Stopwatch.StartNew();
                     continueOutsideLock.Value.Complete(relationships);
                     relationships.LogPerformance(sw, "WritePost");
-                });
+                }, ctx);
                 
             }
         }
@@ -464,16 +465,17 @@ namespace AppViewLite
             var labels = e.Message.Labels?.LabelsValue;
             if (labels == null) return;
 
+            var ctx = RequestContext.CreateForFirehose("Label");
             foreach (var label in labels)
             {
                 VerifyValidForCurrentRelay!(label.Src.Handler);
-                OnLabelCreated(label.Src.Handler, label);
+                OnLabelCreated(label.Src.Handler, label, ctx);
             }
 
 
         }
 
-        private void OnLabelCreated(string labeler, Label label)
+        private void OnLabelCreated(string labeler, Label label, RequestContext ctx)
         {
             var uri = new ATUri(label.Uri);
             if (string.IsNullOrEmpty(label.Val))
@@ -502,7 +504,7 @@ namespace AppViewLite
                 }
                 
 
-            });
+            }, ctx);
         }
 
         public Action<string>? VerifyValidForCurrentRelay;
@@ -658,7 +660,7 @@ namespace AppViewLite
         {
             DateTime lastRetrievedDidDoc = default;
             var entries = new List<DidDocProto>();
-
+            var ctx = RequestContext.CreateForFirehose("PlcDirectory");
             void FlushBatch()
             {
                 if (entries.Count == 0) return;
@@ -694,15 +696,10 @@ namespace AppViewLite
                         if (!didResumeWrites)
                             rels.AvoidFlushes--;
                     }
-                });
 
-
-
-                WithRelationshipsWriteLock(rels =>
-                {
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;
-                });
+                }, ctx);
                 
 
                 entries.Clear();

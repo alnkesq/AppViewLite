@@ -170,7 +170,7 @@ namespace AppViewLite
             // not due to version. If version is not sufficient, it's probably cheaper to use the primary than copying the whole queue.
             MaybeUpdateReadOnlyReplica(minVersion: 0, ReadOnlyReplicaMaxStalenessOnExplicitRead, alreadyHoldsLock: false);
 
-            if (ctx != null && readOnlyReplicaRelationshipsUnlocked != null)
+            if (ctx != null && readOnlyReplicaRelationshipsUnlocked != null && ctx.AllowStale)
             {
 
                 if (ctx.MinVersion > readOnlyReplicaRelationshipsUnlocked.Version)
@@ -334,7 +334,7 @@ namespace AppViewLite
 
         public Action<RequestContext?>? BeforeLockEnter;
 
-        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null, string? reason = null)
+        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
         {
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
@@ -376,7 +376,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold, ctx, reason);
+                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold, ctx);
             }
         }
 
@@ -438,15 +438,15 @@ namespace AppViewLite
 
         }
 
-        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext? ctx = null, string? reason = null)
+        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext? ctx)
         {
             WithRelationshipsWriteLock(rels =>
             {
                 func(rels);
                 return false;
-            }, ctx, reason);
+            }, ctx);
         }
-        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func, RequestContext? ctx = null)
+        public void WithRelationshipsUpgradableLock(Action<BlueskyRelationships> func, RequestContext? ctx)
         {
             WithRelationshipsUpgradableLock(rels =>
             {

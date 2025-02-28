@@ -52,7 +52,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 {
                     try
                     {
-                        OnEventReceived(evt);
+                        OnEventReceived(evt, relay);
                     }
                     catch (Exception ex)
                     {
@@ -67,10 +67,11 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions { IncludeFields = true };
         private readonly static Regex? DontIngestTextRegex = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_NOSTR_IGNORE_REGEX) is { } s ? new Regex(s, RegexOptions.Singleline) : null;
-        private void OnEventReceived(NostrEvent e)
+        private void OnEventReceived(NostrEvent e, string relay)
         {
             var content = e.Content;
             var kind = (NostrEventKind)e.Kind;
+            var ctx = RequestContext.CreateForFirehose("Nostr:" + kind + ":" + relay);
             if (content?.Length >= 4 * 1024) return;
             if (e.Kind == (int)NostrEventKind.Short_Text_Note && content != null) 
             {
@@ -100,7 +101,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             {
                 // Avoid wasting Plc assignments for single-use spam pubkeys.
                 if (kind == NostrEventKind.Short_Text_Note)
-                    Apis.WithRelationshipsWriteLock(rels => rels.NostrSeenPubkeyHashes.Add(didHash, 0));
+                    Apis.WithRelationshipsWriteLock(rels => rels.NostrSeenPubkeyHashes.Add(didHash, 0), ctx);
                 return;
             }
 
@@ -116,7 +117,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 };
 
                 var emojis = GetCustomEmojis(e);
-                Apis.MaybeAddCustomEmojis(emojis);
+                Apis.MaybeAddCustomEmojis(emojis, ctx);
 
                 data.Facets = StringUtils.GuessFacets(data.Text, includeHashtags: false);
 
@@ -198,7 +199,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 var nip05 = p.nip05.ValueKind == JsonValueKind.String ? p.nip05.GetString() : null;
                 if (IsMirrorProfile(p, nip05))
                 {
-                    OnMirrorFound(didHash);
+                    OnMirrorFound(didHash, ctx);
                     return;
                 }
 
@@ -219,7 +220,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 };
 
                 var emojis = GetCustomEmojis(e);
-                Apis.MaybeAddCustomEmojis(emojis);
+                Apis.MaybeAddCustomEmojis(emojis, ctx);
 
                 StringUtils.GuessCustomEmojiFacets(data.Description, ref data.DescriptionFacets, emojis);
 

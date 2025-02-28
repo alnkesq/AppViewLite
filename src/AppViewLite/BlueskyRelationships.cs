@@ -702,7 +702,7 @@ namespace AppViewLite
 
 
         private List<BlueskyPostData> testDataForCompression = new();
-        public BlueskyPostData? StorePostInfoExceptData(Post p, PostId postId)
+        public BlueskyPostData? StorePostInfoExceptData(Post p, PostId postId, RequestContext ctx)
         {
             if (postId == default) throw new Exception();
             if (PostData.ContainsKey(postId)) return null;
@@ -747,7 +747,7 @@ namespace AppViewLite
                 var rootPost = this.GetPostId(root);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;
-                AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId);
+                AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId, ctx);
             }
             if (p.Reply?.Parent is { } parent)
             {
@@ -755,7 +755,7 @@ namespace AppViewLite
                 proto.InReplyToPlc = inReplyTo.Author.PlcValue;
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
                 this.DirectReplies.Add(inReplyTo, postId);
-                AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId);
+                AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx);
             }
 
 
@@ -782,7 +782,7 @@ namespace AppViewLite
 
                     embed = rm.Media;
                     this.Quotes.Add(quoted, postId);
-                    AddNotification(quoted.Author, NotificationKind.QuotedYourPost, postId);
+                    AddNotification(quoted.Author, NotificationKind.QuotedYourPost, postId, ctx);
                 }
             }
 
@@ -1192,10 +1192,10 @@ namespace AppViewLite
 
         internal readonly static EfficientTextCompressor textCompressorUnlocked = new();
 
-        internal void StorePostInfo(PostId postId, Post p, string did)
+        internal void StorePostInfo(PostId postId, Post p, string did, RequestContext ctx)
         {
             // PERF: This method performs the slow brotli compression while holding the lock. Avoid if possible.
-            var proto = StorePostInfoExceptData(p, postId);
+            var proto = StorePostInfoExceptData(p, postId, ctx);
             if (proto != null)
                 this.PostData.AddRange(postId, SerializePostData(proto, did));
         }
@@ -2042,19 +2042,19 @@ namespace AppViewLite
         {
             return registerForNotificationsCache.Contains(user);
         }
-        public void AddNotification(PostId destination, NotificationKind kind, Plc actor)
+        public void AddNotification(PostId destination, NotificationKind kind, Plc actor, RequestContext ctx)
         {
-            AddNotification(destination.Author, kind, actor, destination.PostRKey);
+            AddNotification(destination.Author, kind, actor, destination.PostRKey, ctx);
         }
-        public void AddNotification(Plc destination, NotificationKind kind, Plc actor)
+        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, RequestContext ctx)
         {
-            AddNotification(destination, kind, actor, default);
+            AddNotification(destination, kind, actor, default, ctx);
         }
-        public void AddNotification(Plc destination, NotificationKind kind, PostId replyId)
+        public void AddNotification(Plc destination, NotificationKind kind, PostId replyId, RequestContext ctx)
         {
-            AddNotification(destination, kind, replyId.Author, replyId.PostRKey);
+            AddNotification(destination, kind, replyId.Author, replyId.PostRKey, ctx);
         }
-        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey)
+        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey, RequestContext ctx)
         {
             if (SuppressNotificationGeneration != 0) return;
             if (destination == actor) return;
@@ -2065,12 +2065,12 @@ namespace AppViewLite
             UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination), (data, handler) => handler(data));
 
             // Callback must stay inside the lock.
-            NotificationGenerated?.Invoke(destination, notification);
+            NotificationGenerated?.Invoke(destination, notification, ctx);
         }
 
         public int SuppressNotificationGeneration;
 
-        public event Action<Plc, Notification>? NotificationGenerated;
+        public event Action<Plc, Notification, RequestContext>? NotificationGenerated;
 
 
 

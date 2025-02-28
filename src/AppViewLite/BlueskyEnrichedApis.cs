@@ -114,7 +114,7 @@ namespace AppViewLite
             relationships.NotificationGenerated += Relationships_NotificationGenerated;
         }
 
-        private void Relationships_NotificationGenerated(Plc destination, Notification notification)
+        private void Relationships_NotificationGenerated(Plc destination, Notification notification, RequestContext ctx)
         {
             // Here we're inside the lock.
             var rels = relationshipsUnlocked;
@@ -126,7 +126,7 @@ namespace AppViewLite
             if (actor != default && !rels.Profiles.ContainsKey(actor) && !rels.FailedProfileLookups.ContainsKey(actor))
             {
                 var profile = rels.GetProfile(actor);
-                DispatchOutsideTheLock(() => EnrichAsync([profile], RequestContext.Create()).FireAndForget());
+                DispatchOutsideTheLock(() => EnrichAsync([profile], ctx).FireAndForget());
             }
 
             // These notifications can reference posts from the past that we don't have.
@@ -136,7 +136,7 @@ namespace AppViewLite
                 if (!rels.PostData.ContainsKey(postId) && !rels.FailedPostLookups.ContainsKey(postId)) 
                 {
                     var post = rels.GetPost(postId);
-                    DispatchOutsideTheLock(() => EnrichAsync([post], RequestContext.Create()).FireAndForget());
+                    DispatchOutsideTheLock(() => EnrichAsync([post], ctx).FireAndForget());
                 }
             }
         }
@@ -300,12 +300,12 @@ namespace AppViewLite
             }, anyCtx);
         }
 
-        private async Task<long> FetchAndStorePostCoreAsync(PostIdString postId, RequestContext? anyCtx)
+        private async Task<long> FetchAndStorePostCoreAsync(PostIdString postId, RequestContext? ctx)
         {
             Post? response = null;
             try
             {
-                response = (Post)(await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, anyCtx)).Value;
+                response = (Post)(await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, ctx)).Value;
             }
             catch (Exception)
             {
@@ -319,7 +319,7 @@ namespace AppViewLite
                 {
                     if (response != null)
                     {
-                        rels.StorePostInfo(id, response, postId.Did);
+                        rels.StorePostInfo(id, response, postId.Did, ctx);
                     }
                     else
                     {
@@ -331,7 +331,7 @@ namespace AppViewLite
                     rels.SuppressNotificationGeneration--;
                 }
                 return rels.Version;
-            }, anyCtx);
+            }, ctx);
         }
 
 
@@ -1069,7 +1069,7 @@ namespace AppViewLite
                             
                         if (!alreadyHasAllPosts && x.PostRecord != null && !rels.PostData.ContainsKey(postId))
                         {
-                            rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did);
+                            rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did, ctx);
                         }
 
 
@@ -2083,7 +2083,7 @@ namespace AppViewLite
             await Task.Yield();
             var startDate = DateTime.UtcNow;
             var sw = Stopwatch.StartNew();
-
+            var ctx = RequestContext.CreateForFirehose("CarImport");
             var indexer = new Indexer(this);
             Tid lastTid;
             Exception? exception = null;
@@ -2132,7 +2132,7 @@ namespace AppViewLite
             WithRelationshipsWriteLock(rels =>
             {
                 rels.CarImports.AddRange(new RepositoryImportKey(plc, startDate), BlueskyRelationships.SerializeProto(summary));
-            });
+            }, ctx);
             return summary;
         }
 
@@ -2202,7 +2202,7 @@ namespace AppViewLite
                 proto.PdsSessionCbor = SerializeAuthSession(authSession!);
                 ctx.Session.PdsSession = authSession!.Session;
                 rels.StoreAppViewLiteProfile(ctx.LoggedInUser, proto);
-            });
+            }, ctx);
             
             using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
             return await func(sessionProtocol2);
@@ -3047,7 +3047,7 @@ namespace AppViewLite
             protocol.Apis = this;
         }
 
-        public void MaybeAddCustomEmojis(CustomEmoji[]? emojis)
+        public void MaybeAddCustomEmojis(CustomEmoji[]? emojis, RequestContext ctx)
         {
             if (emojis == null || emojis.Length == 0) return;
 
@@ -3060,7 +3060,7 @@ namespace AppViewLite
                 {
                     rels.CustomEmojis.AddRange(emoji.Hash, BlueskyRelationships.SerializeProto(emoji));
                 }
-            });
+            }, ctx);
         }
 
         public CustomEmoji? TryGetCustomEmoji(DuckDbUuid hash, RequestContext ctx)
@@ -3212,7 +3212,7 @@ namespace AppViewLite
                 if (enabled && flag == PrivateFollowFlags.PrivateFollow)
                     info.DatePrivateFollowed = DateTime.UtcNow;
                 rels.UpdatePrivateFollow(info, ctx);
-            });
+            }, ctx);
         }
 
         public async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session, AppViewLiteProfileProto privateProfile, RequestContext ctx)
@@ -3305,7 +3305,7 @@ namespace AppViewLite
         }
 
 
-        public void LogOut(string cookie)
+        public void LogOut(string cookie, RequestContext ctx)
         {
             var id = BlueskyEnrichedApis.TryGetSessionIdFromCookie(cookie, out var unverifiedDid);
             if (id != null)
@@ -3326,7 +3326,7 @@ namespace AppViewLite
                         unverifiedProfile!.Sessions?.Clear();
                         rels.StoreAppViewLiteProfile(unverifiedPlc, unverifiedProfile);
                     }
-                });
+                }, ctx);
             }
 
         }

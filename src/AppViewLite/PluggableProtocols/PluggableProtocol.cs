@@ -381,11 +381,11 @@ namespace AppViewLite.PluggableProtocols
         public virtual string? TryGetDomainForDid(string did) => null;
 
 
-        protected void OnMirrorFound(DuckDbUuid didHash)
+        protected void OnMirrorFound(DuckDbUuid didHash, RequestContext ctx)
         {
-            if (!Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash)))
+            if (!Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash), ctx))
             {
-                Apis.WithRelationshipsWriteLock(rels => rels.KnownMirrorsToIgnore.Add(didHash, 0));
+                Apis.WithRelationshipsWriteLock(rels => rels.KnownMirrorsToIgnore.Add(didHash, 0), ctx);
             }
         }
 

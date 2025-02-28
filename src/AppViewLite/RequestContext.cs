@@ -11,12 +11,14 @@ namespace AppViewLite
     {
         private TimeSpan? shortTimeout;
         public Task? ShortDeadline { get; private set; }
-        public AppViewLiteSession Session { get; set; }
+        public required AppViewLiteSession Session { get; set; }
         public string? SignalrConnectionId { get; set; }
-        public bool IsUrgent { get; }
+        public bool IsUrgent { get; init; }
 
-        public string? RequestUrl { get; }
+        public string? RequestUrl { get; init; }
+        public string? FirehoseReason { get; init; }
 
+        public bool AllowStale { get; set; }
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
         public int ReadLockEnterCount;
         public int WriteOrUpgradeLockEnterCount;
@@ -35,15 +37,8 @@ namespace AppViewLite
 
         public long MinVersion;
 
-        public RequestContext(AppViewLiteSession? session, TimeSpan? shortTimeout, string? signalrConnectionId, bool urgent = false, string? requestUrl = null)
+        private RequestContext()
         {
-            this.shortTimeout = shortTimeout;
-            this.Session = session;
-            this.SignalrConnectionId = signalrConnectionId;
-            this.IsUrgent = urgent;
-            this.StartDate = DateTime.UtcNow;
-            this.RequestUrl = requestUrl;
-            InitializeDeadlines();
         }
 
         private bool addedToMetricsTable;
@@ -63,28 +58,49 @@ namespace AppViewLite
             return RequestUrl;
         }
 
-        public DateTime StartDate;
+        public required DateTime StartDate;
 
         private void InitializeDeadlines()
         {
             ShortDeadline = shortTimeout != null ? Task.Delay(shortTimeout.Value) : null;
         }
 
-        public static RequestContext Create(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = false, string? requestUrl = null)
-        {
-            return new RequestContext(session, TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent: urgent, requestUrl: requestUrl);
-        }
+
 
         public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null)
         {
-            return new RequestContext(session, TimeSpan.FromSeconds(0.2), signalrConnectionId, urgent, requestUrl: requestUrl);
+            var ctx = new RequestContext
+            {
+                Session = session!,
+                shortTimeout = TimeSpan.FromSeconds(0.2),
+                SignalrConnectionId = signalrConnectionId,
+                RequestUrl = requestUrl,
+                IsUrgent = urgent,
+                AllowStale = true,
+                StartDate = DateTime.UtcNow,
+            };
+            ctx.InitializeDeadlines();
+            return ctx;
         }
 
         public static RequestContext CreateForTaskDictionary(RequestContext? originalCtx)
         {
-            return new RequestContext(null, null, null, urgent: originalCtx?.IsUrgent ?? false, originalCtx?.RequestUrl)
+            return new RequestContext()
             {
-                MinVersion = originalCtx?.MinVersion ?? 0
+                Session = null!,
+                IsUrgent = originalCtx?.IsUrgent ?? false,
+                RequestUrl = originalCtx?.RequestUrl,
+                MinVersion = originalCtx?.MinVersion ?? 0,
+                StartDate = DateTime.UtcNow,
+            };
+        }
+
+        internal static RequestContext CreateForFirehose(string reason)
+        {
+            return new RequestContext()
+            {
+                Session = null!,
+                StartDate = DateTime.UtcNow, 
             };
         }
 
@@ -104,6 +120,8 @@ namespace AppViewLite
                 Interlocked.CompareExchange(ref MinVersion, version, oldVersion);
             }
         }
+
+
 
 #if false
         // Blazor server code

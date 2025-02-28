@@ -65,7 +65,7 @@ namespace AppViewLite.Web
                 if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateForRequest(); }
                 var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
-                var ctx = RequestContext.Create(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
+                var ctx = RequestContext.CreateForRequest(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
                 return ctx;
             });
             builder.Services.AddSignalR();
@@ -137,7 +137,7 @@ namespace AppViewLite.Web
                     if (firstSegment.StartsWith("@did:"))
                     {
                         var firstSegmentLength = firstSegment.Length;
-                        var handle = await apis.TryDidToHandleAsync(firstSegment.Slice(1).ToString(), RequestContext.Create(TryGetSession(ctx), urgent: true));
+                        var handle = await apis.TryDidToHandleAsync(firstSegment.Slice(1).ToString(), RequestContext.CreateForRequest(TryGetSession(ctx), urgent: true));
                         if (handle != null)
                             ctx.Response.Redirect(string.Concat(string.Concat("/@", handle, path.AsSpan(firstSegmentLength + 1), ctx.Request.QueryString.Value)));
                     }

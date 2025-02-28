@@ -13,15 +13,16 @@ namespace AppViewLite.Web
     public class AppBskyGraph : ControllerBase
     {
         private readonly BlueskyEnrichedApis apis;
-        public AppBskyGraph(BlueskyEnrichedApis apis)
+        private readonly RequestContext ctx;
+        public AppBskyGraph(BlueskyEnrichedApis apis, RequestContext ctx)
         {
             this.apis = apis;
+            this.ctx = ctx;
         }
 
         [HttpGet("app.bsky.graph.getFollowers")]
         public async Task<FishyFlip.Lexicon.App.Bsky.Graph.GetFollowersOutput> GetFollowers(string actor, string? cursor, int limit)
         {
-            var ctx = RequestContext.Create();
             var subject = await apis.GetProfileAsync(actor, ctx);
             var (followers, nextContinuation) = await apis.GetFollowersAsync(actor, cursor, limit, ctx);
 
@@ -35,7 +36,6 @@ namespace AppViewLite.Web
         [HttpGet("app.bsky.graph.getFollows")]
         public async Task<FishyFlip.Lexicon.App.Bsky.Graph.GetFollowsOutput> GetFollows(string actor, string? cursor, int limit)
         {
-            var ctx = RequestContext.Create();
             var subject = await apis.GetProfileAsync(actor, ctx);
             var (follows, nextContinuation) = await apis.GetFollowingAsync(actor, cursor, limit, ctx);
 

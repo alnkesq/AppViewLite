@@ -55,7 +55,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 {
 
                     var post = System.Text.Json.JsonSerializer.Deserialize<ActivityPubPostJson>(evt.Data!, JsonOptions)!;
-                    OnPostReceived(post);
+                    OnPostReceived(post, host);
                 }
                 catch (Exception ex)
                 {
@@ -65,8 +65,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         }
 
 
-        private void OnPostReceived(ActivityPubPostJson post)
+        private void OnPostReceived(ActivityPubPostJson post, string relay)
         {
+            var ctx = RequestContext.CreateForFirehose("ActivityPub:" + relay);
             if (post.reblog != null) return;
 
             var author = ParseActivityPubUserId(post.account, post.url).Normalize();
@@ -108,7 +109,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             var customEmojis = (post.emojis ?? []).Concat(post.account?.emojis ?? []).Select(x => new CustomEmoji(x.shortcode, x.static_url ?? x.url)).ToArray();
 
-            Apis.MaybeAddCustomEmojis(customEmojis);
+            Apis.MaybeAddCustomEmojis(customEmojis, ctx);
 
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(data.Text, ref data.Facets, customEmojis);
 

@@ -2,6 +2,7 @@
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
 @inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
 
 <form method="post" @onsubmit="Submit" @formname="logoutForm" id="logoutForm">
     <AntiforgeryToken />
@@ -23,7 +24,7 @@
         var cookie = Program.TryGetSessionCookie(HttpContextAccessor.HttpContext!);
         if (cookie != null)
         {
-            Apis.LogOut(cookie);
+            Apis.LogOut(cookie, RequestContext);
         }
         Navigation.NavigateTo("/", true);
         

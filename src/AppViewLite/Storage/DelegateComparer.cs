@@ -9,8 +9,8 @@ namespace AppViewLite.Storage
 {
     public class DelegateComparer<T> : IComparer<T>, IEqualityComparer<T>
     {
-        private readonly Func<T, T, int> compare;
-        public DelegateComparer(Func<T, T, int> compare)
+        private readonly Func<T?, T?, int> compare;
+        public DelegateComparer(Func<T?, T?, int> compare)
         {
             this.compare = compare;
         }
@@ -33,7 +33,7 @@ namespace AppViewLite.Storage
     public class DelegateEqualityComparer<T> : IEqualityComparer<T>
     {
         private readonly Func<T, T, bool> equals;
-        private readonly Func<T, int> hash;
+        private readonly Func<T, int>? hash;
         public DelegateEqualityComparer(Func<T, T, bool> equals, Func<T, int>? hash = null)
         {
             this.equals = equals;
@@ -46,7 +46,7 @@ namespace AppViewLite.Storage
 
         public int GetHashCode([DisallowNull] T obj)
         {
-            return hash(obj);
+            return hash!(obj);
         }
     }
 }

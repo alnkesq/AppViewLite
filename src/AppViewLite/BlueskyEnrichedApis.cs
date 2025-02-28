@@ -2922,7 +2922,7 @@ namespace AppViewLite
                         pluggable.EnsureValidDid(did);
                         return;
                     }
-                    throw new UnexpectedFirehoseDataException("Invalid did or no pluggable protocol registered for " + did.Substring(0, colon));
+                    throw new UnexpectedFirehoseDataException(string.Concat("Invalid did or no pluggable protocol registered for ", did.AsSpan(0, colon)));
                 }
                 throw new UnexpectedFirehoseDataException("Invalid did.");
             }

@@ -329,7 +329,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         private readonly static MethodInfo EncodeMethod  = typeof(NIP19).Assembly.GetType("LNURL.Bech32Engine", true)!.GetMethod("Encode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string), typeof(byte[])])!;
         private static string GetNoteId(NonQualifiedPluggablePostId postId)
         {
-            return Nip19Encode("note", postId.Bytes);
+            return Nip19Encode("note", postId.Bytes!);
         }
         private string GetDidFromPubKey(string publicKey)
         {

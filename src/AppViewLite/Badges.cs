@@ -23,8 +23,8 @@ namespace AppViewLite
             WikidataPath != null ? 
             new ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>(WikidataPath, path => 
             {
-                return DuckDbUtils.QueryParquet<ProfileBadgeWikidataParquet>(path)
-                    .ToLookup(x => StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(x.Handle)), x => 
+                return DuckDbUtils.QueryParquet<ProfileBadgeWikidataParquet>(path!)
+                    .ToLookup(x => StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(x.Handle!)), x => 
                     {
                         x.Handle = null;
                         return x;

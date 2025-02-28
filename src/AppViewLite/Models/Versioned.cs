@@ -8,9 +8,9 @@ namespace AppViewLite.Models
 {
     public record struct Versioned<T>(T Value, long MinVersion)
     {
-        public void BumpMinimumVersion(RequestContext? ctx)
+        public void BumpMinimumVersion(RequestContext ctx)
         {
-            ctx?.BumpMinimumVersion(MinVersion);
+            ctx.BumpMinimumVersion(MinVersion);
         }
         public void BumpMinimumVersion(ref long minVersion)
         {

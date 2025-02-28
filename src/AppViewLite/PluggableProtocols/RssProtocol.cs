@@ -268,7 +268,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public const HttpRequestError TimeoutError = (HttpRequestError)1001;
-        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl, RequestContext? ctx)
+        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl, RequestContext ctx)
         {
             var title = GetValue(item, "title");
             if (title != null && title.Contains('&')) title = StringUtils.ParseHtmlToText(title, out _, x => null).Text;

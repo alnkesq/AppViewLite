@@ -186,7 +186,7 @@ namespace AppViewLite
                             relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/, ctx);
                             if (!relationships.FeedGenerators.ContainsKey(feedId))
                             {
-                                ScheduleRecordIndexing(l.Subject.Uri);
+                                ScheduleRecordIndexing(l.Subject.Uri, ctx);
                             }
                         }
                     }
@@ -314,14 +314,14 @@ namespace AppViewLite
 
 
         private ConcurrentSet<string> currentlyRunningRecordRetrievals = new();
-        private void ScheduleRecordIndexing(ATUri uri)
+        private void ScheduleRecordIndexing(ATUri uri, RequestContext ctx)
         {
             if (!currentlyRunningRecordRetrievals.TryAdd(uri.ToString())) return;
             Task.Run(async () =>
             {
                 Console.Error.WriteLine("Fetching record " + uri);
                 
-                var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey));
+                var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey, ctx));
 
                 OnRecordCreated(uri.Did.Handler, uri.Pathname.Substring(1), record, ignoreIfDisposing: true);
 
@@ -603,13 +603,15 @@ namespace AppViewLite
 
         public async Task RetrievePlcDirectoryAsync()
         {
-            var lastRetrievedDidDoc = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey) ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            await RetrievePlcDirectoryAsync(EnumeratePlcDirectoryAsync(lastRetrievedDidDoc));
+            var ctx = RequestContext.CreateForFirehose("PlcDirectory");
+            var lastRetrievedDidDoc = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey, ctx) ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            await RetrievePlcDirectoryAsync(EnumeratePlcDirectoryAsync(lastRetrievedDidDoc), ctx);
         }
 
         public async Task InitializePlcDirectoryFromBundleAsync(string parquetFileOrDirectory)
         {
-            var prevDate = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey);
+            var ctx = RequestContext.CreateForFirehose("PlcDirectoryBulkImport");
+            var prevDate = WithRelationshipsLock(rels => rels.LastRetrievedPlcDirectoryEntry.MaximumKey, ctx);
             using var mem = ThreadSafeTypedDuckDbConnection.CreateInMemory();
             var checkGaps = false;
             if (Directory.Exists(parquetFileOrDirectory))
@@ -644,7 +646,7 @@ namespace AppViewLite
                     prevDate = x.Date;
                     return x;
                 });
-            await RetrievePlcDirectoryAsync(AsAsyncEnumerable(rows));
+            await RetrievePlcDirectoryAsync(AsAsyncEnumerable(rows), ctx);
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
@@ -656,11 +658,10 @@ namespace AppViewLite
                 yield return value;
             }
         }
-        private async Task RetrievePlcDirectoryAsync(IAsyncEnumerable<DidDocProto> sortedEntries)
+        private async Task RetrievePlcDirectoryAsync(IAsyncEnumerable<DidDocProto> sortedEntries, RequestContext ctx)
         {
             DateTime lastRetrievedDidDoc = default;
             var entries = new List<DidDocProto>();
-            var ctx = RequestContext.CreateForFirehose("PlcDirectory");
             void FlushBatch()
             {
                 if (entries.Count == 0) return;

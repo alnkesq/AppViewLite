@@ -36,7 +36,7 @@ namespace AppViewLite
         }
 
 
-        public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func, RequestContext? ctx)
+        public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func, RequestContext ctx)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
@@ -73,7 +73,7 @@ namespace AppViewLite
             }, func, ctx);
         }
 
-        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func, RequestContext? ctx)
+        public T WithRelationshipsLockWithPreamble<T>(Func<BlueskyRelationships, PreambleResult> preamble, Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
             return WithRelationshipsLockWithPreamble(rels =>
             {
@@ -121,7 +121,7 @@ namespace AppViewLite
         }
 
 
-        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Action<TPreamble, BlueskyRelationships> func, RequestContext? ctx = null)
+        public void WithRelationshipsLockWithPreamble<TPreamble>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Action<TPreamble, BlueskyRelationships> func, RequestContext ctx)
         {
             WithRelationshipsLockWithPreamble(preamble, (p, rels) =>
             {
@@ -133,7 +133,7 @@ namespace AppViewLite
 
         private ConcurrentQueue<UrgentReadTask> urgentReadTasks = new();
 
-        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext? ctx = null)
+        public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
             return WithRelationshipsLock(func, ctx, ctx?.IsUrgent == true);
         }
@@ -333,7 +333,7 @@ namespace AppViewLite
             }
         }
 
-        public Action<RequestContext?>? BeforeLockEnter;
+        public Action<RequestContext>? BeforeLockEnter;
 
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
@@ -462,7 +462,7 @@ namespace AppViewLite
         public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
         public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
 
-        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold, RequestContext? ctx, string? reason = null)
+        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold, RequestContext ctx, string? reason = null)
         {
             if (sw == null) return;
 

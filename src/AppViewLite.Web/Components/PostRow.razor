@@ -57,7 +57,7 @@
 
 
 
-    public static ParameterView CreateParametersForRenderFlags(BlueskyPost post, string renderFlags, RequestContext? ctx)
+    public static ParameterView CreateParametersForRenderFlags(BlueskyPost post, string renderFlags, RequestContext ctx)
     {
         var flags = renderFlags.Select(x => x == '1').ToArray();
         return ParameterView.FromDictionary(new Dictionary<string, object?>() 

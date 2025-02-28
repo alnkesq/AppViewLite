@@ -1752,7 +1752,7 @@ namespace AppViewLite
             return null;
         }
 
-        public BlockReason GetBlockReason(Plc plc, RequestContext? ctx)
+        public BlockReason GetBlockReason(Plc plc, RequestContext ctx)
         {
             return ctx?.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
         }

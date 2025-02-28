@@ -150,7 +150,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             if (Apis.WithRelationshipsLock(rels =>
             {
                 return rels.TryGetPostData(threadIdCore)?.PluggableReplyCount == thread.Replies;
-            }))
+            }, ctx))
                 return;
 
             var subject = thread.Sub?.Trim();

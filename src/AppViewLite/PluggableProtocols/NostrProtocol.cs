@@ -96,7 +96,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 RecentlyAddedPosts = new();
 
 
-            var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.TryGetLatestValue(didHash, out _));
+            var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.TryGetLatestValue(didHash, out _), ctx);
             if (!previouslySeen)
             {
                 // Avoid wasting Plc assignments for single-use spam pubkeys.
@@ -107,7 +107,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
             if (kind == NostrEventKind.Short_Text_Note)
             {
-                if (Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash)))
+                if (Apis.WithRelationshipsLock(rels => rels.KnownMirrorsToIgnore.ContainsKey(didHash), ctx))
                     return;
                 var tid = CreateSyntheticTid(e.CreatedAt!.Value.UtcDateTime, e.Id);
                 var postId = new QualifiedPluggablePostId(did, GetNonQualifiedPostId(tid, e.Id));

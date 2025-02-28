@@ -200,7 +200,7 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext? ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
         {
             PopulateViewerFlags(profiles, ctx);
 
@@ -232,7 +232,7 @@ namespace AppViewLite
             return profiles;
         }
 
-        private static Task AwaitWithShortDeadline(Task task, RequestContext? ctx)
+        private static Task AwaitWithShortDeadline(Task task, RequestContext ctx)
         {
             if (ctx?.ShortDeadline != null)
             {
@@ -274,7 +274,7 @@ namespace AppViewLite
 
 
 
-        private async Task<long> FetchAndStoreListMetadataCoreAsync(RelationshipStr listId, RequestContext? ctx)
+        private async Task<long> FetchAndStoreListMetadataCoreAsync(RelationshipStr listId, RequestContext ctx)
         {
             List? response = null;
             try
@@ -432,7 +432,7 @@ namespace AppViewLite
             return r;
         }
 
-        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext? ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
+        public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
             WithRelationshipsLock(rels =>
             {
@@ -1248,7 +1248,7 @@ namespace AppViewLite
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc), ctx);
         }
 
-        private Plc SerializeSingleDid(string did, RequestContext? ctx)
+        private Plc SerializeSingleDid(string did, RequestContext ctx)
         {
             return WithRelationshipsLockForDid(did, (plc, rels) => plc, ctx);
         }
@@ -1342,7 +1342,7 @@ namespace AppViewLite
             return subjectDisplayText + " could not be reached: " + ex.Message;
         }
 
-        private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey, RequestContext? ctx)
+        private async Task<BlueskyFeedGeneratorData> GetFeedGeneratorDataAsync(string did, string rkey, RequestContext ctx)
         {
             var (plc, result) = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
@@ -1538,7 +1538,7 @@ namespace AppViewLite
             await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).WhereNonNull(), .. posts.Select(x => x.RootFullPost).WhereNonNull()!], ctx);
         }
 
-        public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext? ctx)
+        public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext ctx)
         {
             var data = await GetFeedGeneratorDataAsync(did, rkey, ctx);
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data), ctx);
@@ -2267,12 +2267,12 @@ namespace AppViewLite
         }
         public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RequestContext ctx)
         {
-            var cid = await GetCidAsync(did, Post.RecordType, rkey);
+            var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
             return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
         }
         public async Task<Tid> CreateRepostAsync(string did, Tid rkey, RequestContext ctx)
         {
-            var cid = await GetCidAsync(did, Post.RecordType, rkey);
+            var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
             return await CreateRecordAsync(new Repost { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
         }
 
@@ -2298,7 +2298,7 @@ namespace AppViewLite
             ReplyRefDef? replyRefDef = null;
             if (inReplyTo != null)
             {
-                var inReplyToRef = await GetPostStrongRefAsync(inReplyTo);
+                var inReplyToRef = await GetPostStrongRefAsync(inReplyTo, ctx);
                 replyRefDef = new ReplyRefDef
                 {
                     Parent = inReplyToRef.StrongRef,
@@ -2310,26 +2310,26 @@ namespace AppViewLite
             {
                 embed = new EmbedRecord
                 {
-                    Record = (await GetPostStrongRefAsync(quotedPost)).StrongRef,
+                    Record = (await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef,
                 };
             }
             return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef, Embed = embed }, ctx);
         }
 
-        private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post)
+        private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post, RequestContext ctx)
         {
-            var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey);
+            var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey, ctx);
             return (new StrongRef(info.Uri, info.Cid!), (Post)info.Value);
             
         }
 
-        internal Task<string> GetCidAsync(string did, string collection, Tid rkey)
+        internal Task<string> GetCidAsync(string did, string collection, Tid rkey, RequestContext ctx)
         {
-            return GetCidAsync(did, collection, rkey.ToString()!);
+            return GetCidAsync(did, collection, rkey.ToString()!, ctx);
         }
-        internal async Task<string> GetCidAsync(string did, string collection, string rkey)
+        internal async Task<string> GetCidAsync(string did, string collection, string rkey, RequestContext ctx)
         {
-            return (await GetRecordAsync(did, collection, rkey)).Cid!;
+            return (await GetRecordAsync(did, collection, rkey, ctx)).Cid!;
         }
 
         public async Task<BlueskyPost> GetPostAsync(string did, string rkey, RequestContext ctx)
@@ -2368,7 +2368,7 @@ namespace AppViewLite
             return feeds;
         }
 
-        public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext? ctx)
+        public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
         {
             if (!IsReadOnly)
             {
@@ -2432,7 +2432,7 @@ namespace AppViewLite
 #endif
         }
 
-        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, RequestContext? ctx, CancellationToken ct = default)
+        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, RequestContext ctx, CancellationToken ct = default)
         {
             using var proto = await TryCreateProtocolForDidAsync(did, ctx);
             if (proto == null) return new ListRecordsOutput(null, []);
@@ -2447,7 +2447,7 @@ namespace AppViewLite
             
         }
 
-        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext? ctx = null, CancellationToken ct = default)
+        public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
         {
             using var proto = await CreateProtocolForDidAsync(did, ctx);
             try
@@ -2778,14 +2778,14 @@ namespace AppViewLite
             return did!;
         }
 
-        private void WarmUpDidAssignment(string did, RequestContext? ctx)
+        private void WarmUpDidAssignment(string did, RequestContext ctx)
         {
             // assign a Plc (in case not all future code paths properly pass ctx to SerializeDid)
             var plc2 = WithRelationshipsLock(rels => rels.TrySerializeDidMaybeReadOnly(did, ctx), ctx);
             if (plc2 == default) WithRelationshipsWriteLock(rels => rels.SerializeDid(did, ctx), ctx);
         }
 
-        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext? anyCtx)
+        private async Task<DidDocProto> FetchAndStoreDidDocNoOverrideCoreAsync(string did, Plc plc, RequestContext anyCtx)
         {
             var didDoc = await GetDidDocCoreNoOverrideAsync(did);
             didDoc.Date = DateTime.UtcNow;
@@ -3015,7 +3015,7 @@ namespace AppViewLite
             }
         }
 
-        private async Task<DidDocProto> GetDidDocAsync(string did, RequestContext? ctx)
+        private async Task<DidDocProto> GetDidDocAsync(string did, RequestContext ctx)
         {
             var didDocOverride = DidDocOverrides.GetValue().TryGetOverride(did);
             if (didDocOverride != null) return didDocOverride;
@@ -3051,7 +3051,7 @@ namespace AppViewLite
         {
             if (emojis == null || emojis.Length == 0) return;
 
-            var missingEmojis = WithRelationshipsLock(rels => emojis.Where(x => !rels.CustomEmojis.ContainsKey(x.Hash)).ToArray());
+            var missingEmojis = WithRelationshipsLock(rels => emojis.Where(x => !rels.CustomEmojis.ContainsKey(x.Hash)).ToArray(), ctx);
 
             if (missingEmojis.Length == 0) return;
             WithRelationshipsWriteLock(rels =>
@@ -3187,7 +3187,7 @@ namespace AppViewLite
             return new Uri(pageUrl.GetLeftPart(UriPartial.Authority) + "/favicon.ico");
         }
 
-        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext? ctx)
+        public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext ctx)
         {
             if (!profiles.Any(x => x.PrivateFollow == null)) return;
             WithRelationshipsLock(rels =>

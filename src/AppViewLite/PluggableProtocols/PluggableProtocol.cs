@@ -71,7 +71,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool RepostsAreCategories => false;
 
-        public QualifiedPluggablePostId? GetPostIdWithCorrectTid(QualifiedPluggablePostId qualifiedPostId, RequestContext? ctx)
+        public QualifiedPluggablePostId? GetPostIdWithCorrectTid(QualifiedPluggablePostId qualifiedPostId, RequestContext ctx)
         {
             var reversedTid = TryGetTidFromPostId(new QualifiedPluggablePostId(qualifiedPostId.Did, qualifiedPostId.PostId.CloneWithoutTid())) ?? default;
             if (reversedTid != default)

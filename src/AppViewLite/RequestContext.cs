@@ -83,7 +83,7 @@ namespace AppViewLite
             return ctx;
         }
 
-        public static RequestContext CreateForTaskDictionary(RequestContext? originalCtx)
+        public static RequestContext CreateForTaskDictionary(RequestContext originalCtx)
         {
             return new RequestContext()
             {

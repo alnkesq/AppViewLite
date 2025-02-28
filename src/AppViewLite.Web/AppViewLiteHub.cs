@@ -242,8 +242,8 @@ namespace AppViewLite.Web
     class ConnectionContext : IDisposable
     {
         public HashSet<PostId> PostIds = new();
-        public LiveNotificationDelegate LiveUpdatesCallback;
-        public Throttler<PostStatsNotification> LiveUpdatesCallbackThrottler;
+        public required LiveNotificationDelegate LiveUpdatesCallback;
+        public required Throttler<PostStatsNotification> LiveUpdatesCallbackThrottler;
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
         public string? SessionCookie;

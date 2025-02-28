@@ -34,7 +34,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var url = DidToUrl(did);
             return url.Host + " " + url.PathAndQuery;
         }
-        public async override Task DiscoverAsync(CancellationToken ct)
+        public override Task DiscoverAsync(CancellationToken ct)
         {
 
             string[] feeds = [
@@ -49,6 +49,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 }, ct).FireAndForget();
             }
+            return Task.CompletedTask;
 
         }
 
@@ -143,7 +144,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var xmlTrimmed = xml.AsSpan().Trim();
                 if (xmlTrimmed.StartsWith("<!doctype html", StringComparison.OrdinalIgnoreCase) || xmlTrimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase))
                     throw new UnexpectedFirehoseDataException("Not an RSS feed.");
-                var dom = XDocument.Parse(xml).Root;
+                var dom = XDocument.Parse(xml).Root!;
 
                 var rss = dom;
                 rss = GetChild(rss, "channel") ?? rss;
@@ -345,7 +346,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     altTag.Remove();
                 }
 
-                var leafPostId = GetTumblrPostId(url, dateParsed);
+                var leafPostId = GetTumblrPostId(url!, dateParsed);
                 if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
                     throw new Exception("Non-matching tumblr host");
                 var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId, dateParsed);
@@ -423,7 +424,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 bodyAsText = string.Concat(bodyAsText.AsSpan(0, maxLength - 10), "…");
 
             var data = new BlueskyPostData();
-            if (!hasFullContent && url == null) hasFullContent = true;
+            if (url == null) hasFullContent = true;
 
             if (!hasFullContent)
             {
@@ -442,7 +443,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
 
                 }
-                data.ExternalUrl = url.AbsoluteUri;
+                data.ExternalUrl = url!.AbsoluteUri;
                 data.ExternalDescription = bodyAsText;
                 data.ExternalTitle = title;
                 

@@ -612,7 +612,7 @@ namespace AppViewLite
 
         }
 
-        public async Task<PostsAndContinuation> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default)
+        public async Task<PostsAndContinuation> SearchTopPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext? ctx = null)
         {
             EnsureLimit(ref limit, 30);
             options = await InitializeSearchOptionsAsync(options, ctx);
@@ -852,7 +852,7 @@ namespace AppViewLite
             return (posts, posts.Length > limit ? posts.LastOrDefault()?.PostId.Serialize() : null);
         }
 
-        private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options, RequestContext ctx)
+        private async Task<PostSearchOptions> InitializeSearchOptionsAsync(PostSearchOptions options, RequestContext? ctx)
         {
             var q = options.Query;
             string? author = options.Author;
@@ -880,7 +880,7 @@ namespace AppViewLite
                 return true;
             });
 
-            if (author == "me" && ctx.Session.IsLoggedIn)
+            if (author == "me" && ctx?.Session.IsLoggedIn == true)
                 author = ctx.Session?.Did;
 
             if (author != null && author.StartsWith('@'))
@@ -898,7 +898,7 @@ namespace AppViewLite
             };
         }
 
-        private DateTime? ParseDate(string v)
+        private static DateTime? ParseDate(string v)
         {
             return DateTime.ParseExact(v, "yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
@@ -1248,7 +1248,7 @@ namespace AppViewLite
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc), ctx);
         }
 
-        private Plc SerializeSingleDid(string did, RequestContext ctx)
+        private Plc SerializeSingleDid(string did, RequestContext? ctx)
         {
             return WithRelationshipsLockForDid(did, (plc, rels) => plc, ctx);
         }
@@ -3096,7 +3096,9 @@ namespace AppViewLite
             return client;
         }
 
+#pragma warning disable CA1822
         public AdministrativeBlocklist AdministrativeBlocklist => AdministrativeBlocklist.Instance.GetValue();
+#pragma warning restore CA1822
 
         public async Task<string?> TryGetBidirectionalAtProtoBridgeForFediverseProfileAsync(string maybeFediverseDid, RequestContext? ctx)
         {

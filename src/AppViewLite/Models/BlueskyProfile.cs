@@ -6,7 +6,7 @@ namespace AppViewLite.Models
 {
     public class BlueskyProfile
     {
-        public string Did;
+        public required string Did;
         public int PlcId;
         public Plc Plc => new Plc(PlcId);
 

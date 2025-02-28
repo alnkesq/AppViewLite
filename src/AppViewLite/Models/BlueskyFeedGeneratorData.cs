@@ -19,7 +19,7 @@ namespace AppViewLite.Models
         [ProtoMember(6)] public FacetData[]? DescriptionFacets;
         [ProtoMember(7)] public bool IsVideo;
         [ProtoMember(8)] public bool? AcceptsInteractions;
-        [ProtoMember(9)] public string RKey;
+        [ProtoMember(9)] public required string RKey;
         public bool Deleted;
         public string? Error;
     }

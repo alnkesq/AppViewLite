@@ -2,6 +2,8 @@
 @inject RequestContext RequestContext
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
+@inject BlueskyEnrichedApis Apis
+
 <PageTitle>Login</PageTitle>
 <h1>Login</h1>
 <form method="post" @onsubmit="Submit" @formname="loginForm" class="main-padding">
@@ -18,7 +20,7 @@
             Password (or <a href="https://bsky.app/settings/app-passwords" target="_blank" class="blue-link" tabindex="4">app-specific</a> password):<br>
             <InputText @bind-Value="Model!.Password" type="password" tabindex="2" />
         </label>
-        @if (Program.AllowPublicReadOnlyFakeLogin)
+        @if (BlueskyEnrichedApis.AllowPublicReadOnlyFakeLogin)
         {
             <div><i>Use 'readonly' for a simulated login.<br>You won't be able to perform write actions to your repository.</i></div>
         }
@@ -45,7 +47,8 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle) && !string.IsNullOrEmpty(Model!.Password))
         {
-            await Program.LogInAsync(HttpContextAccessor.HttpContext!, Model.Handle, Model.Password, RequestContext);
+            var (session, cookie) = await Apis.LogInAsync(Model.Handle, Model.Password, RequestContext);
+            HttpContextAccessor.HttpContext!.Response.Cookies.Append("appviewliteSessionId", cookie, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
             Navigation.NavigateTo(Return ?? "/following", true);
         }
     }

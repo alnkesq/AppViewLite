@@ -19,10 +19,10 @@ namespace AppViewLite.Web
     {
         private static BlueskyRelationships Relationships = null!;
 
-        public static bool AllowPublicReadOnlyFakeLogin = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN) ?? false;
+        
         public static bool ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
 
-
+        public static BlueskyEnrichedApis Apis => BlueskyEnrichedApis.Instance;
 
         public static async Task Main(string[] args)
         {
@@ -273,187 +273,17 @@ namespace AppViewLite.Web
         }
 
         internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext = null!;
-        public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
-        {
-            return TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
-        }
-        public static AppViewLiteSession? TryGetSessionFromCookie(string? sessionIdCookie)
-        {
-            if (sessionIdCookie == null) return null;
-            var apis = BlueskyEnrichedApis.Instance;
-            var now = DateTime.UtcNow;
-            var sessionId = TryGetSessionIdFromCookie(sessionIdCookie, out var unverifiedDid);
-            if (sessionId != null)
-            {
-                if (!SessionDictionary.TryGetValue(sessionId, out var session))
-                {
-                    AppViewLiteProfileProto? profile = null;
-                    AppViewLiteSessionProto? sessionProto = null;
-                    Plc plc = default;
-                    string? did = null;
-                    BlueskyProfile? bskyProfile = null;
-                    var ctx = RequestContext.CreateForRequest();
-                    apis.WithRelationshipsLockForDid(unverifiedDid!, (unverifiedPlc, rels) =>
-                    {
-                        var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                        sessionProto = TryGetAppViewLiteSession(unverifiedProfile, sessionId);
-                        if (sessionProto != null)
-                        {
-                            profile = unverifiedProfile;
-                            plc = unverifiedPlc;
-                            did = unverifiedDid;
-                            bskyProfile = rels.GetProfile(plc);
-                        }
-                    }, ctx);
-                    if (profile == null) return null;
-
-                    session = new AppViewLiteSession
-                    {
-                        IsReadOnlySimulation = sessionProto!.IsReadOnlySimulation,
-                        PdsSession = sessionProto.IsReadOnlySimulation ? null : BlueskyEnrichedApis.DeserializeAuthSession(profile.PdsSessionCbor!).Session,
-                        LoggedInUser = plc,
-                        LastSeen = now,
-                        Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
-                    };
-                    OnSessionCreatedOrRestoredAsync(did!, plc, session, profile, ctx).FireAndForget();
-                    SessionDictionary[sessionId] = session;
-                }
-
-                session.LastSeen = now;
-
-                return session;
-            }
-
-            return null;
-        }
-
-        private static AppViewLiteSessionProto? TryGetAppViewLiteSession(AppViewLiteProfileProto? unverifiedProfile, string sessionId)
-        {
-            return unverifiedProfile?.Sessions?.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
-        }
-
-
-        public static async Task<AppViewLiteSession> LogInAsync(HttpContext httpContext, string handle, string password, RequestContext ctx)
-        {
-            var apis = BlueskyEnrichedApis.Instance;
-            if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException();
-
-            var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
-
-            var did = await apis.ResolveHandleAsync(handle);
-            var atSession = isReadOnly ? null : await apis.LoginToPdsAsync(did, password, ctx);
-
-
-
-            var id = RandomNumberGenerator.GetHexString(32, lowercase: true);
-            httpContext.Response.Cookies.Append("appviewliteSessionId", id + "=" + did, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
-            var now = DateTime.UtcNow;
-            var session = new AppViewLiteSession
-            {
-                LastSeen = now,
-                IsReadOnlySimulation = isReadOnly
-            };
-
-            Plc plc = default;
-            AppViewLiteProfileProto privateProfile = null!;
-            apis.WithRelationshipsWriteLock(rels => 
-            {
-                plc = rels.SerializeDid(did);
-                session.LoggedInUser = plc;
-                rels.RegisterForNotifications(session.LoggedInUser.Value);
-                privateProfile = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
-                privateProfile!.Sessions ??= new();
-
-                if (!isReadOnly)
-                {
-                    privateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession!));
-                    session.PdsSession = atSession;
-                }
-
-                privateProfile.Sessions.Add(new AppViewLiteSessionProto
-                {
-                    LastSeen = now,
-                    SessionToken = id,
-                    IsReadOnlySimulation = isReadOnly,
-                });
-                rels.StoreAppViewLiteProfile(plc, privateProfile);
-            }, ctx);
-
-            await OnSessionCreatedOrRestoredAsync(did, plc, session, privateProfile, ctx);
-
-            SessionDictionary[id] = session;
-            
-            return session;
-        }
-
-        private static async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session, AppViewLiteProfileProto privateProfile, RequestContext ctx)
-        {
-            var apis = BlueskyEnrichedApis.Instance;
-
-            var haveFollowees = apis.WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc), ctx);
-            session.Profile = await apis.GetProfileAsync(did, ctx);
-
-            session.PrivateProfile = privateProfile;
-            session.PrivateFollows = (privateProfile.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
-
-            if (haveFollowees < 100)
-            {
-                var deadline = Task.Delay(5000);
-                var loadFollows = apis.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
-                apis.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
-                apis.ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
-                // TODO: fetch entries of subscribed blocklists
-                await Task.WhenAny(deadline, loadFollows);
-            }
-
-        }
-
-        public static void LogOut(HttpContext httpContext)
-        {
-            var id = TryGetSessionIdFromCookie(TryGetSessionCookie(httpContext), out var unverifiedDid);
-            if (id != null)
-            {
-                SessionDictionary.Remove(id, out var unverifiedAppViewLiteSession);
-
-                BlueskyEnrichedApis.Instance.WithRelationshipsWriteLock(rels =>
-                {
-                    var unverifiedPlc = rels.SerializeDid(unverifiedDid!);
-                    var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                    var session = TryGetAppViewLiteSession(unverifiedProfile, id);
-                    if (session != null)
-                    {
-                        // now verified.
-                        if (unverifiedAppViewLiteSession != null)
-                            unverifiedAppViewLiteSession.PdsSession = null;
-                        unverifiedProfile!.PdsSessionCbor = null;
-                        unverifiedProfile!.Sessions?.Clear();
-                        rels.StoreAppViewLiteProfile(unverifiedPlc, unverifiedProfile); 
-                    }
-                });
-            }
-
-        }
-        public static ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
         public static IServiceProvider StaticServiceProvider = null!;
 
-        private static string? TryGetSessionIdFromCookie(string? cookie, out string? unverifiedDid)
+        public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
         {
-            if (cookie != null)
-            {
-                var r = cookie.Split('=');
-                unverifiedDid = r[1];
-                return r[0];
-            }
-            unverifiedDid = null;
-            return null;
+            return Apis.TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
         }
-
+       
         public static string? TryGetSessionCookie(HttpContext? httpContext)
         {
             return httpContext != null && httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
         }
-
-
 
         public static Uri? GetNextContinuationUrl(this NavigationManager url, string? nextContinuation)
         {
@@ -527,42 +357,7 @@ namespace AppViewLite.Web
             return message;
         }
 
-        public async static Task<string> ResolveUrlAsync(Uri url, Uri baseUrl, RequestContext? ctx)
-        {
-            // bsky.app links
-            if (url.Host == "bsky.app")
-                return url.PathAndQuery;
-
-            // recursive appviewlite links
-            if (url.Host == baseUrl.Host)
-                return url.PathAndQuery;
-
-            // atproto profile from custom domain
-            var apis = BlueskyEnrichedApis.Instance;
-            if (url.PathAndQuery == "/")
-            {
-                var handle = url.Host;
-                try
-                {
-                    var did = await apis.ResolveHandleAsync(handle);
-                    return "/@" + handle;
-                }
-                catch
-                {
-                }
-            }
-
-            foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)
-            {
-                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url);
-                if (did != null)
-                    return did.StartsWith("did:", StringComparison.Ordinal) ? "/@" + did : did;
-            }
-
-
-            throw new UnexpectedFirehoseDataException("No RSS feeds were found at the specified page.");
-        }
-
+       
 
     }
 }

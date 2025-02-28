@@ -2,11 +2,12 @@
 @* Routes with 2 consecutive slashes are not allowed in aspnet. *@
 @inject NavigationManager Navigation
 @inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
 
 @code {
     [Parameter] public required string Rest { get; set; }
     protected override async Task OnParametersSetAsync()
     {
-        Navigation.NavigateTo(await Program.ResolveUrlAsync(new Uri("http:/" + Rest + new Uri(Navigation.Uri).Query), new Uri(Navigation.BaseUri), RequestContext));
+        Navigation.NavigateTo(await Apis.ResolveUrlAsync(new Uri("http:/" + Rest + new Uri(Navigation.Uri).Query), new Uri(Navigation.BaseUri), RequestContext));
     }
 }

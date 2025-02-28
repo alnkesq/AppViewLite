@@ -2351,9 +2351,10 @@ namespace AppViewLite
 
         internal void NotifyPostStatsChange(PostId postId, Plc commitPlc)
         {
+            var version = this.Version;
             PostLiveSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(postId,
                 () => new PostStatsNotification(postId, GetDid(postId.Author), postId.PostRKey.ToString()!, Likes.GetActorCount(postId), Reposts.GetActorCount(postId), Quotes.GetValueCount(postId), DirectReplies.GetValueCount(postId)),
-                (data, handler) => handler(data, commitPlc));
+                (data, handler) => handler(new Versioned<PostStatsNotification>(data, version), commitPlc));
         }
 
         //private Dictionary<PostId, int> notifDebug = new();
@@ -2920,6 +2921,6 @@ namespace AppViewLite
     }
 
 
-    public delegate void LiveNotificationDelegate(PostStatsNotification notification, Plc commitPlc);
+    public delegate void LiveNotificationDelegate(Versioned<PostStatsNotification> notification, Plc commitPlc);
 }
 

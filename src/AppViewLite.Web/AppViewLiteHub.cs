@@ -146,8 +146,9 @@ namespace AppViewLite.Web
             _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
             _ctxWithoutConnectionId.Session = ctx ?? new AppViewLiteSession();
 
-            void SubmitLivePostEngagement(PostStatsNotification notification, Plc commitPlc)
+            void SubmitLivePostEngagement(Versioned<PostStatsNotification> versionedNotification, Plc commitPlc)
             {
+                var notification = versionedNotification.Value;
                 var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
 
                 object? ownRelationshipChange = null;
@@ -162,13 +163,13 @@ namespace AppViewLite.Web
                             likeRkey = userLike.RelationshipRKey.ToString() ?? "-",
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
                         };
-                    }, RequestContext.CreateForRequest(ctx, urgent: false));
+                    }, RequestContext.CreateForRequest(ctx, urgent: false, minVersion: versionedNotification.MinVersion));
 
                 }
                 client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange).FireAndForget();
             }
 
-            var throttler = new Throttler<PostStatsNotification>(TimeSpan.FromSeconds(4), (notif) => SubmitLivePostEngagement(notif, default));
+            var throttler = new Throttler<Versioned<PostStatsNotification>>(TimeSpan.FromSeconds(4), (notif) => SubmitLivePostEngagement(notif, default));
             var context = new ConnectionContext
             {
                 UserPlc = userPlc,
@@ -244,7 +245,7 @@ namespace AppViewLite.Web
     {
         public HashSet<PostId> PostIds = new();
         public required LiveNotificationDelegate LiveUpdatesCallback;
-        public required Throttler<PostStatsNotification> LiveUpdatesCallbackThrottler;
+        public required Throttler<Versioned<PostStatsNotification>> LiveUpdatesCallbackThrottler;
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
         public string? SessionCookie;

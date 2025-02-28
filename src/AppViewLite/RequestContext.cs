@@ -67,7 +67,7 @@ namespace AppViewLite
 
 
 
-        public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null)
+        public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null, long minVersion = default)
         {
             var ctx = new RequestContext
             {
@@ -78,6 +78,7 @@ namespace AppViewLite
                 IsUrgent = urgent,
                 AllowStale = true,
                 StartDate = DateTime.UtcNow,
+                MinVersion = minVersion,
             };
             ctx.InitializeDeadlines();
             return ctx;

@@ -380,7 +380,7 @@ namespace AppViewLite
 
                     if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
                     {
-                        tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
+                        tcs.TrySetException(new UnexpectedFirehoseDataException("Firehose is in state: " + e.State));
                     }
                 };
                 firehose.OnRecordReceived += (s, e) =>

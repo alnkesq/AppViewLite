@@ -62,7 +62,7 @@ namespace AppViewLite
                  Reply = post.InReplyToFullPost != null ? new ReplyRef
                  {
                        Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(),
-                       Root = post.RootFullPost?.ToApiCompatFeedViewPost(),
+                       Root = post.RootFullPost!.ToApiCompatFeedViewPost(),
                        GrandparentAuthor = post.InReplyToFullPost.Author.ToApiCompatBasic(),
                  } : null
             };
@@ -171,7 +171,7 @@ namespace AppViewLite
             {
                 Cid = GetSyntheticCid(feed.Uri),
                 DisplayName = feed.DisplayName,
-                Description = feed.Data.Description,
+                Description = feed.Data?.Description,
                 Uri = feed.Uri,
                 IndexedAt = DummyDate,
                 Did = new ATDid(feed.Did),

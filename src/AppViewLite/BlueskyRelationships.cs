@@ -2890,7 +2890,6 @@ namespace AppViewLite
             copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            long copiedQueueBytes = 0;
             foreach (var field in fields)
             {
                 if (field.FieldType.IsAssignableTo(typeof(ICloneableAsReadOnly)))

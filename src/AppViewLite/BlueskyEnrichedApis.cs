@@ -734,7 +734,7 @@ namespace AppViewLite
             return (result, hasMorePages ? new TopPostSearchCursor(minLikes, cursor.SearchId, cursor.PageIndex + 1).Serialize() : null);
         }
 
-        public async Task<PostsAndContinuation> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext ctx = default, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
+        public async Task<PostsAndContinuation> SearchLatestPostsAsync(PostSearchOptions options, int limit = 0, string? continuation = null, RequestContext? ctx = null, ConcurrentDictionary<PostId, CachedSearchResult>? alreadyProcessedPosts = null, bool enrichOutput = true)
         {
             EnsureLimit(ref limit, 30);
             options = await InitializeSearchOptionsAsync(options, ctx);
@@ -2049,7 +2049,7 @@ namespace AppViewLite
             });
             if (!startIfNotRunning)
             {
-                Task<RepositoryImportEntry> running;
+                Task<RepositoryImportEntry>? running;
                 lock (carImports)
                 {
                     carImports.TryGetValue((plc, kind), out running);

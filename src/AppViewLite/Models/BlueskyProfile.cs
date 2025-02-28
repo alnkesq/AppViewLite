@@ -70,12 +70,12 @@ namespace AppViewLite.Models
 
         public PluggableProtocol? PluggableProtocol;
 
-        public PrivateFollow PrivateFollow;
+        public PrivateFollow? PrivateFollow;
 
         public string FollowRKeyForAttribute => IsFollowedBySelf?.ToString() ?? (HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow) ? "x" : "-");
         public int FollowsYouForAttribute => FollowsYou ? 1 : 0;
 
-        public bool HasPrivateFollowFlag(PrivateFollowFlags flag) => (PrivateFollow.Flags & flag) == flag;
+        public bool HasPrivateFollowFlag(PrivateFollowFlags flag) => (PrivateFollow!.Flags & flag) == flag;
 
         public bool IsFollowedEvenPrivatelyBySelf => IsFollowedBySelf != default || HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow);
 

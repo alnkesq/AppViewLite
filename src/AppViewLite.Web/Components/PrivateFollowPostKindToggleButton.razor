@@ -10,7 +10,7 @@
     var allFlag = ImageFlag | TextualFlag;
 
     var toggleButtonFlag =
-                (User.PrivateFollow.Flags & TextualFlag) != default ? allFlag :
+                (User.PrivateFollow!.Flags & TextualFlag) != default ? allFlag :
                 (IsImage ?? (!User.HasPrivateFollowFlag(TextualFlag))) ? ImageFlag : 
                 allFlag;
 }

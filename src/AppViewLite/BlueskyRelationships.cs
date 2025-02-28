@@ -129,6 +129,7 @@ namespace AppViewLite
         private IDisposable lockFile;
         private Dictionary<string, string[]>? checkpointToLoad;
         private GlobalCheckpoint loadedCheckpoint;
+        internal Dictionary<string, Dictionary<nuint, bool>> AccessedMemoryPagesByTaskType = new();
 
         private T Register<T>(T r) where T : ICheckpointable
         {
@@ -390,6 +391,8 @@ namespace AppViewLite
             Lock.EnterWriteLock();
             try
             {
+                PrintMemoryPageAccesses();
+
                 IsDisposing = true;
                 if (!_disposed)
                 {
@@ -429,6 +432,14 @@ namespace AppViewLite
                 {
                     Console.Error.WriteLine(item.Value + " " + item.Key + " (" + item.Value.Count + ", avg. " + (long)(item.Value.TotalTime / item.Value.Count).TotalMicroseconds  + ")");
                 }
+            }
+        }
+
+        public void PrintMemoryPageAccesses()
+        {
+            foreach (var item in AccessedMemoryPagesByTaskType.Select(x => (Key: x.Key, Count: x.Value.Count)).OrderByDescending(x => x.Count))
+            {
+                Console.Error.WriteLine("Accessed pages for " + item.Key + ":\t\t" + item.Count);
             }
         }
 

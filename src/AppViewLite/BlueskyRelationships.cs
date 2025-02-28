@@ -22,7 +22,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Diagnostics.CodeAnalysis;
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace AppViewLite
@@ -153,9 +152,17 @@ namespace AppViewLite
         }
 
         public bool IsReadOnly { get; private set; }
-        public BlueskyRelationships(string? basedir, bool isReadOnly)
+
+#nullable disable
+        private BlueskyRelationships(bool isReadOnly)
+        { 
+            // set via reflection
+        }
+#nullable restore
+
+        public BlueskyRelationships(string basedir, bool isReadOnly)
+            : this(isReadOnly)
         {
-            if (basedir == null) return;
             DidToPlcConcurrentCache = new(512 * 1024);
             PlcToDidConcurrentCache = new(128 * 1024);
             Lock = new ReaderWriterLockSlim();
@@ -2877,7 +2884,7 @@ namespace AppViewLite
         {
             AssertCanRead();
             var sw = Stopwatch.StartNew();
-            var copy = new BlueskyRelationships(basedir: null, isReadOnly: true);
+            var copy = new BlueskyRelationships(isReadOnly: true);
             copy.Version = this.Version;
             copy.Lock = new();
             copy.IsReadOnly = true;

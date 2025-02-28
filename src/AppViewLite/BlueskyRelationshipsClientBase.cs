@@ -358,7 +358,7 @@ namespace AppViewLite
             try
             {
                 relationshipsUnlocked.Version++;
-                if (ctx != null) ctx.MinVersion = relationshipsUnlocked.Version;
+                ctx?.BumpMinimumVersion(relationshipsUnlocked.Version);
                 ctx?.TimeSpentWaitingForLocks?.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();

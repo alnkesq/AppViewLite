@@ -614,8 +614,7 @@ namespace AppViewLite
                 try
                 {
                     Version++;
-                    if (ctx != null)
-                        ctx.MinVersion = Version;
+                    ctx?.BumpMinimumVersion(Version);
 
                     value();
                     BeforeExitingLockUpgrade?.Invoke(this, EventArgs.Empty);

@@ -26,7 +26,7 @@ namespace AppViewLite.Web.ApiCompat
         public async Task<GetPostThreadOutput> GetPostThread(string uri, int depth)
         {
 
-            var aturi = await apis.ResolveUriAsync(uri);
+            var aturi = await apis.ResolveUriAsync(uri, ctx);
             var thread = (await apis.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, default, null, ctx)).Posts;
 
             var focalPostIndex = thread.ToList().FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
@@ -49,7 +49,7 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.getLikes")]
         public async Task<GetLikesOutput> GetLikes(string uri, string? cursor)
         {
-            var aturi = await apis.ResolveUriAsync(uri);
+            var aturi = await apis.ResolveUriAsync(uri, ctx);
             var likers = await apis.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
             return new GetLikesOutput
             {
@@ -62,7 +62,7 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.getRepostedBy")]
         public async Task<GetRepostedByOutput> GetRepostedBy(string uri, string? cursor)
         {
-            var aturi = await apis.ResolveUriAsync(uri);
+            var aturi = await apis.ResolveUriAsync(uri, ctx);
             var reposters = await apis.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
             return new GetRepostedByOutput
             {
@@ -75,7 +75,7 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.getQuotes")]
         public async Task<GetQuotesOutput> GetQuotes(string uri, string? cursor)
         {
-            var aturi = await apis.ResolveUriAsync(uri);
+            var aturi = await apis.ResolveUriAsync(uri, ctx);
             var quotes = await apis.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
             return new GetQuotesOutput
             {
@@ -88,7 +88,7 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.getFeedGenerator")]
         public async Task<GetFeedGeneratorOutput> GetFeedGenerator(string feed)
         {
-            var uri = await apis.ResolveUriAsync(feed);
+            var uri = await apis.ResolveUriAsync(feed, ctx);
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
             var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey, null);
@@ -104,7 +104,7 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.getFeed")]
         public async Task<GetFeedOutput> GetFeed(string feed, int limit, string? cursor)
         {
-            var uri = await apis.ResolveUriAsync(feed);
+            var uri = await apis.ResolveUriAsync(feed, ctx);
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
             var (posts, displayName, nextContinuation) = await apis.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, ctx);
@@ -149,7 +149,7 @@ namespace AppViewLite.Web.ApiCompat
                 Query = q,
             };
             var results = 
-                sort == SearchPostsSort.top ? await apis.SearchTopPostsAsync(options, continuation: cursor, limit: limit, ctx: ctx) :
+                sort == SearchPostsSort.top ? await apis.SearchTopPostsAsync(options, ctx, continuation: cursor, limit: limit) :
                 await apis.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, ctx: ctx);
             return new SearchPostsOutput
             {

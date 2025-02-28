@@ -30,7 +30,7 @@ namespace AppViewLite.PluggableProtocols
                 throw new ArgumentException();
         }
 
-        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, bool shouldIndex = true, RequestContext? ctx = null)
+        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, RequestContext ctx, bool shouldIndex = true)
         {
             EnsureOwnDid(did);
             EnsureValidDid(did);
@@ -54,7 +54,7 @@ namespace AppViewLite.PluggableProtocols
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
-                var plc = rels.SerializeDid(did);
+                var plc = rels.SerializeDid(did, ctx);
                 if (shouldIndex)
                 {
                     rels.IndexProfile(plc, data);
@@ -101,8 +101,8 @@ namespace AppViewLite.PluggableProtocols
             Apis.WithRelationshipsWriteLock(rels =>
             {
                 if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(qualifiedPostId.Did)) return;
-                var reposterPlc = rels.SerializeDid(reposterDid);
-                var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did), tid);
+                var reposterPlc = rels.SerializeDid(reposterDid, ctx);
+                var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did, ctx), tid);
                 
                 rels.UserToRecentReposts.AddIfMissing(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
             }, ctx);
@@ -141,7 +141,7 @@ namespace AppViewLite.PluggableProtocols
 
             return Apis.WithRelationshipsWriteLock(rels =>
             {
-                var authorPlc = rels.SerializeDid(postId.Did);
+                var authorPlc = rels.SerializeDid(postId.Did, ctx);
 
 
                 if (!StoreTidIfNotReversible(rels, ref postId))
@@ -165,12 +165,12 @@ namespace AppViewLite.PluggableProtocols
 
                 if (inReplyTo != null)
                 {
-                    data.InReplyToPlc = rels.SerializeDid(inReplyTo.Value.Did).PlcValue;
+                    data.InReplyToPlc = rels.SerializeDid(inReplyTo.Value.Did, ctx).PlcValue;
                     data.InReplyToRKey = inReplyTo.Value.PostId.Tid.TidValue;
                     data.PluggableInReplyToPostId = inReplyTo.Value.PostId;
                 }
 
-                data.RootPostPlc = rels.SerializeDid(rootPostId!.Value.Did).PlcValue;
+                data.RootPostPlc = rels.SerializeDid(rootPostId!.Value.Did, ctx).PlcValue;
                 data.RootPostRKey = rootPostId.Value.PostId.Tid.TidValue;
                 data.PluggableRootPostId = rootPostId.Value.PostId;
 

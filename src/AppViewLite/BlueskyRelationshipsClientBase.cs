@@ -161,7 +161,7 @@ namespace AppViewLite
 
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool urgent)
         {
-            ArgumentNullException.ThrowIfNull(ctx);
+            if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
 
@@ -337,7 +337,7 @@ namespace AppViewLite
 
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
-            ArgumentNullException.ThrowIfNull(ctx);
+            if(ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
             Stopwatch? sw = null;
@@ -384,7 +384,7 @@ namespace AppViewLite
 
         public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
-            ArgumentNullException.ThrowIfNull(ctx);
+            if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
             Stopwatch? sw = null;

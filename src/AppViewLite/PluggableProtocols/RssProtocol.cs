@@ -78,7 +78,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return "#999";
         }
-        private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext? ctx)
+        private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext ctx)
         {
             var feedUrl = DidToUrl(did);
             if (feedUrl.HasHostSuffix("reddit.com"))
@@ -225,7 +225,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     Description = (subtitle + "\n\n" + description)?.Trim(),
                     CustomFields = [new CustomFieldProto("web", altUrlOrFallback?.AbsoluteUri)],
                     AvatarCidBytes = refreshInfo.FaviconUrl,
-                }, ctx: ctx);
+                }, ctx);
 
                 if (postCount != 0)
                 {
@@ -730,9 +730,9 @@ namespace AppViewLite.PluggableProtocols.Rss
             return TimeSpan.FromDays(365 * 50);
         }
 
-        private readonly TaskDictionary<string, RequestContext?, RssRefreshInfo> RefreshFeed;
+        private readonly TaskDictionary<string, RequestContext, RssRefreshInfo> RefreshFeed;
 
-        public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did, RequestContext? ctx)
+        public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did, RequestContext ctx)
         {
             var refreshData = Apis.WithRelationshipsLockForDid(did, (plc, rels) => rels.GetRssRefreshInfo(plc), ctx);
 

@@ -115,11 +115,11 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             OnPostDiscovered(postId, null, null, data, ctx, shouldIndex: shouldIndex);
 
-            OnProfileReceived(did, author, post.account!, url, shouldIndex, customEmojis);
+            OnProfileReceived(did, author, post.account!, url, ctx, shouldIndex, customEmojis);
         }
 
 
-        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, bool shouldIndex, CustomEmoji[] customEmojis)
+        private void OnProfileReceived(string did, ActivityPubUserId author, ActivityPubAccountJson account, Uri baseUrl, RequestContext ctx, bool shouldIndex, CustomEmoji[] customEmojis)
         {
 
 
@@ -156,7 +156,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.Description, ref proto.DescriptionFacets, customEmojis);
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.DisplayName, ref proto.DisplayNameFacets, customEmojis);
 
-            OnProfileDiscovered(did, proto, shouldIndex: shouldIndex);
+            OnProfileDiscovered(did, proto, ctx, shouldIndex: shouldIndex);
             
         }
 

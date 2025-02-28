@@ -20,7 +20,7 @@
     protected override void OnParametersSet()
     {
         continuationUrl = Navigation.GetNextContinuationUrl(NextContinuation);
-        focalPostPlc = FocalPostDid != null ? Apis.WithRelationshipsLock(rels => rels.SerializeDid(FocalPostDid), RequestContext) : null;
+        focalPostPlc = FocalPostDid != null ? Apis.WithRelationshipsLock(rels => rels.SerializeDid(FocalPostDid, RequestContext), RequestContext) : null;
     }
 
     static bool IsLastOfGroup(BlueskyPost post, BlueskyPost? next)

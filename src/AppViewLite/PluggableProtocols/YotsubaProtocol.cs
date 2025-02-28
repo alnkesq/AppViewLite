@@ -50,7 +50,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         private async Task DiscoverFromHostAsync(string host, CancellationToken ct)
         {
-
+            var ctx = RequestContext.CreateForFirehose("Yotsuba:" + host);
             var boards = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaBoardMetadataResponseJson>(GetApiPrefix(host) + "/boards.json", JsonOptions, ct);
 
             foreach (var board in boards!.boards)
@@ -79,7 +79,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                      DescriptionFacets = description.Facets,
                      HasExplicitFacets = true,
                      AvatarCidBytes = avatarCidBytes
-                }, shouldIndex: true);
+                }, ctx, shouldIndex: true);
                 BoardLoopAsync(boardId, ct).FireAndForget();
             }
         }
@@ -113,7 +113,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
             var threadPages = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaThreadPageJson[]>(GetApiPrefix(boardId) + "/catalog.json", JsonOptions, ct);
             var boardDid = ToDid(boardId);
-            var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid), ctx);
+            var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid, ctx), ctx);
             foreach (var threadPage in threadPages!)
             {
                 foreach (var thread in threadPage.Threads)

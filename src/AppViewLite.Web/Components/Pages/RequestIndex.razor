@@ -2,6 +2,7 @@
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
 @inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
 
 <PageTitle>Request repository reindexing</PageTitle>
 <h1>Request repository reindexing</h1>
@@ -44,7 +45,7 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle))
         {
-            var did = await Apis.ResolveHandleAsync(Model.Handle);
+            var did = await Apis.ResolveHandleAsync(Model.Handle, RequestContext);
 
             var task = Apis.ImportCarIncrementalAsync(did, Model.Kind, ignoreIfRecentlyRan: TimeSpan.FromHours(3));
             await Task.WhenAny(task, Task.Delay(1500));

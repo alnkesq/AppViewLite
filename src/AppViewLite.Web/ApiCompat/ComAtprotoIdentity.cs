@@ -11,9 +11,11 @@ namespace AppViewLite.Web.ApiCompat
     public class ComAtprotoIdentity : ControllerBase
     {
         private readonly BlueskyEnrichedApis apis;
-        public ComAtprotoIdentity(BlueskyEnrichedApis apis)
+        private readonly RequestContext ctx;
+        public ComAtprotoIdentity(BlueskyEnrichedApis apis, RequestContext ctx)
         {
             this.apis = apis;
+            this.ctx = ctx;
         }
 
         [HttpGet("com.atproto.identity.resolveHandle")]
@@ -21,7 +23,7 @@ namespace AppViewLite.Web.ApiCompat
         {
             return new FishyFlip.Lexicon.Com.Atproto.Identity.ResolveHandleOutput
             {
-                Did = new FishyFlip.Models.ATDid(await apis.ResolveHandleAsync(handle))
+                Did = new FishyFlip.Models.ATDid(await apis.ResolveHandleAsync(handle, ctx))
             };
         }
     }

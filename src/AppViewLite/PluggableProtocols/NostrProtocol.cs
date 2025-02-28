@@ -224,7 +224,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 StringUtils.GuessCustomEmojiFacets(data.Description, ref data.DescriptionFacets, emojis);
 
-                OnProfileDiscovered(did, data);
+                OnProfileDiscovered(did, data, ctx);
             }
             //else if (kind is NostrEventKind.Relay_List_Metadata or  NostrEventKind.Draft_Event) { } // noisy, uninteresting
 

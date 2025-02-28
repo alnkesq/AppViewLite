@@ -30,7 +30,7 @@ namespace AppViewLite.Web
             var hub = HubContext;
 
             var connectionId = Context.ConnectionId;
-            var profiles = apis.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did))).ToArray(), RequestContext);
+            var profiles = apis.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did, RequestContext))).ToArray(), RequestContext);
             apis.EnrichAsync(profiles, RequestContext, async p =>
             {
                 var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object?>() 
@@ -67,15 +67,16 @@ namespace AppViewLite.Web
             var connectionId = Context.ConnectionId;
             BlueskyPost[] posts = null!;
             Plc? focalPlc = null;
+            var ctx = this.RequestContext;
             apis.WithRelationshipsLockForDids(requests.Select(x => x.did).Concat(requests.Select(x => x.repostedBy).WhereNonNull()).ToArray(), (_, rels) =>
             {
                 posts = requests.Select(x =>
                 {
-                    var post = rels.GetPost(rels.GetPostId(x.did, x.rkey));
-                    post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy)) : null;
+                    var post = rels.GetPost(rels.GetPostId(x.did, x.rkey, ctx));
+                    post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy, ctx)) : null;
                     return post;
                 }).ToArray();
-                focalPlc = focalDid != null ? rels.SerializeDid(focalDid) : null;
+                focalPlc = focalDid != null ? rels.SerializeDid(focalDid, ctx) : null;
             }, RequestContext);
             apis.EnrichAsync(posts, RequestContext, async p =>
             {
@@ -114,8 +115,8 @@ namespace AppViewLite.Web
             var (postIdsToSubscribe, postIdsToUnsubscribe) = apis.WithRelationshipsLockForDids(toSubscribeParsed.Concat(toUnsubscribeParsed).Select(x => x.Did).ToArray(), (_, rels) =>
             {
                 return (
-                    toSubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray(),
-                    toUnsubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did), Tid.Parse(x.RKey))).ToArray());
+                    toSubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did, RequestContext), Tid.Parse(x.RKey))).ToArray(),
+                    toUnsubscribeParsed.Select(x => new PostId(rels.SerializeDid(x.Did, RequestContext), Tid.Parse(x.RKey))).ToArray());
             }, this.RequestContext);
             lock (ctx)
             {

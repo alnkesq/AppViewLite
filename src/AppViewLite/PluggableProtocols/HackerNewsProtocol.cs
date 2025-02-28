@@ -19,12 +19,15 @@ namespace AppViewLite.PluggableProtocols.HackerNews
         {
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" });
+                
+
+                OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"));
                 while (true)
                 {
                     // Official API would require polling scores for every individual thread: https://hacker-news.firebaseio.com/v0/newstories.json
-
+                    
                     var ctx = RequestContext.CreateForFirehose("HackerNews");
+
                     var hackerNewsHomeUrl = new Uri("https://news.ycombinator.com/");
                     var dom = StringUtils.ParseHtml(await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(hackerNewsHomeUrl, ct));
 

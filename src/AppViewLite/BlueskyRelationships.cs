@@ -555,14 +555,14 @@ namespace AppViewLite
                 throw new Exception("Missing DID string for Plc(" + plc + ")");
 
             }
-            if (SerializeDid(did) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + did));
+            //if (SerializeDid(did) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + did));
             PlcToDidConcurrentCache[plc] = did;
             return did;
         }
 
 
 
-        public Plc SerializeDid(string did, RequestContext? ctx = null) // TODO: actually very important to pass ctx
+        public Plc SerializeDid(string did, RequestContext ctx) // TODO: actually very important to pass ctx
         {
 
             var plc = TrySerializeDidMaybeReadOnly(did, ctx);
@@ -570,7 +570,7 @@ namespace AppViewLite
                 throw ThrowIncorrectLockUsageException("Cannot serialize new did, because a write or upgradable lock is not held.");
             return plc;
         }
-        public Plc TrySerializeDidMaybeReadOnly(string did, RequestContext? ctx)
+        public Plc TrySerializeDidMaybeReadOnly(string did, RequestContext ctx)
         {
             BlueskyEnrichedApis.EnsureValidDid(did);
             var hash = StringUtils.HashUnicodeToUuid(did);
@@ -616,8 +616,9 @@ namespace AppViewLite
 
         public bool CanUpgradeToWrite => Lock.IsWriteLockHeld || (Lock.IsUpgradeableReadLockHeld && ForbidUpgrades == 0);
 
-        public void WithWriteUpgrade(Action value, RequestContext? ctx)
+        public void WithWriteUpgrade(Action value, RequestContext ctx)
         {
+            if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             if (ForbidUpgrades != 0) throw ThrowIncorrectLockUsageException("Cannot upgrade to write lock after the upgradable preamble.");
             if (Lock.IsWriteLockHeld)
             {
@@ -650,7 +651,7 @@ namespace AppViewLite
         {
             return new PostId(Plc, Tid.Parse(rkey));
         }
-        public PostId GetPostId(StrongRef subject, bool ignoreIfNotPost = false)
+        public PostId GetPostId(StrongRef subject, RequestContext ctx, bool ignoreIfNotPost = false)
         {
             var uri = subject.Uri;
             if (uri.Collection != Post.RecordType)
@@ -658,7 +659,7 @@ namespace AppViewLite
                 if (ignoreIfNotPost) return default;
                 throw new UnexpectedFirehoseDataException("Unexpected URI type: " + uri.Collection);
             }
-            return new PostId(SerializeDid(uri.Did!.Handler), Tid.Parse(uri.Rkey));
+            return new PostId(SerializeDid(uri.Did!.Handler, ctx), Tid.Parse(uri.Rkey));
         }
         public static PostIdString GetPostIdStr(StrongRef uri)
         {
@@ -742,16 +743,16 @@ namespace AppViewLite
 
             if (p.Reply?.Root is { } root)
             {
-                this.RecursiveReplies.Add(this.GetPostId(root), postId);
+                this.RecursiveReplies.Add(this.GetPostId(root, ctx), postId);
 
-                var rootPost = this.GetPostId(root);
+                var rootPost = this.GetPostId(root, ctx);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;
                 AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId, ctx);
             }
             if (p.Reply?.Parent is { } parent)
             {
-                var inReplyTo = this.GetPostId(parent);
+                var inReplyTo = this.GetPostId(parent, ctx);
                 proto.InReplyToPlc = inReplyTo.Author.PlcValue;
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
                 this.DirectReplies.Add(inReplyTo, postId);
@@ -762,7 +763,7 @@ namespace AppViewLite
             var embed = p.Embed;
             if (embed is EmbedRecord { } er)
             {
-                var quoted = this.GetPostId(er.Record!, ignoreIfNotPost: true);
+                var quoted = this.GetPostId(er.Record!, ctx, ignoreIfNotPost: true);
                 if (quoted != default)
                 {
                     proto.QuotedPlc = quoted.Author.PlcValue;
@@ -774,7 +775,7 @@ namespace AppViewLite
             }
             else if (embed is RecordWithMedia { } rm)
             {
-                var quoted = this.GetPostId(rm.Record!.Record!, ignoreIfNotPost: true);
+                var quoted = this.GetPostId(rm.Record!.Record!, ctx, ignoreIfNotPost: true);
                 if (quoted != default)
                 {
                     proto.QuotedPlc = quoted.Author.PlcValue;
@@ -1128,12 +1129,12 @@ namespace AppViewLite
             slices.RemoveAll(x => x.Count == 0);
         }
 
-        internal void StoreProfileBasicInfo(Plc plc, Profile pf)
+        internal void StoreProfileBasicInfo(Plc plc, Profile pf, RequestContext ctx)
         {
             //PlcToBasicInfo.AddRange(plc, [.. Encoding.UTF8.GetBytes(pf.DisplayName ?? string.Empty), 0, .. (pf.Avatar?.Ref?.Link?.ToArray() ?? [])]);
 
             var pinnedPost = pf.PinnedPost?.Uri;
-            if (pinnedPost != null && SerializeDid(pinnedPost.Did!.Handler) != plc)
+            if (pinnedPost != null && SerializeDid(pinnedPost.Did!.Handler, ctx) != plc)
                 pinnedPost = null;
 
             var proto = new BlueskyProfileBasicInfo
@@ -1455,17 +1456,17 @@ namespace AppViewLite
             return Quotes.GetValuesSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(GetPost).ToArray();
         }
 
-        public BlueskyPost GetPost(string did, string rkey)
+        public BlueskyPost GetPost(string did, string rkey, RequestContext ctx)
         {
-            return GetPost(GetPostId(did, rkey));
+            return GetPost(GetPostId(did, rkey, ctx));
         }
         public BlueskyPost GetPost(Plc plc, Tid rkey)
         {
             return GetPost(new PostId(plc, rkey));
         }
-        public BlueskyPost GetPost(ATUri uri)
+        public BlueskyPost GetPost(ATUri uri, RequestContext ctx)
         {
-            return GetPost(GetPostId(uri));
+            return GetPost(GetPostId(uri, ctx));
         }
 
         public BlueskyPost GetPost(PostId id)
@@ -1756,14 +1757,14 @@ namespace AppViewLite
             return ctx?.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
         }
 
-        public PostId GetPostId(string did, string rkey)
+        public PostId GetPostId(string did, string rkey, RequestContext ctx)
         {
-            return new PostId(SerializeDid(did), Tid.Parse(rkey));
+            return new PostId(SerializeDid(did, ctx), Tid.Parse(rkey));
         }
-        public PostId GetPostId(ATUri uri)
+        public PostId GetPostId(ATUri uri, RequestContext ctx)
         {
             if (uri.Collection != Post.RecordType) throw new ArgumentException();
-            return GetPostId(uri.Did!.ToString(), uri.Rkey);
+            return GetPostId(uri.Did!.ToString(), uri.Rkey, ctx);
         }
 
         public BlueskyProfile[] GetFollowers(Plc plc, Relationship continuation, int limit)
@@ -1787,7 +1788,7 @@ namespace AppViewLite
         {
             if (!ctx.IsLoggedIn) return new ProfilesAndContinuation();
             var offset = continuation != null ? int.Parse(continuation) : 0;
-            var plc = SerializeDid(did);
+            var plc = SerializeDid(did, ctx);
             var everything = GetFollowersYouFollow(plc, ctx.LoggedInUser);
             var r = everything.AsEnumerable();
             if (continuation != null) r = r.Skip(int.Parse(continuation));
@@ -1910,25 +1911,25 @@ namespace AppViewLite
 
 
 
-        internal ReadOnlySpan<byte> SerializeThreadgateToBytes(Threadgate threadGate)
+        internal ReadOnlySpan<byte> SerializeThreadgateToBytes(Threadgate threadGate, RequestContext ctx)
         {
             var proto = new BlueskyThreadgate
             {
-                HiddenReplies = threadGate.HiddenReplies?.Select(x => RelationshipProto.FromPostId(GetPostId(x))).ToArray(),
+                HiddenReplies = threadGate.HiddenReplies?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
                 AllowlistedOnly = threadGate.Allow != null,
                 AllowFollowing = threadGate.Allow?.Any(x => x is FollowingRule) ?? false,
                 AllowMentioned = threadGate.Allow?.Any(x => x is MentionRule) ?? false,
                 AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x => {
-                    return new RelationshipProto { Plc = SerializeDid(x.List.Did!.Handler).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
+                    return new RelationshipProto { Plc = SerializeDid(x.List.Did!.Handler, ctx).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
                 }).ToArray()
             };
             return SerializeProto(proto, x => x.Dummy = true);
         }
-        internal ReadOnlySpan<byte> SerializePostgateToBytes(Postgate postgate)
+        internal ReadOnlySpan<byte> SerializePostgateToBytes(Postgate postgate, RequestContext ctx)
         {
             var proto = new BlueskyPostgate
             {
-                 DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x))).ToArray(),
+                 DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
                  DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false
             };
             return SerializeProto(proto, x => x.Dummy = true);
@@ -2466,12 +2467,12 @@ namespace AppViewLite
             return GetFeedGenerator(feedId.Plc, data);
         }
 
-        internal object? TryGetAtObject(string? aturi)
+        internal object? TryGetAtObject(string? aturi, RequestContext ctx)
         {
             if (aturi == null) return null;
             var parsed = new ATUri(aturi);
 
-            var plc = SerializeDid(parsed.Did!.Handler);
+            var plc = SerializeDid(parsed.Did!.Handler, ctx);
             if (parsed.Collection == Generator.RecordType)
             {
                 return GetFeedGenerator(plc, parsed.Rkey);
@@ -2590,9 +2591,9 @@ namespace AppViewLite
             }
         }
 
-        internal void IndexHandle(string? handle, string did)
+        internal void IndexHandle(string? handle, string did, RequestContext ctx)
         {
-            var plc = SerializeDid(did);
+            var plc = SerializeDid(did, ctx);
             IndexHandleCore(handle, plc);
 
             if (did.StartsWith("did:web:", StringComparison.Ordinal)) 

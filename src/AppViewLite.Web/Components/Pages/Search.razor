@@ -51,7 +51,7 @@
                 string? did = null;
                 try
                 {
-                    did = await Apis.ResolveHandleAsync(Q);
+                    did = await Apis.ResolveHandleAsync(Q, RequestContext);
                 }
                 catch (Exception)
                 {
@@ -91,7 +91,7 @@
                     Language = Language == "all" || string.IsNullOrEmpty(Language) ? LanguageEnum.Unknown : BlueskyRelationships.ParseLanguage(Language)
                 };
 
-            (Posts, NextContinuation) = IsTopPosts ? await Apis.SearchTopPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext) : await Apis.SearchLatestPostsAsync(options, limit: Limit.GetValueOrDefault(), Continuation, RequestContext);
+            (Posts, NextContinuation) = IsTopPosts ? await Apis.SearchTopPostsAsync(options, RequestContext, limit: Limit.GetValueOrDefault(), Continuation) : await Apis.SearchLatestPostsAsync(options, RequestContext, limit: Limit.GetValueOrDefault(), Continuation);
         }
     }
 }

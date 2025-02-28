@@ -56,7 +56,7 @@ namespace AppViewLite
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
-                var commitPlc = relationships.SerializeDid(commitAuthor);
+                var commitPlc = relationships.SerializeDid(commitAuthor, ctx);
 
                 if (collection == Generator.RecordType)
                 {
@@ -150,11 +150,11 @@ namespace AppViewLite
                     var sw = Stopwatch.StartNew();
                     relationships.EnsureNotDisposed();
 
-                    var commitPlc = relationships.SerializeDid(commitAuthor);
+                    var commitPlc = relationships.SerializeDid(commitAuthor, ctx);
 
                     if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
                     {
-                        relationships.IndexHandle(null, commitAuthor);
+                        relationships.IndexHandle(null, commitAuthor, ctx);
                     }
 
                     if (record is Like l)
@@ -163,7 +163,7 @@ namespace AppViewLite
                         {
                             // quick check to avoid noisy exceptions
                             
-                            var postId = relationships.GetPostId(l.Subject);
+                            var postId = relationships.GetPostId(l.Subject, ctx);
 
                             // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
                             BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
@@ -178,7 +178,7 @@ namespace AppViewLite
                         else if (l.Subject.Uri.Collection == Generator.RecordType)
                         {
                             // TODO: handle deletions for feed likes
-                            var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did!.Handler), l.Subject.Uri.Rkey);
+                            var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did!.Handler, ctx), l.Subject.Uri.Rkey);
 
                             relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, GetMessageTid(path, Like.RecordType + "/")));
                             var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
@@ -193,7 +193,7 @@ namespace AppViewLite
                     else if (record is Follow f)
                     {
                         if (HasNumericRKey(path)) return;
-                        var followed = relationships.SerializeDid(f.Subject!.Handler);
+                        var followed = relationships.SerializeDid(f.Subject!.Handler, ctx);
                         if (relationships.IsRegisteredForNotifications(followed))
                             relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
@@ -206,7 +206,7 @@ namespace AppViewLite
                     }
                     else if (record is Repost r)
                     {
-                        var postId = relationships.GetPostId(r.Subject!);
+                        var postId = relationships.GetPostId(r.Subject!, ctx);
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
@@ -218,7 +218,7 @@ namespace AppViewLite
                     }
                     else if (record is Block b)
                     {
-                        relationships.Blocks.Add(relationships.SerializeDid(b.Subject!.Handler), new Relationship(commitPlc, GetMessageTid(path, Block.RecordType + "/")));
+                        relationships.Blocks.Add(relationships.SerializeDid(b.Subject!.Handler, ctx), new Relationship(commitPlc, GetMessageTid(path, Block.RecordType + "/")));
 
                     }
                     else if (record is Post p)
@@ -239,7 +239,7 @@ namespace AppViewLite
                     }
                     else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
                     {
-                        relationships.StoreProfileBasicInfo(commitPlc, pf);
+                        relationships.StoreProfileBasicInfo(commitPlc, pf, ctx);
                     }
                     else if (record is List list)
                     {
@@ -251,7 +251,7 @@ namespace AppViewLite
                         if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
                         var listRkey = Tid.Parse(listItem.List.Rkey);
                         var listItemRkey = GetMessageTid(path, Listitem.RecordType + "/");
-                        var member = relationships.SerializeDid(listItem.Subject!.Handler);
+                        var member = relationships.SerializeDid(listItem.Subject!.Handler, ctx);
 
                         var listId = new Relationship(commitPlc, listRkey);
                         var entry = new ListEntry(member, listItemRkey);
@@ -265,7 +265,7 @@ namespace AppViewLite
                         if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
                         if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
                         if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
-                        relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate));
+                        relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate, ctx));
                     }
                     else if (record is Postgate postgate)
                     {
@@ -273,13 +273,13 @@ namespace AppViewLite
                         if (postgate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
                         if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
                         if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
-                        relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate));
+                        relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate, ctx));
                     }
                     else if (record is Listblock listBlock)
                     {
                         var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
                         if (listBlock.Subject!.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
-                        var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler), Tid.Parse(listBlock.Subject.Rkey));
+                        var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler, ctx), Tid.Parse(listBlock.Subject.Rkey));
 
                         relationships.ListBlocks.Add(blockId, listId);
                     }
@@ -484,7 +484,7 @@ namespace AppViewLite
             WithRelationshipsWriteLock(rels =>
             {
 
-                var entry = new LabelEntry(rels.SerializeDid(labeler), (ApproximateDateTime32)(label.Cts ?? DateTime.UtcNow), BlueskyRelationships.HashLabelName(label.Val), label.Neg ?? false);
+                var entry = new LabelEntry(rels.SerializeDid(labeler, ctx), (ApproximateDateTime32)(label.Cts ?? DateTime.UtcNow), BlueskyRelationships.HashLabelName(label.Val), label.Neg ?? false);
 
                 if (!rels.LabelNames.ContainsKey(entry.KindHash))
                 {
@@ -495,12 +495,12 @@ namespace AppViewLite
                 {
                     if (uri.Collection == Post.RecordType)
                     {
-                        rels.PostLabels.Add(rels.GetPostId(uri), entry);
+                        rels.PostLabels.Add(rels.GetPostId(uri, ctx), entry);
                     }
                 }
                 else
                 {
-                    rels.ProfileLabels.Add(rels.SerializeDid(uri.Did!.Handler), entry);
+                    rels.ProfileLabels.Add(rels.SerializeDid(uri.Did!.Handler, ctx), entry);
                 }
                 
 
@@ -550,9 +550,9 @@ namespace AppViewLite
             }
         }
 
-        public async Task<Tid> ImportCarAsync(string did, Tid since = default, CancellationToken ct = default)
+        public async Task<Tid> ImportCarAsync(string did, RequestContext ctx, Tid since = default, CancellationToken ct = default)
         {
-            using var at = await Apis.CreateProtocolForDidAsync(did);
+            using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
@@ -570,9 +570,9 @@ namespace AppViewLite
         }
 
 
-        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, CancellationToken ct = default)
+        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, RequestContext ctx, CancellationToken ct = default)
         {
-            using var at = await Apis.CreateProtocolForDidAsync(did);
+            using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
 
             string? cursor = since != default ? since.ToString() : null;
             Tid lastTid = since;
@@ -683,11 +683,11 @@ namespace AppViewLite
 
                             }
 
-                            var plc = rels.SerializeDid(entry.TrustedDid!);
+                            var plc = rels.SerializeDid(entry.TrustedDid!, ctx);
                             rels.CompressDidDoc(entry);
                             rels.DidDocs.AddRange(plc, entry.SerializeToBytes());
 
-                            rels.IndexHandle(entry.Handle, entry.TrustedDid!);
+                            rels.IndexHandle(entry.Handle, entry.TrustedDid!, ctx);
                         }
                         Log("PLC directory entries flushed.");
                     }

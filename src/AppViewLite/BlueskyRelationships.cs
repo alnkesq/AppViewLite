@@ -2930,6 +2930,25 @@ namespace AppViewLite
             Console.Error.WriteLine("Captured readonly replica, time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
             return copy;
         }
+
+
+        public List<BlueskyPost> MakeFullReplyChain(BlueskyPost post)
+        {
+            PostId? current = post.InReplyToPostId!.Value;
+            var ancestors = new List<BlueskyPost>();
+            while (current != null)
+            {
+                var parent = GetPost(current.Value);
+                ancestors.Add(parent);
+                current = parent.InReplyToPostId;
+            }
+            ancestors.Reverse();
+            ancestors[0].RepostedBy = post.RepostedBy;
+            ancestors[0].RepostDate = post.RepostDate;
+            post.RepostedBy = null;
+            post.RepostDate = null;
+            return ancestors;
+        }
     }
 
 

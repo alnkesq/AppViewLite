@@ -67,7 +67,7 @@ namespace AppViewLite.Web
             var connectionId = Context.ConnectionId;
             BlueskyPost[] posts = null!;
             Plc? focalPlc = null;
-            apis.WithRelationshipsLockForDids(requests.Select(x => x.did).Concat(requests.Select(x => x.repostedBy).Where(x => x != null)).ToArray(), (_, rels) =>
+            apis.WithRelationshipsLockForDids(requests.Select(x => x.did).Concat(requests.Select(x => x.repostedBy).WhereNonNull()).ToArray(), (_, rels) =>
             {
                 posts = requests.Select(x =>
                 {
@@ -82,7 +82,7 @@ namespace AppViewLite.Web
                 await Task.Yield();
                 var index = Array.IndexOf(posts, p);
                 if (index == -1) return; // quoted post, will be handled separately
-                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy, p.QuotedPost?.Author }.Where(x => x != null).ToArray()!, RequestContext);
+                apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy, p.QuotedPost?.Author }.WhereNonNull().ToArray(), RequestContext);
                 var req = requests[index];
                 var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags, RequestContext));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html).FireAndForget();

@@ -757,13 +757,13 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             var feedUrl = dom.QuerySelectorAll("link[type='application/atom+xml'],link[type='application/rss+xml']")
                 .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
-                .Where(x => x != null)
+                .WhereNonNull()
                 .MinBy(x => x!.AbsoluteUri.Length);
             if (feedUrl == null)
             {
                 var links = dom.QuerySelectorAll("a")
                     .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
-                    .Where(x => x != null)
+                    .WhereNonNull()
                     .Where(x => x.Host == url.Host)
                     .Where(x => Regex.IsMatch(x.PathAndQuery, @"\b(?:feed|rss|\.xml|atom)\b"))
                     .DistinctBy(x => x.GetLeftPart(UriPartial.Query))

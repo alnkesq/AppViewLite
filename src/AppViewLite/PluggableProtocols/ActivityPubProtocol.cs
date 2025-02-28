@@ -147,7 +147,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 PluggableProtocolFollowingCount = account.following_count,
                 AvatarCidBytes = MediaUrlsToBytes(account.avatar_static ?? account.avatar, null, null),
                 BannerCidBytes = MediaUrlsToBytes(account.header_static ?? account.header, null, null),
-                CustomFields = account.fields?.Select(x => ConvertFieldToProto(x, baseUrl)).Where(x => x != null).ToArray()
+                CustomFields = account.fields?.Select(x => ConvertFieldToProto(x, baseUrl)).WhereNonNull().ToArray()
             };
             if (proto.CustomFields != null && proto.CustomFields.Length == 0)
                 proto.CustomFields = null;

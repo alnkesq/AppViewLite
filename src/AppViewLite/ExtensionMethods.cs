@@ -65,6 +65,11 @@ namespace AppViewLite
             }
             return sibling;
         }
+
+        public static IEnumerable<T> WhereNonNull<T>(this IEnumerable<T?> items) where T : class
+        {
+            return items.Where(x => x != null)!;
+        }
     }
 
 

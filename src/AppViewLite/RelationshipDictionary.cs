@@ -55,7 +55,7 @@ namespace AppViewLite
                 this.relationshipIdHashToApproxTarget = CreateMultiDictionary<RelationshipHash, UInt24>("-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
                 SetUpEventHandlers(relationshipIdHashToApproxTarget);
             }
-            _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
+            _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();
         }
         
         private void SetUpEventHandlers(IFlushable inner)
@@ -324,7 +324,7 @@ namespace AppViewLite
                     deletions,
                     deletionCounts,
                     relationshipIdHashToApproxTarget!
-                }.Where(x => x != null);
+                }.WhereNonNull();
         }
 
         public (string TableName, string[] ActiveSlices)[] GetActiveSlices()
@@ -355,7 +355,7 @@ namespace AppViewLite
             copy.deletionCounts = this.deletionCounts.CloneAsReadOnly();
             copy.relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly();
             copy.targetToApproxTarget = this.targetToApproxTarget;
-            copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.Where(x => x != null).ToArray()!;
+            copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();
             return copy;
 
         }

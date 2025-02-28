@@ -120,7 +120,7 @@
         isSelfRepost = Post.IsRepost && Post.RepostedBy!.Plc == Post.Author.Plc;
 
         var postUtf8 = Post.Data?.GetUtf8IfNeededByCompactFacets();
-        externalDomainForMute = (TryParseUrl(Post.Data?.ExternalUrl) ?? Post.Data?.Facets?.Select(x => x.GetLink(postUtf8)).Where(x => x != null).Select(x => StringUtils.TryParseUri(x)).Where(x => x != null && x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
+        externalDomainForMute = (TryParseUrl(Post.Data?.ExternalUrl) ?? Post.Data?.Facets?.Select(x => x.GetLink(postUtf8)).WhereNonNull().Select(x => StringUtils.TryParseUri(x)).Where(x => x != null && x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
         if (externalDomainForMute != null && externalDomainForMute.StartsWith("www.", StringComparison.Ordinal))
             externalDomainForMute = externalDomainForMute.Substring(4);
 

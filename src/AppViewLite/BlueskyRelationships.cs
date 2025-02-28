@@ -879,7 +879,7 @@ namespace AppViewLite
                 else return null;
 
                 return facet;
-            }).Where(x => x != null).ToArray()!;
+            }).WhereNonNull().ToArray();
             if (facetProtos.Length == 0) return null;
             return facetProtos!;
         }
@@ -2131,8 +2131,8 @@ namespace AppViewLite
             var newNotifications = 
                 newNotificationsCore
                 .Select(x => RehydrateNotification(x, user))
-                .Where(x => x != null)
-                .ToArray()!;
+                .WhereNonNull()
+                .ToArray();
 
             Notification? oldestNew = newNotificationsCore.Length != 0 ? newNotificationsCore[^1] : null;
 
@@ -2145,14 +2145,14 @@ namespace AppViewLite
                     newestNotification ??= x;
                     return RehydrateNotification(x, user);
                 })
-                .Where(x => x != null)
+                .WhereNonNull()
                 .TakeWhile(x => 
                 {
                     distinctOldCoalesceKeys.Add(x.CoalesceKey);
                     if (distinctOldCoalesceKeys.Count > 10) return false;
                     return true;
                 })
-                .ToArray()!;
+                .ToArray();
 
             return (newNotifications, oldNotifications, newestNotification ?? default);
 
@@ -2223,7 +2223,7 @@ namespace AppViewLite
                             requireFollowStillValid[post] = (author, parentAuthor, rootAuthor);
                             return post;
                         })
-                        .Where(x => x != null);
+                        .WhereNonNull();
                 });
             var usersRecentReposts =
                 follows.PossibleFollows

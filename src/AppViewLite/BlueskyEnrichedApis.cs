@@ -544,11 +544,11 @@ namespace AppViewLite
             }
 
             await EnrichAsync(posts.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
-            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).Where(x => x != null).ToArray()!, ctx, ct: ct);
+            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).WhereNonNull().ToArray(), ctx, ct: ct);
             
             if (loadQuotes)
             {
-                var r = posts.Select(x => x.QuotedPost).Where(x => x != null).ToArray()!;
+                var r = posts.Select(x => x.QuotedPost).WhereNonNull().ToArray();
                 if (r.Length != 0)
                 {
                     await EnrichAsync(r, ctx, onPostDataAvailable, loadQuotes: false, focalPostAuthor: focalPostAuthor, ct: ct);
@@ -965,7 +965,7 @@ namespace AppViewLite
                             }
                             return post;
                         })
-                        .Where(x => x != null)
+                        .WhereNonNull()
                         .Take(canFetchFromServer && !mediaOnly ? 10 : 50)
                         .ToArray();
                 }, ctx);
@@ -1087,7 +1087,7 @@ namespace AppViewLite
                         }
 
                         return post;
-                    }).Where(x => x != null).ToArray()!;
+                    }).WhereNonNull().ToArray();
                     
                 }
 
@@ -1532,7 +1532,7 @@ namespace AppViewLite
                     }
                 }
             }, ctx);
-            await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).Where(x => x != null)!, .. posts.Select(x => x.RootFullPost).Where(x => x != null)!], ctx);
+            await EnrichAsync([.. posts.Select(x => x.InReplyToFullPost).WhereNonNull(), .. posts.Select(x => x.RootFullPost).WhereNonNull()!], ctx);
         }
 
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext? ctx)
@@ -1549,8 +1549,8 @@ namespace AppViewLite
 
             var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user), ctx);
             var nonHiddenNotifications = notifications.NewNotifications.Concat(notifications.OldNotifications).Where(x => !x.Hidden).ToArray();
-            await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).Where(x => x != null).ToArray()!, ctx);
-            await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).Where(x => x != null).ToArray()!, ctx);
+            await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).WhereNonNull().ToArray(), ctx);
+            await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).WhereNonNull().ToArray(), ctx);
             return (notifications.NewNotifications, notifications.OldNotifications, notifications.NewestNotification);
         }
 

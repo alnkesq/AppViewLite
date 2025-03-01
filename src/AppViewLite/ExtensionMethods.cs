@@ -81,6 +81,9 @@ namespace AppViewLite
 
         public static long BinarySearchRightBiased<T>(this HugeReadOnlySpan<T> span, T needle) where T : IComparable<T>
         {
+#if true
+            return span.BinarySearchRightBiasedCore(needle);
+#else
             var a = span.BinarySearchRightBiasedCore(needle);
             var b = span.BinarySearch(needle);
             if (a != b)
@@ -95,6 +98,7 @@ namespace AppViewLite
                 }
             }
             return a;
+#endif
         }
         public static long BinarySearchRightBiasedCore<T>(this HugeReadOnlySpan<T> span, T needle) where T : IComparable<T>
         {

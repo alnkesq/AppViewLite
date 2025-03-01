@@ -1479,6 +1479,13 @@ namespace AppViewLite
                     post.LikeCount = post.Data.PluggableLikeCount.Value;
             }
             DecompressPluggablePostData(id.PostRKey, post.Data, post.Author.Did);
+            if (post.PluggableProtocol != null && post.Data == null)
+            {
+                post.Data = new BlueskyPostData
+                {
+                    Error = "This post could be found."
+                };
+            }
             MaybePropagateAdministrativeBlockToPost(post);
             return post;
         }

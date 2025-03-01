@@ -424,6 +424,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
+            if (!postId.HasExternalIdentifier) return null;
             var user = ParseDid(postId.Did);
             var postIdStr = postId.PostId.AsString!;
             if (postIdStr.StartsWith('/'))

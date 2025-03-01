@@ -31,6 +31,10 @@ namespace AppViewLite.Models
             if (long.TryParse(s, out var num)) return new NonQualifiedPluggablePostId(tid, num);
             return new NonQualifiedPluggablePostId(tid, s);
         }
+        public NonQualifiedPluggablePostId(Tid tid)
+        {
+            this.Tid = tid;
+        }
         public NonQualifiedPluggablePostId(Tid? tid, long int64)
         {
             if (int64 <= 0) throw new ArgumentException();
@@ -54,6 +58,8 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public string? String;
         [ProtoMember(3)] public byte[]? Bytes;
         [ProtoIgnore] public Tid Tid;
+
+        public bool HasExternalIdentifier => Int64 != 0 || String != null || Bytes != null;
 
         internal NonQualifiedPluggablePostId CloneWithoutTid() => WithTid(default);
 

@@ -237,6 +237,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
+            if (!postId.HasExternalIdentifier) return null;
             var board = GetBoardIdFromDid(postId.Did);
             return "https://" + board.Host + "/" + board.BoardName + "/thread/" + postId.PostId.AsString;
         }

@@ -323,6 +323,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
+            if (!postId.HasExternalIdentifier) return null;
             return "https://primal.net/e/" + GetNoteId(postId.PostId);
         }
 

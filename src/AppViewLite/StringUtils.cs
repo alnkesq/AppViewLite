@@ -684,6 +684,15 @@ namespace AppViewLite
             }
             return null;
         }
+
+        internal static IHtmlElement AsWrappedTextNode(string text)
+        {
+            var document = ParseHtml(null);
+            document.Body!.AppendChild(document.CreateTextNode(text));
+            return document.Body;
+
+
+        }
     }
 }
 

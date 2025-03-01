@@ -79,6 +79,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
+            if (!postId.HasExternalIdentifier) return null;
             return "https://news.ycombinator.com/item?id=" + postId.PostId.Int64;
         }
 

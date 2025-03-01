@@ -2,6 +2,7 @@ using FishyFlip.Models;
 using AppViewLite.Numerics;
 using System;
 using AppViewLite.PluggableProtocols;
+using System.Runtime.CompilerServices;
 
 namespace AppViewLite.Models
 {
@@ -66,16 +67,16 @@ namespace AppViewLite.Models
         public bool IsNonSelfRepost => RepostedBy != null && !IsSelfRepost;
         public bool IsImagePost => Data?.Media != null;
 
-        public QualifiedPluggablePostId? QualifiedPluggablePostId => MaybeGetPluggablePostId(Did, Data?.PluggablePostId);
-        public QualifiedPluggablePostId? QualifiedPluggableInReplyToPostId => MaybeGetPluggablePostId(InReplyToUser?.Did, Data?.PluggableInReplyToPostId);
+        public QualifiedPluggablePostId QualifiedPluggablePostId => GetPluggablePostId(Did, Data?.PluggablePostId);
+        public QualifiedPluggablePostId QualifiedPluggableInReplyToPostId => GetPluggablePostId(InReplyToUser?.Did, Data?.PluggableInReplyToPostId);
 
-        private static QualifiedPluggablePostId? MaybeGetPluggablePostId(string? did, NonQualifiedPluggablePostId? postId)
+        private QualifiedPluggablePostId GetPluggablePostId(string? did, NonQualifiedPluggablePostId? postId)
         {
-            if (postId == null) return null;
+            if (postId == null) return new QualifiedPluggablePostId(did!, new NonQualifiedPluggablePostId(this.PostId.PostRKey));
             return new QualifiedPluggablePostId(did!, postId.Value);
         }
 
-        public string? OriginalPostUrl => Author.PluggableProtocol?.TryGetOriginalPostUrl(this.QualifiedPluggablePostId!.Value, this);
+        public string? OriginalPostUrl => Author.PluggableProtocol?.TryGetOriginalPostUrl(QualifiedPluggablePostId, this);
 
         public string? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList)
         {

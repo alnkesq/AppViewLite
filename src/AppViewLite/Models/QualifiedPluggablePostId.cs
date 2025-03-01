@@ -54,6 +54,7 @@ namespace AppViewLite.Models
             ]);
         }
 
+        public bool HasExternalIdentifier => PostId.HasExternalIdentifier;
 
         public QualifiedPluggablePostId WithTid(Tid updatedTid) => new QualifiedPluggablePostId(Did, PostId.WithTid(updatedTid));
     }

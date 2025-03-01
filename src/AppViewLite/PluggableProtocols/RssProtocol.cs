@@ -340,6 +340,11 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 hasFullContent = true;
 
+                if (bodyDom == null)
+                {
+                    bodyDom = StringUtils.AsWrappedTextNode(title ?? string.Empty);
+                }
+
                 title = null;
 
                 foreach (var altTag in bodyDom!.QuerySelectorAll(".tmblr-alt-text-helper").ToArray())
@@ -723,6 +728,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? TryGetOriginalPostUrl(QualifiedPluggablePostId postId, BlueskyPost post)
         {
+            if (!postId.HasExternalIdentifier) return null;
             var feedUrl = DidToUrl(postId.Did);
             if (feedUrl.HasHostSuffix("reddit.com"))
             {

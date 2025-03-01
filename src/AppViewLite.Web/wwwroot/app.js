@@ -1271,6 +1271,10 @@ function getPostPreferredUrlElement(postElement) {
     return [...postElement.children].filter(x => x.classList.contains('post-background-link'))[0];
 }
 
+function invalidateFollowingPages() { 
+    recentPages = recentPages.filter(x => !(x.href.includes('/following') || x.href.includes('/followers') || x.href.includes('/known-followers')));
+}
+
 async function togglePrivateFollow(did, toggleButton, postElement) { 
     var did = toggleButton.dataset.did;
     var flag = toggleButton.dataset.flag;
@@ -1282,6 +1286,7 @@ async function togglePrivateFollow(did, toggleButton, postElement) {
     toggleButton.dataset.oldvalue = newvalue ? 1 : 0;
     toggleButton.textContent = (oldvalue ? 'Mute ' : 'Unmute ') + text;
     postElement.classList.toggle('post-muted', newvalue);
+    invalidateFollowingPages();
 }
 
 var postActions = {
@@ -1362,6 +1367,7 @@ var userActions = {
         });
         profileElement.followPrivately = mandatoryPrivateFollow || (isPrivateFollow && !profileElement.followToggler.haveRelationship);
         profileElement.followToggler.toggleIfNotBusyAsync();
+        invalidateFollowingPages();
     },
     
     copyProfileUrl: async function (did) { 

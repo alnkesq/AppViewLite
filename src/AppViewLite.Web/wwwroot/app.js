@@ -616,6 +616,9 @@ var scrollTopWhenMenuOpened = 0;
 
 function ensureMenuFullyVisible() { 
     var menu = currentlyOpenMenu;
+    menu.style.marginTop = '0px';
+    menu.style.marginLeft = '0px';
+
     var buttonRect = currentlyOpenMenuButton.getBoundingClientRect();
     var menuRect = menu.getBoundingClientRect(); 
 
@@ -630,7 +633,11 @@ function ensureMenuFullyVisible() {
     var marginLeft;
 
     if (buttonRect.bottom + menuRect.height > vh) {
-        marginTop = -menuRect.height;
+        if (menuRect.height > buttonRect.top) {
+            marginTop = -buttonRect.top;
+        } else {
+            marginTop = -menuRect.height;
+        }
     } else { 
         marginTop = buttonRect.height;
     }
@@ -1072,7 +1079,7 @@ function onInitialLoad() {
                         if (first) {
                             if (!clickFromKeyboard)
                                 first.classList.add('menu-item-hide-focus');
-                            first.focus();
+                            setTimeout(() => first.focus(), 0);
                         }
                     }
                 }

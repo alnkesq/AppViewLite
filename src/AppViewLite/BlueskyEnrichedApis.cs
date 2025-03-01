@@ -3253,7 +3253,13 @@ namespace AppViewLite
                 else
                     info.Flags &= ~flag;
                 if (enabled && flag == PrivateFollowFlags.PrivateFollow)
+                {
                     info.DatePrivateFollowed = DateTime.UtcNow;
+                    if (did.StartsWith(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidPrefix, StringComparison.Ordinal))
+                    {
+                        rels.RssFeedToFollowers.AddIfMissing(plc, ctx.LoggedInUser);
+                    }
+                }
                 rels.UpdatePrivateFollow(info, ctx);
             }, ctx);
         }
@@ -3276,6 +3282,21 @@ namespace AppViewLite
                 // TODO: fetch entries of subscribed blocklists
                 await Task.WhenAny(deadline, loadFollows);
             }
+
+
+            // TODO: temporary migration code
+            WithRelationshipsWriteLock(rels =>
+            {
+                foreach (var item in session.PrivateFollowsAsListEntries)
+                {
+                    if (item.Member == default) continue;
+                    var did = rels.GetDid(item.Member);
+                    if (did.StartsWith("did:rss:", StringComparison.Ordinal))
+                    {
+                        rels.RssFeedToFollowers.AddIfMissing(item.Member, session.LoggedInUser!.Value);
+                    }
+                }
+            }, ctx);
 
         }
 

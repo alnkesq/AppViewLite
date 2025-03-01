@@ -800,6 +800,25 @@ namespace AppViewLite.Storage
             }
         }
 
+        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue>[] ValueChunks)> EnumerateSortedGrouped()
+        {
+            if (behavior == PersistentDictionaryBehavior.SingleValue) throw new InvalidOperationException();
+            var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (ManagedOrNativeArray<TValue>)x.Values)));
+            if (queue.GroupCount != 0)
+            {
+                s = s.Append(queue.Select(x => (x.Key, Values: (ManagedOrNativeArray<TValue>)x.Values.ValuesSorted.ToArray())));
+            }
+            return SimpleJoin
+                .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.Key)
+                .GroupAssumingOrderedInput(x => x.Key)
+                .Select(x =>
+                {
+                    if (behavior == PersistentDictionaryBehavior.PreserveOrder)
+                        return (x.Key, new[] { x.Values[x.Values.Count - 1].Values });
+                    return (x.Key, x.Values.Select(x => x.Values).ToArray());
+                });
+        }
+
         public IEnumerable<(TKey Key, TValue Value)> EnumerateUnsorted()
         {
             foreach (var slice in slices)

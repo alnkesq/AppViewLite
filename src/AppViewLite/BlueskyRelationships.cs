@@ -70,6 +70,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, Notification> LastSeenNotifications;
         public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
         public CombinedPersistentMultiDictionary<Plc, ListEntry> RegisteredUserToFollowees;
+        public CombinedPersistentMultiDictionary<Plc, Plc> RssFeedToFollowers;
         public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
         public CombinedPersistentMultiDictionary<Plc, Tid> UserToRecentMediaPosts;
         public CombinedPersistentMultiDictionary<Plc, RecentRepost> UserToRecentReposts;
@@ -233,6 +234,7 @@ namespace AppViewLite
             Notifications = RegisterDictionary<Plc, Notification>("notification-2") ;
 
             RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees");
+            RssFeedToFollowers = RegisterDictionary<Plc, Plc>("registered-user-to-rss-feeds");
 
             UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2") ;
             UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2") ;
@@ -2967,6 +2969,31 @@ namespace AppViewLite
             post.RepostedBy = null;
             post.RepostDate = null;
             return ancestors;
+        }
+
+
+        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost)
+        {
+            var likeCount = Likes.GetApproximateActorCount(postId);
+            if (likeCount == 0 && couldBePluggablePost)
+            {
+                var did = GetDid(postId.Author);
+                if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
+                {
+                    likeCount = GetPluggableLikeCount(postId);
+                }
+            }
+            return likeCount;
+        }
+
+        private long GetPluggableLikeCount(PostIdTimeFirst postId)
+        {
+            if (!PostData.TryGetPreserveOrderSpanLatest(postId, out var bytes))
+                return 0;
+
+            return DeserializePostData(bytes.AsSmallSpan(), postId, onlyNeedsLikeCount: true).PluggableLikeCount ?? 0;
+
+
         }
     }
 

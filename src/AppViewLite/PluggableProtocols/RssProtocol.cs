@@ -1,7 +1,7 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using AppViewLite;
+using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -34,23 +34,88 @@ namespace AppViewLite.PluggableProtocols.Rss
             var url = DidToUrl(did);
             return url.Host + " " + url.PathAndQuery;
         }
-        public override Task DiscoverAsync(CancellationToken ct)
+
+        private ConcurrentSet<Plc> ScheduledRefreshes = new();
+
+        public override async Task DiscoverAsync(CancellationToken ct)
         {
-
-            string[] feeds = [
-           
-                ];
-            foreach (var feed in feeds.Take(1))
+            while (true)
             {
-                RetryInfiniteLoopAsync(async ct =>
+
+                var followerToActualFeeds = new Dictionary<Plc, HashSet<Plc>>();
+                var ctx = RequestContext.CreateForFirehose("Rss");
+                Apis.WithRelationshipsLock(rels =>
                 {
-                    //await PollFeedAsync(new Uri(feed), ct);
-                    await Task.Delay(TimeSpan.FromHours(3), ct);
+                    var rssToRefreshInfo = rels.RssRefreshInfos.EnumerateSortedGrouped();
+                    var rssToFollowers = rels.RssFeedToFollowers.EnumerateSortedGrouped();
+                    var rssAll = SimpleJoin.JoinPresortedAndUnique(rssToRefreshInfo, x => x.Key, rssToFollowers, x => x.Key);
 
-                }, ct).FireAndForget();
+                    foreach (var item in rssAll)
+                    {
+                        var rssPlc = item.Key;
+                        var followers = item.Right.ValueChunks;
+                        if (followers == null) continue;
+
+                        if (ScheduledRefreshes.Contains(rssPlc)) continue;
+
+                        var refreshInfo = BlueskyRelationships.DeserializeProto<RssRefreshInfo>(item.Left.ValueChunks[0].AsSmallSpan());
+                        var nextRefreshTime = GetNextRefreshTime(refreshInfo);
+
+                        if (nextRefreshTime != null)
+                        {
+                            var remainingTime = nextRefreshTime.Value - DateTime.UtcNow;
+                            if (remainingTime < TimeSpan.Zero)
+                                remainingTime = TimeSpan.Zero;
+
+                            if (remainingTime.TotalHours < 6)
+                            {
+                                var isStillFollowed = followers.Any(chunk => chunk.AsEnumerable().Any(user => 
+                                {
+                                    if (!followerToActualFeeds.TryGetValue(user, out var followees))
+                                    {
+                                        followerToActualFeeds[user] = followees = rels.TryGetAppViewLiteProfile(user)?.PrivateFollows?.Select(x => new Plc(x.Plc)).ToHashSet() ?? [];
+                                    }
+                                    return followees.Contains(rssPlc);
+                                } ));
+                                if (!isStillFollowed) continue;
+
+                                ScheduledRefreshes.TryAdd(rssPlc);
+                                var did = rels.GetDid(rssPlc);
+                                Apis.DispatchOutsideTheLock(() => 
+                                {
+                                    ScheduleRefreshAsync(rssPlc, did, remainingTime, ct).FireAndForget();
+                                });
+                            }
+                        }
+
+                    }
+
+                }, ctx);
+
+                await Task.Delay(TimeSpan.FromMinutes(10), ct);
             }
-            return Task.CompletedTask;
+        }
 
+        private async Task ScheduleRefreshAsync(Plc rssPlc, string did, TimeSpan remainingTime, CancellationToken ct)
+        {
+            await Task.Delay(remainingTime, ct);
+
+            if (!ScheduledRefreshes.Contains(rssPlc)) return;
+
+            await RefreshFeed.GetValueAsync(did, RequestContext.CreateForFirehose("Rss"));
+        }
+
+        private static DateTime? GetNextRefreshTime(RssRefreshInfo refreshInfo)
+        {
+            if (refreshInfo.XmlOldestPost == null || refreshInfo.LastSuccessfulRefresh == null || refreshInfo.XmlPostCount == 0)
+            {
+                return null;
+            }
+            var averageDaysBetweenPosts = 0.5 * Math.Max(0, (refreshInfo.LastSuccessfulRefresh.Value - refreshInfo.XmlOldestPost.Value).TotalDays) / refreshInfo.XmlPostCount;
+
+            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts, TimeSpan.FromMinutes(15).TotalDays, TimeSpan.FromDays(90).TotalDays);
+            return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts);
+            
         }
 
         private static XElement? GetChild(XElement? element, string name)
@@ -93,6 +158,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 throw new Exception("RSS/did roundtrip failed.");
 
             var (plc, refreshInfo) = Apis.WithRelationshipsLockForDid(did, (plc, rels) => (plc, rels.GetRssRefreshInfo(plc)), ctx);
+            ScheduledRefreshes.Remove(plc);
             var now = DateTime.UtcNow;
             refreshInfo ??= new RssRefreshInfo { FirstRefresh = now };
 

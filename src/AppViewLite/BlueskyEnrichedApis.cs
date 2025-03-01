@@ -2548,13 +2548,13 @@ namespace AppViewLite
 #endif
         }
 
-        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, RequestContext ctx, CancellationToken ct = default)
+        public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, RequestContext ctx, bool descending = true, CancellationToken ct = default)
         {
             using var proto = await TryCreateProtocolForDidAsync(did, ctx);
             if (proto == null) return new ListRecordsOutput(null, []);
             try
             {
-                return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, cancellationToken: ct)).HandleResult()!;
+                return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, descending ? null : true, cancellationToken: ct)).HandleResult()!;
             }
             catch (Exception ex)
             {
@@ -2764,7 +2764,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
-            var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation, ctx);
+            var response = await ListRecordsAsync(did, Generator.RecordType, limit: limit + 1, cursor: continuation, ctx, descending: false);
             var feeds = WithRelationshipsUpgradableLock(rels =>
             {
                 var plc = rels.SerializeDid(did, ctx);
@@ -2779,7 +2779,9 @@ namespace AppViewLite
                 }).ToArray();
             }, ctx);
             await EnrichAsync(feeds, ctx);
-            return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.RKey);
+            var result = GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.RKey);
+            result.Items = result.Items.OrderBy(x => x.DisplayNameOrFallback, StringComparer.InvariantCultureIgnoreCase).ToArray();
+            return result;
 
         }
 

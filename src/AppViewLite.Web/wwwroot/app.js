@@ -465,6 +465,7 @@ function applyPageElements() {
         descriptionElement.classList.toggle('display-none', !description);
         descriptionElement.classList.toggle('theater-alt-reduced-max-height', includePostText);
         emojify(descriptionElement);
+        document.querySelector('.theater-date').textContent = ' · ' + postElement.dataset.displayshortdate;
         document.querySelector('.theater-full-post-link').classList.toggle('display-none', !includePostText);
         document.querySelector('.theater-full-post-link').href = theaterInfo.href;
     }

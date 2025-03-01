@@ -97,6 +97,10 @@ main {
     font-weight: bold;
 }
 
+.theater-date {
+    font-weight: normal;
+}
+
 .page {
     flex-direction: row;
 }

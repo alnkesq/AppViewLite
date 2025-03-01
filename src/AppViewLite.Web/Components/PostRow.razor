@@ -171,7 +171,8 @@
     data-repostrkey="@Post.IsRepostedBySelf?.ToString()"
     data-repostedby="@Post.RepostedBy?.Did"
     data-renderflags="@RenderFlags"
-    data-pendingload="@(Post.Data == null || Post.Author.BasicData == null ? 1 : 0)">
+    data-pendingload="@(Post.Data == null || Post.Author.BasicData == null ? 1 : 0)"
+    data-displayshortdate="@StringUtils.ToHumanDate(Post.Date)">
     <a href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal" class="post-background-link" tabindex="-1"></a>
 
     @if (ShowRestOfThreadLink)

@@ -42,6 +42,7 @@ namespace AppViewLite.Models
         public PostId RootPostId => Data?.RootPostId ?? this.PostId;
 
         public Tid? IsLikedBySelf;
+        public Tid? IsBookmarkedBySelf;
         public Tid? IsRepostedBySelf;
         public bool IsRepost => RepostedBy != null;
         public object? EmbedRecord;

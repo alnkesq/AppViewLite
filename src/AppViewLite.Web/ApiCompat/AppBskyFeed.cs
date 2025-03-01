@@ -128,6 +128,7 @@ namespace AppViewLite.Web.ApiCompat
                 includeReplies: filter != GetUserPostsFilter.posts_no_replies,
                 includeReposts: filter == GetUserPostsFilter.posts_no_replies,
                 includeLikes: false,
+                includeBookmarks: false,
                 mediaOnly: filter == GetUserPostsFilter.posts_with_media,
                 limit: limit,
                 cursor,

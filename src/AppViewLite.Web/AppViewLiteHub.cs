@@ -158,10 +158,12 @@ namespace AppViewLite.Web
                     {
                         rels.Likes.HasActor(notification.PostId, commitPlc, out var userLike);
                         rels.Reposts.HasActor(notification.PostId, commitPlc, out var userRepost);
+                        var bookmark = rels.TryGetLatestBookmarkForPost(notification.PostId, this.RequestContext.LoggedInUser);
                         ownRelationshipChange = new
                         {
                             likeRkey = userLike.RelationshipRKey.ToString() ?? "-",
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
+                            bookmarkRkey = bookmark?.ToString() ?? "-"
                         };
                     }, RequestContext.CreateForRequest(ctx, urgent: false, minVersion: versionedNotification.MinVersion));
 

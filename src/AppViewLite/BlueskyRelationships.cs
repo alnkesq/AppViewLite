@@ -36,6 +36,9 @@ namespace AppViewLite
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
         public RelationshipDictionary<Plc> Follows;
         public RelationshipDictionary<Plc> Blocks;
+        public CombinedPersistentMultiDictionary<Plc, BookmarkPostFirst> Bookmarks;
+        public CombinedPersistentMultiDictionary<Plc, BookmarkDateFirst> RecentBookmarks;
+        public CombinedPersistentMultiDictionary<Plc, Tid> BookmarkDeletions;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, byte> FeedGenerators;
         public CombinedPersistentMultiDictionary<RelationshipHashedRKey, DateTime> FeedGeneratorDeletions;
         public CombinedPersistentMultiDictionary<HashedWord, RelationshipHashedRKey> FeedGeneratorSearch;
@@ -199,6 +202,10 @@ namespace AppViewLite
             Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24);
             Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24);
             Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24);
+
+            Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");
+            RecentBookmarks = RegisterDictionary<Plc, BookmarkDateFirst>("bookmark-recent");
+            BookmarkDeletions = RegisterDictionary<Plc, Tid>("bookmark-deletion");
             DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct") ;
             RecursiveReplies = RegisterDictionary<PostId, PostId>("post-reply-recursive") ;
             Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
@@ -2994,6 +3001,48 @@ namespace AppViewLite
             return DeserializePostData(bytes.AsSmallSpan(), postId, onlyNeedsLikeCount: true).PluggableLikeCount ?? 0;
 
 
+        }
+
+        public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser)
+        {
+            ManagedOrNativeArray<BookmarkPostFirst>[]? a = null;
+            ManagedOrNativeArray<Tid>[]? b = null;
+            return TryGetLatestBookmarkForPost(postId, loggedInUser, ref a, ref b);
+        }
+        public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser, ref ManagedOrNativeArray<BookmarkPostFirst>[]? userBookmarks, ref ManagedOrNativeArray<Tid>[]? userDeletedBookmarks)
+        {
+            if (userBookmarks == null)
+            {
+                userBookmarks = this.Bookmarks.GetValuesChunkedLatestFirst(loggedInUser).ToArray();
+            }
+            foreach (var chunk in userBookmarks)
+            {
+                var span = chunk.AsSpan();
+                var index = span.BinarySearch(new BookmarkPostFirst(postId, default));
+                index = ~index;
+                
+                BookmarkPostFirst bookmark = default;
+                if (index == span.Length) continue;
+
+                while (true)
+                {
+                    bookmark = span[index];
+                    if (index != span.Length - 1 && (PostId)span[index + 1].PostId == postId) index++;
+                    else break;
+                }
+
+                if ((PostId)bookmark.PostId != postId) continue;
+
+                if (userDeletedBookmarks == null)
+                {
+                    userDeletedBookmarks = this.BookmarkDeletions.GetValuesChunked(loggedInUser).ToArray();
+                }
+                if (userDeletedBookmarks.Any(x => x.AsSpan().BinarySearch(bookmark.BookmarkRKey) >= 0))
+                    return null;
+
+                return bookmark.BookmarkRKey;
+            }
+            return null;
         }
     }
 

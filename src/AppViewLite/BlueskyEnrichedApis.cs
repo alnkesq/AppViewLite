@@ -201,6 +201,8 @@ namespace AppViewLite
 
         public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
         {
+            if (profiles.Length == 0) return profiles;
+
             PopulateViewerFlags(profiles, ctx);
 
             if (!IsReadOnly)
@@ -433,8 +435,13 @@ namespace AppViewLite
 
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
+            if (posts.Length == 0) return posts;
+
             WithRelationshipsLock(rels =>
             {
+                ManagedOrNativeArray<BookmarkPostFirst>[]? userBookmarks = null;
+                ManagedOrNativeArray<Tid>[]? userDeletedBookmarks = null;
+
                 foreach (var post in posts)
                 {
 
@@ -445,6 +452,8 @@ namespace AppViewLite
                             post.IsLikedBySelf = likeTid.RelationshipRKey;
                         if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
                             post.IsRepostedBySelf = repostTid.RelationshipRKey;
+
+                        post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
                     }
                     post.Labels = rels.GetPostLabels(post.PostId, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
@@ -914,7 +923,7 @@ namespace AppViewLite
 
 
         
-        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool mediaOnly, int limit, string? continuation, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool includeBookmarks, bool mediaOnly, int limit, string? continuation, RequestContext ctx)
         {
             EnsureLimit(ref limit);
 
@@ -922,6 +931,7 @@ namespace AppViewLite
                 includePosts ? Tid.MaxValue : default, 
                 includeReposts ? Tid.MaxValue : default,
                 includeLikes ? Tid.MaxValue : default,
+                includeBookmarks ? Tid.MaxValue : default,
                 []);
 
             BlueskyPost ? GetPostIfRelevant(BlueskyRelationships rels, PostId postId, CollectionKind kind)
@@ -1008,11 +1018,20 @@ namespace AppViewLite
                 new MergeablePostEnumerator(parsedContinuation.MaxTidLikes, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
-                    return posts.Records.Select(x => 
+                    return posts.Records.Select(x =>
                     {
                         return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!)));
                     }).Where(x => x != default).ToArray();
                 }, CollectionKind.Likes),
+                new MergeablePostEnumerator(parsedContinuation.MaxTidBookmarks, max =>
+                {
+                    if(!ctx.IsLoggedIn || ctx.LoggedInUser != SerializeSingleDid(did, ctx)) return Task.FromResult<PostReference[]>([]);
+                    var posts = GetBookmarks(limit, max != Tid.MaxValue ? max : null, ctx);
+                    return Task.FromResult(posts.Select(x =>
+                    {
+                        return new PostReference(x.Bookmark.BookmarkRKey.ToString()!, new PostIdString(x.Did, x.Bookmark.PostId.PostRKey.ToString()!));
+                    }).Where(x => x != default).ToArray());
+                }, CollectionKind.Bookmarks),
 
             ];
 
@@ -1108,6 +1127,7 @@ namespace AppViewLite
                             mergeableEnumerators[0].LastReturnedTid,
                             mergeableEnumerators[1].LastReturnedTid,
                             mergeableEnumerators[2].LastReturnedTid,
+                            mergeableEnumerators[3].LastReturnedTid,
                             parsedContinuation.FastReturnedPosts
                             ) : null;
 
@@ -1122,6 +1142,30 @@ namespace AppViewLite
 
 
 
+        }
+
+        private (BookmarkDateFirst Bookmark, string Did)[] GetBookmarks(int limit, Tid? maxExclusive, RequestContext ctx)
+        {
+            return WithRelationshipsLock(rels => 
+            {
+                ManagedOrNativeArray<Tid>[]? deletedBookmarks = null;
+                return rels.RecentBookmarks.GetValuesSortedDescending(ctx.LoggedInUser, null, maxExclusive != null ? new BookmarkDateFirst(maxExclusive.Value, default) : null)
+                    .Where(c =>
+                    {
+                        if (deletedBookmarks == null)
+                        {
+                            deletedBookmarks = rels.BookmarkDeletions.GetValuesChunked(ctx.LoggedInUser).ToArray();
+                        }
+
+                        if (deletedBookmarks.Any(chunk => chunk.AsSpan().BinarySearch(c.BookmarkRKey) >= 0))
+                            return false;
+
+                        return true;
+                    })
+                    .Take(limit)
+                    .Select(x => (x, rels.GetDid(x.PostId.Author)))
+                    .ToArray();
+            }, ctx);
         }
 
         private static PostReference TryGetPostReference(Func<PostReference> func)
@@ -2319,6 +2363,28 @@ namespace AppViewLite
             return await CreateRecordAsync(new Repost { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
         }
 
+        public Tid CreatePostBookmark(string did, Tid rkey, RequestContext ctx)
+        {
+            return WithRelationshipsWriteLock(rels =>
+            {
+                var bookmarkRkey = Tid.FromDateTime(DateTime.UtcNow);
+                var plc = rels.SerializeDid(did, ctx);
+                var loggedInUser = ctx.LoggedInUser;
+                var postId = new PostId(rels.SerializeDid(did, ctx), rkey);
+                rels.Bookmarks.Add(loggedInUser, new BookmarkPostFirst(postId, bookmarkRkey));
+                rels.RecentBookmarks.Add(loggedInUser, new BookmarkDateFirst(bookmarkRkey, postId));
+                rels.NotifyPostStatsChange(postId, ctx.LoggedInUser);
+                return bookmarkRkey;
+            }, ctx);
+        }
+        public void DeletePostBookmark(string postDid, Tid postRkey, Tid bookmarkRKey, RequestContext ctx)
+        {
+            WithRelationshipsWriteLock(rels =>
+            {
+                rels.BookmarkDeletions.Add(ctx.LoggedInUser, bookmarkRKey);
+                rels.NotifyPostStatsChange(new PostId(rels.SerializeDid(postDid, ctx), postRkey), ctx.LoggedInUser);
+            }, ctx);
+        }
         public async Task DeletePostLikeAsync(Tid likeRKey, RequestContext ctx)
         {
             await DeleteRecordAsync(Like.RecordType, likeRKey, ctx);
@@ -2407,12 +2473,17 @@ namespace AppViewLite
 
         private async Task<BlueskyFeedGenerator[]> EnrichAsync(BlueskyFeedGenerator[] feeds, RequestContext ctx, CancellationToken ct = default)
         {
+            if (feeds.Length == 0) return feeds;
+
             await EnrichAsync(feeds.Select(x => x.Author).ToArray(), ctx, ct: ct);
             return feeds;
         }
 
         public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
         {
+            if (labels.Length == 0) return labels;
+
+
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
@@ -2430,6 +2501,8 @@ namespace AppViewLite
 
         private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
         {
+            if (lists.Length == 0) return lists;
+
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(lists.Where(x => x.Data == null).Select(async list =>

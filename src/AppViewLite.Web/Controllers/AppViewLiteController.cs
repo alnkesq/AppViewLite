@@ -37,6 +37,22 @@ namespace AppViewLite.Web
             await apis.DeletePostLikeAsync(Tid.Parse(rkey.Rkey), ctx);
         }
 
+
+
+        [HttpPost(nameof(CreatePostBookmark))]
+        public object CreatePostBookmark([FromBody] DidAndRKey postId)
+        {
+            return new
+            {
+                rkey = apis.CreatePostBookmark(postId.Did, Tid.Parse(postId.Rkey), ctx).ToString()
+            };
+        }
+        [HttpPost(nameof(DeletePostBookmark))]
+        public void DeletePostBookmark([FromBody] DeleteBookmarkArgs args)
+        {
+            apis.DeletePostBookmark(args.PostDid, Tid.Parse(args.PostRkey), Tid.Parse(args.BookmarkRKey), ctx);
+        }
+
         [HttpPost(nameof(CreateRepost))]
         public async Task<object> CreateRepost([FromBody] DidAndRKey postId)
         {
@@ -156,6 +172,7 @@ namespace AppViewLite.Web
         public record ToggleFollowArgs(string Did, bool Private);
         public record NotificationIdArgs(string NotificationId);
         public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);
+        public record DeleteBookmarkArgs(string PostDid, string PostRkey, string BookmarkRKey);
     }
 }
 

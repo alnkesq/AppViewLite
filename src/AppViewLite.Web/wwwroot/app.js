@@ -94,6 +94,9 @@ var liveUpdatesConnectionFuture = (async () => {
             var likeToggler = getOrCreateLikeToggler(stats.did, stats.rKey, postElement);
             likeToggler.applyLiveUpdate(stats.likeCount, ownRelationship?.likeRkey);
 
+            var bookmarkToggler = getOrCreateBookmarkToggler(stats.did, stats.rKey, postElement);
+            bookmarkToggler.applyLiveUpdate(0, ownRelationship?.bookmarkRkey);
+
             postElement.dataset.quotecount = stats.quoteCount;
 
             var repostToggler = getOrCreateRepostToggler(stats.did, stats.rKey, postElement);
@@ -1241,6 +1244,21 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
         });
 }
 
+
+
+function getOrCreateBookmarkToggler(did, postRkey, postElement) { 
+    return postElement.bookmarkToggler ??= new ActionStateToggler(
+        0,
+        postElement.dataset.bookmarkrkey,
+        async () => (await httpPost('CreatePostBookmark', { did, rkey: postRkey })).rkey,
+        async (bookmarkRkey) => (await httpPost('DeletePostBookmark', { bookmarkRkey: bookmarkRkey, postDid: did, postRkey: postRkey })),
+        (count, have) => { 
+            if (!isNativeDid(did))
+                postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
+            postElement.querySelector('.menu-item[actionkind="toggleBookmark"]').textContent = have ? 'Remove bookmark' : 'Add bookmark';
+        });
+}
+
 function getOrCreateRepostToggler(did, rkey, postElement) { 
     var prevKey = '';
     return postElement.repostToggler ??= new ActionStateToggler(
@@ -1275,6 +1293,9 @@ function getPostPreferredUrlElement(postElement) {
 function invalidateFollowingPages() { 
     recentPages = recentPages.filter(x => !(x.href.includes('/following') || x.href.includes('/followers') || x.href.includes('/known-followers')));
 }
+function invalidateLikesPages() { 
+    recentPages = recentPages.filter(x => !(x.href.includes('likes=1') || x.href.includes('bookmarks=1')));
+}
 
 async function togglePrivateFollow(did, toggleButton, postElement) { 
     var did = toggleButton.dataset.did;
@@ -1292,10 +1313,14 @@ async function togglePrivateFollow(did, toggleButton, postElement) {
 
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
-        getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        if(isNativeDid(did))
+            getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        else
+            getOrCreateBookmarkToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        invalidateLikesPages();
     },
     toggleRepost: async function (did, rkey, postElement) { 
-        if (did.startsWith('did:plc:') || did.startsWith('did:web:')) {
+        if (isNativeDid(did)) {
             getOrCreateRepostToggler(did, rkey, postElement).toggleIfNotBusyAsync();
         } else { 
             var originalText = getPostText(postElement);
@@ -1333,12 +1358,18 @@ var postActions = {
     translatePost: async function (did, rkey, postElement) { 
         window.open('https://translate.google.com/?sl=auto&tl=en&text=' + encodeURIComponent(getPostText(postElement)) + '&op=translate');
     },
+    toggleBookmark: async function (did, rkey, postElement) { 
+        await getOrCreateBookmarkToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        invalidateLikesPages();
+    },
     togglePrivateFollow: async function (did, rkey, postElement, toggleButton) { 
         await togglePrivateFollow(did, toggleButton, postElement);
     }
 }
 
-
+function isNativeDid(did) { 
+    return did.startsWith('did:plc:') || did.startsWith('did:web:');
+}
 
 var userActions = {
     toggleFollow: async function (profiledid, profileElement, button) { 
@@ -1346,7 +1377,7 @@ var userActions = {
         var followrkey = profileElement.dataset.followrkey;
         var followsyou = profileElement.dataset.followsyou;
         var isPrivateFollow = button.dataset.followkind == 'private';
-        var mandatoryPrivateFollow = !profiledid.startsWith('did:plc:') && !profiledid.startsWith('did:plc:')
+        var mandatoryPrivateFollow = !isNativeDid(profiledid)
 
         profileElement.followToggler ??= new ActionStateToggler(
             0,

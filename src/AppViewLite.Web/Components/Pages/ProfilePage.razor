@@ -8,6 +8,7 @@
     [Parameter][SupplyParameterFromQuery] public int? Reposts { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Likes { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Media { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Bookmarks { get; set; }
 
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
@@ -15,9 +16,9 @@
 
     public bool ShowMediaOnly => (Media ?? 0) != 0;
     public bool ShowLikes => (Likes ?? 0) != 0;
-    public bool ShowReplies => !ShowLikes && (Replies ?? (ShowMediaOnly ? 1 : 0)) != 0;
-    public bool ShowReposts => !ShowLikes && (Reposts ?? (ShowReplies || ShowMediaOnly ? 0 : 1)) != 0;
-
+    public bool ShowReplies => !ShowLikes && !ShowBookmarks && (Replies ?? (ShowMediaOnly ? 1 : 0)) != 0;
+    public bool ShowReposts => !ShowLikes && !ShowBookmarks && (Reposts ?? (ShowReplies || ShowMediaOnly ? 0 : 1)) != 0;
+    public bool ShowBookmarks => (Bookmarks ?? 0) != 0;
 
     // [Parameter] public string? DidUnprefixed { get; set; }
     // public string? Did => DidUnprefixed != null ? "did:" + DidUnprefixed : null;
@@ -60,10 +61,11 @@
         GuessedFacets = data?.GetOrGuessFacets();
         (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
             Did,
-            includePosts: !ShowLikes,
+            includePosts: !ShowLikes && !ShowBookmarks,
             includeReplies: ShowReplies,
             includeReposts: ShowReposts,
             includeLikes: ShowLikes,
+            includeBookmarks: ShowBookmarks,
             mediaOnly: ShowMediaOnly,
             limit: default,
             continuation: Continuation,
@@ -123,7 +125,7 @@
                         <a href="@(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidToUrl(SimpleProfile.Did))" class="menu-item" target="_blank" rel="noreferrer">View feed source</a>
                     }
 
-                    
+
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
 
                     @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
@@ -257,10 +259,14 @@
                 <NavLink draggable="false" Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
                 <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
                 <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
-                @if (Profile.Profile.PluggableProtocol == null)
+                @if (SimpleProfile.PluggableProtocol == null)
                 {
                     <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
                     <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+                    @if(RequestContext.IsLoggedIn && SimpleProfile.Plc == RequestContext.LoggedInUser)
+                    {
+                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?bookmarks=1")">Bookmarks</NavLink>
+                    }
                     @if (Profile.HasFeeds)
                     {
                         <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>

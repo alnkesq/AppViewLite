@@ -767,9 +767,9 @@ ul {
 
 
 .tabbed-lists-header a {
-    font-size: 14pt;
+    font-size: 12pt;
     font-weight: bold;
-    padding: 10px 20px;
+    padding: 7px 10px;
     flex: 0 0 auto;
     scroll-snap-align: center;
 }
@@ -1341,6 +1341,9 @@ button[disabled], input[type=submit][disabled] {
   }
 
   
+  .post-action-bar-button svg {
+    pointer-events: none;
+  }
   .post-action-bar-button-checked .if-have-not-relationship{
     display: none;
   }

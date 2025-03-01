@@ -78,6 +78,7 @@ namespace AppViewLite
         Posts,
         Reposts,
         Likes,
+        Bookmarks,
     }
 }
 

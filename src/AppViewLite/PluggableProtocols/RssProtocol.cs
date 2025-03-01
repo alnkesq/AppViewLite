@@ -352,10 +352,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                     altTag.Remove();
                 }
 
-                var leafPostId = GetTumblrPostId(url!, dateParsed);
+                var leafPostId = GetTumblrPostId(url!, CreateSyntheticTid(dateParsed, url!.AbsoluteUri));
+
                 if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
                     throw new Exception("Non-matching tumblr host");
-                var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId, dateParsed);
+                var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId);
                 if (leafPost.QuotedPost == null && leafPost.Content.Length == 1 && leafPost.Content[0] is IText { } shortenedThread && Regex.IsMatch(shortenedThread.Text, @"^[\w\-]+\:\w"))
                 {
                     var text = shortenedThread.TextContent;
@@ -512,7 +513,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
 
-        private static TumblrPost UnfoldTumblrPosts(IElement bodyDom, TumblrPostId postId, DateTime date)
+        private static TumblrPost UnfoldTumblrPosts(IElement bodyDom, TumblrPostId postId)
         {
             var blockquote = bodyDom.Children.FirstOrDefault(x => x.TagName == "BLOCKQUOTE");
             IElement? attributionLink = null;
@@ -526,7 +527,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (blockquote != null)
             {
                 attributionLink = attribution?.FirstElementChild;
-                var originalPostId = attributionLink != null ? GetTumblrPostId(new Uri(attributionLink.GetAttribute("href")!), date) : default;
+                var attributionUrl = attributionLink?.GetAttribute("href");
+                var originalPostId = attributionUrl != null ? GetTumblrPostId(new Uri(attributionUrl), CreateSyntheticTid(postId.SuggestedTid.Date.AddSeconds(-10), attributionUrl)) : default;
                 var nextSiblings = new List<INode>();
                 var sibling = blockquote.NextSibling;
                 while (sibling != null)
@@ -534,7 +536,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     nextSiblings.Add(sibling);
                     sibling = sibling.NextSibling;
                 }
-                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId, date), nextSiblings.ToArray());
+                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId), nextSiblings.ToArray());
                 return quotedPost;
             }
             else
@@ -561,7 +563,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
         }
 
-        private static TumblrPostId GetTumblrPostId(Uri url, DateTime date)
+        private static TumblrPostId GetTumblrPostId(Uri url, Tid suggestedTid)
         {
             var customDomain = !url.HasHostSuffix("tumblr.com");
             var segments = url.GetSegments();
@@ -579,7 +581,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 tumblrBlogId = segments[0];
                 postId = long.Parse(segments[1]);
             }
-            return new(tumblrBlogId, postId, CreateSyntheticTid(date, tumblrBlogId + ":" + postId));
+            return new(tumblrBlogId, postId, suggestedTid);
         }
 
         public record TumblrPost(TumblrPostId PostId, TumblrPost? QuotedPost, INode[] Content)

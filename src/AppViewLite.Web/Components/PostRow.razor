@@ -372,7 +372,11 @@
 
     }
 
-    @if (!IsQuote)
+    @if (!IsQuote && !IsLastOfGroup && !IsThreadView && Post.PluggableProtocol?.ShouldIncludeFullReplyChain(Post) == true)
+    {
+        <div class="post-action-bar-hidden"></div>
+    }
+    else if (!IsQuote)
     {
         <div class="post-action-bar post-indented">
             <div class="post-action-bar-spacer @(RequestContext.IsLoggedIn ? null : "post-action-bar-disabled")">

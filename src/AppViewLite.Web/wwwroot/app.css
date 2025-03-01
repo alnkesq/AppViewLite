@@ -664,6 +664,9 @@ ul {
     display: flex;
 }
 
+.post-action-bar-hidden {
+    height: 10px;
+}
 
 
 .post-action-bar-spacer {

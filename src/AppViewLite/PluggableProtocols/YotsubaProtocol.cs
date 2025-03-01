@@ -1,5 +1,3 @@
-using ProtoBuf;
-using DuckDbSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,14 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http.Json;
 using AppViewLite.Models;
-using FishyFlip.Lexicon;
 using System.Text.Json;
-using PeterO.Cbor;
-using AngleSharp.Dom;
 using System.IO;
-using AppViewLite;
 using System.Text.RegularExpressions;
-using AppViewLite.Numerics;
+using AppViewLite;
 
 namespace AppViewLite.PluggableProtocols.Yotsuba
 {
@@ -87,26 +81,32 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         private async Task BoardLoopAsync(YotsubaBoardId boardId, CancellationToken ct)
         {
             EnsureValidDid(ToDid(boardId));
+            double averageThreadsPerDay = 12;
+            await Task.Delay(TimeSpan.FromMinutes(10 * Random.Shared.NextDouble()), ct);
             while (true)
             {
                 try
                 {
                     
-                    await BoardIterationAsync(boardId, ct);
+                    averageThreadsPerDay = await BoardIterationAsync(boardId, ct);
                 }
                 catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
+                    averageThreadsPerDay /= 2;
                     Console.Error.WriteLine(ex);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(Random.Shared.Next(15, 45)), ct);
+                var intervalDays = 0.5 / averageThreadsPerDay;
+                intervalDays = Math.Clamp(intervalDays, TimeSpan.FromMinutes(5).TotalDays, TimeSpan.FromHours(12).TotalDays);
+                await Task.Delay(TimeSpan.FromDays(intervalDays), ct);
 
 
 
             }
         }
         private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions() { IncludeFields = true, PropertyNameCaseInsensitive = true };
-        private async Task BoardIterationAsync(YotsubaBoardId boardId, CancellationToken ct)
+        private LruCache<(YotsubaBoardId Board, long PostId), int> LastObservedReplyCount = new(32 * 1024);
+        private async Task<double> BoardIterationAsync(YotsubaBoardId boardId, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             var ctx = RequestContext.CreateForFirehose("Yotsuba:" + boardId.Host);
@@ -114,21 +114,29 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var threadPages = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaThreadPageJson[]>(GetApiPrefix(boardId) + "/catalog.json", JsonOptions, ct);
             var boardDid = ToDid(boardId);
             var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid, ctx), ctx);
+            var postDates = new List<DateTime>();
             foreach (var threadPage in threadPages!)
             {
                 foreach (var thread in threadPage.Threads)
                 {
                     try
                     {
-                        IndexThread(plc, boardId, thread, ctx);
+                        var date = IndexThread(plc, boardId, thread, ctx);
+                        postDates.Add(date);
                     }
                     catch (Exception ex)
                     {
                         Console.Error.WriteLine(ex);
                     }
-                    await Task.Delay(300, ct);
                 }
             }
+
+            var sample = postDates.OrderByDescending(x => x).Take(postDates.Count / 4).ToArray(); // ignore old posts for frequency estimation (threads can disappear if they're not bumped)
+
+            var threadsPerDay = (double)sample.Length / (DateTime.UtcNow - (sample?.LastOrDefault() ?? default)).TotalDays;
+
+            return threadsPerDay;
+            
         }
 
         private string GetApiPrefix(string host) => "https://" + HostConfiguration[host].ApiHost;
@@ -137,13 +145,27 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         private string GetImagePrefix(YotsubaBoardId boardId) => GetImagePrefix(boardId.Host) + "/" + boardId.BoardName;
 
 
-        private void IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread, RequestContext ctx)
+        private DateTime IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread, RequestContext ctx)
         {
-            using var _ = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
 
             var date = DateTime.UnixEpoch.AddSeconds(thread.Time);
-
             var threadNumber = thread.No;
+            var replyCount = (int)thread.Replies;
+
+            var boardAndPostId = (boardId, threadNumber);
+            lock (LastObservedReplyCount)
+            {
+                if (LastObservedReplyCount.TryGetValue(boardAndPostId, out var prevReplyCount) && prevReplyCount == replyCount)
+                {
+                    return date;
+                }
+            }
+
+
+            using var _ = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
+
+
+
             var threadId = new QualifiedPluggablePostId(ToDid(boardId), new NonQualifiedPluggablePostId(CreateSyntheticTid(date, threadNumber.ToString()), threadNumber));
             var threadIdCore = new PostId(plc, threadId.PostId.Tid);
 
@@ -151,7 +173,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             {
                 return rels.TryGetPostData(threadIdCore)?.PluggableReplyCount == thread.Replies;
             }, ctx))
-                return;
+                return date;
 
             var subject = thread.Sub?.Trim();
             var comment = thread.Com?.Trim();
@@ -176,10 +198,15 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                     Cid = Encoding.UTF8.GetBytes(thread.Tim + thread.Ext),
                     IsVideo = thread.Ext is ".webm" or ".mp4"
                 }],
-                PluggableReplyCount = (int)thread.Replies,
-                PluggableLikeCount = (int)thread.Replies,
+                PluggableReplyCount = replyCount,
+                PluggableLikeCount = replyCount,
             };
             OnPostDiscovered(threadId, null, null, threadData, ctx);
+            lock (LastObservedReplyCount)
+            {
+                LastObservedReplyCount.Add(boardAndPostId, replyCount);
+            }
+            return date;
         }
 
         private static (string? Text, FacetData[]? Facets) ParseHtml(string? html, YotsubaBoardId boardId)

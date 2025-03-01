@@ -122,7 +122,8 @@ namespace AppViewLite.PluggableProtocols
 
 
 
-
+            if (data.PluggableLikeCount != null && !ProvidesLikeCount)
+                throw new ArgumentException("PluggableProtocol.ProvidesLikeCount should be overriden if posts are populated with PluggableLikeCount.");
 
 
             if (inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
@@ -400,6 +401,8 @@ namespace AppViewLite.PluggableProtocols
         public virtual TimeSpan GetProfilePageMaxPostAge() => TimeSpan.FromDays(90);
 
         public virtual bool ShouldDisplayExternalLinkInBio => true;
+
+        public virtual bool ProvidesLikeCount => false;
 
         public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url) => Task.FromResult<string?>(null);
 

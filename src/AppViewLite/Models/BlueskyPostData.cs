@@ -88,5 +88,11 @@ namespace AppViewLite.Models
 
         public PostId? QuotedPostId => QuotedRKey != null ? new PostId(new Plc(QuotedPlc!.Value), new Tid(QuotedRKey.Value)) : null;
     }
+
+    [ProtoContract]
+    public class BlueskyPostDataPluggableLikeCountOnly
+    {
+        [ProtoMember(25)] public int? PluggableLikeCount;
+    }
 }
 

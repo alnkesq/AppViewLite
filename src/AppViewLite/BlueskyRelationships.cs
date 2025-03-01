@@ -1078,6 +1078,8 @@ namespace AppViewLite
                 }
                 var anyChanges = first; // so that we always do the trimming for the first run (in case the user set a until:yyyy-MM-dd parameter)
                 first = false;
+
+
                 for (int wordIdx = 0; wordIdx < words.Length; wordIdx++)
                 {
                     // what's the latest possible post id for this specific word (across all slices)?
@@ -1586,7 +1588,7 @@ namespace AppViewLite
             return proto;
         }
 
-        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false)
+        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false, bool onlyNeedsLikeCount = false)
         {
             var encoding = (PostDataEncoding)postDataCompressed[0];
             postDataCompressed = postDataCompressed.Slice(1);
@@ -1597,11 +1599,20 @@ namespace AppViewLite
 
             if (encoding == PostDataEncoding.Proto)
             {
-
+                if (onlyNeedsLikeCount)
+                {
+                    return new BlueskyPostData
+                    {
+                        PluggableLikeCount = ProtoBuf.Serializer.Deserialize<BlueskyPostDataPluggableLikeCountOnly>(ms).PluggableLikeCount
+                    };
+                }
                 var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(ms);
                 Decompress(proto, postId, skipBpeDecompression: skipBpeDecompression);
                 return proto;
             }
+
+            if (onlyNeedsLikeCount) return new BlueskyPostData { };
+
             //if (encoding == PostDataEncoding.BrotliProto)
             //{
 
@@ -1613,7 +1624,7 @@ namespace AppViewLite
             else
             {
                 var proto = new BlueskyPostData();
-                
+
                 using var br = new BinaryReader(ms);
                 if ((encoding & PostDataEncoding.Language) != 0)
                 {
@@ -1639,7 +1650,7 @@ namespace AppViewLite
                 }
                 var bpeLength = ms.Length - ms.Position;
                 proto.TextBpe = br.ReadBytes((int)bpeLength);
-                
+
                 Decompress(proto, postId, skipBpeDecompression: skipBpeDecompression);
                 return proto;
             }
@@ -2190,8 +2201,9 @@ namespace AppViewLite
 
             var usersRecentPosts =
                 follows.PossibleFollows
-                .Select(author =>
+                .Select(pair =>
                 {
+                    var author = pair.Plc;
                     return this
                         .EnumerateRecentPosts(author, thresholdDate, maxTid)
                         .Select(x =>
@@ -2233,8 +2245,9 @@ namespace AppViewLite
                 });
             var usersRecentReposts =
                 follows.PossibleFollows
-                .Select(reposter =>
+                .Select(pair =>
                 {
+                    var reposter = pair.Plc;
                     BlueskyProfile? reposterProfile = null;
                     return this
                         .EnumerateRecentReposts(reposter, thresholdDate, maxTid)
@@ -2764,7 +2777,7 @@ namespace AppViewLite
             return KnownMirrorsToIgnore.ContainsKey(hash);
         }
 
-        public (Plc[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
+        public ((Plc Plc, bool IsPrivate)[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
             var stillFollowedResult = new Dictionary<Plc, bool>();
             var possibleFollows = new Dictionary<Plc, Tid>();
@@ -2780,7 +2793,7 @@ namespace AppViewLite
                     possibleFollows[item.Key] = default;
             }
 
-            return (possibleFollows.Keys.ToArray(), (plc, rels) =>
+            return (possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray(), (plc, rels) =>
             {
                 if (plc == default) return true;
 

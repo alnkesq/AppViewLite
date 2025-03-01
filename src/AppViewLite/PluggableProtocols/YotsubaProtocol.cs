@@ -270,6 +270,8 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return Task.FromResult<string?>(null);
         }
 
+        public override bool ProvidesLikeCount => true;
+
     }
 
     public record struct YotsubaBoardId(string Host, string BoardName)

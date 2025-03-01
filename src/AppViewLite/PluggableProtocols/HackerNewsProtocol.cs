@@ -134,6 +134,8 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                 return Task.FromResult<string?>(DidPrefix);
             return Task.FromResult<string?>(null);
         }
+
+        public override bool ProvidesLikeCount => true;
     }
 }
 

@@ -1756,8 +1756,10 @@ namespace AppViewLite
 
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx.LoggedInUser);
 
-                var userPosts = possibleFollows.PossibleFollows.Select(plc =>
+                var userPosts = possibleFollows.PossibleFollows.Select(pair =>
                 {
+                    var plc = pair.Plc;
+
                     var posts = rels.UserToRecentPosts
                         .GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(minDate), default))
                         .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
@@ -1774,10 +1776,10 @@ namespace AppViewLite
                         Plc: plc,
                         Posts: posts
                             .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
-                            .Select(x => (PostRKey: x.RKey, LikeCount: rels.Likes.GetApproximateActorCount(new(x.RKey, plc))))
+                            .Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate)))
                             .ToArray(), 
                        Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.Likes.GetApproximateActorCount(x.PostId)))
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate)))
                             .ToArray()
                        );
                 }).Where(x => x.Plc != default).ToArray();

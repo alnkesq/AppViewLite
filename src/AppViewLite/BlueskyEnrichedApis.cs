@@ -1378,7 +1378,9 @@ namespace AppViewLite
                 }, 
                 (p, rels) =>
                 {
-                    return p.Select(x => rels.GetPost(x)).ToArray();
+                    var posts = p.Select(x => rels.GetPost(x));
+                    posts = rels.EnumerateFeedWithNormalization(posts);
+                    return posts.ToArray();
                 }, ctx);
             if (continuation == null && posts.Length == 0)
                 throw new Exception("The feed provider didn't return any results.");

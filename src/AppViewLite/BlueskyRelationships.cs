@@ -2303,6 +2303,7 @@ namespace AppViewLite
                     var chain = MakeFullReplyChain(post);
                     foreach (var item in chain)
                     {
+                        alreadyReturned.Add(item.PostId);
                         yield return item;
                     }
                 }

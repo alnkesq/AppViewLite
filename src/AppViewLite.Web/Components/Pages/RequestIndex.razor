@@ -45,7 +45,7 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle))
         {
-            var did = await Apis.ResolveHandleAsync(Model.Handle, RequestContext);
+            var did = await Apis.ResolveHandleOrUrlAsync(Model.Handle, RequestContext);
 
             var task = Apis.ImportCarIncrementalAsync(did, Model.Kind, ignoreIfRecentlyRan: TimeSpan.FromHours(3));
             await Task.WhenAny(task, Task.Delay(1500));

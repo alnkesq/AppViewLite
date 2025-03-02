@@ -8,6 +8,6 @@
     [Parameter] public required string Rest { get; set; }
     protected override async Task OnParametersSetAsync()
     {
-        Navigation.NavigateTo(await Apis.ResolveUrlAsync(new Uri("https:/" + Rest + new Uri(Navigation.Uri).Query), new Uri(Navigation.BaseUri), RequestContext));
+        Navigation.NavigateTo(await Apis.ResolveUrlToDidOrRedirectAsync(new Uri("https:/" + Rest + new Uri(Navigation.Uri).Query), new Uri(Navigation.BaseUri), RequestContext));
     }
 }

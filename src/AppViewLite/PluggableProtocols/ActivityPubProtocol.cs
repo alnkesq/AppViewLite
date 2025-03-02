@@ -280,9 +280,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return null;
         }
 
-        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
         {
             var u = TryGetUserIdFromUrl(url);
+            if (preferDid) return Task.FromResult((string?)GetDid(u));
             return Task.FromResult(u != default ? "/" + u : null);
         }
 

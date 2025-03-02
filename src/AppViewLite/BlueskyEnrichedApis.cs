@@ -2840,6 +2840,16 @@ namespace AppViewLite
         public static TimeSpan HandleToDidMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_HANDLE_TO_DID_MAX_STALE_HOURS) ?? (10 * 24)));
         public static TimeSpan DidDocMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DID_DOC_MAX_STALE_HOURS) ?? (2 * 24)));
 
+        public async Task<string> ResolveHandleOrUrlAsync(string handleOrUrl, RequestContext ctx)
+        {
+            if (handleOrUrl.StartsWith("http://", StringComparison.Ordinal) || handleOrUrl.StartsWith("https://", StringComparison.Ordinal))
+            { 
+                var urlOrDid = await TryResolveUrlToDidAsync(new Uri(handleOrUrl), null, ctx);
+                if (urlOrDid == null) throw new Exception("Could not resolve to DID.");
+                return urlOrDid;
+            }
+            return await ResolveHandleAsync(handleOrUrl, ctx);
+        }
         public async Task<string> ResolveHandleAsync(string handle, RequestContext ctx, string? activityPubInstance = null, bool forceRefresh = false, CancellationToken ct = default)
         {
             if (activityPubInstance != null)
@@ -3580,15 +3590,58 @@ namespace AppViewLite
 
         public ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
 
+        public async Task<string?> TryResolveUrlToDidAsync(Uri url, Uri? baseUrl, RequestContext ctx)
+        {
+            // bsky.app links
+            if (url.Host == "bsky.app")
+            {
+                var segments = url.GetSegments();
+                if (segments.Length >= 2 && segments[0] == "profile")
+                    return await ResolveHandleAsync(segments[1], ctx);
+                return null;
+            }
 
-        public async Task<string> ResolveUrlAsync(Uri url, Uri baseUrl, RequestContext ctx)
+
+            // recursive appviewlite links
+            if (url.Host == baseUrl?.Host)
+            {
+                var segment = url.GetSegments()?.FirstOrDefault();
+                if (segment != null && segment.StartsWith('@'))
+                    return await ResolveHandleAsync(segment, ctx);
+            }
+
+            // atproto profile from custom domain
+            if (url.PathAndQuery == "/")
+            {
+                var handle = url.Host;
+                try
+                {
+                    var did = await ResolveHandleAsync(handle, ctx);
+                    return did;
+                }
+                catch
+                {
+                }
+            }
+
+            foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)
+            {
+                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url);
+                if (did != null)
+                    return did.StartsWith("did:", StringComparison.Ordinal) ? did : null;
+            }
+
+            return null;
+        }
+
+        public async Task<string> ResolveUrlToDidOrRedirectAsync(Uri url, Uri? baseUrl, RequestContext ctx)
         {
             // bsky.app links
             if (url.Host == "bsky.app")
                 return url.PathAndQuery;
 
             // recursive appviewlite links
-            if (url.Host == baseUrl.Host)
+            if (url.Host == baseUrl?.Host)
                 return url.PathAndQuery;
 
             // atproto profile from custom domain

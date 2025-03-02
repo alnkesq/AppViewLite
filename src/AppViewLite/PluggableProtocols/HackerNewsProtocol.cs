@@ -128,7 +128,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             return "#FF6600";
         }
 
-        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
         {
             if (url.AbsoluteUri is "https://news.ycombinator.com/" or "https://hckrnews.com/")
                 return Task.FromResult<string?>(DidPrefix);

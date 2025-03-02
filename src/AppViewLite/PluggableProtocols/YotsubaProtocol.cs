@@ -286,7 +286,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return "#D4D8F0";
         }
 
-        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
         {
             var segments = url.GetSegments();
             if (segments.Length == 1 || (segments.Length == 2 && segments[1] is "catalog" or "archive"))

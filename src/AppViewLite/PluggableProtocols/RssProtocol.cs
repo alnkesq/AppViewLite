@@ -879,7 +879,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return Regex.IsMatch(initialText, @"<(?:rss|feed|rdf)\b");
         }
 
-        public async override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url)
+        public async override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
         {
             if (url.Host.EndsWith(".tumblr.com", StringComparison.Ordinal) && url.Host != "www.tumblr.com")
             {

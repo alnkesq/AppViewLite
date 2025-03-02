@@ -5,7 +5,9 @@ using AngleSharp.Html.Parser;
 using AppViewLite.Models;
 using DuckDbSharp.Types;
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -245,7 +247,7 @@ namespace AppViewLite
             }
         }
 
-        public static FacetData[]? GuessFacets(string? text, bool includeHashtags = true)
+        public static FacetData[]? GuessFacets(string? text, bool includeImplicitFacets = true)
         {
             if (string.IsNullOrEmpty(text)) return null;
             var facets = new List<FacetData>();
@@ -278,7 +280,7 @@ namespace AppViewLite
                 if (!IsValidUrl(m.Value)) continue;
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, sameLinkAsText: true));
             }
-            foreach (Match m in Regex.Matches(text, @"\b[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // example.com or // example.com/path
+            foreach (Match m in Regex.Matches(text, @"\b[\w\-]+(?:\.[\w\-]+)+(?:/[^\s]*)?")) // example.com or example.com/path
             {
                 if (m.Index != 0 && (!char.IsWhiteSpace(text[m.Index - 1]) || text[m.Index - 1] == '/')) continue;
                 var len = m.Length;
@@ -288,14 +290,21 @@ namespace AppViewLite
                     len--;
                     link = link.Substring(0, len);
                 }
+                if (!link.Contains('/'))
+                {
+                    var dot = link.LastIndexOf('.');
+                    var tld = link.Substring(dot + 1);
+                    if (IsKnownFileTypeAsOpposedToTld(tld)) continue;
+                }
                 AddFacetIfNoOverlap(CreateFacetFromUnicodeIndexes(text, m.Index, len, "https://" + link));
             }
-            if (includeHashtags)
+            if (includeImplicitFacets)
             {
-                foreach (var item in GuessHashtagFacets(text))
+                foreach (var item in GuessImplicitFacets(text))
                 {
                     AddFacetIfNoOverlap(item);
                 }
+                
             }
             return facets.OrderBy(x => x.Start).ToArray();
 
@@ -369,16 +378,32 @@ namespace AppViewLite
             return true;
         }
 
-        public static List<FacetData> GuessHashtagFacets(string? text)
+        public static bool CouldContainImplicitFacets(ReadOnlySpan<char> text)
         {
-            if (string.IsNullOrEmpty(text) || !text.Contains('#')) return [];
-            var hashtags = new List<FacetData>();
-            foreach (Match m in Regex.Matches(text, @"#\w+"))
+            return text.ContainsAny('#', '>');
+        }
+        public static bool CouldContainImplicitFacets(ReadOnlySpan<byte> text)
+        {
+            return text.ContainsAny((byte)'#', (byte)'>');
+        }
+
+        public static List<FacetData> GuessImplicitFacets(string? text)
+        {
+            if (!CouldContainImplicitFacets(text)) return [];
+            var implicitFacets = new List<FacetData>();
+            foreach (Match m in Regex.Matches(text!, @"#\w+"))
             {
-                if (IsValidHashtagFacet(text, m)) 
-                    hashtags.Add(CreateFacetFromUnicodeIndexes(text, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null, verifyLink: false)!);
+                if (IsValidHashtagFacet(text!, m)) 
+                    implicitFacets.Add(CreateFacetFromUnicodeIndexes(text!, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null, verifyLink: false)!);
             }
-            return hashtags;
+
+            foreach (Match m in Regex.Matches(text!, @"^>.*$", RegexOptions.Multiline))
+            {
+                implicitFacets.Add(CreateFacetFromUnicodeIndexes(text!, m.Index, m.Length, quote: true)!);
+            }
+
+            
+            return implicitFacets;
         }
 
         public static string[] GuessHashtags(string? text)
@@ -396,7 +421,7 @@ namespace AppViewLite
             return true;
         }
 
-        private static FacetData? CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link = null, string? did = null, DuckDbUuid? customEmojiHash = null, bool? sameLinkAsText = null, bool verifyLink = true)
+        private static FacetData? CreateFacetFromUnicodeIndexes(string originalString, int index, int length, string? link = null, string? did = null, DuckDbUuid? customEmojiHash = null, bool? sameLinkAsText = null, bool verifyLink = true, bool quote = false)
         {
             var startUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(0, index));
             var lengthUtf8 = System.Text.Encoding.UTF8.GetByteCount(originalString.AsSpan(index, length));
@@ -405,7 +430,7 @@ namespace AppViewLite
                 if (!IsValidUrl(link))
                     return null;
             }
-            return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did, CustomEmojiHash = customEmojiHash, SameLinkAsText = sameLinkAsText };
+            return new FacetData { Start = startUtf8, Length = lengthUtf8, Link = link, Did = did, CustomEmojiHash = customEmojiHash, SameLinkAsText = sameLinkAsText, Quote = quote };
         }
 
         public static string NormalizeHandle(string handle)
@@ -693,6 +718,31 @@ namespace AppViewLite
 
 
         }
+
+        public static bool IsKnownFileTypeAsOpposedToTld(ReadOnlySpan<char> ext)
+        {
+            return KnownFileExtensions.Contains(ext);
+        }
+
+        private readonly static FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> KnownFileExtensions = new[]
+        {
+            "7z",
+            "css",
+            "gif",
+            "html",
+            "ico",
+            "jpg",
+            "js",
+            "mkv",
+            "mp3",
+            "mp4",
+            "png",
+            "rar",
+            "txt",
+            "webm",
+            "xml",
+            "zip",
+        }.ToFrozenSet().GetAlternateLookup<ReadOnlySpan<char>>();
     }
 }
 

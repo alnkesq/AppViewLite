@@ -126,7 +126,7 @@ namespace AppViewLite.Web
                             return;
                         }
                         if (
-                            !IsKnownFileTypeAsOpposedToTld(firstSegment.Slice(firstSegment.LastIndexOf('.') + 1)) &&
+                            !StringUtils.IsKnownFileTypeAsOpposedToTld(firstSegment.Slice(firstSegment.LastIndexOf('.') + 1)) &&
                             BlueskyEnrichedApis.IsValidDomain(firstSegment)
                         )
                         {
@@ -258,19 +258,7 @@ namespace AppViewLite.Web
             
         }
 
-        private static bool IsKnownFileTypeAsOpposedToTld(ReadOnlySpan<char> ext)
-        {
-            return
-                ext.SequenceEqual("js") ||
-                ext.SequenceEqual("css") ||
-                ext.SequenceEqual("txt") ||
-                ext.SequenceEqual("html") ||
-                ext.SequenceEqual("gif") ||
-                ext.SequenceEqual("jpg") ||
-                ext.SequenceEqual("png") ||
-                ext.SequenceEqual("xml") ||
-                ext.SequenceEqual("ico");
-        }
+
 
         internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext = null!;
         public static IServiceProvider StaticServiceProvider = null!;

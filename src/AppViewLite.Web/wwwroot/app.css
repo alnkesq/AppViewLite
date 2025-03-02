@@ -1673,3 +1673,7 @@ body:has(.debug-table){
 {
     opacity: 0.4;
 }
+
+.quoted-text{
+    color: #789922;
+}

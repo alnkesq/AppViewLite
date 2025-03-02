@@ -119,7 +119,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 var emojis = GetCustomEmojis(e);
                 Apis.MaybeAddCustomEmojis(emojis, ctx);
 
-                data.Facets = StringUtils.GuessFacets(data.Text, includeHashtags: false);
+                data.Facets = StringUtils.GuessFacets(data.Text, includeImplicitFacets: false);
 
 
                 //var labelsNs = e.Tags.Where(x => x.TagIdentifier == NostrTags.label_label_namespace).Select(x => x.Data).ToArray();

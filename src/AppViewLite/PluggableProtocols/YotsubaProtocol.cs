@@ -212,7 +212,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         private static (string? Text, FacetData[]? Facets) ParseHtml(string? html, YotsubaBoardId boardId)
         {
             var (text, facets) = StringUtils.HtmlToFacets(StringUtils.ParseHtml(html).Body!, x => StringUtils.DefaultElementToFacet(x, boardId.BaseUrl));
-            facets = (facets ?? []).Concat(StringUtils.GuessFacets(text, includeHashtags: false) ?? []).ToArray();
+            facets = (facets ?? []).Concat(StringUtils.GuessFacets(text, includeImplicitFacets: false) ?? []).ToArray();
             return (text, facets);
         }
 

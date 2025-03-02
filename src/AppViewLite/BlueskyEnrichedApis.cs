@@ -1300,21 +1300,41 @@ namespace AppViewLite
 
         //private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
 
-        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx, bool forGrid = false)
+        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx, bool forGrid = false, int limit = default)
         {
+            EnsureLimit(ref limit, 30);
             var feedGenInfo = await GetFeedGeneratorAsync(did, rkey, ctx);
             if (!feedGenInfo.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
-            var domain = feedGenInfo.Data.ImplementationDid.Substring(8);
 
-            var skeletonUrl = $"https://{domain}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}&limit=30";
-            if (continuation != null)
-                skeletonUrl += "&cursor=" + Uri.EscapeDataString(continuation);
+            var proxyViaPds = ctx.IsLoggedIn;
+
+
 
             AtFeedSkeletonResponse postsJson;
             ATUri[] postsJsonParsed;
+
+
             try
             {
-                postsJson = JsonConvert.DeserializeObject<AtFeedSkeletonResponse>(await DefaultHttpClient.GetStringAsync(skeletonUrl))!;
+                if (proxyViaPds)
+                {
+                    var feed = (await PerformPdsActionAsync(x =>
+                    {
+                        return x.GetFeedAsync(new ATUri($"at://{did}/app.bsky.feed.generator/{rkey}"), limit, continuation);
+                    }, ctx)).HandleResult()!;
+                    postsJson = new AtFeedSkeletonResponse
+                    {
+                        cursor = feed.Cursor,
+                        feed = feed.Feed.Select(x => new AtFeedSkeletonPost { post = x.Post.Uri.ToString() }).ToArray()
+                    };
+                }
+                else
+                {
+                    var skeletonUrl = $"https://{feedGenInfo.Data.ImplementationDid.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}&limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
+
+                    postsJson = (await DefaultHttpClient.GetFromJsonAsync<AtFeedSkeletonResponse>(skeletonUrl))!;
+                }
+                
                 postsJsonParsed = postsJson.feed?.Select(x => new ATUri(x.post)).ToArray() ?? [];
             }
             catch (Exception ex)

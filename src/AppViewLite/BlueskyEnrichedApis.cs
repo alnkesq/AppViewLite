@@ -10,7 +10,6 @@ using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using System.Net.Http;
-using Newtonsoft.Json;
 using AppViewLite.Storage;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
@@ -1360,7 +1359,7 @@ namespace AppViewLite
                     return p.Select(x => rels.GetPost(x)).ToArray();
                 }, ctx);
             if (continuation == null && posts.Length == 0)
-                throw new Exception("The feed provider didn't return any results." + (ctx.IsLoggedIn ? " Note that feeds that require a logged-in user are not currently supported." : null));
+                throw new Exception("The feed provider didn't return any results.");
 
             if (forGrid)
                 ctx.IncreaseTimeout(TimeSpan.FromSeconds(3)); // the grid doesn't support automatic refresh
@@ -2290,7 +2289,6 @@ namespace AppViewLite
 
         private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
         {
-            
             var session = ctx.Session;
             using var sessionProtocol = await GetSessionProtocolAsync(ctx);
             if (sessionProtocol.AuthSession!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)

@@ -356,7 +356,7 @@ namespace AppViewLite.PluggableProtocols
             postId = TryGetPostIdFromTid(tid);
             if (postId != null) return;
 
-            postId = fallback!.Value;
+            postId = fallback;
 
 
         }

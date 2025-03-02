@@ -92,7 +92,9 @@
                 <img src="@Apis.GetImageBannerUrl(Did, Profile.Profile.BasicData!.BannerCidBytes!, Profile.Profile.Pds)" />
             }
         </div>
-        <img src="@Profile.Profile.AvatarUrl" class="profile-image-large main-padding" />
+        <a class="main-padding profile-image-large-link" href="@Apis.GetImageUrl(ThumbnailSize.avatar, Did, SimpleProfile.BasicData?.AvatarCidBytes, SimpleProfile.Pds)" target="_blank">
+            <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
+        </a>
         <h1 class="main-padding">
             <TextWithFacets Text="@Profile.Profile.DisplayNameOrFallback" Facets="@Profile.Profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets>
             <ProfileBadges Profile="@Profile.Profile" />

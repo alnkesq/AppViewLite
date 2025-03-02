@@ -487,6 +487,11 @@ ul {
     border-radius: 24px;
     border: 1px solid gray;
 }
+
+.profile-image-large-link{
+    cursor: default;
+    margin-left: 9px;
+}
 .profile-image-large {
     width: 128px;
     height: 128px;
@@ -499,7 +504,6 @@ ul {
     z-index: 9;
     margin-top: 83px;
     outline: 1.5px solid white;
-    margin-left: 9px;
     background: white;
 }
 

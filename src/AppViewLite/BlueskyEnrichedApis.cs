@@ -1155,6 +1155,7 @@ namespace AppViewLite
                     if (posts.Length == 0 && exceededIterations)
                         nextContinuation = null;
 
+                    posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts).ToArray(), ctx);
                     await EnrichAsync(posts, ctx);
                     return (posts, nextContinuation?.Serialize());
                 }

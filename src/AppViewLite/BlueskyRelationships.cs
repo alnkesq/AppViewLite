@@ -2289,7 +2289,7 @@ namespace AppViewLite
                 PopulateViewerFlags(post.RepostedBy, ctx);
         }
 
-        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId>? alreadyReturned = null)
+        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false)
         {
             alreadyReturned ??= [];
             foreach (var post in posts)
@@ -2308,7 +2308,7 @@ namespace AppViewLite
                 }
                 else
                 {
-                    if (!post.IsRepost && post.InReplyToPostId is { } parentId)
+                    if (!post.IsRepost && post.InReplyToPostId is { } parentId && !onlyIfRequiresFullReplyChain)
                     {
                         if (alreadyReturned.Add(parentId))
                         {

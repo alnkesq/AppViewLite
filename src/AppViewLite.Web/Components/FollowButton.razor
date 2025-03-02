@@ -8,7 +8,7 @@
 <button class="follow-button @(Profile.PluggableProtocol != null || (Profile.HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow) && Profile.IsFollowedBySelf == null) ? "follow-button-private" : null) @(Profile.IsFollowedEvenPrivatelyBySelf ? "follow-button-unfollow" : null)" actionkind="toggleFollow">
     @if (Profile.IsFollowedEvenPrivatelyBySelf)
     {
-        <text>Unfollow</text>
+        <text>Following</text>
     }
     else if (Profile.FollowsYou)
     {

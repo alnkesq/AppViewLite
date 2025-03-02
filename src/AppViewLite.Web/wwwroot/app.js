@@ -1387,13 +1387,13 @@ var userActions = {
             (count, have) => { 
                 var followButton = profileElement.querySelector('.follow-button');
                 if (followButton) {
-                    followButton.textContent = have ? 'Unfollow' : +followsyou ? 'Follow back' : 'Follow';
+                    followButton.textContent = have ? 'Following' : +followsyou ? 'Follow back' : 'Follow';
                     followButton.classList.toggle('follow-button-unfollow', have);
                     followButton.classList.toggle('follow-button-private', profileElement.followPrivately)
                 }
                 var followPrivately = profileElement.querySelector('.menu-item[actionkind="toggleFollow"][data-followkind="private"]');
                 if (followPrivately) { 
-                    followPrivately.textContent = have ? 'Unfollow (private)' : 'Follow privately'
+                    followPrivately.textContent = have ? 'Following (private)' : 'Follow privately'
                     followPrivately.classList.toggle('display-none', have && !profileElement.followPrivately);
                 }
         });

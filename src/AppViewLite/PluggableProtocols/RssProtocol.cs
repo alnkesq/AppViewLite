@@ -58,7 +58,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                         if (ScheduledRefreshes.Contains(rssPlc)) continue;
 
-                        var refreshInfo = item.Left != default ? BlueskyRelationships.DeserializeProto<RssRefreshInfo>(item.Left.ValueChunks[0].AsSmallSpan()) : new RssRefreshInfo() { FirstRefresh = DateTime.UtcNow }
+                        var refreshInfo = item.Left != default ? BlueskyRelationships.DeserializeProto<RssRefreshInfo>(item.Left.ValueChunks[0].AsSmallSpan()) : new RssRefreshInfo() { FirstRefresh = DateTime.UtcNow };
                         var nextRefreshTime = GetNextRefreshTime(refreshInfo);
 
                         if (nextRefreshTime != null)

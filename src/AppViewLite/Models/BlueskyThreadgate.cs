@@ -16,6 +16,7 @@ namespace AppViewLite.Models
         [ProtoMember(4)] public bool AllowFollowing;
         [ProtoMember(5)] public RelationshipProto[]? AllowLists;
         [ProtoMember(6)] public bool Dummy;
+        [ProtoMember(7)] public bool AllowFollowers;
     }
 }
 

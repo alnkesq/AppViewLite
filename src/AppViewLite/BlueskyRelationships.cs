@@ -1937,6 +1937,7 @@ namespace AppViewLite
                 HiddenReplies = threadGate.HiddenReplies?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
                 AllowlistedOnly = threadGate.Allow != null,
                 AllowFollowing = threadGate.Allow?.Any(x => x is FollowingRule) ?? false,
+                AllowFollowers = threadGate.Allow?.Any(x => x is FollowerRule) ?? false,
                 AllowMentioned = threadGate.Allow?.Any(x => x is MentionRule) ?? false,
                 AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x => {
                     return new RelationshipProto { Plc = SerializeDid(x.List.Did!.Handler, ctx).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
@@ -2546,6 +2547,13 @@ namespace AppViewLite
 
             if (threadgate.AllowFollowing)
             {
+                // rootPostId.Author must follow replyAuthor
+                if (Follows.HasActor(replyAuthor, rootPostId.Author, out _))
+                    return true;
+            }
+            if (threadgate.AllowFollowers)
+            {
+                // replyAuthor must follow rootPostId.Author
                 if (Follows.HasActor(rootPostId.Author, replyAuthor, out _))
                     return true;
             }

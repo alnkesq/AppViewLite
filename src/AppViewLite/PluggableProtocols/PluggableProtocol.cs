@@ -204,6 +204,10 @@ namespace AppViewLite.PluggableProtocols
                     rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
 
                 var simplePostId = new PostId(authorPlc, postId.PostId.Tid);
+                if (data.PluggableLikeCount.GetValueOrDefault() != 0)
+                {
+                    rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, data.PluggableLikeCount!.Value));
+                }
                 rels.PostData.AddRange(simplePostId, BlueskyRelationships.SerializePostData(data, postId.Did));
 
 

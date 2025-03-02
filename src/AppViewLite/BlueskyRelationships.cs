@@ -22,6 +22,7 @@ using System.Threading;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
+
 namespace AppViewLite
 {
     public class BlueskyRelationships : IDisposable, ICloneableAsReadOnly
@@ -66,6 +67,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, byte> PlcToDidOther;
         public CombinedPersistentMultiDictionary<Plc, UInt128> PlcToDidPlc;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> PostData;
+        public CombinedPersistentMultiDictionary<Plc, RecentPostLikeCount> RecentPluggablePostLikeCount;
         public CombinedPersistentMultiDictionary<HashedWord, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> FailedListLookups;
@@ -217,6 +219,7 @@ namespace AppViewLite
             ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
+            RecentPluggablePostLikeCount = RegisterDictionary<Plc, RecentPostLikeCount>("recent-post-like-count", onCompactation: x => x.DistinctByAssumingOrderedInputLatest(x => x.PostRKey));
             PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32");
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
@@ -1597,7 +1600,7 @@ namespace AppViewLite
             return proto;
         }
 
-        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false, bool onlyNeedsLikeCount = false)
+        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false)
         {
             var encoding = (PostDataEncoding)postDataCompressed[0];
             postDataCompressed = postDataCompressed.Slice(1);
@@ -1608,19 +1611,10 @@ namespace AppViewLite
 
             if (encoding == PostDataEncoding.Proto)
             {
-                if (onlyNeedsLikeCount)
-                {
-                    return new BlueskyPostData
-                    {
-                        PluggableLikeCount = ProtoBuf.Serializer.Deserialize<BlueskyPostDataPluggableLikeCountOnly>(ms).PluggableLikeCount
-                    };
-                }
                 var proto = ProtoBuf.Serializer.Deserialize<BlueskyPostData>(ms);
                 Decompress(proto, postId, skipBpeDecompression: skipBpeDecompression);
                 return proto;
             }
-
-            if (onlyNeedsLikeCount) return new BlueskyPostData { };
 
             //if (encoding == PostDataEncoding.BrotliProto)
             //{
@@ -2979,29 +2973,37 @@ namespace AppViewLite
         }
 
 
-        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost)
+        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?> plcToRecentPostLikes)
         {
             var likeCount = Likes.GetApproximateActorCount(postId);
             if (likeCount == 0 && couldBePluggablePost)
             {
-                var did = GetDid(postId.Author);
-                if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
+                if (!plcToRecentPostLikes.TryGetValue(postId.Author, out var recentPostLikes))
                 {
-                    likeCount = GetPluggableLikeCount(postId);
+                    var did = GetDid(postId.Author);
+                    if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
+                    {
+                        recentPostLikes = RecentPluggablePostLikeCount.GetValuesChunkedLatestFirst(postId.Author).ToArray();
+                    }
+                    else
+                    {
+                        recentPostLikes = null;
+                    }
+                    plcToRecentPostLikes[postId.Author] = recentPostLikes;
+                }
+                if (recentPostLikes != null)
+                {
+                    likeCount =
+                        recentPostLikes
+                        .Select(x => x.EnumerateFromReverseRightBiased(new RecentPostLikeCount(postId.PostRKey, int.MaxValue)).FirstOrDefault(x => x.PostRKey == postId.PostRKey))
+                        .FirstOrDefault(x => x != default)
+                        .LikeCount;
                 }
             }
             return likeCount;
         }
 
-        private long GetPluggableLikeCount(PostIdTimeFirst postId)
-        {
-            if (!PostData.TryGetPreserveOrderSpanLatest(postId, out var bytes))
-                return 0;
 
-            return DeserializePostData(bytes.AsSmallSpan(), postId, onlyNeedsLikeCount: true).PluggableLikeCount ?? 0;
-
-
-        }
 
         public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser)
         {

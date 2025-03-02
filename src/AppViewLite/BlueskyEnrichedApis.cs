@@ -2840,11 +2840,11 @@ namespace AppViewLite
         public static TimeSpan HandleToDidMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_HANDLE_TO_DID_MAX_STALE_HOURS) ?? (10 * 24)));
         public static TimeSpan DidDocMaxStale = TimeSpan.FromHours(Math.Max(1, AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DID_DOC_MAX_STALE_HOURS) ?? (2 * 24)));
 
-        public async Task<string> ResolveHandleOrUrlAsync(string handleOrUrl, RequestContext ctx)
+        public async Task<string> ResolveHandleOrUrlAsync(string handleOrUrl, Uri baseUrl, RequestContext ctx)
         {
             if (handleOrUrl.StartsWith("http://", StringComparison.Ordinal) || handleOrUrl.StartsWith("https://", StringComparison.Ordinal))
             { 
-                var urlOrDid = await TryResolveUrlToDidAsync(new Uri(handleOrUrl), null, ctx);
+                var urlOrDid = await TryResolveUrlToDidAsync(new Uri(handleOrUrl), baseUrl, ctx);
                 if (urlOrDid == null) throw new Exception("Could not resolve to DID.");
                 return urlOrDid;
             }

@@ -513,6 +513,8 @@ ul {
     border-radius: 3px;
     margin-bottom: 6px;
     display: inline-block;
+    margin-right: 4px;
+    margin-top: 2px;
 }
 
 .post-date, .handle-generic {

@@ -131,7 +131,7 @@ namespace AppViewLite
         }
 
 
-        private void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false)
+        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false)
         {
             using var priorityScope = CreateIngestionThreadPriorityScope();
 

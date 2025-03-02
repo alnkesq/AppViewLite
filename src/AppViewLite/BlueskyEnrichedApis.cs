@@ -992,6 +992,7 @@ namespace AppViewLite
           
             }
 
+            var isSelf = ctx.IsLoggedIn && ctx.Session.Did == did;
 
             ProfilePostsContinuation parsedContinuation = continuation != null ? ProfilePostsContinuation.Deserialize(continuation) : defaultContinuation;
             var fastReturnedPostsSet = parsedContinuation.FastReturnedPosts.ToHashSet();
@@ -1017,10 +1018,31 @@ namespace AppViewLite
                 new MergeablePostEnumerator(parsedContinuation.MaxTidLikes, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Like.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
-                    return posts.Records.Select(x =>
+
+                    var likeRecords = posts.Records.Select(x =>
                     {
-                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!)));
-                    }).Where(x => x != default).ToArray();
+                        return (Record: x.Value as Like, Reference: TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!))));
+                    }).Where(x => x.Reference != default).ToArray();
+
+                    if (isSelf)
+                    {
+                        var missing = WithRelationshipsLockForDids(likeRecords.Select(x => x.Reference.PostId.Did).ToArray(), (_, rels) => likeRecords.Where(x =>
+                        {
+                            return !rels.Likes.creations.Contains(new PostId(rels.SerializeDid(x.Reference.PostId.Did, ctx), Tid.Parse(x.Reference.PostId.RKey)), new Models.Relationship(ctx.LoggedInUser, Tid.Parse(x.Reference.RKey)));
+                        }).ToArray(), ctx);
+                        if(missing.Length != 0)
+                        {
+                            
+                            var indexer = new Indexer(this);
+                            foreach(var item in missing)
+                            {
+                                indexer.OnRecordCreated(did, Like.RecordType + "/" + item.Reference.RKey, item.Record!);
+                            }
+                            ctx.BumpMinimumVersion(this.relationshipsUnlocked.Version);
+                        }
+                    }
+                    return likeRecords.Select(x => x.Reference).ToArray();
+
                 }, CollectionKind.Likes),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidBookmarks, max =>
                 {

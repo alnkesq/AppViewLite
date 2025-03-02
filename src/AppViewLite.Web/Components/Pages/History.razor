@@ -1,0 +1,20 @@
+@page "/history"
+@inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
+
+@code {
+
+
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private PostsAndContinuation Posts = new();
+    protected override async Task OnParametersSetAsync()
+    {
+        Posts = await Apis.GetRecentlyViewedPosts(Continuation, RequestContext);
+    }
+}
+
+<PageTitle>Recently viewed posts</PageTitle>
+
+<h1>Recently viewed posts</h1>
+
+<PostList Posts="@Posts.Posts" NextContinuation="@Posts.NextContinuation" />

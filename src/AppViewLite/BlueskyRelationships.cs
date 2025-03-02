@@ -95,6 +95,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> KnownMirrorsToIgnore;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Tid> ExternalPostIdHashToSyntheticTid;
         public CombinedPersistentMultiDictionary<Plc, PostIdTimeFirst> SeenPosts;
+        public CombinedPersistentMultiDictionary<Plc, TimePostSeen> SeenPostsByDate;
         public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
 
@@ -273,6 +274,7 @@ namespace AppViewLite
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
             SeenPosts = RegisterDictionary<Plc, PostIdTimeFirst>("seen-posts");
+            SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.SingleValue);
 

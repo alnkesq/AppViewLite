@@ -3347,13 +3347,18 @@ namespace AppViewLite
 
         public void MarkAsRead(PostIdString[] postIdsStr, Plc loggedInUser, RequestContext ctx)
         {
+            if (postIdsStr.Length == 0) return;
             WithRelationshipsWriteLock(rels =>
             {
+                var now = DateTime.UtcNow;
                 foreach (var postIdStr in postIdsStr)
                 {
                     var postId = rels.GetPostId(postIdStr.Did, postIdStr.RKey, ctx);
                     rels.SeenPosts.Add(loggedInUser, postId);
+                    rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
+                    now = now.AddTicks(1);
                 }
+
             }, ctx);
         }
 
@@ -3668,6 +3673,17 @@ namespace AppViewLite
 
 
             throw new UnexpectedFirehoseDataException("No RSS feeds were found at the specified page.");
+        }
+
+        public async Task<PostsAndContinuation> GetRecentlyViewedPosts(string? continuation, RequestContext ctx, int limit = 0)
+        {
+            EnsureLimit(ref limit, 30);
+            var continuationParsed = continuation != null ? new TimePostSeen(new DateTime(long.Parse(continuation), DateTimeKind.Utc), default) : (TimePostSeen?)null;
+            var postsAndDates = WithRelationshipsLock(rels => rels.SeenPostsByDate.GetValuesSortedDescending(ctx.LoggedInUser, null, continuationParsed).DistinctBy(x => x.PostId).Take(limit).Select(x => (x.Date, Post: rels.GetPost(x.PostId))).ToArray(), ctx);
+
+            var posts = postsAndDates.Select(x => x.Post).ToArray();
+            await EnrichAsync(posts, ctx);
+            return new PostsAndContinuation(posts, posts.Length != 0 ? posts[^1].Date.Ticks.ToString() : null);
         }
 
 

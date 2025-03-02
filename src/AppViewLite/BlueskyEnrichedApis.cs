@@ -2390,8 +2390,14 @@ namespace AppViewLite
 
         public async Task<Tid> CreateFollowAsync(string did, RequestContext ctx)
         {
-            return await CreateRecordAsync(new Follow { Subject = new ATDid(did) }, ctx);
+            return await CreateRecordAsync(new Follow { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }, ctx);
         }
+
+        private static DateTime UtcNowMillis()
+        {
+            return new DateTime(DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
+        }
+
         public async Task DeleteFollowAsync(Tid rkey, RequestContext ctx)
         {
             await DeleteRecordAsync(Follow.RecordType, rkey, ctx);
@@ -2399,12 +2405,12 @@ namespace AppViewLite
         public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RequestContext ctx)
         {
             var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
-            return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
+            return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
         }
         public async Task<Tid> CreateRepostAsync(string did, Tid rkey, RequestContext ctx)
         {
             var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
-            return await CreateRecordAsync(new Repost { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) }, ctx);
+            return await CreateRecordAsync(new Repost { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
         }
 
         public Tid CreatePostBookmark(string did, Tid rkey, RequestContext ctx)
@@ -2466,7 +2472,7 @@ namespace AppViewLite
                     Record = (await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef,
                 };
             }
-            return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef, Embed = embed }, ctx);
+            return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef, Embed = embed, CreatedAt = UtcNowMillis() }, ctx);
         }
 
         private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post, RequestContext ctx)

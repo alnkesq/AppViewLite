@@ -122,7 +122,7 @@ namespace AppViewLite.PluggableProtocols
 
 
 
-            if (data.PluggableLikeCount != null && !ProvidesLikeCount)
+            if ((data.PluggableLikeCount != null || data.PluggableLikeCountForScoring != null) && !ProvidesLikeCount)
                 throw new ArgumentException("PluggableProtocol.ProvidesLikeCount should be overriden if posts are populated with PluggableLikeCount.");
 
 
@@ -204,9 +204,10 @@ namespace AppViewLite.PluggableProtocols
                     rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
 
                 var simplePostId = new PostId(authorPlc, postId.PostId.Tid);
-                if (data.PluggableLikeCount.GetValueOrDefault() != 0)
+                var likeCountForScoring = (data.PluggableLikeCountForScoring ?? data.PluggableLikeCount).GetValueOrDefault();
+                if (likeCountForScoring != 0)
                 {
-                    rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, data.PluggableLikeCount!.Value));
+                    rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, likeCountForScoring));
                 }
                 rels.PostData.AddRange(simplePostId, BlueskyRelationships.SerializePostData(data, postId.Did));
 

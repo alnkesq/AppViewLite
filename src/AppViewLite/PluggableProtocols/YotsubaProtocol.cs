@@ -201,6 +201,10 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 PluggableReplyCount = replyCount,
                 PluggableLikeCount = replyCount,
             };
+            if (body.Text != null && Regex.IsMatch(body.Text, "\bGeneral\b", RegexOptions.IgnoreCase))
+            {
+                threadData.PluggableLikeCountForScoring = (int)Math.Ceiling(replyCount * 0.1);
+            }
             OnPostDiscovered(threadId, null, null, threadData, ctx);
             lock (LastObservedReplyCount)
             {

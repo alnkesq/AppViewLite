@@ -2830,12 +2830,10 @@ namespace AppViewLite
                 if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
                 if (rkey == default) return true; // private follow
 
-                ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
-                if (!exists)
-                {
-                    return true; // we don't know, assume yes
-                }
-                return result;
+                if (stillFollowedResult.TryGetValue(plc, out var result))
+                    return result;
+                
+                return true; // we don't know, assume yes
             }
             );
         }

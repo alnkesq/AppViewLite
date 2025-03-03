@@ -2324,7 +2324,7 @@ namespace AppViewLite
                 {
                     return await func(sessionProtocol);
                 }
-                catch (ATNetworkErrorException ex) when (ex.AtError.Detail?.Error == "ExpiredToken")
+                catch (Exception ex) when (IsExpiredTokenException(ex))
                 {
                     // continue
                 }
@@ -2342,6 +2342,17 @@ namespace AppViewLite
             
             using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
             return await func(sessionProtocol2);
+        }
+
+        private static bool IsExpiredTokenException(Exception? ex)
+        {
+            while (ex != null)
+            {
+                if (ex is ATNetworkErrorException at && at.AtError.Detail?.Error == "ExpiredToken")
+                    return true;
+                ex = ex.InnerException;
+            }
+            return false;
         }
 
         public static byte[] SerializeAuthSession(AuthSession authSession)

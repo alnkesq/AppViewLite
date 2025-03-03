@@ -186,6 +186,7 @@ namespace AppViewLite
                     replica.Lock.EnterReadLock();
                     try
                     {
+                        replica.EnsureNotDisposed();
                         return func(replica);
                     }
                     finally

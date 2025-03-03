@@ -107,6 +107,12 @@ namespace AppViewLite.Web
             var flag = Enum.Parse<PrivateFollowFlags>(args.Flag);
             apis.TogglePrivateFollowFlag(args.Did, flag, args.NewValue, ctx);
         }
+        [HttpPost(nameof(ToggleDomainMute))]
+        public void ToggleDomainMute([FromBody] ToggleDomainMuteArgs args)
+        {
+
+            apis.ToggleDomainMute(args.Domain, args.Mute, ctx);
+        }
 
         [HttpPost(nameof(MarkLastSeenNotification))]
         public void MarkLastSeenNotification([FromBody] NotificationIdArgs notificationId)
@@ -173,6 +179,7 @@ namespace AppViewLite.Web
         public record NotificationIdArgs(string NotificationId);
         public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);
         public record DeleteBookmarkArgs(string PostDid, string PostRkey, string BookmarkRKey);
+        public record ToggleDomainMuteArgs(string Domain, bool Mute);
     }
 }
 

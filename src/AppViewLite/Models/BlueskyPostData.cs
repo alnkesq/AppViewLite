@@ -3,6 +3,7 @@ using AppViewLite.Numerics;
 using System;
 using System.Text;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace AppViewLite.Models
 {
@@ -78,6 +79,23 @@ namespace AppViewLite.Models
         public byte[]? GetUtf8IfNeededByCompactFacets()
         {
             return Facets != null && Facets.Any(x => x.SameLinkAsText == true) ? Encoding.UTF8.GetBytes(Text!) : default;
+        }
+
+        internal IEnumerable<string> GetExternalUrls()
+        {
+            if (ExternalUrl != null) yield return ExternalUrl;
+
+            if (Facets != null)
+            {
+                foreach (var facet in Facets)
+                {
+                    if (facet.Link != null) yield return facet.Link;
+                    else if (facet.SameLinkAsText == true && Text != null)
+                    {
+                        yield return facet.GetLink(Encoding.UTF8.GetBytes(Text))!;
+                    }
+                }
+            }
         }
 
         public string? InReplyToRKeyString => InReplyToRKey != null ? new Tid(InReplyToRKey.Value).ToString() : null;

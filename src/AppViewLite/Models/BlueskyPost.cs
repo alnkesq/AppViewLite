@@ -134,6 +134,7 @@ namespace AppViewLite.Models
 
         public bool IsMuted;
         public bool DidPopulateViewerFlags;
+        public MuteRule? MutedByRule;
         internal bool ShouldMute(RequestContext ctx)
         {
             
@@ -160,11 +161,15 @@ namespace AppViewLite.Models
                     return true;
             }
 
-            if (Data?.Text is { } text && ctx.IsLoggedIn && ctx.Session.PrivateProfile!.MuteRules is { Length: >0 } muteRules)
+            if (Data != null && ctx.IsLoggedIn && ctx.Session.PrivateProfile!.MuteRules is { Length: >0 } muteRules)
             {
-                var words = StringUtils.GetAllWords(text).ToArray();
-                if (muteRules.Any(x => x.AppliesTo(words, Author.Plc)))
+                var words = StringUtils.GetAllWords(Data.Text).ToArray();
+                var urls = Data.GetExternalUrls().Distinct().Select(x => StringUtils.TryParseUri(x)).WhereNonNull().ToArray();
+                this.MutedByRule = muteRules.FirstOrDefault(x => x.AppliesTo(words, urls, this));
+                if (MutedByRule != null)
+                {
                     return true;
+                }
             }
             return false;
             

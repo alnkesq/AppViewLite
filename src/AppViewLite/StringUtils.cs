@@ -592,7 +592,7 @@ namespace AppViewLite
             }
         }
 
-        public static Uri? TryParseUri(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
+        public static Uri? TryParseUri(string? uri) => Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
         public static string? GetFileName(this Uri url)
         {

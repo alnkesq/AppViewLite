@@ -3692,7 +3692,21 @@ namespace AppViewLite
             return new PostsAndContinuation(posts, posts.Length != 0 ? posts[^1].Date.Ticks.ToString() : null);
         }
 
+        public void ToggleDomainMute(string domain, bool mute, RequestContext ctx)
+        {
+            var profile = ctx.Session.PrivateProfile!;
+            if (mute)
+            {
+                if (profile.MuteRules.Any(x => x.AppliesToPlc == null && x.Word == domain)) return;
+                profile.MuteRules = profile.MuteRules.Append(new MuteRule { Word = domain }).ToArray();
+            }
+            else
+            {
+                profile.MuteRules = profile.MuteRules.Where(x => !(x.AppliesToPlc == null && x.Word == domain)).ToArray();
+            }
 
+            WithRelationshipsWriteLock(rels => rels.SaveAppViewLiteProfile(ctx), ctx);
+        }
     }
 }
 

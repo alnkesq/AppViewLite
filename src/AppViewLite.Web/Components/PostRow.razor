@@ -469,7 +469,7 @@
 
                             <a href="@Apis.GetImageUrl(media.IsVideo ? ThumbnailSize.feed_video_blob : ThumbnailSize.feed_fullsize, Post.Did, media.Cid, Post.Author.Pds, forceProxy: true)" class="menu-item" download>Download @(media.IsVideo ? "video" : "image")@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
                         }
-                    
+
                     }
 
                     @if (RequestContext.IsLoggedIn)
@@ -502,7 +502,8 @@
 
                             if (externalDomainForMute != null)
                             {
-                                <button actionkind="muteDomain" class="menu-item">Mute links to @externalDomainForMute</button>
+                                var isMutedByDomain = Post.MutedByRule?.Word == externalDomainForMute;
+                                <button actionkind="muteDomain" class="menu-item" data-mutedomain="@externalDomainForMute" data-ismuted="@(isMutedByDomain ? "1" : "0")">@(isMutedByDomain ? "Unmute" : "Mute") links to @externalDomainForMute</button>
                             }
 
                             if (Post.Data?.Text != null)

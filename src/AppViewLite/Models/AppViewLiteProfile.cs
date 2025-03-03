@@ -64,24 +64,31 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public int? AppliesToPlc;
         [ProtoMember(3)] public int Id;
 
-        private Func<string[], bool>? isMatch;
+        private Func<string[], Uri[], BlueskyPost, bool>? isMatch;
         
-        public bool AppliesTo(string[] words, Plc plc)
+        public bool AppliesTo(string[] words, Uri[] urls, BlueskyPost post)
         {
-            if (this.AppliesToPlc != null && new Plc(AppliesToPlc.Value) != plc) return false;
+            if (this.AppliesToPlc != null && new Plc(AppliesToPlc.Value) != post.AuthorId) return false;
             isMatch ??= CreateMatcher();
-            return isMatch(words);
+            return isMatch(words, urls, post);
         }
 
-        private Func<string[], bool> CreateMatcher()
+        private Func<string[], Uri[], BlueskyPost, bool> CreateMatcher()
         {
 
+            if (Word.Contains('.') && !Word.Contains(' '))
+            {
+                return (text, urls, post) =>
+                {
+                    return urls.Any(x => x.HasHostSuffix(Word));
+                };
+            }
             var phrase = StringUtils.GetAllWords(Word).ToArray();
-            if (phrase.Length == 0) return (_) => false;
+            if (phrase.Length == 0) return (_, _, _) => false;
 
-            if (phrase.Length == 1) return text => text.Contains(phrase[0]);
+            if (phrase.Length == 1) return (text, _, _) => text.Contains(phrase[0]);
 
-            return post =>
+            return (post, _, _) =>
             {
                 var postWords = post.AsSpan();
                 while (true)

@@ -556,7 +556,7 @@ namespace AppViewLite
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
-            var result = (await at.Sync.GetRepoAsync(new ATDid(did), importer.OnCarDecoded, since: since != default ? since.ToString() : null, cancellationToken: ct)).HandleResult();
+            var result = (await at.Sync.GetRepoAsync(new ATDid(did), onDecoded: importer.OnCarDecoded, since: since != default ? since.ToString() : null, cancellationToken: ct)).HandleResult();
             importer.LogStats();
             
             foreach (var record in importer.EnumerateRecords())

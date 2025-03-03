@@ -488,24 +488,27 @@ function applyPageElements() {
                 }
                 var postListElement = document.querySelector('.post-list');
                 if (!postListElement) return;
-                var postList = [...postListElement.children];
-                var postIndexes = postsInViewport.map(x => postList.indexOf(x)).filter(x => x != -1);
-                postIndexes.sort();
-                var firstVisiblePost = postIndexes.length ? postList[postIndexes[0]] : null;
                 
-                //console.log('First visible post: ' + getPostText(firstVisiblePost))
-                var postToMarkAsRead = firstVisiblePost?.previousElementSibling;
-                while (postToMarkAsRead) { 
-                    if (postToMarkAsRead.classList.contains('post')) {
-                        if (postToMarkAsRead.wasMarkedAsRead) break;
-                        if (postToMarkAsRead.getBoundingClientRect().bottom < 0 && postToMarkAsRead.didAppearInViewport) {
-                            //console.log('Mark as read: ' + getPostText(postToMarkAsRead));
-                            var p = postToMarkAsRead;
-                            (async () => (await liveUpdatesConnectionFuture).invoke('MarkAsRead', p.dataset.postdid, p.dataset.postrkey))()
-                            postToMarkAsRead.wasMarkedAsRead = true;
+                
+                if (location.pathname != '/history') {
+                    var postList = [...postListElement.children];
+                    var postIndexes = postsInViewport.map(x => postList.indexOf(x)).filter(x => x != -1);
+                    postIndexes.sort();
+                    
+                    var firstVisiblePost = postIndexes.length ? postList[postIndexes[0]] : null;
+                    var postToMarkAsRead = firstVisiblePost?.previousElementSibling;
+                    while (postToMarkAsRead) {
+                        if (postToMarkAsRead.classList.contains('post')) {
+                            if (postToMarkAsRead.wasMarkedAsRead) break;
+                            if (postToMarkAsRead.getBoundingClientRect().bottom < 0 && postToMarkAsRead.didAppearInViewport) {
+                                //console.log('Mark as read: ' + getPostText(postToMarkAsRead));
+                                var p = postToMarkAsRead;
+                                (async () => (await liveUpdatesConnectionFuture).invoke('MarkAsRead', p.dataset.postdid, p.dataset.postrkey))()
+                                postToMarkAsRead.wasMarkedAsRead = true;
+                            }
                         }
+                        postToMarkAsRead = postToMarkAsRead.previousElementSibling;
                     }
-                    postToMarkAsRead = postToMarkAsRead.previousElementSibling;
                 }
             });
         },

@@ -311,7 +311,7 @@ function fastNavigateIfLink(event) {
 
 function canFastNavigateTo(url) { 
     if (url.host != window.location.host) return false;
-    if (url.pathname == '/login' || url.pathname == '/logout') return false;
+    if (url.pathname == '/login' || url.pathname == '/logout' || url.pathname == '/mute') return false;
     if (url.pathname.startsWith('/img/') || url.pathname.startsWith('/watch/')) return false;
     return true;
 }

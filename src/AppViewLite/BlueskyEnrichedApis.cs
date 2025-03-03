@@ -521,6 +521,7 @@ namespace AppViewLite
                     post.ViolatesThreadgate = true;
                 }
 
+                rels.PopulateViewerFlags(post, ctx);
 
                 if (onPostDataAvailable != null)
                 {
@@ -588,6 +589,7 @@ namespace AppViewLite
                     }, ctx);
                 }
             }
+
             return posts;
         }
 
@@ -1315,7 +1317,7 @@ namespace AppViewLite
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc), ctx);
         }
 
-        private Plc SerializeSingleDid(string did, RequestContext ctx)
+        public Plc SerializeSingleDid(string did, RequestContext ctx)
         {
             return WithRelationshipsLockForDid(did, (plc, rels) => plc, ctx);
         }
@@ -3415,7 +3417,7 @@ namespace AppViewLite
 
             session.PrivateProfile = privateProfile;
             session.PrivateFollows = (privateProfile.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
-
+            privateProfile.MuteRules ??= [];
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
@@ -3426,20 +3428,6 @@ namespace AppViewLite
                 await Task.WhenAny(deadline, loadFollows);
             }
 
-
-            // TODO: temporary migration code
-            WithRelationshipsWriteLock(rels =>
-            {
-                foreach (var item in session.PrivateFollowsAsListEntries)
-                {
-                    if (item.Member == default) continue;
-                    var did = rels.GetDid(item.Member);
-                    if (did.StartsWith("did:rss:", StringComparison.Ordinal))
-                    {
-                        rels.RssFeedToFollowers.AddIfMissing(item.Member, session.LoggedInUser!.Value);
-                    }
-                }
-            }, ctx);
 
         }
 
@@ -3596,6 +3584,13 @@ namespace AppViewLite
 
         public ConcurrentDictionary<string, AppViewLiteSession> SessionDictionary = new();
 
+        public async Task<string> ResolveUrlToDidAsync(Uri url, Uri? baseUrl, RequestContext ctx)
+        {
+            var resolved = await TryResolveUrlToDidAsync(url, baseUrl, ctx);
+            if (resolved == null)
+                throw new Exception("The specified DID or URL could not be resolved.");
+            return resolved;
+        }
         public async Task<string?> TryResolveUrlToDidAsync(Uri url, Uri? baseUrl, RequestContext ctx)
         {
             // bsky.app links

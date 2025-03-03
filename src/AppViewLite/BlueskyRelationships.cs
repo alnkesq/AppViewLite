@@ -2286,9 +2286,13 @@ namespace AppViewLite
 
         public void PopulateViewerFlags(BlueskyPost post, RequestContext ctx)
         {
+            if (post.DidPopulateViewerFlags) return;
+
             PopulateViewerFlags(post.Author, ctx);
             if (post.RepostedBy != null)
                 PopulateViewerFlags(post.RepostedBy, ctx);
+            post.IsMuted = post.ShouldMute(ctx);
+            post.DidPopulateViewerFlags = true;
         }
 
         internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false)
@@ -2903,7 +2907,7 @@ namespace AppViewLite
             SaveAppViewLiteProfile(ctx);
         }
 
-        private void SaveAppViewLiteProfile(RequestContext ctx)
+        public void SaveAppViewLiteProfile(RequestContext ctx)
         {
             StoreAppViewLiteProfile(ctx.LoggedInUser, ctx.Session.PrivateProfile!);
         }

@@ -1466,16 +1466,33 @@ button[disabled], input[type=submit][disabled] {
     white-space: nowrap;
 }
 
-.post-blocked > .post-body,
-.post-blocked > .post-meta,
-.post-blocked > .post-image-list,
-.post-blocked > .post-external-preview,
 .post-blocked > .label-badge-list,
-.post-blocked > .post-in-reply-to,
+.post-blocked > .post-author-image-link-container > .post-author-image-link,
+.post-blocked > .post-author-image-link,
+.post-blocked > .post-body,
 .post-blocked > .post-external-gif,
-.post-blocked > .post-author-image-link-container > .post-author-image-link {
+.post-blocked > .post-external-preview,
+.post-blocked > .post-image-list,
+.post-blocked > .post-in-reply-to,
+.post-blocked > .post-meta
+{
     filter: blur(5px);
 }
+
+
+.post-muted .label-badge-list,
+.post-muted .post-author-image-link-container > .post-author-image-link,
+.post-muted .post-author-image-link,
+.post-muted .post-body,
+.post-muted .post-external-gif,
+.post-muted .post-external-preview,
+.post-muted .post-image-list,
+.post-muted .post-in-reply-to,
+.post-muted .post-meta
+{
+    opacity: 0.4;
+}
+
 
 .post-blur-reason-container{
     display: flex;
@@ -1666,15 +1683,35 @@ body:has(.debug-table){
     max-width: 1600px;
 }
 
-.post-muted .post-author-image-link,
-.post-muted .post-meta,
-.post-muted .post-body,
-.post-muted .post-image-list,
-.post-muted .post-external-preview
-{
-    opacity: 0.4;
-}
-
 .quoted-text{
     color: #789922;
+}
+
+.mute-form table{
+    width: 100%;
+    text-align: left;
+}
+
+.mute-form-col-word {
+    width: 40%
+}
+.mute-form-col-user {
+    width: 40%
+}
+
+.mute-form input{
+    width: calc(100% - 20px);
+}
+
+.mute-form-make-global-button{
+    background: none;
+    color: red;
+    text-align: center;
+    padding: 0;
+    padding-bottom: 1px;
+    width: 25px;
+    height: 25px;
+}
+.mute-form-make-global-button:hover{
+    background: rgb(255, 230, 230);
 }

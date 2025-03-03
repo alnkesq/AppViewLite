@@ -1,5 +1,6 @@
 @code {
     [Parameter] public required BlueskyProfile Profile { get; set; }
+    [Parameter] public bool BlueLink { get; set; }
 }
 
 @if (Profile.IsYou)
@@ -8,6 +9,6 @@
 }
 else
 {
-    <a href="@Profile.BaseUrl" class="inline-profile-link underline-on-hover">@Profile.DisplayNameOrFallback</a>
+    <a href="@Profile.BaseUrl" class="inline-profile-link underline-on-hover @(BlueLink ? "blue-link" : null)">@Profile.DisplayNameOrFallback</a>
 }
 

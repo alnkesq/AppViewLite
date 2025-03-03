@@ -3,6 +3,7 @@ using AppViewLite.Numerics;
 using System;
 using AppViewLite.PluggableProtocols;
 using System.Runtime.CompilerServices;
+using System.Linq;
 
 namespace AppViewLite.Models
 {
@@ -131,34 +132,42 @@ namespace AppViewLite.Models
             return "[" + Author?.DisplayNameOrFallback + "] " + Data?.Text;
         }
 
-        public bool IsMuted
+        public bool IsMuted;
+        public bool DidPopulateViewerFlags;
+        internal bool ShouldMute(RequestContext ctx)
         {
-            get
+            
+            if (RepostedBy != null)
             {
-                if (RepostedBy != null)
+                if (IsSelfRepost)
                 {
-                    if (IsSelfRepost)
-                    {
-                        if (IsUserMuted(RepostedBy, PrivateFollowFlags.MuteImageSelfReposts, PrivateFollowFlags.MuteTextualSelfReposts))
-                            return true;
-                    }
-                    else
-                    {
-                        if (!Author.IsFollowedEvenPrivatelyBySelf)
-                        {
-                            if (IsUserMuted(RepostedBy, PrivateFollowFlags.MuteImageNonFollowedReposts, PrivateFollowFlags.MuteTextualNonFollowedReposts))
-                                return true;
-                        }
-                    }
-                }
-
-                if (!IsSelfRepost)
-                {
-                    if (IsUserMuted(Author, PrivateFollowFlags.MuteImagePosts, PrivateFollowFlags.MuteTextualPosts))
+                    if (IsUserMuted(RepostedBy, PrivateFollowFlags.MuteImageSelfReposts, PrivateFollowFlags.MuteTextualSelfReposts))
                         return true;
                 }
-                return false;
+                else
+                {
+                    if (!Author.IsFollowedEvenPrivatelyBySelf)
+                    {
+                        if (IsUserMuted(RepostedBy, PrivateFollowFlags.MuteImageNonFollowedReposts, PrivateFollowFlags.MuteTextualNonFollowedReposts))
+                            return true;
+                    }
+                }
             }
+
+            if (!IsSelfRepost)
+            {
+                if (IsUserMuted(Author, PrivateFollowFlags.MuteImagePosts, PrivateFollowFlags.MuteTextualPosts))
+                    return true;
+            }
+
+            if (Data?.Text is { } text && ctx.IsLoggedIn && ctx.Session.PrivateProfile!.MuteRules is { Length: >0 } muteRules)
+            {
+                var words = StringUtils.GetAllWords(text).ToArray();
+                if (muteRules.Any(x => x.AppliesTo(words, Author.Plc)))
+                    return true;
+            }
+            return false;
+            
         }
 
         private bool IsUserMuted(BlueskyProfile user, PrivateFollowFlags imageFlag, PrivateFollowFlags textFlag)

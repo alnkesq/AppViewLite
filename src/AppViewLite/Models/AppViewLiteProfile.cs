@@ -1,6 +1,8 @@
 using ProtoBuf;
+using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AppViewLite.Models
 {
@@ -11,6 +13,8 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public List<AppViewLiteSessionProto>? Sessions;
         [ProtoMember(3)] public byte[]? PdsSessionCbor;
         [ProtoMember(4)] public PrivateFollow[]? PrivateFollows;
+        [ProtoMember(5)] public MuteRule[] MuteRules = null!;
+        [ProtoMember(6)] public int LastAssignedMuteRuleId;
     }
 
     [ProtoContract]
@@ -50,6 +54,49 @@ namespace AppViewLite.Models
         MuteImagePosts = 128,
         MuteTextualPosts = 256,
         MuteAllPosts = MuteImagePosts | MuteTextualPosts,
+    }
+
+
+    [ProtoContract]
+    public class MuteRule
+    {
+        [ProtoMember(1)] public required string Word;
+        [ProtoMember(2)] public int? AppliesToPlc;
+        [ProtoMember(3)] public int Id;
+
+        private Func<string[], bool>? isMatch;
+        
+        public bool AppliesTo(string[] words, Plc plc)
+        {
+            if (this.AppliesToPlc != null && new Plc(AppliesToPlc.Value) != plc) return false;
+            isMatch ??= CreateMatcher();
+            return isMatch(words);
+        }
+
+        private Func<string[], bool> CreateMatcher()
+        {
+
+            var phrase = StringUtils.GetAllWords(Word).ToArray();
+            if (phrase.Length == 0) return (_) => false;
+
+            if (phrase.Length == 1) return text => text.Contains(phrase[0]);
+
+            return post =>
+            {
+                var postWords = post.AsSpan();
+                while (true)
+                {
+                    if (postWords.Length == 0) return false;
+
+                    var first = postWords.IndexOf(phrase[0]);
+                    if (first == -1) return false;
+                    
+                    if (postWords.Slice(first + 1).StartsWith(phrase.AsSpan(1)))
+                        return true;
+                    postWords = postWords.Slice(1);
+                }
+            };
+        }
     }
 }
 

@@ -478,7 +478,7 @@
                         {
                             <button actionkind="deletePost" class="menu-item">Delete</button>
                         }
-                        else if(Post.RepostedBy?.Plc != RequestContext.LoggedInUser)
+                        else if(Post.IsRepostedBySelf == null)
                         {
                             @if (Post.IsRepost)
                             {
@@ -507,7 +507,7 @@
 
                             if (Post.Data?.Text != null)
                             {
-                                <button actionkind="muteKeywords" class="menu-item">Specify words to mute…</button>
+                                <a href="/mute?did=@(Uri.EscapeDataString(Post.Did))" class="menu-item">Specify words to mute…</a>
                             }
                         }
                     }

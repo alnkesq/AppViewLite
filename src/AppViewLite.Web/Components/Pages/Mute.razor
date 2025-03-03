@@ -1,0 +1,121 @@
+@page "/mute"
+@inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
+@inject NavigationManager Navigation
+
+<h1>Mute settings</h1>
+
+@code{
+    [Parameter] [SupplyParameterFromQuery] public string? Did { get; set; }
+    [SupplyParameterFromForm] private MuteWordData? Model { get; set; }
+    private Dictionary<Plc, BlueskyProfile>? ProfileByPlc;
+    private Plc Plc;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(Did)) Did = null;
+        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/", true);
+        Model ??= new() { AppliesTo = Did };
+        ProfileByPlc = Apis.WithRelationshipsLockForDids(Did != null ? [Did] : [], (_, rels) =>
+        {
+            var needPlcs = RequestContext.Session.PrivateProfile!.MuteRules
+                                .Select(x => x.AppliesToPlc)
+                                .Where(x => x != null)
+                                .Select(x => new Plc(x!.Value));
+            if (!string.IsNullOrEmpty(Did))
+            {
+                Plc = rels.SerializeDid(Did, RequestContext);
+                needPlcs = needPlcs.Prepend(Plc);
+            }
+            return needPlcs
+                        .Distinct()
+                        .ToDictionary(x => x, x => rels.GetProfile(x));
+        }, RequestContext);
+        await Apis.EnrichAsync(ProfileByPlc.Values.ToArray(), RequestContext);
+    }
+
+    private async Task Submit()
+    {
+        var profileProto = RequestContext.Session.PrivateProfile!;
+        if (!string.IsNullOrEmpty(Model!.RuleToRemove))
+        {
+            var id = int.Parse(Model.RuleToRemove);
+            profileProto.MuteRules = profileProto.MuteRules.Where(x => x.Id != id).ToArray();
+
+        }
+        else if (string.IsNullOrEmpty(Model.Word))
+        {
+            Navigation.NavigateTo(Navigation.Uri);
+        }
+        else
+        {
+            var appliesTo = !string.IsNullOrEmpty(Model.AppliesTo) ? await Apis.ResolveHandleOrUrlAsync(Model.AppliesTo, new Uri(Navigation.BaseUri), RequestContext) : null;
+            var rule = new MuteRule
+            {
+                Id = ++profileProto.LastAssignedMuteRuleId,
+                Word = Model.Word,
+                AppliesToPlc = appliesTo != null ? Apis.SerializeSingleDid(appliesTo, RequestContext).PlcValue : null,
+            };
+            profileProto.MuteRules = profileProto.MuteRules.Append(rule).ToArray();
+        }
+        Apis.WithRelationshipsWriteLock(rels => rels.SaveAppViewLiteProfile(RequestContext), RequestContext);
+        Navigation.NavigateTo("/mute");
+    }
+
+    public class MuteWordData
+    {
+        public string? RuleToRemove { get; set; }
+        public string? AppliesTo { get; set; }
+        public string? Word { get; set; }
+    }
+}
+
+<form method="post" @onsubmit="Submit" @formname="muteWordForm" class="main-padding mute-form">
+    <AntiforgeryToken />
+    <table>
+        <tr>
+            <th>Word or phrase</th>
+            <th>When posted by</th>
+            <th></th>
+        </tr>
+
+        @foreach (var rule in RequestContext.Session.PrivateProfile!.MuteRules)
+        {
+            <tr>
+                <td>@rule.Word</td>
+                <td>
+                    @if (rule.AppliesToPlc != null)
+                    {
+                        var user = ProfileByPlc![new Plc(rule.AppliesToPlc.Value)];
+                        <InlineProfileLink Profile="@user" BlueLink="true" />
+                    }
+                    else
+                    {
+                        <text>Anyone</text>
+                    }
+
+                </td>
+                <td><input type="submit" value="Remove" onclick="document.getElementById('rule-to-remove-id').value = '@(rule.Id)'; " /></td>
+            </tr>
+        }
+        <tr>
+            <td class="mute-form-col-word"><InputText id="mute-form-word-input" @bind-value="Model!.Word" autofocus onkeydown="if(event.key == 'Enter'){ event.preventDefault(); document.getElementById('mute-confirm-add-button').click();  }" /></td>
+            <td class="mute-form-col-user">
+
+                @if (Plc != default)
+                {
+                    <button class="mute-form-make-global-button" onclick="event.preventDefault();this.parentNode.lastElementChild.value = '';this.parentNode.lastElementChild.classList.remove('display-none'); this.nextElementSibling.remove(); this.remove(); document.getElementById('mute-form-word-input').focus(); return false;">×</button>
+                    <InlineProfileLink Profile="@ProfileByPlc![Plc]" BlueLink="true" />
+                }
+                <InputText @bind-value="Model!.AppliesTo" class="@(Plc != default ? "display-none" : string.Empty)" placeholder="Anyone" onkeydown="if(event.key == 'Enter'){ event.preventDefault(); document.getElementById('mute-confirm-add-button').click();  }" />
+            </td>
+            <td class="mute-form-col-button">
+                <InputText class="display-none" id="rule-to-remove-id" @bind-value="Model!.RuleToRemove"></InputText>
+                <input type="submit" name="add" value="Add" id="mute-confirm-add-button" onclick="document.getElementById('rule-to-remove-id').value = ''; ">
+            </td>
+        </tr>
+    </table>
+
+</form>

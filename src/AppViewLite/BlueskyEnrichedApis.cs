@@ -3747,7 +3747,7 @@ namespace AppViewLite
             if (mute)
             {
                 if (profile.MuteRules.Any(x => x.AppliesToPlc == null && x.Word == domain)) return;
-                profile.MuteRules = profile.MuteRules.Append(new MuteRule { Word = domain }).ToArray();
+                profile.MuteRules = profile.MuteRules.Append(new MuteRule { Word = domain, Id = ++profile.LastAssignedMuteRuleId }).ToArray();
             }
             else
             {

@@ -63,7 +63,7 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public required string Word;
         [ProtoMember(2)] public int? AppliesToPlc;
-        [ProtoMember(3)] public int Id;
+        [ProtoMember(3)] public required int Id;
 
         private Func<string[], Uri[], BlueskyPost, bool>? isMatch;
         

@@ -180,6 +180,17 @@ namespace AppViewLite
             }
             return source.Slice(0, index).Reverse();
         }
+
+        public static bool AnyInnerException(this Exception ex, Func<Exception, bool> condition)
+        {
+            while (ex != null)
+            {
+                if (condition(ex))
+                    return true;
+                ex = ex.InnerException!;
+            }
+            return false;
+        }
     }
 
 

@@ -12,6 +12,7 @@ namespace AppViewLite
         private TimeSpan? shortTimeout;
         public Task? ShortDeadline { get; private set; }
         public required AppViewLiteSession Session { get; set; }
+        public AppViewLiteUserContext UserContext => Session.UserContext;
         public string? SignalrConnectionId { get; set; }
         public bool IsUrgent { get; init; }
 

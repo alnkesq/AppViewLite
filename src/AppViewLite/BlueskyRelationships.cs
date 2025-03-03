@@ -2350,18 +2350,9 @@ namespace AppViewLite
 
         }
 
-        public AppViewLiteProfileProto? TryGetAppViewLiteProfile(Plc plc)
+        public void SaveAppViewLiteProfile(AppViewLiteUserContext userContext)
         {
-            if (AppViewLiteProfiles.TryGetPreserveOrderSpanLatest(plc, out var appviewProfileBytes))
-            {
-                return BlueskyRelationships.DeserializeProto<AppViewLiteProfileProto>(appviewProfileBytes.AsSmallSpan());
-            }
-            return null;
-        }
-
-        public void StoreAppViewLiteProfile(Plc plc, AppViewLiteProfileProto profile)
-        {
-            AppViewLiteProfiles.AddRange(plc, SerializeProto(profile));
+            AppViewLiteProfiles.AddRange(userContext.LoggedInUser!.Value, SerializeProto(userContext.PrivateProfile));
         }
 
 
@@ -2805,7 +2796,7 @@ namespace AppViewLite
                 if (item.ListItemRKey.CompareTo(rkey) > 0)
                     rkey = item.ListItemRKey;
             }
-            foreach (var item in ctx.Session.PrivateFollows)
+            foreach (var item in ctx.UserContext.PrivateFollows)
             {
                 if((item.Value.Flags & PrivateFollowFlags.PrivateFollow) != default)
                     possibleFollows[item.Key] = default;
@@ -2902,14 +2893,14 @@ namespace AppViewLite
 
         public void UpdatePrivateFollow(PrivateFollow info, RequestContext ctx)
         {
-            ctx.Session.PrivateProfile!.PrivateFollows = ctx.Session.PrivateFollows.Values.Where(x => x.Plc != info.Plc).Append(info).ToArray();
-            ctx.Session.PrivateFollows = ctx.Session.PrivateProfile!.PrivateFollows.ToDictionary(x => new Plc(x.Plc), x => x);
+            ctx.UserContext.PrivateProfile!.PrivateFollows = ctx.UserContext.PrivateFollows.Values.Where(x => x.Plc != info.Plc).Append(info).ToArray();
+            ctx.UserContext.PrivateFollows = ctx.UserContext.PrivateProfile!.PrivateFollows.ToDictionary(x => new Plc(x.Plc), x => x);
             SaveAppViewLiteProfile(ctx);
         }
 
         public void SaveAppViewLiteProfile(RequestContext ctx)
         {
-            StoreAppViewLiteProfile(ctx.LoggedInUser, ctx.Session.PrivateProfile!);
+            SaveAppViewLiteProfile(ctx.UserContext);
         }
 
 
@@ -2920,10 +2911,10 @@ namespace AppViewLite
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
             profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
-            profile.Labels = GetProfileLabels(profile.Plc, ctx.Session?.NeedLabels).Select(x => GetLabel(x)).ToArray();
+            profile.Labels = GetProfileLabels(profile.Plc, ctx.UserContext?.NeedLabels).Select(x => GetLabel(x)).ToArray();
 
             // ctx.Session is null when logging in (ourselves)
-            profile.PrivateFollow = ctx.Session?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
+            profile.PrivateFollow = ctx.UserContext?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
         }
 
         public void AssertCanRead()

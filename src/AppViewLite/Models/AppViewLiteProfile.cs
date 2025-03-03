@@ -9,10 +9,10 @@ namespace AppViewLite.Models
     [ProtoContract]
     public class AppViewLiteProfileProto
     {
-        [ProtoMember(1)] public DateTime FirstLogin;
-        [ProtoMember(2)] public List<AppViewLiteSessionProto>? Sessions;
+        [ProtoMember(1)] public DateTime? FirstLogin;
+        [ProtoMember(2)] public AppViewLiteSessionProto[] Sessions = null!;
         [ProtoMember(3)] public byte[]? PdsSessionCbor;
-        [ProtoMember(4)] public PrivateFollow[]? PrivateFollows;
+        [ProtoMember(4)] public PrivateFollow[] PrivateFollows = null!;
         [ProtoMember(5)] public MuteRule[] MuteRules = null!;
         [ProtoMember(6)] public int LastAssignedMuteRuleId;
     }
@@ -23,6 +23,7 @@ namespace AppViewLite.Models
         [ProtoMember(1)] public required string SessionToken;
         [ProtoMember(2)] public DateTime LastSeen;
         [ProtoMember(3)] public bool IsReadOnlySimulation;
+        [ProtoMember(4)] public DateTime LogInDate;
 
     }
 

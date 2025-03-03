@@ -20,7 +20,7 @@
         Model ??= new() { AppliesTo = Did };
         ProfileByPlc = Apis.WithRelationshipsLockForDids(Did != null ? [Did] : [], (_, rels) =>
         {
-            var needPlcs = RequestContext.Session.PrivateProfile!.MuteRules
+            var needPlcs = RequestContext.UserContext.PrivateProfile!.MuteRules
                                 .Select(x => x.AppliesToPlc)
                                 .Where(x => x != null)
                                 .Select(x => new Plc(x!.Value));
@@ -38,7 +38,7 @@
 
     private async Task Submit()
     {
-        var profileProto = RequestContext.Session.PrivateProfile!;
+        var profileProto = RequestContext.UserContext.PrivateProfile!;
         if (!string.IsNullOrEmpty(Model!.RuleToRemove))
         {
             var id = int.Parse(Model.RuleToRemove);
@@ -81,7 +81,7 @@
             <th></th>
         </tr>
 
-        @foreach (var rule in RequestContext.Session.PrivateProfile!.MuteRules)
+        @foreach (var rule in RequestContext.UserContext.PrivateProfile!.MuteRules)
         {
             <tr>
                 <td>@rule.Word</td>

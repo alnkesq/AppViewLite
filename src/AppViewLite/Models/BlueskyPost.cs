@@ -161,7 +161,7 @@ namespace AppViewLite.Models
                     return true;
             }
 
-            if (Data != null && ctx.IsLoggedIn && ctx.Session.PrivateProfile!.MuteRules is { Length: >0 } muteRules)
+            if (Data != null && ctx.IsLoggedIn && ctx.UserContext.PrivateProfile!.MuteRules is { Length: >0 } muteRules)
             {
                 var words = StringUtils.GetAllWords(Data.Text).ToArray();
                 var urls = Data.GetExternalUrls().Distinct().Select(x => StringUtils.TryParseUri(x)).WhereNonNull().ToArray();

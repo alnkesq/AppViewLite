@@ -144,7 +144,7 @@ namespace AppViewLite.Web
             var connectionId = Context.ConnectionId;
 
             _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
-            _ctxWithoutConnectionId.Session = ctx ?? new AppViewLiteSession();
+            _ctxWithoutConnectionId.Session = ctx ?? AppViewLiteSession.CreateAnonymous();
 
             void SubmitLivePostEngagement(Versioned<PostStatsNotification> versionedNotification, Plc commitPlc)
             {

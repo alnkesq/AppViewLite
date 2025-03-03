@@ -400,7 +400,7 @@ namespace AppViewLite
                 return new();
             EnsureLimit(ref limit, 50);
             var offset = continuation != null ? int.Parse(continuation) : 0;
-            var plcs = ctx.Session.PrivateProfile!.PrivateFollows!
+            var plcs = ctx.UserContext.PrivateProfile!.PrivateFollows!
                 .Skip(offset)
                 .Where(x => (x.Flags & PrivateFollowFlags.PrivateFollow) != default)
                 .OrderByDescending(x => x.DatePrivateFollowed)
@@ -454,7 +454,7 @@ namespace AppViewLite
 
                         post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
                     }
-                    post.Labels = rels.GetPostLabels(post.PostId, ctx.Session?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
+                    post.Labels = rels.GetPostLabels(post.PostId, ctx.UserContext?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
                 }
             }, ctx);
 
@@ -2324,35 +2324,41 @@ namespace AppViewLite
                 {
                     return await func(sessionProtocol);
                 }
-                catch (Exception ex) when (IsExpiredTokenException(ex))
+                catch (Exception ex) when (ex.AnyInnerException(x => x is ATNetworkErrorException at && at.AtError.Detail?.Error == "ExpiredToken"))
                 {
                     // continue
                 }
             }
 
-            var authSession = await sessionProtocol.RefreshAuthSessionAsync();
-
-            WithRelationshipsWriteLock(rels =>
+            AuthSession authSession;
+            try
             {
-                var proto = rels.TryGetAppViewLiteProfile(session.LoggedInUser!.Value)!;
-                proto.PdsSessionCbor = SerializeAuthSession(authSession!);
-                ctx.Session.PdsSession = authSession!.Session;
-                rels.StoreAppViewLiteProfile(ctx.LoggedInUser, proto);
-            }, ctx);
+                authSession = (await sessionProtocol.RefreshAuthSessionAsync())!;
+                if (authSession == null) throw new Exception("Null authSession");
+            }
+            catch (Exception ex)
+            {
+                LogOut(ctx.Session.SessionToken, ctx.Session.Did!, ctx);
+                throw new LoggedOutException("You have been logged out.", ex);
+            }
+
+            var userCtx = ctx.UserContext;
+            userCtx.PrivateProfile!.PdsSessionCbor = SerializeAuthSession(authSession!);
+            userCtx.PdsSession = authSession!.Session;
+            userCtx.UpdateRefreshTokenExpireDate();
+
+            SaveAppViewLiteProfile(ctx);
             
             using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
             return await func(sessionProtocol2);
         }
 
-        private static bool IsExpiredTokenException(Exception? ex)
+        public void SaveAppViewLiteProfile(RequestContext ctx)
         {
-            while (ex != null)
+            WithRelationshipsWriteLock(rels =>
             {
-                if (ex is ATNetworkErrorException at && at.AtError.Detail?.Error == "ExpiredToken")
-                    return true;
-                ex = ex.InnerException;
-            }
-            return false;
+                rels.SaveAppViewLiteProfile(ctx.UserContext);
+            }, ctx);
         }
 
         public static byte[] SerializeAuthSession(AuthSession authSession)
@@ -2368,7 +2374,7 @@ namespace AppViewLite
         {
             if (!ctx.IsLoggedIn) throw new ArgumentException();
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
-            var pdsSession = ctx.Session.PdsSession!;
+            var pdsSession = ctx.UserContext.PdsSession!;
             var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler, ctx);
             (await sessionProtocol.AuthenticateWithPasswordSessionResultAsync(new AuthSession(pdsSession))).HandleResult();
             return sessionProtocol;
@@ -3403,7 +3409,7 @@ namespace AppViewLite
             WithRelationshipsWriteLock(rels =>
             {
                 var plc = rels.SerializeDid(did, ctx);
-                var info = ctx.Session.GetPrivateFollow(plc);
+                var info = ctx.UserContext.GetPrivateFollow(plc);
                 if (enabled)
                     info.Flags |= flag;
                 else
@@ -3420,15 +3426,34 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public async Task OnSessionCreatedOrRestoredAsync(string did, Plc plc, AppViewLiteSession session, AppViewLiteProfileProto privateProfile, RequestContext ctx)
+        public async Task OnSessionCreatedOrRestoredAsync(AppViewLiteUserContext session, RequestContext ctx)
         {
 
-            var haveFollowees = WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(plc), ctx);
-            session.Profile = await GetProfileAsync(did, ctx);
+            lock (session)
+            {
+                if (session.InitializeAsync == null)
+                    session.InitializeAsync = OnSessionCreatedOrRestoredCoreAsync(session, ctx);
 
-            session.PrivateProfile = privateProfile;
-            session.PrivateFollows = (privateProfile.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
-            privateProfile.MuteRules ??= [];
+            }
+            await session.InitializeAsync!;
+
+
+
+        }
+
+        private async Task OnSessionCreatedOrRestoredCoreAsync(AppViewLiteUserContext userContext, RequestContext ctx)
+        {
+            // synchronous part
+            var did = userContext.Did!;
+            var plc = userContext.Profile!.Plc;
+            var haveFollowees = WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(userContext.LoggedInUser!.Value), ctx);
+            userContext.PrivateFollows = (userContext.PrivateProfile!.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
+            userContext.PrivateProfile!.MuteRules ??= [];
+
+
+            // asynchronous part
+
+            await EnrichAsync([userContext.Profile], ctx);
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
@@ -3438,8 +3463,6 @@ namespace AppViewLite
                 // TODO: fetch entries of subscribed blocklists
                 await Task.WhenAny(deadline, loadFollows);
             }
-
-
         }
 
         public static string? TryGetSessionIdFromCookie(string? cookie, out string? unverifiedDid)
@@ -3464,35 +3487,22 @@ namespace AppViewLite
             {
                 if (!SessionDictionary.TryGetValue(sessionId, out var session))
                 {
-                    AppViewLiteProfileProto? profile = null;
-                    AppViewLiteSessionProto? sessionProto = null;
-                    Plc plc = default;
-                    string? did = null;
-                    BlueskyProfile? bskyProfile = null;
-                    var ctx = RequestContext.CreateForRequest();
-                    apis.WithRelationshipsLockForDid(unverifiedDid!, (unverifiedPlc, rels) =>
-                    {
-                        var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                        sessionProto = TryGetAppViewLiteSession(unverifiedProfile, sessionId);
-                        if (sessionProto != null)
-                        {
-                            profile = unverifiedProfile;
-                            plc = unverifiedPlc;
-                            did = unverifiedDid;
-                            bskyProfile = rels.GetProfile(plc);
-                        }
-                    }, ctx);
-                    if (profile == null) return null;
+
+                    var temporaryCtx = RequestContext.CreateForRequest(AppViewLiteSession.CreateAnonymous());
+                    var unverifiedUserContext = GetOrCreateUserContext(unverifiedDid!, temporaryCtx);
+
+                    var sessionProto = unverifiedUserContext.TryGetAppViewLiteSession(sessionId);
+                    if (sessionProto == null) return null;
 
                     session = new AppViewLiteSession
                     {
+                        UserContext = unverifiedUserContext, // now verified
                         IsReadOnlySimulation = sessionProto!.IsReadOnlySimulation,
-                        PdsSession = sessionProto.IsReadOnlySimulation ? null : BlueskyEnrichedApis.DeserializeAuthSession(profile.PdsSessionCbor!).Session,
-                        LoggedInUser = plc,
+                        SessionToken = sessionId,
                         LastSeen = now,
-                        Profile = bskyProfile, // TryGetSession cannot be async. Prepare a preliminary profile if not loaded yet.
+                        LoginDate = sessionProto.LogInDate,
                     };
-                    apis.OnSessionCreatedOrRestoredAsync(did!, plc, session, profile, ctx).FireAndForget();
+                    apis.OnSessionCreatedOrRestoredAsync(session.UserContext, temporaryCtx).FireAndForget();
                     SessionDictionary[sessionId] = session;
                 }
 
@@ -3505,10 +3515,36 @@ namespace AppViewLite
         }
 
 
-        public static AppViewLiteSessionProto? TryGetAppViewLiteSession(AppViewLiteProfileProto? unverifiedProfile, string sessionId)
+        private Dictionary<string, AppViewLiteUserContext> UserContexts = new();
+
+        public AppViewLiteUserContext GetOrCreateUserContext(string did, RequestContext ctx)
         {
-            return unverifiedProfile?.Sessions?.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
+            lock (UserContexts)
+            {
+                if (UserContexts.TryGetValue(did, out var userContext))
+                    return userContext;
+
+                // NOTE: at this point, we don't know for sure if did actually belongs to ctx.
+                return WithRelationshipsLockForDid(did!, (plc, rels) =>
+                {
+                    var profileProto = rels.AppViewLiteProfiles.TryGetPreserveOrderSpanLatest(plc, out var appviewProfileBytes) ? BlueskyRelationships.DeserializeProto<AppViewLiteProfileProto>(appviewProfileBytes.AsSmallSpan()) : new();
+                    profileProto.Sessions ??= [];
+                    profileProto.PrivateFollows ??= [];
+
+                    userContext = new AppViewLiteUserContext
+                    {
+                        PrivateProfile = profileProto,
+                        Profile = rels.GetProfile(plc),
+                        PdsSession = profileProto.PdsSessionCbor != null ? BlueskyEnrichedApis.DeserializeAuthSession(profileProto.PdsSessionCbor!).Session : null,
+                    };
+                    userContext.UpdateRefreshTokenExpireDate();
+
+                    UserContexts.Add(did, userContext);
+                    return userContext;
+                }, ctx);
+            }
         }
+
 
 
         public void LogOut(string cookie, RequestContext ctx)
@@ -3516,23 +3552,29 @@ namespace AppViewLite
             var id = BlueskyEnrichedApis.TryGetSessionIdFromCookie(cookie, out var unverifiedDid);
             if (id != null)
             {
-                SessionDictionary.Remove(id, out var unverifiedAppViewLiteSession);
+                LogOut(id, unverifiedDid!, ctx);
+            }
 
-                WithRelationshipsWriteLock(rels =>
+        }
+
+        public void LogOut(string id, string unverifiedDid, RequestContext ctx)
+        {
+            var unverifiedUserContext = GetOrCreateUserContext(unverifiedDid, ctx);
+            var session = unverifiedUserContext.TryGetAppViewLiteSession(id);
+            if (session != null)
+            {
+                // now verified.
+                var userContext = unverifiedUserContext;
+
+                userContext.PdsSession = null;
+                foreach (var other in userContext.PrivateProfile!.Sessions)
                 {
-                    var unverifiedPlc = rels.SerializeDid(unverifiedDid!, ctx);
-                    var unverifiedProfile = rels.TryGetAppViewLiteProfile(unverifiedPlc);
-                    var session = TryGetAppViewLiteSession(unverifiedProfile, id);
-                    if (session != null)
-                    {
-                        // now verified.
-                        if (unverifiedAppViewLiteSession != null)
-                            unverifiedAppViewLiteSession.PdsSession = null;
-                        unverifiedProfile!.PdsSessionCbor = null;
-                        unverifiedProfile!.Sessions?.Clear();
-                        rels.StoreAppViewLiteProfile(unverifiedPlc, unverifiedProfile);
-                    }
-                }, ctx);
+                    SessionDictionary!.Remove(other.SessionToken, out _);
+                }
+                userContext.PrivateProfile!.Sessions = [];
+                userContext.PrivateProfile.PdsSessionCbor = null;
+                userContext.UpdateRefreshTokenExpireDate();
+                SaveAppViewLiteProfile(ctx);
             }
 
         }
@@ -3552,40 +3594,47 @@ namespace AppViewLite
 
 
             var id = RandomNumberGenerator.GetHexString(32, lowercase: true);
-            
-            var now = DateTime.UtcNow;
-            var session = new AppViewLiteSession
-            {
-                LastSeen = now,
-                IsReadOnlySimulation = isReadOnly
-            };
 
-            Plc plc = default;
-            AppViewLiteProfileProto privateProfile = null!;
-            WithRelationshipsWriteLock(rels =>
+            var userContext = GetOrCreateUserContext(did, ctx);
+            userContext.PrivateProfile!.FirstLogin ??= DateTime.UtcNow;
+            var plc = userContext.LoggedInUser!.Value;
+
+            var session = WithRelationshipsWriteLock(rels =>
             {
-                plc = rels.SerializeDid(did, ctx);
-                session.LoggedInUser = plc;
-                rels.RegisterForNotifications(session.LoggedInUser.Value);
-                privateProfile = rels.TryGetAppViewLiteProfile(plc) ?? new AppViewLiteProfileProto { FirstLogin = now };
-                privateProfile!.Sessions ??= new();
+
+                if (userContext.PrivateProfile.FirstLogin == null)
+                {
+                    userContext.PrivateProfile.FirstLogin = DateTime.UtcNow;
+                    rels.RegisterForNotifications(plc);
+                }
 
                 if (!isReadOnly)
                 {
-                    privateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession!));
-                    session.PdsSession = atSession;
+                    userContext.PrivateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession!));
+                    userContext.PdsSession = atSession;
+                    userContext.UpdateRefreshTokenExpireDate();
                 }
-
-                privateProfile.Sessions.Add(new AppViewLiteSessionProto
+                var now = DateTime.UtcNow;
+                var sessionProto = new AppViewLiteSessionProto
                 {
                     LastSeen = now,
                     SessionToken = id,
                     IsReadOnlySimulation = isReadOnly,
-                });
-                rels.StoreAppViewLiteProfile(plc, privateProfile);
+                    LogInDate = now,
+                };
+                userContext.PrivateProfile.Sessions = userContext.PrivateProfile.Sessions.Append(sessionProto).ToArray();
+                rels.SaveAppViewLiteProfile(userContext);
+                return new AppViewLiteSession
+                {
+                    LastSeen = sessionProto.LastSeen,
+                    IsReadOnlySimulation = sessionProto.IsReadOnlySimulation,
+                    SessionToken = sessionProto.SessionToken,
+                    UserContext = userContext,
+                    LoginDate = sessionProto.LogInDate
+                };
             }, ctx);
 
-            await OnSessionCreatedOrRestoredAsync(did, plc, session, privateProfile, ctx);
+            await OnSessionCreatedOrRestoredAsync(session.UserContext, ctx);
 
             SessionDictionary[id] = session;
 
@@ -3694,7 +3743,7 @@ namespace AppViewLite
 
         public void ToggleDomainMute(string domain, bool mute, RequestContext ctx)
         {
-            var profile = ctx.Session.PrivateProfile!;
+            var profile = ctx.UserContext.PrivateProfile!;
             if (mute)
             {
                 if (profile.MuteRules.Any(x => x.AppliesToPlc == null && x.Word == domain)) return;
@@ -3705,7 +3754,7 @@ namespace AppViewLite
                 profile.MuteRules = profile.MuteRules.Where(x => !(x.AppliesToPlc == null && x.Word == domain)).ToArray();
             }
 
-            WithRelationshipsWriteLock(rels => rels.SaveAppViewLiteProfile(ctx), ctx);
+            SaveAppViewLiteProfile(ctx);
         }
     }
 }

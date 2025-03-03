@@ -528,6 +528,9 @@ function applyPageElements() {
     if (loginLink) 
         loginLink.href = "/login" + (location.pathname == '/login' || location.pathname == '/@bsky.app/feed/whats-hot' ? '' : '?return=' + encodeURIComponent(location.pathname + location.search))
     maybeLoadNextPage();
+    
+    if (document.querySelector('.page-error[data-islogouterror="1"]'))
+        location.href = '/login?return=' + encodeURIComponent(location.pathname + location.search)
 }
 
 function tryTrimMediaSegments(href) { 
@@ -578,6 +581,8 @@ async function fetchOrReusePageAsync(href, token) {
         var dom = temp.querySelector('main');
         var title = temp.querySelector('title').textContent;
         recentPages = recentPages.filter(x => x.href != response.url);
+        if (new URL(response.url).pathname == '/login')
+            location.href = response.url;
         var p = { href: response.url, dom: dom, dateFetched: Date.now(), title: title, scrollTop: 0 };
         recentPages.push(p)
         while (recentPages.length > 7)

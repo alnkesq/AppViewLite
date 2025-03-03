@@ -1,15 +1,9 @@
-using FishyFlip.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.WebUtilities;
 using AppViewLite.Web.Components;
-using AppViewLite.Models;
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
-using System.Text.RegularExpressions;
 using AppViewLite.PluggableProtocols;
 using Microsoft.AspNetCore.Http.Extensions;
 
@@ -54,8 +48,9 @@ namespace AppViewLite.Web
             builder.Services.AddScoped(provider =>
             {
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
-                if (httpContext?.Request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return new(); }
-                return TryGetSession(httpContext) ?? new();
+                if (httpContext?.Request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) return AppViewLiteSession.CreateAnonymous();
+                var session = TryGetSession(httpContext) ?? AppViewLiteSession.CreateAnonymous();
+                return session;
             });
             builder.Services.AddScoped(provider =>
             {
@@ -65,6 +60,7 @@ namespace AppViewLite.Web
                 if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateForRequest(); }
                 var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
+                
                 var ctx = RequestContext.CreateForRequest(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
                 return ctx;
             });
@@ -111,6 +107,32 @@ namespace AppViewLite.Web
             app.MapStaticAssets();
             app.Use(async (ctx, req) => 
             {
+
+                var reqCtx = ctx.RequestServices.GetRequiredService<RequestContext>();
+                if (reqCtx.IsLoggedIn)
+                {
+                    var userCtx = reqCtx.UserContext;
+                    var refreshTokenExpire = userCtx.RefreshTokenExpireDate;
+                    if (refreshTokenExpire == null)
+                    {
+                        userCtx.UpdateRefreshTokenExpireDate();
+                        refreshTokenExpire = userCtx.RefreshTokenExpireDate;
+                    }
+
+                    if ((refreshTokenExpire!.Value - DateTime.UtcNow).TotalDays < 1)
+                    {
+                        if (ctx.Request.Method == "GET" && ctx.Request.Headers["sec-fetch-dest"].FirstOrDefault() != "empty")
+                        {
+                            // the refresh token will expire soon. require a new login to avoid broken POST/like later.
+                            Apis.LogOut(reqCtx.Session.SessionToken!, reqCtx.Session.Did!, reqCtx);
+                            ctx.Response.Redirect("/login?return=" + Uri.EscapeDataString(ctx.Request.GetEncodedPathAndQuery()));
+                            return;
+                        }
+                    }
+
+                    
+                }
+
                 var path = ctx.Request.Path.Value?.ToString();
                 if (path != null)
                 {

@@ -73,7 +73,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                                 {
                                     if (!followerToActualFeeds.TryGetValue(user, out var followees))
                                     {
-                                        followerToActualFeeds[user] = followees = rels.TryGetAppViewLiteProfile(user)?.PrivateFollows?.Select(x => new Plc(x.Plc)).ToHashSet() ?? [];
+                                        var userContext = Apis.GetOrCreateUserContext(rels.GetDid(user), ctx);
+                                        followerToActualFeeds[user] = followees = userContext.PrivateProfile!.PrivateFollows.Select(x => new Plc(x.Plc)).ToHashSet() ?? [];
                                     }
                                     return followees.Contains(rssPlc);
                                 } ));

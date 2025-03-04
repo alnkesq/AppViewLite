@@ -42,7 +42,10 @@
         if (!string.IsNullOrEmpty(Model!.RuleToRemove))
         {
             var id = int.Parse(Model.RuleToRemove);
-            profileProto.MuteRules = profileProto.MuteRules.Where(x => x.Id != id).ToArray();
+            lock (RequestContext.UserContext)
+            {
+                profileProto.MuteRules = profileProto.MuteRules.Where(x => x.Id != id).ToArray();
+            }
 
         }
         else if (string.IsNullOrEmpty(Model.Word))
@@ -58,7 +61,10 @@
                 Word = Model.Word,
                 AppliesToPlc = appliesTo != null ? Apis.SerializeSingleDid(appliesTo, RequestContext).PlcValue : null,
             };
-            profileProto.MuteRules = profileProto.MuteRules.Append(rule).ToArray();
+            lock (RequestContext.UserContext)
+            {
+                profileProto.MuteRules = profileProto.MuteRules.Append(rule).ToArray();
+            }
         }
         Apis.WithRelationshipsWriteLock(rels => rels.SaveAppViewLiteProfile(RequestContext), RequestContext);
         Navigation.NavigateTo("/mute");

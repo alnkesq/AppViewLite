@@ -867,8 +867,10 @@ function onInitialLoad() {
             pageLoadedTimeBeforeInitialScroll = null;
         }
         updateSidebarButtonScrollVisibility();
-        if (currentlyOpenMenu && Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10)
+        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10) {
             closeCurrentMenu();
+            closeTheater();
+        }
         maybeLoadNextPage();
     }, { passive: true });
 

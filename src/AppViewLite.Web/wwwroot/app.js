@@ -298,6 +298,18 @@ function fastNavigateIfLink(event) {
         }
     }
 
+    if (a.classList.contains('blue-link') && a.closest('.post-body')) { 
+        recordPostEngagement(a.closest('.post'), 'OpenedExternalLink');
+    }
+
+    if (a.classList.contains('post-external-preview')) { 
+        recordPostEngagement(a.closest('.post'), 'OpenedExternalLink');
+    }
+
+    if (a.classList.contains('media-download-menu-item')) { 
+        recordPostEngagement(a.closest('.post'), 'Downloaded');
+    }
+
     if (a.target || a.download)
         return false;
 
@@ -427,6 +439,15 @@ function getTextIncludingEmojis(node) {
     }
 }
 
+async function recordPostEngagement(postElement, kind) { 
+    if (location.pathname == '/following' && !kind.includes('SeenInFollowingFeed')) { 
+        kind += ',SeenInFollowingFeed';
+    }
+    console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
+    (async () => (await liveUpdatesConnectionFuture).invoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, kind))()
+    postElement.wasMarkedAsRead = true;
+}
+
 var intersectionObserver;
 
 function applyPageElements() { 
@@ -460,6 +481,7 @@ function applyPageElements() {
         
         document.querySelector('.theater-image').src = ''; // ensure old image is never displayed
         document.querySelector('.theater-image').src = a.href;
+        document.querySelector('.theater-image').postElement = postElement;
         var alt = a.title;
         var description = alt && postText ? postText + "\n\nImage description:\n" + alt : (alt || postText);
 
@@ -471,6 +493,9 @@ function applyPageElements() {
         document.querySelector('.theater-date').textContent = ' · ' + postElement.dataset.displayshortdate;
         document.querySelector('.theater-full-post-link').classList.toggle('display-none', !includePostText);
         document.querySelector('.theater-full-post-link').href = theaterInfo.href;
+        recordPostEngagement(postElement, 'ViewedInTheaterOrWatchedVideo');
+    } else { 
+        document.querySelector('.theater-image').postElement = null;
     }
 
     var postsInViewport = [];
@@ -502,9 +527,7 @@ function applyPageElements() {
                             if (postToMarkAsRead.wasMarkedAsRead) break;
                             if (postToMarkAsRead.getBoundingClientRect().bottom < 0 && postToMarkAsRead.didAppearInViewport) {
                                 //console.log('Mark as read: ' + getPostText(postToMarkAsRead));
-                                var p = postToMarkAsRead;
-                                (async () => (await liveUpdatesConnectionFuture).invoke('MarkAsRead', p.dataset.postdid, p.dataset.postrkey))()
-                                postToMarkAsRead.wasMarkedAsRead = true;
+                                recordPostEngagement(postToMarkAsRead, 'None');
                             }
                         }
                         postToMarkAsRead = postToMarkAsRead.previousElementSibling;
@@ -531,6 +554,11 @@ function applyPageElements() {
     
     if (document.querySelector('.page-error[data-islogouterror="1"]'))
         location.href = '/login?return=' + encodeURIComponent(location.pathname + location.search)
+
+    var focalPost = document.querySelector('.post-focal');
+    if (focalPost && !isTheater) {
+        recordPostEngagement(focalPost, 'OpenedThread');
+    }
 }
 
 function tryTrimMediaSegments(href) { 
@@ -1031,6 +1059,16 @@ function onInitialLoad() {
         }
     })
 
+
+    document.addEventListener('contextmenu', e => {
+        var target = e.target;
+        if (target.classList?.contains('theater-image')) {
+            recordPostEngagement(target.postElement, 'Downloaded');
+        } else if (target.classList?.contains('post-image')) { 
+            recordPostEngagement(target.closest('.post'), 'Downloaded');
+        }
+    });
+
     document.addEventListener('click', e => {
         
         var target = e.target;
@@ -1242,7 +1280,10 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
     return postElement.likeToggler ??= new ActionStateToggler(
         +postElement.dataset.likecount,
         postElement.dataset.likerkey,
-        async () => (await httpPost('CreatePostLike', { did, rkey })).rkey,
+        async () => { 
+            recordPostEngagement(postElement, 'LikedOrBookmarked');
+            return (await httpPost('CreatePostLike', { did, rkey })).rkey;
+        },
         async (rkey) => (await httpPost('DeletePostLike', { rkey })),
         (count, have) => { 
             var key = formatEngagementCount(count) + have.toString();
@@ -1260,7 +1301,10 @@ function getOrCreateBookmarkToggler(did, postRkey, postElement) {
     return postElement.bookmarkToggler ??= new ActionStateToggler(
         0,
         postElement.dataset.bookmarkrkey,
-        async () => (await httpPost('CreatePostBookmark', { did, rkey: postRkey })).rkey,
+        async () => {
+            recordPostEngagement(postElement, 'LikedOrBookmarked');
+            return (await httpPost('CreatePostBookmark', { did, rkey: postRkey })).rkey;
+        },
         async (bookmarkRkey) => (await httpPost('DeletePostBookmark', { bookmarkRkey: bookmarkRkey, postDid: did, postRkey: postRkey })),
         (count, have) => { 
             if (!isNativeDid(did))
@@ -1573,6 +1617,9 @@ async function searchBoxAutocomplete(forceResults) {
 document.addEventListener('play', e => {
     var video = e.target;
     if (video.tagName != 'VIDEO') return;
+    var parentPost = video.closest('.post');
+    if (parentPost)
+        recordPostEngagement(parentPost, 'ViewedInTheaterOrWatchedVideo');
     if (video.didInstallHls) return;
     var playlistUrl = video.dataset.playlisturl;
     if (!playlistUrl) return;
@@ -1585,6 +1632,7 @@ document.addEventListener('play', e => {
         video.src = playlistUrl;
     }
 }, true);
+
 
 
 document.addEventListener('error', e => {

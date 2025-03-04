@@ -3364,16 +3364,16 @@ namespace AppViewLite
             }
         }
 
-        public void MarkAsRead(PostIdString[] postIdsStr, Plc loggedInUser, RequestContext ctx)
+        public void MarkAsRead(PostEngagementStr[] postEngagementsStr, Plc loggedInUser, RequestContext ctx)
         {
-            if (postIdsStr.Length == 0) return;
+            if (postEngagementsStr.Length == 0) return;
             WithRelationshipsWriteLock(rels =>
             {
                 var now = DateTime.UtcNow;
-                foreach (var postIdStr in postIdsStr)
+                foreach (var engagementStr in postEngagementsStr)
                 {
-                    var postId = rels.GetPostId(postIdStr.Did, postIdStr.RKey, ctx);
-                    rels.SeenPosts.Add(loggedInUser, postId);
+                    var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
+                    rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
                     now = now.AddTicks(1);
                 }

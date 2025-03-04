@@ -467,7 +467,7 @@
                         foreach (var (index, media) in Post.Data.Media.Index())
                         {
 
-                            <a href="@Apis.GetImageUrl(media.IsVideo ? ThumbnailSize.feed_video_blob : ThumbnailSize.feed_fullsize, Post.Did, media.Cid, Post.Author.Pds, forceProxy: true)" class="menu-item" download>Download @(media.IsVideo ? "video" : "image")@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
+                            <a href="@Apis.GetImageUrl(media.IsVideo ? ThumbnailSize.feed_video_blob : ThumbnailSize.feed_fullsize, Post.Did, media.Cid, Post.Author.Pds, forceProxy: true)" class="menu-item media-download-menu-item" download>Download @(media.IsVideo ? "video" : "image")@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
                         }
 
                     }

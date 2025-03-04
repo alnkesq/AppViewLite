@@ -93,13 +93,13 @@ namespace AppViewLite.Web
 
 
 
-        public void MarkAsRead(string did, string rkey)
+        public void MarkAsRead(string did, string rkey, string kind)
         {
             var ctx = HubContext;
             if (ctx.MarkAsReadThrottler == null) return;
-            lock (ctx.MarkAsReadPending)
+            lock (ctx.PostEngagementPending)
             {
-                ctx.MarkAsReadPending.Add(new PostIdString(did, rkey));
+                ctx.PostEngagementPending.Add(new PostEngagementStr(new PostIdString(did, rkey), Enum.Parse<PostEngagementKind>(kind)));
             }
             ctx.MarkAsReadThrottler.Notify();
 
@@ -199,13 +199,13 @@ namespace AppViewLite.Web
 
                 context.MarkAsReadThrottler = new Throttler(TimeSpan.FromSeconds(1), () =>
                 {
-                    PostIdString[] markAsReadPendingArray;
-                    lock (context.MarkAsReadPending)
+                    PostEngagementStr[] postEngagementPendingArray;
+                    lock (context.PostEngagementPending)
                     {
-                        markAsReadPendingArray = context.MarkAsReadPending.ToArray();
-                        context.MarkAsReadPending.Clear();
+                        postEngagementPendingArray = context.PostEngagementPending.ToArray();
+                        context.PostEngagementPending.Clear();
                     }
-                    apis.MarkAsRead(markAsReadPendingArray, userPlc.Value, RequestContext);
+                    apis.MarkAsRead(postEngagementPendingArray, userPlc.Value, RequestContext);
                 });
             }
             return Task.CompletedTask;
@@ -252,7 +252,7 @@ namespace AppViewLite.Web
         public Plc? UserPlc;
         public string? SessionCookie;
         public Throttler? MarkAsReadThrottler;
-        public List<PostIdString> MarkAsReadPending = new();
+        public List<PostEngagementStr> PostEngagementPending = new();
         public void Dispose()
         {
             LiveUpdatesCallbackThrottler.Dispose();

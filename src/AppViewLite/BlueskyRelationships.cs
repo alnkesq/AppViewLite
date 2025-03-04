@@ -94,7 +94,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> CustomEmojis;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> KnownMirrorsToIgnore;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Tid> ExternalPostIdHashToSyntheticTid;
-        public CombinedPersistentMultiDictionary<Plc, PostIdTimeFirst> SeenPosts;
+        public CombinedPersistentMultiDictionary<Plc, PostEngagement> SeenPosts;
         public CombinedPersistentMultiDictionary<Plc, TimePostSeen> SeenPostsByDate;
         public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
@@ -273,7 +273,7 @@ namespace AppViewLite
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
-            SeenPosts = RegisterDictionary<Plc, PostIdTimeFirst>("seen-posts");
+            SeenPosts = RegisterDictionary<Plc, PostEngagement>("seen-posts-2", onCompactation: CompactPostEngagements);
             SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.SingleValue);
@@ -326,6 +326,21 @@ namespace AppViewLite
             checkpointToLoad = null;
 
             GarbageCollectOldSlices(allowTempFileDeletion: true);
+        }
+
+        private IEnumerable<PostEngagement> CompactPostEngagements(IEnumerable<PostEngagement> enumerable)
+        {
+            return enumerable.GroupAssumingOrderedInput(x => x.PostId)
+                .Select(x =>
+                {
+                    if (x.Values.Count == 1) return x.Values[0];
+                    PostEngagementKind flags = default;
+                    foreach (var item in x.Values)
+                    {
+                        flags |= item.Kind;
+                    }
+                    return new PostEngagement(x.Key, flags);
+                });
         }
 
         public static ApproximateDateTime32 GetApproxTime32(Tid tid)
@@ -2877,7 +2892,18 @@ namespace AppViewLite
             {
                 foreach (var slice in seenPosts)
                 {
-                    if (slice.AsSpan().BinarySearch(postId) >= 0) return true;
+                    var span = slice.AsSpan();
+                    var index = span.BinarySearch(new PostEngagement(postId, default));
+                    if (index >= 0)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        index = ~index;
+                        if (index != span.Length && span[index].PostId == postId)
+                            return true;
+                    }
                 }
                 return false;
             };

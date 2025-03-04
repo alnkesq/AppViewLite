@@ -1318,7 +1318,10 @@ function getOrCreateRepostToggler(did, rkey, postElement) {
     return postElement.repostToggler ??= new ActionStateToggler(
         +postElement.dataset.repostcount,
         postElement.dataset.repostrkey,
-        async () => (await httpPost('CreateRepost', { did, rkey })).rkey,
+        async () => {
+            recordPostEngagement(postElement, 'LikedOrBookmarked');
+            return (await httpPost('CreateRepost', { did, rkey })).rkey
+        },
         async (rkey) => (await httpPost('DeleteRepost', { rkey })),
         (count, have) => { 
             var quoteCount = +postElement.dataset.quotecount;

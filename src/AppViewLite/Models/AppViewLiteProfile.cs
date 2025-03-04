@@ -69,7 +69,12 @@ namespace AppViewLite.Models
         
         public bool AppliesTo(string[] words, Uri[] urls, BlueskyPost post)
         {
-            if (this.AppliesToPlc != null && new Plc(AppliesToPlc.Value) != post.AuthorId) return false;
+            if (this.AppliesToPlc != null)
+            {
+                var appliesToPlc = new Plc(AppliesToPlc.Value);
+                if (!(appliesToPlc == post.AuthorId || appliesToPlc == post.RepostedBy?.Plc))
+                    return false;
+            }
             isMatch ??= CreateMatcher();
             return isMatch(words, urls, post);
         }

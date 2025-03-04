@@ -1966,6 +1966,7 @@ namespace AppViewLite
                         {
                             rels.PopulateViewerFlags(post, ctx);
                             if (post.IsMuted) return false;
+                            if (post.QuotedPost?.IsMuted == true) return false;
                             if (post.RepostedBy != null) return true;
                             if (post.Data?.Deleted == true) return false;
                             if (post.Data?.IsReplyToUnspecifiedPost == true) return false;

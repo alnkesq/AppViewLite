@@ -2305,6 +2305,8 @@ namespace AppViewLite
                     PopulateViewerFlags(x, ctx);
                     if (x.IsMuted)
                         return false;
+                    if (x.QuotedPost?.IsMuted == true)
+                        return false;
 
                     return true;
                 })!;
@@ -2318,6 +2320,8 @@ namespace AppViewLite
             PopulateViewerFlags(post.Author, ctx);
             if (post.RepostedBy != null)
                 PopulateViewerFlags(post.RepostedBy, ctx);
+            if (post.QuotedPost != null)
+                PopulateViewerFlags(post.QuotedPost, ctx);
             post.IsMuted = post.ShouldMute(ctx);
             post.DidPopulateViewerFlags = true;
         }

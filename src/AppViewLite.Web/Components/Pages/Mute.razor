@@ -1,7 +1,9 @@
-@page "/mute"
+@page "/settings/mute"
 @inject RequestContext RequestContext
 @inject BlueskyEnrichedApis Apis
 @inject NavigationManager Navigation
+
+<a href="/settings" class="blue-link main-padding display-block">&lt; Settings</a>
 
 <h1>Mute settings</h1>
 
@@ -38,6 +40,9 @@
 
     private async Task Submit()
     {
+        if (!StringUtils.GetAllWords(Model!.Word).Any())
+            Model.Word = null;
+
         var profileProto = RequestContext.UserContext.PrivateProfile!;
         if (!string.IsNullOrEmpty(Model!.RuleToRemove))
         {
@@ -54,6 +59,12 @@
         }
         else
         {
+            if (Model.Word.StartsWith("http://") || Model.Word.StartsWith("https://"))
+            {
+                Model.Word = new Uri(Model.Word).Host;
+                if (Model.Word.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+                    Model.Word = Model.Word.Substring(4);
+            }
             var appliesTo = !string.IsNullOrEmpty(Model.AppliesTo) ? await Apis.ResolveHandleOrUrlAsync(Model.AppliesTo, new Uri(Navigation.BaseUri), RequestContext) : null;
             var rule = new MuteRule
             {
@@ -67,7 +78,7 @@
             }
         }
         Apis.WithRelationshipsWriteLock(rels => rels.SaveAppViewLiteProfile(RequestContext), RequestContext);
-        Navigation.NavigateTo("/mute");
+        Navigation.NavigateTo("/settings/mute");
     }
 
     public class MuteWordData

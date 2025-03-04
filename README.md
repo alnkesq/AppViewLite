@@ -11,24 +11,53 @@ It includes:
 
 Indexing the firehose (posts, likes, reposts, follows, blocks) takes about 2.2 GB of disk space per day. By contrast, the raw data from the firehose (without inverse indexes) is reported to be around 200 GB per day.
 
-If you try to access a post or profile that hasn't been indexed (because it was posted while the indexer wasn't running), it will be fetched from the PDS.
+**Tip**: You can browse to `http://localhost:PORT/profile/...` to easily convert a bsky.app URL into an AppViewLite one, or you can paste a profile URL into the search bar.
 
-This AppView runs independently of the main bsky.app appview, except for CDN image delivery and handle resolution. Other than that, it only needs a relay.
+## Platform independence
 
-**Tip**: You can browse to `http://localhost:PORT/profile/...` to easily convert a bsky.app URL into an AppViewLite one.
+One of the goals is to be as independent as possible from the official Bluesky PBC infrastructure.
+
+This AppView runs independently of the main `bsky.app` APIs.
+
+* **Relays**: you can choose a relay (`bsky.network` or JetStream), and optionally specify individual extra PDSes to listen to, making them uncensorable.
+* **PDSes**: AppViewLite connects directly to PDSes to fetch any missing records.
+* **PLC directory**: fetched incrementally, can be bootstrapped from a Parquet bundle. You can override individual PLC entries using a configuration file.
+* **Image serving**: you can choose whether to proxy/cache images yourself, or to reuse `cdn.bsky.app`
 
 ## Implementation status
+| Feature                     | AppViewLite (read) | AppViewLite (edit)  | bsky.app 
+| --------                    | -------            | -------             | -------  
+| Posts                       |  ✅                |⚠️ Text only        |✅
+| Likes, bookmarks, reposts                       |  ✅                |✅                  |⚠️ No bookmarks
+| Profile pages               |  ✅                |                  |⚠️ No likes list
+| Follows                     |  ✅                |✅                  |⚠️ No private follows
+| Search                      |  ✅                |✅                  |⚠️ No media search
+| Media grid view             |  ✅                |                   |⛔
+| Video download              |  ✅                |                   |⛔
+| Notifications               |  ⚠️No mentions     |                  |✅
+| Feeds                       |  ⚠️No pinning      |                  |✅
+| Built-in feed: Recent       |  ✅                |                  |✅
+| Built-in feed: Balanced     |  ✅                |                  |⛔
+| Live post stat updates      |  ✅                |                  |⛔
+| Keyboard navigation (JK)    |  ✅                |                  |⛔
+| Recently viewed post history|  ✅                |                  |⛔
+| Post interaction settings   |  ✅ Blurred posts  |⛔                  |✅ Nuclear blocks
+| Blocks                      |  ✅ Blurred posts  |⛔                  |✅ Nuclear blocks
+| Labels                      |  ⚠️ Not configurable|                   |✅
+| Lists                       |  ✅                |⛔                  |✅
+| Mutes                       |  ✅                |⚠️ No expiration    |⚠️ No user-specific mute words<br>⚠️ No mute by post type
+| Protocol: ATProto           |  ✅                |✅                |✅
+| Protocol: Fediverse/Mastodon |  ✅                |⛔                |⛔
+| Protocol: RSS                |  ✅                |⛔                |⛔
+| Protocol: Nostr              |  ✅                |⛔                |⛔
+| Protocol: Imageboards        |  ✅                |⛔                |⛔
+| Protocol: Tumblr             |  ✅                |⛔                |⛔
+| Appearance settings          |  ⛔                |                   |✅
+| Chat                         |  ⛔                | ⛔               |✅
+| Data export                  |  ✅                |                  |⚠️ No images, no private data
+| Self-hosting                 |  ✅ Single-process<br>✅ Low-resource focused               |                  |⚠️ Complex, resource intensive
 
-- [X] Profile pages (posts, replies, media, following, followers)
-- [X] Threads and likers/reposts/quotes. Live stats updates.
-- [X] Login support, notifications, timeline
-- [X] Create and delete posts/quotes/replies/likes/reposts/follows
-- [X] Full text search for posts/profiles (including date and author filtering)
-- [X] Custom feeds
-- [X] Bidirectional handle verification, custom DID doc overrides, relay or direct-to-PDS firehose
-- [ ] [Honor blocks and labels](/../../issues/7)
-- [ ] [CID verification](/../../issues/5)
-- [ ] [Backfill historical data](/../../issues/8)
+
 
 ## Building and running
 - Install [.NET 9](https://dotnet.microsoft.com/en-us/download)

@@ -364,7 +364,7 @@ namespace AppViewLite
                 }
 
                 if (handle == did) return null;
-                handle = BlueskyRelationships.MaybeBridyHandleToFediHandle(handle) ?? handle;
+                handle = BlueskyRelationships.MaybeBridgyHandleToFediHandle(handle) ?? handle;
                 return handle;
             }
             catch (Exception ex)
@@ -389,7 +389,7 @@ namespace AppViewLite
             {
                 var k = task.IsCompletedSuccessfully && task.Result == did ? handle : null;
 #nullable disable
-                ctx.SendSignalrAsync("HandleVerificationResult", did, BlueskyRelationships.MaybeBridyHandleToFediHandle(k));
+                ctx.SendSignalrAsync("HandleVerificationResult", did, BlueskyRelationships.MaybeBridgyHandleToFediHandle(k));
 #nullable restore
             }).FireAndForget();
         }

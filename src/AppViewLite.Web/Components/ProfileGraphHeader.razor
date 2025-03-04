@@ -19,7 +19,7 @@
         <NavLink draggable="false" href="@(ProfileBaseUrl + "/followers")">Followers</NavLink>
         @if (RequestContext.IsLoggedIn)
         {
-            <NavLink draggable="false" href="@(ProfileBaseUrl + "/known-followers")">@(RequestContext.IsLoggedIn && Did == RequestContext.Session.Did ? "Mutuals" : "Followers you follow")</NavLink>
+            <NavLink draggable="false" href="@(ProfileBaseUrl + "/known-followers")">@(RequestContext.IsLoggedIn && Did == RequestContext.Session.Did ? "Mutuals" : "Followers you know")</NavLink>
         }
     </div>
 </div>

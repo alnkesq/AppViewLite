@@ -12,6 +12,7 @@ namespace AppViewLite
 {
     public class AppViewLiteSession
     {
+        // Threading: same as AppViewLiteUserContext
         public DateTime LastSeen;
         public bool IsReadOnlySimulation;
         public DateTime LoginDate;
@@ -30,6 +31,11 @@ namespace AppViewLite
 
     public class AppViewLiteUserContext
     {
+        // Threading: can be accessed concurrently without locks.
+        // Collections can be only replaced, never updated in place.
+        // However, writers can choose to lock for their own self consistency.
+
+
         public BlueskyProfile? Profile;
         public string? Did => Profile?.Did;
 

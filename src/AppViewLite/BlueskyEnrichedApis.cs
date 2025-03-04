@@ -3447,7 +3447,10 @@ namespace AppViewLite
             var did = userContext.Did!;
             var plc = userContext.Profile!.Plc;
             var haveFollowees = WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(userContext.LoggedInUser!.Value), ctx);
-            userContext.PrivateFollows = (userContext.PrivateProfile!.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
+            lock (userContext)
+            {
+                userContext.PrivateFollows = (userContext.PrivateProfile!.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
+            }
             userContext.PrivateProfile!.MuteRules ??= [];
 
 
@@ -3622,7 +3625,10 @@ namespace AppViewLite
                     IsReadOnlySimulation = isReadOnly,
                     LogInDate = now,
                 };
-                userContext.PrivateProfile.Sessions = userContext.PrivateProfile.Sessions.Append(sessionProto).ToArray();
+                lock (userContext)
+                {
+                    userContext.PrivateProfile.Sessions = userContext.PrivateProfile.Sessions.Append(sessionProto).ToArray();
+                }
                 rels.SaveAppViewLiteProfile(userContext);
                 return new AppViewLiteSession
                 {
@@ -3743,17 +3749,19 @@ namespace AppViewLite
 
         public void ToggleDomainMute(string domain, bool mute, RequestContext ctx)
         {
-            var profile = ctx.UserContext.PrivateProfile!;
-            if (mute)
+            lock (ctx.UserContext)
             {
-                if (profile.MuteRules.Any(x => x.AppliesToPlc == null && x.Word == domain)) return;
-                profile.MuteRules = profile.MuteRules.Append(new MuteRule { Word = domain, Id = ++profile.LastAssignedMuteRuleId }).ToArray();
+                var profile = ctx.UserContext.PrivateProfile!;
+                if (mute)
+                {
+                    if (profile.MuteRules.Any(x => x.AppliesToPlc == null && x.Word == domain)) return;
+                    profile.MuteRules = profile.MuteRules.Append(new MuteRule { Word = domain, Id = ++profile.LastAssignedMuteRuleId }).ToArray();
+                }
+                else
+                {
+                    profile.MuteRules = profile.MuteRules.Where(x => !(x.AppliesToPlc == null && x.Word == domain)).ToArray();
+                }
             }
-            else
-            {
-                profile.MuteRules = profile.MuteRules.Where(x => !(x.AppliesToPlc == null && x.Word == domain)).ToArray();
-            }
-
             SaveAppViewLiteProfile(ctx);
         }
     }

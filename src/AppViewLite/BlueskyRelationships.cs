@@ -2893,8 +2893,11 @@ namespace AppViewLite
 
         public void UpdatePrivateFollow(PrivateFollow info, RequestContext ctx)
         {
-            ctx.UserContext.PrivateProfile!.PrivateFollows = ctx.UserContext.PrivateFollows.Values.Where(x => x.Plc != info.Plc).Append(info).ToArray();
-            ctx.UserContext.PrivateFollows = ctx.UserContext.PrivateProfile!.PrivateFollows.ToDictionary(x => new Plc(x.Plc), x => x);
+            lock (info)
+            {
+                ctx.UserContext.PrivateProfile!.PrivateFollows = ctx.UserContext.PrivateFollows.Values.Where(x => x.Plc != info.Plc).Append(info).ToArray();
+                ctx.UserContext.PrivateFollows = ctx.UserContext.PrivateProfile!.PrivateFollows.ToDictionary(x => new Plc(x.Plc), x => x);
+            }
             SaveAppViewLiteProfile(ctx);
         }
 

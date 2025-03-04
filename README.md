@@ -71,6 +71,8 @@ Each "table" is a set of memory-mapped columnar storage files that associates on
 Both the keys and the values within a key are ordered to enable fast binary search lookups.
 All the slices of a table are periodically compacted into larger slices.
 
+A primary / readonly replica mechanism is used (within the same process) with read/write lock semantics to allow for effectively lock-less reads for most HTTP requests.
+
 ### Identifiers
 Accounts are rekeyed using 32-bit integers. RKeys are converted back into their underlying 64-bit values in order to save space.
 

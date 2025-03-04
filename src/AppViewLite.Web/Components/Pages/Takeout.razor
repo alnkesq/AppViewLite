@@ -1,8 +1,70 @@
 @page "/settings/takeout"
+@inject RequestContext RequestContext
 
 <a href="/settings" class="blue-link main-padding display-block">&lt; Settings</a>
 
 <h1>Export your data</h1>
+
+<div class="main-padding settings-takeout">
+    <h2>
+        Your ATProto repository
+    </h2>
+    <div>Contains: posts, likes, reposts, follows, blocks</div>
+    <a href="@RequestContext.UserContext.Profile!.Pds/xrpc/com.atproto.sync.getRepo?did=@(Uri.EscapeDataString(RequestContext.UserContext.Did!))" class="button">Download</a>
+
+    <h2>
+        Your AppViewLite private data
+    </h2>
+    <div>Contains: private follows, bookmarks, mutes</div>
+    <a href="/api/AppViewTakeout" class="button">Download</a>
+
+    <h2>
+        Your images and videos
+    </h2>
+    <div>
+        <div id="settings-takeout-tip">Your images will be downloaded to your Pictures folder. Future exports will skip already downloaded images.</div>
+    1. Open PowerShell (included by default in Windows, can be <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell" class="blue-link" target="_blank" rel="noreferrer">installed</a> on Linux and macOS)<br>
+    2. Paste the following code and press ENTER:<br>
+    </div>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('settings-takeout-code').textContent)">Copy code</button>
+    <code id="settings-takeout-code">$ErrorActionPreference = 'Stop'
+$pds = '@(RequestContext.UserContext.Profile.Pds)'
+$did = '@(RequestContext.UserContext.Did)'
+$destdir = "$HOME/Pictures/ATProto-" + $did.Replace(':', '_')
+[void](New-Item $destdir -ItemType Container -ErrorAction Ignore)
+$cursor = ''
+Write-Host "Destination folder: $destdir"
+while(1){
+    $r = (iwr "$pds/xrpc/com.atproto.sync.listBlobs?did=$did&limit=1000&cursor=$cursor").Content | ConvertFrom-Json
+    $r.cids | %{
+        $destbase = "$destdir/$_"
+        if(-not (Test-Path "$destbase.jpg") -and -not (Test-Path "$destbase.mp4")){
+            Write-Host  "Downloading: $_"
+            iwr "$pds/xrpc/com.atproto.sync.getBlob?did=$did&cid=$_" -OutFile "$destbase.tmp"
+            $bytes = [IO.File]::ReadAllBytes("$destbase.tmp")
+            $magic = [byte[]]::new(30)
+            [Array]::Copy($bytes, $magic, [Math]::Min($magic.Length, $bytes.Length))
+            $magicStr = ($magic | % { $_.ToString("X2") }) -join ''
+            if (
+                $magicStr.StartsWith('FFD8FF') -or
+                $magicStr.StartsWith('89504E470D0A1A0A') -or
+                $magicStr.StartsWith('57454250565038') -or
+                $magicStr.StartsWith('47494638')
+            ) {
+                $ext = 'jpg'
+            } else {
+                $ext = 'mp4'
+            }
+            Move-Item "$destbase.tmp" "$destbase.$ext" 
+        }
+    }
+    try { $cursor = $r.cursor } catch { $cursor = $null }
+    if (-not $cursor) { break }
+}
+Write-Host "All your images have been downloaded."
+</code>
+</div>
+
 
 @code {
 

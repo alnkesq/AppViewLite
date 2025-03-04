@@ -1129,13 +1129,18 @@ details:not([open]) .summary-when-open {
 }
 
 
-button, input[type=submit] {
+button, input[type=submit], .button {
     padding: 10px 20px;
     background-color: rgb(0, 133, 255);
     border: 0px;
     color: white;
     border-radius: 5px;
     cursor: pointer;
+}
+
+a.button {
+    display: inline-block;
+    font-size: 10pt;
 }
 
 button[disabled], input[type=submit][disabled] {
@@ -1722,4 +1727,30 @@ body:has(.debug-table){
 }
 .settings-section-link:hover {
     text-decoration: underline;
+}
+.settings-takeout h2{
+    margin-bottom: 2px;
+}
+
+.settings-takeout {
+    font-size: 10pt;
+}
+
+.settings-takeout code {
+    white-space: pre-wrap;
+    font-size: 8pt;
+    display: block;
+    background: #eee;
+    padding: 4px;
+    margin-top: 5px;
+}
+#settings-takeout-tip{
+    margin: 0 20px;
+    background:rgb(217, 235, 255);
+    padding: 5px;
+    font-size: 10pt;
+}
+
+.settings-takeout a.button, button{
+    margin-top: 5px;
 }

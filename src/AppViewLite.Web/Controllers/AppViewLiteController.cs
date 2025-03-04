@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.SignalR;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.Web.Components;
+using System.Text.Json.Serialization;
+using System.Text.Json;
+using System.Text;
 
 namespace AppViewLite.Web
 {
@@ -125,6 +128,30 @@ namespace AppViewLite.Web
             }
         }
 
+        [HttpGet(nameof(AppViewTakeout))]
+        public object AppViewTakeout()
+        {
+            var profile = ctx.UserContext.PrivateProfile!;
+            var now = DateTime.UtcNow;
+            var obj = apis.WithRelationshipsLock(rels => 
+            {
+                return new
+                {
+                    did = ctx.UserContext.Did,
+                    firstLogin = profile.FirstLogin,
+                    sessions = profile.Sessions.Select(x => new { loginDate = x.LogInDate }).ToArray(),
+                    perUserSettings = profile.PrivateFollows.Where(x => x.Plc != 0).Select(x => new 
+                    { 
+                        did = rels.GetDid(new Plc(x.Plc)),
+                        datePrivateFollowed = x.DatePrivateFollowed,
+                        flags = x.Flags.ToString().Split(',').ToArray()
+                    }).ToArray(),
+                    mutedWords = profile.MuteRules.Select(x => new { word = x.Word, did = x.AppliesToPlc != null ? rels.GetDid(new Plc(x.AppliesToPlc.Value)) : null }).ToArray(),
+                };
+            }, ctx);
+            var json = JsonSerializer.Serialize(obj);
+            return TypedResults.File(Encoding.UTF8.GetBytes(json), fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now.ToString("yyyy-MM-dd-HHmmss")}.json");
+        }
 
         [HttpGet(nameof(SearchAutoComplete))]
         public async Task<object> SearchAutoComplete(string? q, string? forceResults)

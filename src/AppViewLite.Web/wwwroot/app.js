@@ -719,7 +719,7 @@ function updateSidebarButtonScrollVisibility() {
     var needsScrollUpTimer =
         !currentFeedHasNewPosts &&
         showScrollUp &&
-        (path == '/following' || path.startsWith('/feed/') || path == '/firehose');
+        (path == '/following' || path.includes('/feed/') || path == '/firehose');
     
     if ((currentFeedHasNewPostsTimeout !== null) != needsScrollUpTimer) { 
         if (needsScrollUpTimer) {

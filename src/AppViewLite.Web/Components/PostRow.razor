@@ -120,10 +120,7 @@
 
         isSelfRepost = Post.IsRepost && Post.RepostedBy!.Plc == Post.Author.Plc;
 
-        var postUtf8 = Post.Data?.GetUtf8IfNeededByCompactFacets();
-        externalDomainForMute = (TryParseUrl(Post.Data?.ExternalUrl) ?? Post.Data?.Facets?.Select(x => x.GetLink(postUtf8)).WhereNonNull().Select(x => StringUtils.TryParseUri(x)).Where(x => x != null && x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
-        if (externalDomainForMute != null && externalDomainForMute.StartsWith("www.", StringComparison.Ordinal))
-            externalDomainForMute = externalDomainForMute.Substring(4);
+        externalDomainForMute = Post.GetExternalDomainForMuteHint();
 
         originalPostUrl = Post.OriginalPostUrl;
         baseUrlPreferExternal = originalPostUrl ?? Post.BaseUrl;
@@ -136,7 +133,6 @@
     public BlueskyProfile OriginalAuthor => Post.Author;
     public BlueskyProfile ReposterOrAuthor => Post.RepostedBy ?? OriginalAuthor;
 
-    private static Uri? TryParseUrl(string? uri) => uri != null && Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
 
     private bool UseSmallImages;
 

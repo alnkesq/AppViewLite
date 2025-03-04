@@ -187,6 +187,17 @@ namespace AppViewLite.Models
                 return user.HasPrivateFollowFlag(textFlag);
             }
         }
+
+        public string? GetExternalDomainForMuteHint()
+        {
+
+            var postUtf8 = Data?.GetUtf8IfNeededByCompactFacets();
+            var externalDomainForMute = (StringUtils.TryParseUri(Data?.ExternalUrl) ?? Data?.Facets?.Select(x => x.GetLink(postUtf8)).WhereNonNull().Select(x => StringUtils.TryParseUri(x)).Where(x => x != null && x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
+            if (externalDomainForMute != null && externalDomainForMute.StartsWith("www.", StringComparison.Ordinal))
+                externalDomainForMute = externalDomainForMute.Substring(4);
+
+            return externalDomainForMute ?? QuotedPost?.GetExternalDomainForMuteHint();
+        }
     }
 }
 

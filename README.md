@@ -34,7 +34,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 | Search                      |  ✅                |✅                  |⚠️ No media search
 | Media grid view             |  ✅                |                   |⛔
 | Video download              |  ✅                |                   |⛔
-| Notifications               |  ⚠️No mentions     |                  |✅
+| Notifications               |  ✅                |                  |✅
 | Feeds                       |  ⚠️No pinning      |                  |✅
 | Built-in feed: Recent       |  ✅                |                  |✅
 | Built-in feed: Balanced     |  ✅                |                  |⛔

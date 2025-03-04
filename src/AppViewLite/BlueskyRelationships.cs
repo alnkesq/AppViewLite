@@ -826,6 +826,18 @@ namespace AppViewLite
                 proto.EmbedRecordUri = rec.Record!.Uri!.ToString();
             }
 
+            if (proto.Facets != null)
+            {
+                foreach (var facet in proto.Facets)
+                {
+                    if (facet.Did != null)
+                    {
+                        var plc = SerializeDid(facet.Did, ctx);
+                        AddNotification(plc, NotificationKind.MentionedYou, postId, ctx);
+                    }
+                }
+            }
+
             if (proto.Media != null)
                 UserToRecentMediaPosts.Add(postId.Author, postId.PostRKey);
             UserToRecentPosts.Add(postId.Author, new RecentPost(postId.PostRKey, proto.IsReplyToUnspecifiedPost == true ? Plc.MaxValue : new Plc(proto.InReplyToPlc.GetValueOrDefault())));

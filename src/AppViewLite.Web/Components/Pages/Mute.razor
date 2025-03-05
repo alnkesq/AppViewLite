@@ -32,8 +32,7 @@
                 needPlcs = needPlcs.Prepend(Plc);
             }
             return needPlcs
-                        .Distinct()
-                        .ToDictionary(x => x, x => rels.GetProfile(x));
+                        .ToDictionaryIgnoreDuplicates(x => x, x => rels.GetProfile(x));
         }, RequestContext);
         await Apis.EnrichAsync(ProfileByPlc.Values.ToArray(), RequestContext);
     }

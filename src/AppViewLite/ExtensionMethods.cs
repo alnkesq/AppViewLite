@@ -191,6 +191,16 @@ namespace AppViewLite
             }
             return false;
         }
+
+        public static Dictionary<TKey, TValue> ToDictionaryIgnoreDuplicates<T, TKey, TValue>(this IEnumerable<T> items, Func<T, TKey> getKey, Func<T, TValue> getValue) where TKey: notnull
+        {
+            var dict = new Dictionary<TKey, TValue>();
+            foreach (var item in items)
+            {
+                dict[getKey(item)] = getValue(item);
+            }
+            return dict;
+        }
     }
 
 

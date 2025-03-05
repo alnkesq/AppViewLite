@@ -144,7 +144,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 var images = e.Tags.Where(x => x.TagIdentifier == NostrTags.imeta)
                     .Select(VariadicTagToMultiDictionary)
-                    .ToDictionary(x => GetSingleVariadicTag(x, "url")!, x => x);
+                    .ToDictionaryIgnoreDuplicates(x => GetSingleVariadicTag(x, "url")!, x => x);
 
                 var utf8Body = data.GetUtf8IfNeededByCompactFacets();
                 var media = new List<BlueskyMediaData>();

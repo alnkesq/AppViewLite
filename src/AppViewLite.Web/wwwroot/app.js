@@ -240,13 +240,16 @@ function fastNavigateIfLink(event) {
     var t = event.target;
     var a = null;
 
-    if (t instanceof HTMLElement && t.classList.contains('post-body') && !t.parentElement.classList.contains('post-focal')) { 
-        var backgroundLink = getPostPreferredUrlElement(t.parentElement);
-        if (!userSelectedTextSinceLastMouseDown) {
-            if (backgroundLink.target == '_blank') window.open(backgroundLink.href);
-            else fastNavigateTo(backgroundLink.href);
-            recordPostEngagement(backgroundLink.closest('.post'), 'OpenedThread');
-            return true;
+    if (t instanceof HTMLElement) { 
+        var postBody = t.closest('.post-body');
+        if (postBody && !postBody.parentElement.classList.contains('post-focal') && !t.closest('a')) {
+            var backgroundLink = getPostPreferredUrlElement(postBody.parentElement);
+            if (!userSelectedTextSinceLastMouseDown) {
+                if (backgroundLink.target == '_blank') window.open(backgroundLink.href);
+                else fastNavigateTo(backgroundLink.href);
+                recordPostEngagement(backgroundLink.closest('.post'), 'OpenedThread');
+                return true;
+            }
         }
     }
 

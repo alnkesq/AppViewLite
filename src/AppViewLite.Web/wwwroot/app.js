@@ -245,6 +245,7 @@ function fastNavigateIfLink(event) {
         if (!userSelectedTextSinceLastMouseDown) {
             if (backgroundLink.target == '_blank') window.open(backgroundLink.href);
             else fastNavigateTo(backgroundLink.href);
+            recordPostEngagement(backgroundLink.closest('.post'), 'OpenedThread');
             return true;
         }
     }

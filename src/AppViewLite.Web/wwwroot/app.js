@@ -1302,7 +1302,8 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
             if (key == prevKey) return;
             prevKey = key;
             setPostStats(postElement, count, 'likes', 'like', 'likes');
-            setActionStats(postElement, count, 'like');
+            if (isNativeDid(did))
+                setActionStats(postElement, count, 'like');
             postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
         });
 }

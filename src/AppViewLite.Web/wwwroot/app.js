@@ -1084,6 +1084,17 @@ function onInitialLoad() {
         if (fastNavigateIfLink(e))
             return;
 
+        if (target.classList?.contains('post-background-link') || target.classList?.contains('post-date')) { 
+            var post = target.closest('.post');
+            recordPostEngagement(post, 'OpenedThread');
+        }
+
+        if (target.parentElement?.classList?.contains('post-link-to-external-thread')) { 
+            var post = document.querySelector('.post-focal');
+            if (post)
+                recordPostEngagement(post, 'OpenedThread');
+        }
+
 
         var actionButton = target.closest('.post-action-bar-button,[actionkind]');
         closeCurrentMenu();

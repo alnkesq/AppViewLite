@@ -1,15 +1,10 @@
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using Microsoft.AspNetCore.Cors;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.Web.Components;
-using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite.Web
 {
@@ -131,27 +126,39 @@ namespace AppViewLite.Web
         [HttpGet(nameof(AppViewTakeout))]
         public object AppViewTakeout()
         {
+            string[] EnumFlagToArray<T>(T obj) where T : Enum => EqualityComparer<T>.Default.Equals(obj, default(T)) ? [] : obj.ToString().Split(',', StringSplitOptions.TrimEntries);
             var profile = ctx.UserContext.PrivateProfile!;
             var now = DateTime.UtcNow;
+            var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).Select(x => new { dateBookmarked = x.Bookmark.BookmarkRKey.Date, did = x.Did, rkey = x.Bookmark.PostId.PostRKey.ToString() }).ToArray();
             var obj = apis.WithRelationshipsLock(rels => 
             {
+                var seenPosts =  rels.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
+                foreach (var item in rels.SeenPostsByDate.GetValuesUnsorted(ctx.LoggedInUser))
+                {
+                    ref var p = ref CollectionsMarshal.GetValueRefOrAddDefault(seenPosts, item.PostId, out var _);
+                    if (p.DateFirstSeen == default || item.Date < p.DateFirstSeen) p.DateFirstSeen = item.Date;
+                }
                 return new
                 {
                     did = ctx.UserContext.Did,
                     firstLogin = profile.FirstLogin,
                     sessions = profile.Sessions.Select(x => new { loginDate = x.LogInDate }).ToArray(),
-                    perUserSettings = profile.PrivateFollows.Where(x => x.Plc != 0).Select(x => new 
-                    { 
+                    bookmarks = bookmarks,
+                    perUserSettings = profile.PrivateFollows.Where(x => x.Plc != 0).Select(x => new
+                    {
                         did = rels.GetDid(new Plc(x.Plc)),
-                        datePrivateFollowed = x.DatePrivateFollowed,
-                        flags = x.Flags.ToString().Split(',').ToArray()
+                        datePrivateFollowed = x.DatePrivateFollowed != default ? x.DatePrivateFollowed : (DateTime?)null,
+                        flags = EnumFlagToArray(x.Flags),
                     }).ToArray(),
+                    postEngagements = seenPosts.Select(x => new { did = rels.GetDid(x.Key.Author), rkey = x.Key.PostRKey.ToString(), flags = EnumFlagToArray(x.Value.Flags), dateFirstSeen = x.Value.DateFirstSeen }).ToArray(),
                     mutedWords = profile.MuteRules.Select(x => new { word = x.Word, did = x.AppliesToPlc != null ? rels.GetDid(new Plc(x.AppliesToPlc.Value)) : null }).ToArray(),
                 };
             }, ctx);
-            var json = JsonSerializer.Serialize(obj);
+            var json = JsonSerializer.Serialize(obj, IndentedOptions);
             return TypedResults.File(Encoding.UTF8.GetBytes(json), fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now.ToString("yyyy-MM-dd-HHmmss")}.json");
         }
+
+        private readonly static JsonSerializerOptions IndentedOptions = new JsonSerializerOptions { WriteIndented = true };
 
         [HttpGet(nameof(SearchAutoComplete))]
         public async Task<object> SearchAutoComplete(string? q, string? forceResults)

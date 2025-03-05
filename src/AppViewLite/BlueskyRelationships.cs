@@ -328,7 +328,7 @@ namespace AppViewLite
             GarbageCollectOldSlices(allowTempFileDeletion: true);
         }
 
-        private IEnumerable<PostEngagement> CompactPostEngagements(IEnumerable<PostEngagement> enumerable)
+        public IEnumerable<PostEngagement> CompactPostEngagements(IEnumerable<PostEngagement> enumerable)
         {
             return enumerable.GroupAssumingOrderedInput(x => x.PostId)
                 .Select(x =>

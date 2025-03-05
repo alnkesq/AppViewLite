@@ -1168,7 +1168,7 @@ namespace AppViewLite
 
         }
 
-        private (BookmarkDateFirst Bookmark, string Did)[] GetBookmarks(int limit, Tid? maxExclusive, RequestContext ctx)
+        public (BookmarkDateFirst Bookmark, string Did)[] GetBookmarks(int limit, Tid? maxExclusive, RequestContext ctx)
         {
             return WithRelationshipsLock(rels => 
             {

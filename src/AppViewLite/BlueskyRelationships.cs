@@ -2302,7 +2302,7 @@ namespace AppViewLite
                     if (!(follows.IsStillFollowed(triplet.A, this) && follows.IsStillFollowed(triplet.B, this) && follows.IsStillFollowed(triplet.C, this)))
                         return false;
 
-                    return ShouldIncludePostInFollowingFeed(x, ctx) ?? true;
+                    return ShouldIncludeLeafPostInFollowingFeed(x, ctx) ?? true;
                 })!;
             return result;
         }
@@ -3101,21 +3101,30 @@ namespace AppViewLite
         }
 
 
-        public bool? ShouldIncludePostInFollowingFeed(BlueskyPost post, RequestContext ctx)
+        public bool? ShouldIncludeLeafPostInFollowingFeed(BlueskyPost post, RequestContext ctx)
         {
             if (post.Data?.Deleted == true) return false;
             if (post.Data?.IsReplyToUnspecifiedPost == true) return false;
 
+            var shouldInclude = ShouldIncludeLeafOrRootPostInFollowingFeed(post, ctx);
+            if (shouldInclude != null) return shouldInclude;
+            if (post.RepostedBy != null) return true;
+
+            return null;
+        }
+
+        public bool? ShouldIncludeLeafOrRootPostInFollowingFeed(BlueskyPost post, RequestContext ctx)
+        {
             PopulateViewerFlags(post, ctx);
             if (post.IsMuted) return false;
 
             PopulateQuotedPost(post, ctx);
             if (post.QuotedPost?.IsMuted == true) return false;
 
-            if (post.RepostedBy != null) return true;
-
             return null;
         }
+
+
 
 
         public string? GetOriginalPostUrl(PostIdTimeFirst postId, string did)

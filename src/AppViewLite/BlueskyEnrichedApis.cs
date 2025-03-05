@@ -1964,7 +1964,7 @@ namespace AppViewLite
 
                         bool ShouldInclude(BlueskyPost post)
                         {
-                            var shouldInclude = rels.ShouldIncludePostInFollowingFeed(post, ctx);
+                            var shouldInclude = rels.ShouldIncludeLeafPostInFollowingFeed(post, ctx);
                             if (shouldInclude != null) return shouldInclude.Value;
                           
                             if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
@@ -2043,8 +2043,10 @@ namespace AppViewLite
 
                                 if (shouldIncludeFullReplyChain)
                                 {
-                                    foreach (var item in rels.MakeFullReplyChain(post))
+                                    foreach (var (index, item) in rels.MakeFullReplyChain(post).Index())
                                     {
+                                        if (index == 0 && post != item && rels.ShouldIncludeLeafOrRootPostInFollowingFeed(item, ctx) == false)
+                                            return false;
                                         AddCore(item);
                                     }
                                 }
@@ -2056,7 +2058,14 @@ namespace AppViewLite
                                     if (post.RootPostId != inReplyToPostId)
                                     {
                                         var rootPost = rels.GetPost(post.RootPostId);
+                                        if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(rootPost, ctx) == false)
+                                            return false;
                                         AddCore(rootPost);
+                                    }
+                                    else
+                                    {
+                                        if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(parent, ctx) == false)
+                                            return false;
                                     }
 
                                     AddCore(parent);

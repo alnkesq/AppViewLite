@@ -16,12 +16,12 @@ using System.IO;
 using System.IO.Hashing;
 using System.Linq;
 using System.Numerics;
+using AppViewLite.PluggableProtocols;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-
 
 namespace AppViewLite
 {
@@ -3115,6 +3115,21 @@ namespace AppViewLite
             if (post.RepostedBy != null) return true;
 
             return null;
+        }
+
+
+        public string? GetOriginalPostUrl(PostIdTimeFirst postId, string did)
+        {
+            var pluggable = PluggableProtocol.TryGetPluggableProtocolForDid(did);
+            if (pluggable == null) return null;
+
+            var postData = TryGetPostData(postId, skipBpeDecompression: true);
+            if (postData == null) return null;
+
+            var post = new BlueskyPost() { Author = new BlueskyProfile { Did = did }, RKey = postId.PostRKey.ToString()!, Data = postData };
+            DecompressPluggablePostData(postId.PostRKey, postData, did);
+            if (postData.PluggablePostId == null) return null;
+            return pluggable.TryGetOriginalPostUrl(new QualifiedPluggablePostId(did, postData.PluggablePostId.Value), post);
         }
     }
 

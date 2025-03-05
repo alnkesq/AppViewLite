@@ -129,7 +129,7 @@ namespace AppViewLite.Web
             string[] EnumFlagToArray<T>(T obj) where T : Enum => EqualityComparer<T>.Default.Equals(obj, default(T)) ? [] : obj.ToString().Split(',', StringSplitOptions.TrimEntries);
             var profile = ctx.UserContext.PrivateProfile!;
             var now = DateTime.UtcNow;
-            var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).Select(x => new { dateBookmarked = x.Bookmark.BookmarkRKey.Date, did = x.Did, rkey = x.Bookmark.PostId.PostRKey.ToString() }).ToArray();
+            var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).ToArray();
             var obj = apis.WithRelationshipsLock(rels => 
             {
                 var seenPosts =  rels.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
@@ -143,7 +143,7 @@ namespace AppViewLite.Web
                     did = ctx.UserContext.Did,
                     firstLogin = profile.FirstLogin,
                     sessions = profile.Sessions.Select(x => new { loginDate = x.LogInDate }).ToArray(),
-                    bookmarks = bookmarks,
+                    bookmarks = bookmarks.Select(x => new { dateBookmarked = x.Bookmark.BookmarkRKey.Date, did = x.Did, rkey = x.Bookmark.PostId.PostRKey.ToString(), originalPostUrl = rels.GetOriginalPostUrl(x.Bookmark.PostId, x.Did) }).ToArray(),
                     perUserSettings = profile.PrivateFollows.Where(x => x.Plc != 0).Select(x => new
                     {
                         did = rels.GetDid(new Plc(x.Plc)),

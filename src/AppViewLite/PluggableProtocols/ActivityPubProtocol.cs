@@ -344,8 +344,11 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                     var segments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     if (segments.Length == 2 && segments[0].Equals("@" + userId.UserName, StringComparison.OrdinalIgnoreCase))
                     {
-                        var postIdSegment = segments[1];
-                        return postIdSegment;
+                        return segments[1];
+                    }
+                    if (segments.Length == 4 && segments[0] == "users" && segments[1].Equals(userId.UserName, StringComparison.OrdinalIgnoreCase) && segments[2] == "statuses")
+                    {
+                        return segments[3];
                     }
                 }
                 return url.PathAndQuery;

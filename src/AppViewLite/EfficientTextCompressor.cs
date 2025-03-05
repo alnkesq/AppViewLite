@@ -17,9 +17,11 @@ namespace AppViewLite
             tokenizer = TiktokenTokenizer.CreateForModel("gpt-4o");
 
         }
+
+        public const int MaxLength = 1024 * 4;
         private IReadOnlyList<int> BpeCompress(string text)
         {
-            if (text.Length >= 1024 * 8) throw new UnexpectedFirehoseDataException("Exceeded maximum text size for BPE compression.");
+            if (text.Length > MaxLength) throw new UnexpectedFirehoseDataException("Exceeded maximum text size for BPE compression.");
             return tokenizer.EncodeToIds(text, int.MaxValue, out var normalized, out var consumed, considerPreTokenization: false, considerNormalization: false);
         }
         private string BpeDecompress(IReadOnlyList<int> bpe)

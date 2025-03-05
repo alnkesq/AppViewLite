@@ -120,14 +120,25 @@ namespace AppViewLite.PluggableProtocols
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postId.Did)) return null;
 
-
-
             if ((data.PluggableLikeCount != null || data.PluggableLikeCountForScoring != null) && !ProvidesLikeCount)
                 throw new ArgumentException("PluggableProtocol.ProvidesLikeCount should be overriden if posts are populated with PluggableLikeCount.");
 
 
             if (inReplyTo != null) EnsureOwnDid(inReplyTo.Value.Did);
             EnsureOwnDid(rootPostId.Value.Did);
+
+
+            MaybeTrimLongText(ref data.Text);
+            MaybeTrimLongText(ref data.ExternalTitle);
+            MaybeTrimLongText(ref data.ExternalDescription);
+            if (data.Media != null)
+            {
+                foreach (var media in data.Media)
+                {
+                    MaybeTrimLongText(ref media.AltText);
+                }
+            }
+
 
             if (data.Facets != null && data.Facets.Length == 0) data.Facets = null;
             if (string.IsNullOrWhiteSpace(data.Text) && data.Facets == null)
@@ -215,6 +226,15 @@ namespace AppViewLite.PluggableProtocols
                 return (PostId?)simplePostId;
             }, ctx);
         }
+
+        private static void MaybeTrimLongText(ref string? text)
+        {
+            if (text != null && text.Length > EfficientTextCompressor.MaxLength)
+            {
+                text = string.Concat(text.AsSpan(0, EfficientTextCompressor.MaxLength), "…");
+            }
+        }
+
         private bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId? postId)
         {
             if (postId != null)

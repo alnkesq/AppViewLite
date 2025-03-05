@@ -466,9 +466,9 @@ namespace AppViewLite
                     (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey, ctx));
                 }
 
-                if (loadQuotes && post.Data?.QuotedPlc != null && post.QuotedPost == null)
+                if (loadQuotes)
                 {
-                    post.QuotedPost = rels.GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
+                    rels.PopulateQuotedPost(post, ctx);
                 }
 
                 if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
@@ -1964,13 +1964,9 @@ namespace AppViewLite
 
                         bool ShouldInclude(BlueskyPost post)
                         {
-                            rels.PopulateViewerFlags(post, ctx);
-                            if (post.IsMuted) return false;
-                            if (post.QuotedPost?.IsMuted == true) return false;
-                            if (post.RepostedBy != null) return true;
-                            if (post.Data?.Deleted == true) return false;
-                            if (post.Data?.IsReplyToUnspecifiedPost == true) return false;
-
+                            var shouldInclude = rels.ShouldIncludePostInFollowingFeed(post, ctx);
+                            if (shouldInclude != null) return shouldInclude.Value;
+                          
                             if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
                             {
                                 if (!possibleFollows.IsStillFollowed(rootAuthor, rels) && rootAuthor != loggedInUser)

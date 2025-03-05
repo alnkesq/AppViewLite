@@ -2302,13 +2302,7 @@ namespace AppViewLite
                     if (!(follows.IsStillFollowed(triplet.A, this) && follows.IsStillFollowed(triplet.B, this) && follows.IsStillFollowed(triplet.C, this)))
                         return false;
 
-                    PopulateViewerFlags(x, ctx);
-                    if (x.IsMuted)
-                        return false;
-                    if (x.QuotedPost?.IsMuted == true)
-                        return false;
-
-                    return true;
+                    return ShouldIncludePostInFollowingFeed(x, ctx) ?? true;
                 })!;
             return result;
         }
@@ -3093,6 +3087,33 @@ namespace AppViewLite
 
                 return bookmark.BookmarkRKey;
             }
+            return null;
+        }
+
+        public void PopulateQuotedPost(BlueskyPost post, RequestContext ctx)
+        {
+            if (post.QuotedPost != null || post.Data?.QuotedPostId == null)
+                return;
+
+
+            post.QuotedPost = GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
+            PopulateViewerFlags(post.QuotedPost, ctx);
+        }
+
+
+        public bool? ShouldIncludePostInFollowingFeed(BlueskyPost post, RequestContext ctx)
+        {
+            if (post.Data?.Deleted == true) return false;
+            if (post.Data?.IsReplyToUnspecifiedPost == true) return false;
+
+            PopulateViewerFlags(post, ctx);
+            if (post.IsMuted) return false;
+
+            PopulateQuotedPost(post, ctx);
+            if (post.QuotedPost?.IsMuted == true) return false;
+
+            if (post.RepostedBy != null) return true;
+
             return null;
         }
     }

@@ -661,6 +661,9 @@ function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
     applyPage(href, preferRefresh, scrollToTop);
 }
 
+function getViewportHeight() { 
+    return window.innerHeight - document.querySelector('.bottom-bar').getBoundingClientRect().height;
+}
 
 var currentlyOpenMenu = null;
 var currentlyOpenMenuButton = null;
@@ -686,7 +689,7 @@ function ensureMenuFullyVisible() {
     const MIN_MARGIN = 5;
 
     var vw = window.innerWidth - MIN_MARGIN - 10;
-    var vh = window.innerHeight - document.querySelector('.bottom-bar').getBoundingClientRect().height - MIN_MARGIN;
+    var vh = getViewportHeight() - MIN_MARGIN;
 
     
     var marginTop;

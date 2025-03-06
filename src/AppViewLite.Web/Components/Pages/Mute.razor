@@ -60,9 +60,7 @@
         {
             if (Model.Word.StartsWith("http://") || Model.Word.StartsWith("https://"))
             {
-                Model.Word = new Uri(Model.Word).Host;
-                if (Model.Word.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
-                    Model.Word = Model.Word.Substring(4);
+                Model.Word = new Uri(Model.Word).GetDomainTrimWww();
             }
             var appliesTo = !string.IsNullOrEmpty(Model.AppliesTo) ? await Apis.ResolveHandleOrUrlAsync(Model.AppliesTo, new Uri(Navigation.BaseUri), RequestContext) : null;
             var rule = new MuteRule

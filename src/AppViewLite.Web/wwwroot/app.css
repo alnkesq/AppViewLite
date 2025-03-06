@@ -89,7 +89,7 @@ html {
 .accent-color-Green {
     --accent: rgb(22, 185, 36);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
-    --default-user-avatar: url('/assets/colorized/default-user-avatar-Red.svg');
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Green.svg');
 }
 
 .accent-color-Orange {

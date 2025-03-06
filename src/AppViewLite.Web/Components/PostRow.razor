@@ -292,7 +292,7 @@
         }
         else
         {
-            <a class="post-external-preview @(ShouldUseCompactView ? "post-external-preview-compact" : null) post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
+            <a class="post-external-preview @((ShouldUseCompactView && Post.Data.ExternalThumbCid != null) ? "post-external-preview-compact" : null) post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
                 @if (Post.Data.ExternalThumbCid != null && !Post.Author.IsMediaBlockedByAdministrativeRule)
                 {
                     <img class="post-external-preview-image" src="@Apis.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid, Post.Author.Pds)" />

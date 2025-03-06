@@ -60,7 +60,6 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
-        public CombinedPersistentMultiDictionary<PostId, PostId> RecursiveReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
         public CombinedPersistentMultiDictionary<PostId, DateTime> PostDeletions;
         public CombinedPersistentMultiDictionary<Plc, byte> Profiles;
@@ -210,7 +209,6 @@ namespace AppViewLite
             RecentBookmarks = RegisterDictionary<Plc, BookmarkDateFirst>("bookmark-recent");
             BookmarkDeletions = RegisterDictionary<Plc, Tid>("bookmark-deletion");
             DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct") ;
-            RecursiveReplies = RegisterDictionary<PostId, PostId>("post-reply-recursive") ;
             Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
             Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
@@ -770,8 +768,6 @@ namespace AppViewLite
 
             if (p.Reply?.Root is { } root)
             {
-                this.RecursiveReplies.Add(this.GetPostId(root, ctx), postId);
-
                 var rootPost = this.GetPostId(root, ctx);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;

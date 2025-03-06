@@ -204,11 +204,6 @@ namespace AppViewLite.PluggableProtocols
                     rels.DirectReplies.AddIfMissing(data.InReplyToPostId!.Value, data.PostId);
                 }
 
-                if (data.RootPostId != data.PostId)
-                {
-                    rels.RecursiveReplies.AddIfMissing(data.RootPostId, data.PostId);
-                }
-
                 rels.UserToRecentPosts.AddIfMissing(data.PostId.Author, new RecentPost(data.PostId.PostRKey, replyIsSemanticallyRepost ? default : new Plc(data.InReplyToPlc.GetValueOrDefault())));
 
                 if (data.Media != null)

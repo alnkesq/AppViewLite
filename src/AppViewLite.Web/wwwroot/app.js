@@ -168,8 +168,12 @@ function updateSearchAutoComplete() {
 
 
 function applyPageFocus() {
+    
     var focalPost = document.querySelector('.post-focal');
-    if (focalPost && document.querySelector('.post') != focalPost) focalPost.scrollIntoView();
+    if (focalPost && document.querySelector('.post') != focalPost) {
+        pageLoadedTimeBeforeInitialScroll = null;
+        focalPost.scrollIntoView();
+    }
     else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
     
@@ -177,7 +181,12 @@ function applyPageFocus() {
     if (autofocus && autofocus.classList.contains('compose-textarea')) { 
         autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
     }
+    
+    var prev = document.scrollingElement.scrollTop;
     autofocus?.focus();
+    if (prev != document.scrollingElement.scrollTop)
+        pageLoadedTimeBeforeInitialScroll = null;    
+
     for (const video of document.querySelectorAll('video[autoplay]')) {
         if (!video.didAutoPlay) {
             video.didAutoPlay = true;
@@ -894,6 +903,7 @@ function onInitialLoad() {
             var scrollTop = document.scrollingElement.scrollTop;
             if ((Date.now() - pageLoadedTimeBeforeInitialScroll) < 5000 && scrollTop > 200) {
                 // Firefox restored the tab. However, the scroll position is no longer meaningful (infinite scroll).
+                console.log('Detected probable Firefox tab restore, resetting scroll position')
                 document.scrollingElement.scrollTop = 0;
             }
             pageLoadedTimeBeforeInitialScroll = null;

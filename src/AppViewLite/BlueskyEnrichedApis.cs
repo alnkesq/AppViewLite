@@ -2066,20 +2066,32 @@ namespace AppViewLite
 
                                     var parent = rels.GetPost(inReplyToPostId);
 
+                                    BlueskyPost rootPost;
+
                                     if (post.RootPostId != inReplyToPostId)
-                                    {
-                                        var rootPost = rels.GetPost(post.RootPostId);
-                                        if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(rootPost, ctx) == false)
-                                            return false;
-                                        AddCore(rootPost);
-                                    }
-                                    else
                                     {
                                         if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(parent, ctx) == false)
                                             return false;
+                                        rootPost = rels.GetPost(post.RootPostId);
+                                    }
+                                    else
+                                    {
+                                        rootPost = parent;
                                     }
 
-                                    AddCore(parent);
+                                    if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(rootPost, ctx) == false)
+                                        return false;
+
+                                    if (rootPost.Data?.ExternalThumbCid != null && IsPostSeenOrAlreadyReturned(rootPost.PostId))
+                                    {
+                                        rootPost.ShouldUseCompactView = true;
+                                    }
+                                    AddCore(rootPost);
+
+                                    if (rootPost != parent)
+                                        AddCore(parent);
+
+
                                 }
                             }
 

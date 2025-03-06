@@ -2885,25 +2885,35 @@ namespace AppViewLite
         {
             var seenPosts = SeenPosts.GetValuesChunked(loggedInUser).ToArray();
 
+            var cache = new Dictionary<PostIdTimeFirst, bool>();
 
             return postId =>
             {
-                foreach (var slice in seenPosts)
+                bool Core()
                 {
-                    var span = slice.AsSpan();
-                    var index = span.BinarySearch(new PostEngagement(postId, default));
-                    if (index >= 0)
+                    foreach (var slice in seenPosts)
                     {
-                        return true;
-                    }
-                    else
-                    {
-                        index = ~index;
-                        if (index != span.Length && span[index].PostId == postId)
+                        var span = slice.AsSpan();
+                        var index = span.BinarySearch(new PostEngagement(postId, default));
+                        if (index >= 0)
+                        {
                             return true;
+                        }
+                        else
+                        {
+                            index = ~index;
+                            if (index != span.Length && span[index].PostId == postId)
+                                return true;
+                        }
                     }
+                    return false;
                 }
-                return false;
+
+                if (!cache.TryGetValue(postId, out var result))
+                {
+                    result = Core();
+                }
+                return result;
             };
         }
 

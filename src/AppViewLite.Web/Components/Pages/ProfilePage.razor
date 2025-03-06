@@ -133,6 +133,7 @@
 
 
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
+                    <a href="/search?q=from:@(SimpleProfile.HandleIsUncertain || SimpleProfile.PossibleHandle == null ? SimpleProfile.Did : SimpleProfile.PossibleHandle)%20" class="menu-item">Search posts…</a>
 
                     @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
                     {
@@ -277,8 +278,6 @@
                         <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
                     }
                 }
-                @* <a class="bsky-link" href="@Profile.Profile.BlueskyUrl" title="View on bsky.app" target="_blank"><img src="/assets/bluesky.png"></a> *@
-                <a draggable="false" class="search-link" href="/search?q=from:@Did%20" title="Search"><img src="/assets/search.png"></a>
             </div>
         </div>
 

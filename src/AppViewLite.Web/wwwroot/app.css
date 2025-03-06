@@ -1,14 +1,138 @@
+
+
+html {
+    /* Light theme */
+    --black: black;
+    --white: white;
+    --borders: rgb(212, 219, 226);
+    --greentext: #789922;
+    --warning-background: #ffe0bc;
+    --info-background: #D9EBFF;
+    --compose-button: transparent;
+    --light-text: rgb(66, 87, 108);
+    --scroll-up-button: hsl(211, 28%, 6%);
+    --background-hover: #F1F3F5;
+    --input-background: white;
+    --input-placeholder: #8D8E96;
+    --button-following-text: #42576C;
+    --button-follow-private: rgb(148, 122, 50);
+    --button-following-private: rgb(255, 234, 178);
+    --button-following-private-text: rgb(124, 102, 42);
+    --menu: rgba(250,250,250, 0.5);
+    --menu-text: rgb(37, 51, 66);
+    --notification-new: #D6EBFE;
+}
+
+@media (prefers-color-scheme: dark) {
+
+    html:not(.theme-Light) {
+        /* Dark theme */
+        --black: rgb(241, 243, 245);
+        --white: black;
+        --borders: #253342;
+        --greentext: #b5bd68;
+        --warning-background: #c28642;
+        --info-background: #55708f;
+        --compose-button: #141B23;
+        --light-text: rgb(140, 158, 178);
+        --scroll-up-button: --black;
+        --background-hover: #141B23;
+        --input-background: #141B23;
+        --input-placeholder: #8D8E96;
+        --button-following-text: rgb(169, 183, 197);
+        --button-follow-private: rgb(148, 122, 50);
+        --button-following-private: rgb(100, 82, 30);
+        --button-following-private-text: var(--white);
+        --menu: rgba(5,5,5, 0.5);
+        --menu-text: --black;
+        --notification-new: var(--background-hover);
+    }
+}
+
+.theme-Dark{
+    /* Dark theme (duplicated) */
+    --black: rgb(241, 243, 245);
+    --white: black;
+    --borders: #253342;
+    --greentext: #b5bd68;
+    --warning-background: #c28642;
+    --info-background: #55708f;
+    --compose-button: #141B23;
+    --light-text: rgb(140, 158, 178);
+    --scroll-up-button: --black;
+    --background-hover: #141B23;
+    --input-background: #141B23;
+    --input-placeholder: #8D8E96;
+    --button-following-text: rgb(169, 183, 197);
+    --button-follow-private: rgb(148, 122, 50);
+    --button-following-private: rgb(100, 82, 30);
+    --button-following-private-text: var(--white);
+    --menu: rgba(5,5,5, 0.5);
+    --menu-text: --black;
+    --notification-new: var(--background-hover);
+}
+
+
+
+.accent-color-Blue {
+    --accent: #0085FF;
+    --blue-link: rgb(16, 131, 254);
+}
+
+
+.accent-color-Red {
+    --accent: rgb(185, 22, 22);
+    --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+}
+
+.accent-color-Green {
+    --accent: rgb(22, 185, 36);
+    --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+}
+
+.accent-color-Orange {
+    --accent: rgb(228, 134, 47);
+    --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+}
+
+.accent-color-Pink {
+    --accent: rgb(212, 40, 218);
+    --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+}
+
+.accent-color-Purple {
+    --accent: rgb(81, 44, 218);
+    --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+}
+
+.accent-color-Gray {
+    --accent: rgb(151, 151, 151);
+    --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+}
+
+
+
 html, body, button {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     margin: 0;
+    color: var(--black);
 }
 
 html {
     overflow-y: scroll;
     overflow-x: hidden;
     font-size: 15px;
+    background: var(--white);
 }
 
+textarea, input{
+    background-color: var(--input-background);
+    border: 1px solid var(--borders);
+    color: var(--black);
+}
+textarea::placeholder, input::placeholder{
+    color: var(--input-placeholder);
+}
 
 
 
@@ -121,7 +245,7 @@ main {
     padding: 0;
     position: absolute;
     backdrop-filter: blur(10px);
-    background-color: rgb(255 255 255 / 50%);
+    background-color:  rgb(from var(--white) r g b / 0.5);
     border-radius: 0px 0px 5px 0px;
     margin: 0;
 }
@@ -133,9 +257,9 @@ main {
 .scroll-up-button {
     position: fixed;
     bottom: 30px;
-    left: calc(max(-220px - 140px + 50vw, 148px));
+    left: calc(max(-220px - 50px + 50vw, 148px));
     backdrop-filter: blur(10px);
-    background-color: rgb(255 255 255 / 80%);
+    background-color: rgb(from var(--white) r g b / 0.8);
     border-radius: 100px;
     border: 1px solid rgb(197, 207, 217);
     z-index: 30;
@@ -146,12 +270,13 @@ main {
     align-items: center;
     justify-content: center;
     padding: 0px;
+    color: var(--scroll-up-button);
     
     
 }
 
 .scroll-up-button-badge {
-    background-color: rgb(0, 133, 255);
+    background-color: var(--accent);
     border-radius: 50px;
     width: 11px;
     height: 11px;
@@ -162,12 +287,12 @@ main {
 
 .bottom-bar {
     display: none;
-    background: white;
+    background: var(--white);
     position: fixed;
     bottom: 0;
     height: 57px;
     width: 100%;
-    border-top: 1px solid #D4DBE2;
+    border-top: 1px solid var(--borders);
     align-items: stretch;
     flex-direction: row;
     z-index: 30;
@@ -250,6 +375,7 @@ main {
 
     main{
         padding-top: 30px;
+        border: 0 !important;
     }
     .profile-page {
         margin-top: 20px;
@@ -263,7 +389,7 @@ main {
 
     .sidebar {
         width: 220px;
-        background-color: white;
+        background-color: var(--white);
         z-index: 50;
     }
     .sidebar-placeholder {
@@ -273,7 +399,7 @@ main {
     .sidebar-open .sidebar {
         display: block;
         backdrop-filter: blur(10px);
-        background-color: rgb(255 255 255 / 80%);
+        background-color:  rgb(from var(--white) r g b / 0.8);
     }
 
     .sidebar-open .background-shadow {
@@ -327,13 +453,13 @@ main {
 
 a {
     text-decoration: none;
-    color: black;
+    color: var(--black);
 }
 
 main {
     border-left: 1px solid;
     border-right: 1px solid;
-    border-color: rgb(212, 219, 226);
+    border-color: var(--borders);
     min-height: 100vh;
 }
 
@@ -354,7 +480,7 @@ h1 {
     text-decoration: underline;
 }
 .blue-link {
-    color: rgb(16, 131, 254);
+    color: var(--blue-link);
 }
 
 body {
@@ -387,19 +513,19 @@ ul {
 }
 
 .post-thread-line {
-    border-left: 2px solid #D4DBE2;
+    border-left: 2px solid var(--borders);
     top: 50px;
     pointer-events: none;
 }
 
 .post-thread-continuation-line {
-    border-left: 2px dotted #D4DBE2;
+    border-left: 2px dotted var(--borders);
     height: 50px;
 }
 
 .post-group-separator {
     margin-top: -20px;
-    border-bottom: 1px solid rgb(212, 219, 226);
+    border-bottom: 1px solid var(--borders);
     width: 100%;
     position: absolute;
 }
@@ -439,7 +565,7 @@ ul {
     margin-bottom: 10px;
     padding-left: 20px;
     position: relative;
-    border-bottom: 1px solid #D4DBE2;
+    border-bottom: 1px solid var(--borders);
     padding-bottom: 10px;
     min-height: 50px;
 }
@@ -508,12 +634,12 @@ ul {
     position: relative;
     z-index: 9;
     margin-top: 83px;
-    outline: 1.5px solid white;
-    background: white;
+    outline: 1.5px solid var(--white);
+    background: var(--white);
 }
 
 .profile-follow-relationship {
-    background-color: #F1F3F5;
+    background-color: var(--background-hover);
     padding: 4px;
     border-radius: 3px;
     margin-bottom: 6px;
@@ -523,7 +649,7 @@ ul {
 }
 
 .post-date, .handle-generic {
-    color: rgb(66, 87, 108) !important; 
+    color: var(--light-text) !important; 
 }
 
 .handle-generic {
@@ -718,7 +844,7 @@ ul {
 
     }
     .post-action-bar-button:hover {
-        background: #F1F3F5;
+        background: var(--background-hover);
     }
 .post-action-bar-button-repost.post-action-bar-button-checked {
     color: rgb(19, 195, 113);
@@ -737,7 +863,7 @@ ul {
 }
 
 .post-quoted {
-    border: 1px solid rgb(212, 219, 226);
+    border: 1px solid var(--borders);
     border-radius: 5px;
     margin-top: 5px;
     margin-bottom: 5px;
@@ -787,15 +913,19 @@ ul {
 
 
 .tabbed-lists-header a {
-    font-size: 12pt;
+    font-size: 11pt;
     font-weight: bold;
     padding: 7px 10px;
     flex: 0 0 auto;
     scroll-snap-align: center;
+    color: var(--light-text);
 }
-    .tabbed-lists-header a.active {
-        border-bottom: 5px solid black;
-    }
+.tabbed-lists-header a:hover {
+    background-color: var(--background-hover);
+}
+.tabbed-lists-header a.active {
+    border-bottom: 3px solid var(--accent);
+}
 
 
 
@@ -810,7 +940,7 @@ ul {
         display: block;
         text-align: center;
         padding: 20px;
-        background-color: #eee;
+        background-color: var(--background-hover);
     }
 
 
@@ -850,7 +980,7 @@ ul {
 }
 
 .notification-badge {
-    background-color: rgb(0, 133, 255);
+    background-color: var(--accent);
     min-width: 16px;
     height: 16px;
     border-radius: 100px;
@@ -885,7 +1015,7 @@ ul {
 }
 
 .profile-follow-links a{
-    color: rgb(66, 87, 108);   
+    color: var(--light-text);   
 }
 
 .profile-page-blocked .profile-image-large,
@@ -921,7 +1051,7 @@ ul {
     position: absolute;
 }
 .profile-banner-no-image{
-    background-color: #0085FF;
+    background-color: var(--accent);
 }
 .profile-banner img{
     width: 100%;
@@ -933,18 +1063,18 @@ ul {
 .notification {
     padding-top: 13px;
     padding-bottom: 13px;
-    border-bottom: 1px solid rgb(212, 219, 226);
+    border-bottom: 1px solid var(--borders);
     position: relative;
     display: block;
     transition: background-color 4s linear;
 }
 
 .notification-new{
-    background-color: #D6EBFE;
+    background-color: var(--notification-new);
 }
 
 .notification-meta {
-    color: black;
+    color: var(--black);
 }
 
 .notification summary {
@@ -961,7 +1091,7 @@ details:not([open]) .summary-when-open {
 }
 
 .notification .inline-profile-link {
-    color: black;
+    color: var(--black);
     font-weight: bold;
 }
 
@@ -972,7 +1102,7 @@ details:not([open]) .summary-when-open {
 
 .notification-profile-summaries-overflow {
     margin-left: 5px;
-    color: rgb(66, 87, 108);
+    color: var(--light-text);
     font-size: 14pt;
 }
 .notification-profile-summaries-overflow svg {
@@ -996,7 +1126,7 @@ details:not([open]) .summary-when-open {
     }
 
 .notification-post-text, .notification-date {
-    color: rgb(66, 87, 108);
+    color: var(--light-text);
     pointer-events: none;
 }
 .notification-post-media{
@@ -1038,7 +1168,7 @@ details:not([open]) .summary-when-open {
     }
 
 .post-external-preview {
-    border: 1px solid rgb(212, 219, 226);
+    border: 1px solid var(--borders);
     border-radius: 12px;
     display: block;
     margin-right: 16px;
@@ -1072,11 +1202,11 @@ details:not([open]) .summary-when-open {
     font-size: 13.125px;
 }
 .post-external-preview-domain {
-    color: rgb(66, 87, 108);
+    color: var(--light-text);
     font-size: 11.25px;
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid rgb(212, 219, 226);
+    border-top: 1px solid var(--borders);
 }
 
     .post-external-preview-domain svg {
@@ -1125,7 +1255,7 @@ details:not([open]) .summary-when-open {
 .profile-followers-you-follow-avatar img {
     width: 30px;
     height: 30px;
-    border-color: white;
+    border-color: var(--white);
 }
 .profile-followers-you-follow-text {
     margin-left: 20px;
@@ -1158,11 +1288,11 @@ details:not([open]) .summary-when-open {
 .compose-textarea-limit-container{
     width: 100%;
     height: 5px;
-    background: white;
+    background: var(--white);
 }
 .compose-textarea-limit{
     width: 0%;
-    background: #0085FF;
+    background: var(--accent);
     height: 100%;
 }
 .compose-textarea-limit-exceeded {
@@ -1172,7 +1302,7 @@ details:not([open]) .summary-when-open {
 
 button, input[type=submit], .button {
     padding: 10px 20px;
-    background-color: rgb(0, 133, 255);
+    background-color: var(--accent);
     border: 0px;
     color: white;
     border-radius: 5px;
@@ -1194,7 +1324,7 @@ button[disabled], input[type=submit][disabled] {
     font-size: 12pt;
 }
 .sidebar-item-post {
-    background-color: rgb(0, 133, 255);
+    background-color: var(--accent);
     border: 0px;
     border-radius: 50px;
     width: 140px;
@@ -1220,35 +1350,36 @@ button[disabled], input[type=submit][disabled] {
 }
 
 .post-focal-date {
-    border-top: 1px solid #D4DBE2;
+    border-top: 1px solid var(--borders);
     padding: 10px 0;
     margin-top: 15px;
     display: block;
 }
 .post-focal-stats {
-    border-top: 1px solid #D4DBE2;
+    border-top: 1px solid var(--borders);
     padding: 10px 0;
 }
 .post-focal-stats a {
     margin-right: 20px;
 }
 .post-focal > .post-action-bar {
-    border-top: 1px solid #D4DBE2;
-    border-bottom: 1px solid #D4DBE2;
+    border-top: 1px solid var(--borders);
+    border-bottom: 1px solid var(--borders);
     padding: 7px 0;
 }
 .post-focal-compose-reply-container {
-    border-bottom: 1px solid #D4DBE2;
+    border-bottom: 1px solid var(--borders);
 }
 .post-focal-compose-reply {
     display: block;
     padding: 10px 10px;
     border-radius: 10px;
     margin: 5px;
-    color: rgb(66, 87, 108);
+    color: var(--light-text);
+    background-color: var(--compose-button);
 }
     .post-focal-compose-reply:hover {
-        background-color: #F1F3F5;
+        background-color: var(--background-hover);
     }
     .post-focal-compose-reply .profile-image-small {
         width: 24px;
@@ -1271,17 +1402,17 @@ button[disabled], input[type=submit][disabled] {
 }
 
 .follow-button.follow-button-private {
-    background-color: rgb(148, 122, 50);
+    background-color: var(--button-follow-private);
 }
 
 .follow-button-unfollow {
-    background-color: #F1F3F5;
-    color: #42576C;
+    background-color: var(--background-hover);
+    color: var(--button-following-text);
 }
 
 .follow-button-unfollow.follow-button-private  {
-    background-color: rgb(255, 234, 178);
-    color: rgb(124, 102, 42);
+    background-color: var(--button-following-private);
+    color: var(--button-following-private-text);
 }
 .profile-page {
     position: relative;
@@ -1323,12 +1454,12 @@ button[disabled], input[type=submit][disabled] {
 
 .menu {
     border-radius: 4px;
-    border: 1px solid #D4DBE2;
+    border: 1px solid var(--borders);
     box-shadow: 1px 1px 3px 3px rgba(0, 0, 0, 0.1);
     width: 150px;
     display: none;
     backdrop-filter: blur(10px);
-    background-color: rgba(250,250,250, 0.5);
+    background-color: var(--menu);
     z-index: 35;
     position: absolute;
 }
@@ -1341,7 +1472,7 @@ button[disabled], input[type=submit][disabled] {
     border-radius: 5px;
     overflow: hidden;
     margin: 2px;
-    color: rgb(37, 51, 66);
+    color: var(--menu-text);
     background: none;
     display: block;
     text-align: left;
@@ -1424,12 +1555,12 @@ button[disabled], input[type=submit][disabled] {
   }
 
 .list-list,  .feed-list{
-    /*border-top: 1px solid rgb(212, 219, 226);*/
+    /*border-top: 1px solid var(--borders);*/
 }
 
 .list-metadata-row, .feed-metadata-row {
     padding: 20px;
-    border-bottom: 1px solid rgb(212, 219, 226);
+    border-bottom: 1px solid var(--borders);
     position: relative;
 }
 .list-metadata-row-name, .feed-metadata-row-name{
@@ -1552,8 +1683,8 @@ button[disabled], input[type=submit][disabled] {
 }
 
 .post-blur-reason{
-    text-shadow: white 0 0 8px;
-    color: black;
+    text-shadow: var(--white) 0 0 8px;
+    color: var(--black);
     font-weight: bold;
     z-index: 10;
     pointer-events: all;
@@ -1574,9 +1705,10 @@ button[disabled], input[type=submit][disabled] {
     border-radius: 4px;
     width: 100%;
     position: absolute;
-    background: white;
+    background: var(--white);
     z-index: 40;
     overflow: hidden;
+    border: 1px solid var(--borders);
 }
 
 
@@ -1590,7 +1722,7 @@ button[disabled], input[type=submit][disabled] {
 }
 
 .search-form-suggestion:focus{
-    background: #eee;
+    background: var(--background-hover);
 }
 .search-form-suggestions .profile-image-small{
     position: absolute;
@@ -1631,7 +1763,7 @@ h1 .profile-badge img{
 
 .sidebar-announcement {
     font-size: 9pt;
-    background: #ffe0bc;
+    background: var(--warning-background);
     margin-right: 10px;
 }
 
@@ -1651,7 +1783,7 @@ h1 .profile-badge img{
 
 .label-badge {
     background-color: rgb(241, 243, 245);
-    color: rgb(66, 87, 108);
+    color: var(--light-text);
     border-radius: 1000px;
     padding: 2px 10px 4px 10px;
     font-size: 10pt;
@@ -1679,7 +1811,7 @@ h1 .profile-badge img{
 
 .profile-link-to-full-profile a, .post-link-to-external-thread a {
     padding: 10px;
-    background: #eee;
+    background: var(--background-hover);
     text-align: center;
     margin: 50px 20%;
     display: block;
@@ -1730,7 +1862,7 @@ body:has(.debug-table){
 }
 
 .quoted-text{
-    color: #789922;
+    color: var(--greentext);
 }
 
 .mute-form table{
@@ -1781,17 +1913,29 @@ body:has(.debug-table){
     white-space: pre-wrap;
     font-size: 8pt;
     display: block;
-    background: #eee;
+    background: color-mix(in hsl, var(--white), #777 20%);
     padding: 4px;
     margin-top: 5px;
 }
 #settings-takeout-tip{
     margin: 0 20px;
-    background:rgb(217, 235, 255);
+    background: var(--info-background);
     padding: 5px;
     font-size: 10pt;
 }
 
 .settings-takeout a.button, button{
     margin-top: 5px;
+}
+
+.settings-appearance label  {
+    display: block;
+    cursor: pointer;
+}
+.settings-appearance radio  {
+    cursor: pointer;
+}
+
+input[type=radio]{
+    accent-color: var(--accent);
 }

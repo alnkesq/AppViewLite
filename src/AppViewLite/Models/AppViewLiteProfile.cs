@@ -15,6 +15,8 @@ namespace AppViewLite.Models
         [ProtoMember(4)] public PrivateFollow[] PrivateFollows = null!;
         [ProtoMember(5)] public MuteRule[] MuteRules = null!;
         [ProtoMember(6)] public int LastAssignedMuteRuleId;
+        [ProtoMember(7)] public Theme Theme;
+        [ProtoMember(8)] public AccentColor AccentColor;
     }
 
     [ProtoContract]
@@ -110,6 +112,23 @@ namespace AppViewLite.Models
                 }
             };
         }
+    }
+
+    public enum Theme
+    {
+        SystemDefault,
+        Light,
+        Dark,
+    }
+    public enum AccentColor
+    {
+        Blue,
+        Red,
+        Green,
+        Orange,
+        Pink,
+        Purple,
+        Gray,
     }
 }
 

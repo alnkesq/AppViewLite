@@ -1,6 +1,7 @@
 @inject IHttpContextAccessor Context
+@inject RequestContext RequestContext
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="theme-@(RequestContext.IsLoggedIn ? RequestContext.PrivateProfile.Theme : Theme.SystemDefault) accent-color-@(RequestContext.IsLoggedIn ? RequestContext.PrivateProfile.AccentColor : AccentColor.Blue)">
 
 <head>
     <meta charset="utf-8" />

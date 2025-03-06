@@ -1,0 +1,64 @@
+@page "/settings/appearance"
+@inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContext
+
+@code {
+    [SupplyParameterFromForm] private AppearanceFormModel? Model { get; set; }
+
+    private void Submit()
+    {
+        var form = HttpContext.HttpContext!.Request.Form;
+        RequestContext.UserContext.PrivateProfile!.Theme = Model!.Mode;
+        RequestContext.UserContext.PrivateProfile!.AccentColor = Model!.AccentColor;
+        Apis.SaveAppViewLiteProfile(RequestContext);
+        Navigation.NavigateTo("/settings/appearance");
+    }
+
+    protected override void OnInitialized()
+    {
+        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/", true);
+        Model ??= new()
+        {
+            Mode = RequestContext.UserContext.PrivateProfile!.Theme,
+            AccentColor = RequestContext.UserContext.PrivateProfile!.AccentColor,
+        };
+    }
+    public class AppearanceFormModel
+    {
+        public required Theme Mode { get; set; }
+        public required AccentColor AccentColor { get; set; }
+    }
+}
+
+<a href="/settings" class="blue-link main-padding display-block settings-back-link">&lt; Settings</a>
+
+<h1>Appearance</h1>
+
+<div class="main-padding settings-appearance">
+
+    <form method="post" @formname="appearanceForm" @onsubmit="Submit">
+    <h2>Mode</h2>
+        <AntiforgeryToken />
+        <InputRadioGroup @bind-value="Model!.Mode">
+        @foreach (var mode in Enum.GetValues<Theme>())
+        {
+            <label>
+                <InputRadio Value="mode" onclick="this.form.submit();" />
+                @(mode == Theme.SystemDefault ? "System default" : mode.ToString())
+            </label>
+        }
+        </InputRadioGroup>
+        <h2>Accent color</h2>
+        <InputRadioGroup @bind-value="Model!.AccentColor">
+            @foreach (var color in Enum.GetValues<AccentColor>())
+            {
+                <label>
+                    <InputRadio Value="color" onclick="this.form.submit();" />
+                    @color.ToString()
+                </label>
+            }
+        </InputRadioGroup>
+    </form>
+</div>

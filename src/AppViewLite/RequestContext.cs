@@ -13,6 +13,8 @@ namespace AppViewLite
         public Task? ShortDeadline { get; private set; }
         public required AppViewLiteSession Session { get; set; }
         public AppViewLiteUserContext UserContext => Session.UserContext;
+
+        public AppViewLiteProfileProto PrivateProfile => UserContext.PrivateProfile!;
         public string? SignalrConnectionId { get; set; }
         public bool IsUrgent { get; init; }
 

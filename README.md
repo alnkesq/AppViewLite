@@ -52,7 +52,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 | Protocol: Nostr              |  ✅                |⛔                |⛔
 | Protocol: Imageboards        |  ✅                |⛔                |⛔
 | Protocol: Tumblr             |  ✅                |⛔                |⛔
-| Appearance settings          |  ⛔                |                   |✅
+| Appearance settings          |  ✅ Custom accent colors                |                   |✅
 | Chat                         |  ⛔                | ⛔               |✅
 | Data export                  |  ✅                |                  |⚠️ No images, no private data
 | Self-hosting                 |  ✅ Single-process<br>✅ Low-resource focused               |                  |⚠️ Complex, resource intensive

@@ -123,6 +123,7 @@ main {
     backdrop-filter: blur(10px);
     background-color: rgb(255 255 255 / 50%);
     border-radius: 0px 0px 5px 0px;
+    margin: 0;
 }
 
 .sidebar-button.sidebar-button-fixed{

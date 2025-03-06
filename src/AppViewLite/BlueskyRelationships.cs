@@ -248,7 +248,7 @@ namespace AppViewLite
             RssFeedToFollowers = RegisterDictionary<Plc, Plc>("registered-user-to-rss-feeds");
 
             UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2") ;
-            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2") ;
+            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2", onCompactation: x => { var threshold = DateTime.UtcNow.AddDays(-7); return x.Where((x, i) => i == 0 || x.RepostRKey.Date > threshold); });
             UserToRecentMediaPosts = RegisterDictionary<Plc, Tid>("user-to-recent-media-posts");
 
             CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder) ;

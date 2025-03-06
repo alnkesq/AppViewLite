@@ -179,10 +179,12 @@ function applyPageFocus() {
         if (autofocus.classList.contains('compose-textarea'))
             autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
         autofocus.focus();
-        autofocus.scrollIntoView();
-
-        if (prev != document.scrollingElement.scrollTop)
-            pageLoadedTimeBeforeInitialScroll = null;    
+        var autofocusPosition = autofocus.getBoundingClientRect();
+        if (autofocusPosition.top < 0 || autofocusPosition.bottom > getViewportHeight()) {
+            autofocus.scrollIntoView();
+            if (prev != document.scrollingElement.scrollTop)
+                pageLoadedTimeBeforeInitialScroll = null;
+        }
     }
     else if (focalPost && document.querySelector('.post') != focalPost) {
         pageLoadedTimeBeforeInitialScroll = null;

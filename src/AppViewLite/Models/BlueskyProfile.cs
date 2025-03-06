@@ -39,6 +39,7 @@ namespace AppViewLite.Models
         public string BlueskyUrl => $"https://bsky.app/profile/{Did}";
 
         public BlueskyProfileBasicInfo? BasicData;
+        public AppViewLiteUserContext? UserContext;
         public string? AvatarUrl
         {
             get
@@ -47,7 +48,7 @@ namespace AppViewLite.Models
                 return
                     BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, BasicData.AvatarCidBytes, Pds)
                     ?? PluggableProtocol?.GetDefaultAvatar(Did)
-                    ?? "/assets/default-user-avatar.svg";
+                    ?? $"/assets/colorized/default-user-avatar-{UserContext?.PrivateProfile?.AccentColor ?? AccentColor.Blue}.svg";
             }
         }
 

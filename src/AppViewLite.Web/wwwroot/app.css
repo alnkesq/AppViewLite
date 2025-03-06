@@ -45,7 +45,7 @@ html {
         --button-following-private-text: var(--white);
         --menu: rgba(5,5,5, 0.5);
         --menu-text: --black;
-        --notification-new: var(--background-hover);
+        --notification-new: #001124;
     }
 }
 
@@ -77,39 +77,46 @@ html {
 .accent-color-Blue {
     --accent: #0085FF;
     --blue-link: rgb(16, 131, 254);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Blue.svg');
 }
-
 
 .accent-color-Red {
     --accent: rgb(185, 22, 22);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Red.svg');
 }
 
 .accent-color-Green {
     --accent: rgb(22, 185, 36);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Red.svg');
 }
 
 .accent-color-Orange {
     --accent: rgb(228, 134, 47);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Orange.svg');
 }
 
 .accent-color-Pink {
     --accent: rgb(212, 40, 218);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Pink.svg');
 }
 
 .accent-color-Purple {
     --accent: rgb(81, 44, 218);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Purple.svg');
 }
 
 .accent-color-Gray {
     --accent: rgb(151, 151, 151);
     --blue-link: color-mix(in hsl, var(--accent), #fff 20%);
+    --default-user-avatar: url('/assets/colorized/default-user-avatar-Gray.svg');
 }
 
+/* If you update these colors, also update colorize.ps1 and run it. */
 
 
 html, body, button {
@@ -1756,7 +1763,7 @@ h1 .profile-badge img{
 }
 
 .search-form-suggestions .profile-image-small {
-    background-image: url('/assets/default-user-avatar.svg');
+    background-image: var(--default-user-avatar);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat; 
@@ -1940,3 +1947,4 @@ body:has(.debug-table){
 input[type=radio]{
     accent-color: var(--accent);
 }
+

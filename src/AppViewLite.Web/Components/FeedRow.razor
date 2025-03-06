@@ -1,3 +1,4 @@
+@inject RequestContext RequestContext
 
 @code {
     [Parameter] public required BlueskyFeedGenerator Feed { get; set; }
@@ -5,7 +6,7 @@
 
 <div class="feed-metadata-row">
     <a href="@Feed.BaseUrl" class="feed-metadata-avatar" tabindex="-1">
-        <img src="@(Feed.AvatarUrl ?? "/assets/default-feed-avatar.svg")" />
+        <img src="@(Feed.AvatarUrl ?? $"/assets/colorized/default-feed-avatar-{RequestContext.AccentColor}.svg")" />
     </a>
     <div class="feed-metadata-row-name feed-indented"><a class="underline-on-hover" href="@Feed.BaseUrl">@Feed.DisplayNameOrFallback</a></div>
     <div class="feed-metadata-row-author feed-indented">Feed by <a class="underline-on-hover" href="@Feed.Author.BaseUrl">@Feed.Author.DisplayNameOrFallback</a> <span class="feed-metadata-row-implementation">(@Feed.ImplementationDisplayName)</span></div>

@@ -26,6 +26,8 @@ namespace AppViewLite
         public int ReadLockEnterCount;
         public int WriteOrUpgradeLockEnterCount;
 
+        public AccentColor AccentColor => IsLoggedIn ? PrivateProfile.AccentColor : AccentColor.Blue;
+
         public static Func<string, string, object[], Task>? SendSignalrImpl;
 
         public void SendSignalrAsync(string method, params object[] arguments)

@@ -3428,6 +3428,8 @@ namespace AppViewLite
             {
                 foreach (var profile in profiles)
                 {
+                    if (ctx.IsLoggedIn)
+                        profile.UserContext = ctx.UserContext;
                     rels.PopulateViewerFlags(profile, ctx);
                 }
             }, ctx);

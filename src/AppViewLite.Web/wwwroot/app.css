@@ -1515,6 +1515,7 @@ button[disabled], input[type=submit][disabled] {
     position: relative;
     margin-top: -90px;
     top: 5px;
+    color: var(--accent);
 }
 
 .pagination-button.spinner-visible {

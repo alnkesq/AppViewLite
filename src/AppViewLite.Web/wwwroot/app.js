@@ -805,7 +805,7 @@ function switchTheaterImage(delta, allowWrap = true) {
     return true;
 }
 
-var SPINNER_HTML = '<div class="spinner"><svg height="100%" viewBox="0 0 32 32" width="100%"><circle cx="16" cy="16" fill="none" r="14" stroke-width="4" style="stroke: rgb(25, 118, 210); opacity: 0.2;"></circle><circle cx="16" cy="16" fill="none" r="14" stroke-width="4" style="stroke: rgb(25, 118, 210); stroke-dasharray: 80px; stroke-dashoffset: 60px;"></circle></svg></div>';
+var SPINNER_HTML = '<div class="spinner"><svg height="100%" viewBox="0 0 32 32" width="100%"><circle cx="16" cy="16" fill="none" r="14" stroke-width="4" style="stroke: currentColor; opacity: 0.2;"></circle><circle cx="16" cy="16" fill="none" r="14" stroke-width="4" style="stroke: currentColor; stroke-dasharray: 80px; stroke-dashoffset: 60px;"></circle></svg></div>';
 
 function focusPostForKeyboardNavigation(post, isFirst) { 
     if (!post) return;

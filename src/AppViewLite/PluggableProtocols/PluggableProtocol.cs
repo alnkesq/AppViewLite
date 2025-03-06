@@ -231,7 +231,7 @@ namespace AppViewLite.PluggableProtocols
         {
             if (text != null && text.Length > EfficientTextCompressor.MaxLength)
             {
-                text = string.Concat(text.AsSpan(0, EfficientTextCompressor.MaxLength), "…");
+                text = string.Concat(text.AsSpan(0, EfficientTextCompressor.MaxLength - 1), "…");
             }
         }
 

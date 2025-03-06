@@ -36,7 +36,7 @@ namespace AppViewLite.Models
                 if (did == null) return null;
                 if (!did.StartsWith("did:web:", StringComparison.Ordinal)) return did;
                 var domain = did.Substring(8);
-                if (domain.StartsWith("www.", StringComparison.Ordinal)) domain = domain.Substring(4);
+                domain = StringUtils.TrimWww(domain);
                 if (domain.StartsWith("api.", StringComparison.Ordinal)) domain = domain.Substring(4);
                 if (domain == "skyfeed.me") return "SkyFeed";
                 if (domain == "bluefeed.app") return "BlueFeed";

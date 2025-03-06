@@ -605,17 +605,13 @@ namespace AppViewLite
         public static string GetDisplayHost(Uri url) => GetDisplayHost(url.Host);
         public static string GetDisplayHost(string host)
         {
-            if (host.StartsWith("www.", StringComparison.Ordinal))
-                return host.Substring(4);
-            return host;
+            return TrimWww(host);
         }
 
         public static string GetDisplayUrl(Uri url)
         {
 
-            var authority = url.Authority;
-            if (authority.StartsWith("www.", StringComparison.Ordinal))
-                authority = authority.Substring(4);
+            var authority = StringUtils.TrimWww(url.Authority);
 
             if (url.PathAndQuery == "/") return authority;
 
@@ -722,6 +718,18 @@ namespace AppViewLite
         public static bool IsKnownFileTypeAsOpposedToTld(ReadOnlySpan<char> ext)
         {
             return KnownFileExtensions.Contains(ext);
+        }
+
+        public static string GetDomainTrimWww(this Uri url)
+        {
+            return TrimWww(url.Host);
+        }
+
+        public static string TrimWww(string host)
+        {
+            if (host.StartsWith("www.", StringComparison.Ordinal))
+                return host.Substring(4);
+            return host;
         }
 
         private readonly static FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> KnownFileExtensions = new[]

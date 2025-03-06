@@ -1072,6 +1072,30 @@ details:not([open]) .summary-when-open {
     }
 
 
+
+.post-external-preview-compact{
+    display: flex;
+}
+
+.post-external-preview-compact .post-external-preview-image{
+    flex: 0 1 25%;
+    object-fit: cover;
+    aspect-ratio: 1;
+}
+.post-external-preview-compact .post-external-preview-metadata{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.post-external-preview-compact .post-external-preview-title {
+    flex: 0 1 auto;
+}
+.post-external-preview-compact .post-external-preview-summary {
+    flex: 1;
+}
+.post-external-preview-compact .post-external-preview-domain {
+    flex: 0 1 auto;
+}
 .profile-followers-you-follow {
     margin-top: 10px;
     display: block;

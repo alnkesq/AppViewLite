@@ -330,9 +330,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         private static string? NormalizeForApproxUrlEquality(Uri url)
         {
-            var host = url.Host;
-            if (host.StartsWith("www.", StringComparison.Ordinal))
-                host = host.Substring(4);
+            var host = url.GetDomainTrimWww();
             return host + "/" + url.AbsolutePath.Trim('/') + url.Query;
         }
 
@@ -774,9 +772,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var path = url.GetSegments();
                 return "/" + path[0] + "/" + path[1];
             }
-            var host = url.Host;
-            if (host.StartsWith("www.", StringComparison.Ordinal))
-                host = host.Substring(4);
+            var host = url.GetDomainTrimWww();
             if (host.StartsWith("blog.", StringComparison.Ordinal))
                 host = host.Substring(5);
             if (host.StartsWith("blogs.", StringComparison.Ordinal))

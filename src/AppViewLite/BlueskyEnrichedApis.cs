@@ -31,6 +31,7 @@ using Ipfs;
 using AppViewLite;
 using System.Security.Cryptography;
 using AppViewLite.PluggableProtocols;
+using System.Collections.Frozen;
 
 namespace AppViewLite
 {
@@ -432,6 +433,9 @@ namespace AppViewLite
             return r;
         }
 
+
+        private readonly static FrozenSet<string> ExternalDomainsAlwaysCompactView = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS) ?? []).ToFrozenSet();
+
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
             if (posts.Length == 0) return posts;
@@ -522,6 +526,13 @@ namespace AppViewLite
                 }
 
                 rels.PopulateViewerFlags(post, ctx);
+
+                if (post.Data?.ExternalThumbCid != null)
+                {
+                    var domain = StringUtils.TryParseUri(post.Data.ExternalUrl)?.GetDomainTrimWww();
+                    if (domain != null && ExternalDomainsAlwaysCompactView.Contains(domain))
+                        post.ShouldUseCompactView = true;
+                }
 
                 if (onPostDataAvailable != null)
                 {

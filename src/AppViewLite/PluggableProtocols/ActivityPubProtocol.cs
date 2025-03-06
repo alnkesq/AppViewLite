@@ -361,9 +361,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             var hostFromAuthorUrl = new Uri(author.url!).Host;
             if (!Uri.TryCreate(postUrl, UriKind.Absolute, out var postUrlParsed)) return default;
-            var hostFromPostUrl = postUrlParsed.Host;
-            if (hostFromPostUrl.StartsWith("www.", StringComparison.Ordinal))
-                hostFromPostUrl = hostFromPostUrl.Substring(4);
+            var hostFromPostUrl = postUrlParsed.GetDomainTrimWww();
             if (hostFromPostUrl == "mkkey.net") hostFromAuthorUrl = hostFromPostUrl;
             if (hostFromAuthorUrl != hostFromPostUrl)
             {
@@ -479,9 +477,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public ActivityPubUserId Normalize()
         {
             if (this == default) return default;
-            string instance = this.Instance.ToLowerInvariant();
-            if (instance.StartsWith("www.", StringComparison.Ordinal))
-                instance = instance.Substring(4);
+            string instance = StringUtils.TrimWww(this.Instance.ToLowerInvariant());
             if (!BlueskyEnrichedApis.IsValidDomain(instance) && !instance.AsSpan().ContainsAny("/@:% "))
             {
                 if (Uri.TryCreate("https://" + instance + "/", UriKind.Absolute, out var url) && url.PathAndQuery == "/")

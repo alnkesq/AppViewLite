@@ -635,7 +635,7 @@ ul {
     padding-right: 8px;
 }
 
-.post-indented, .notification-indented {
+.post-indented, .notification-indented, .notification-post-media {
     margin-left: 70px;
     position: relative; /* otherwise z-index doesn't work */
 }
@@ -990,10 +990,22 @@ details:not([open]) .summary-when-open {
         height: 35px;
     }
 
-    .notification-post-text, .notification-date {
-        color: rgb(66, 87, 108);
-        pointer-events: none;
-    }
+.notification-post-text, .notification-date {
+    color: rgb(66, 87, 108);
+    pointer-events: none;
+}
+.notification-post-media{
+    pointer-events: none;
+}
+.notification-post-media-thumbnail{
+    aspect-ratio: 1;
+    object-fit: cover;
+    width: 100px;
+    height: 100px;
+    border: 1px solid #E3E7ED;
+    border-radius: 4px;
+    margin-right: 3px;
+}
 
 .notification-single-profile {
     pointer-events: none;

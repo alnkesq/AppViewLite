@@ -1,3 +1,4 @@
+@inject BlueskyEnrichedApis Apis
 @code {
     [Parameter] public required CoalescedNotification Notification { get; set; }
     const int MaxInlineUsers = 3; // A, B and C    *or*    A, B and 2 others
@@ -129,5 +130,15 @@
         <div class="notification-post-text notification-indented">
             @(Notification.Post?.Data?.Text ?? Notification.Feed?.DisplayName)
         </div>
+        @if (Notification.Post?.Data?.Media is { } media && media.Length != 0)
+        {
+            <div class="notification-post-media">
+                @foreach (var m in media)
+                {
+                    <img class="notification-post-media-thumbnail" src="@(Apis.GetImageUrl(m.IsVideo ?  ThumbnailSize.video_thumbnail : ThumbnailSize.feed_thumbnail, Notification.Post.Did, m.Cid, Notification.Post.Author.Pds))" >
+                }
+            </div>
+        }
+
     }
 </div>

@@ -170,6 +170,7 @@ function updateSearchAutoComplete() {
 
 function applyPageFocus() {
     
+
     var focalPost = document.querySelector('.post-focal');
     if (focalPost && document.querySelector('.post') != focalPost) {
         pageLoadedTimeBeforeInitialScroll = null;
@@ -427,7 +428,8 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
     } else if(p) { 
        document.scrollingElement.scrollTop = p.scrollTop;
     }
-
+    prevScrollTop = 0;
+    updateSidebarButtonScrollVisibility();
 }
 
 function getTextIncludingEmojis(node) { 
@@ -1177,6 +1179,9 @@ function onInitialLoad() {
     
     applyPageElements();
     applyPageFocus();
+    
+    prevScrollTop = 0;
+    updateSidebarButtonScrollVisibility();
 }
 
 function getAncestorData(target, name) { 

@@ -899,7 +899,7 @@ function onInitialLoad() {
             pageLoadedTimeBeforeInitialScroll = null;
         }
         updateSidebarButtonScrollVisibility();
-        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10) {
+        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10 && window.visualViewport.scale == 1) {
             closeCurrentMenu();
             closeTheater();
         }

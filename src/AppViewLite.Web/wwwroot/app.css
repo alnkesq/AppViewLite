@@ -231,6 +231,10 @@ main {
         display: flex;
     }
 
+    .settings-back-link {
+        margin-top: 12px !important;
+    }
+    
     .feed-author-link {
         top: 60px !important; 
     }

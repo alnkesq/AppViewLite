@@ -180,7 +180,7 @@ function applyPageFocus() {
             autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
         autofocus.focus();
         autofocus.scrollIntoView();
-        
+
         if (prev != document.scrollingElement.scrollTop)
             pageLoadedTimeBeforeInitialScroll = null;    
     }
@@ -757,7 +757,7 @@ function updateSidebarButtonScrollVisibility() {
         document.querySelector('.sidebar-button').classList.toggle('sidebar-button-fixed', scrollDelta < 0);
         prevScrollTop = scrollTop;
     }
-    var showScrollUp = scrollTop >= 700 && !location.pathname.split('/')[1] != 'settings';
+    var showScrollUp = scrollTop >= 700 && location.pathname.split('/')[1] != 'settings';
     document.querySelector('.scroll-up-button').classList.toggle('display-none', !showScrollUp);
 
     var path = new URL(location.href).pathname;

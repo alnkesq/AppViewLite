@@ -170,24 +170,25 @@ function updateSearchAutoComplete() {
 
 function applyPageFocus() {
     
-
+    var autofocus = document.querySelector('[autofocus]');
     var focalPost = document.querySelector('.post-focal');
-    if (focalPost && document.querySelector('.post') != focalPost) {
+
+    if (autofocus) { 
+        var prev = document.scrollingElement.scrollTop;
+        
+        if (autofocus.classList.contains('compose-textarea'))
+            autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
+        autofocus.focus();
+        autofocus.scrollIntoView();
+        
+        if (prev != document.scrollingElement.scrollTop)
+            pageLoadedTimeBeforeInitialScroll = null;    
+    }
+    else if (focalPost && document.querySelector('.post') != focalPost) {
         pageLoadedTimeBeforeInitialScroll = null;
         focalPost.scrollIntoView();
     }
     else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-
-    
-    var autofocus = document.querySelector('[autofocus]');
-    if (autofocus && autofocus.classList.contains('compose-textarea')) { 
-        autofocus.setSelectionRange(autofocus.value.length, autofocus.value.length);
-    }
-    
-    var prev = document.scrollingElement.scrollTop;
-    autofocus?.focus();
-    if (prev != document.scrollingElement.scrollTop)
-        pageLoadedTimeBeforeInitialScroll = null;    
 
     for (const video of document.querySelectorAll('video[autoplay]')) {
         if (!video.didAutoPlay) {
@@ -756,7 +757,7 @@ function updateSidebarButtonScrollVisibility() {
         document.querySelector('.sidebar-button').classList.toggle('sidebar-button-fixed', scrollDelta < 0);
         prevScrollTop = scrollTop;
     }
-    var showScrollUp = scrollTop >= 700;
+    var showScrollUp = scrollTop >= 700 && !location.pathname.split('/')[1] != 'settings';
     document.querySelector('.scroll-up-button').classList.toggle('display-none', !showScrollUp);
 
     var path = new URL(location.href).pathname;

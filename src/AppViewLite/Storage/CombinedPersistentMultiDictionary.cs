@@ -290,16 +290,20 @@ namespace AppViewLite.Storage
                     if (length < minLength) continue;
 
                     var ratioOfLargestComponent = ((double)largestComponentBytes / totalBytes);
-                    //var score = (double)length / itemCount * totalCount * (1 - ratioOfLargestComponent);
-                    var score = (1 - ratioOfLargestComponent) * Math.Log(length);
+                    if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(totalBytes)) continue;
+                    var score = (1 - ratioOfLargestComponent) * Math.Log(length) / Math.Log(totalBytes);
                     candidates.Add(new CompactationCandidate(start, length, totalBytes, largestComponentBytes, score, ratioOfLargestComponent));
                 }
             }
             return candidates;
         }
 
+        private static double GetMaximumRatioOfLargestSliceForCompactation(long totalSize)
+        {
+            return 1 / Math.Max(3, Math.Log10(totalSize) - 3);
+        }
         private const int TargetSliceCount = 15;
-        private const int MinimumCompactationCount = 4;
+        private const int MinimumCompactationCount = 6;
 
         private void MaybeStartCompactation()
         {

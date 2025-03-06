@@ -1,6 +1,7 @@
 
 
 var pageLoadedTimeBeforeInitialScroll = Date.now();
+var visualViewportWasResizedSinceLastTheaterOpen = false;
 var liveUpdatesPostIds = new Set();
 var pageTitleOverride = null;
 var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? 0);
@@ -510,6 +511,7 @@ function applyPageElements() {
     } else { 
         document.querySelector('.theater-image').postElement = null;
     }
+    visualViewportWasResizedSinceLastTheaterOpen = false;
 
     var postsInViewport = [];
     intersectionObserver = new IntersectionObserver(
@@ -898,6 +900,10 @@ function onInitialLoad() {
     };
     recentPages.push(appliedPageObj);
     
+    window.visualViewport.addEventListener('resize', () => {
+        visualViewportWasResizedSinceLastTheaterOpen = true;
+    });
+
     window.addEventListener('scroll', e => {
         if (pageLoadedTimeBeforeInitialScroll !== null) { 
             var scrollTop = document.scrollingElement.scrollTop;
@@ -909,7 +915,7 @@ function onInitialLoad() {
             pageLoadedTimeBeforeInitialScroll = null;
         }
         updateSidebarButtonScrollVisibility();
-        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10 && window.visualViewport.scale == 1) {
+        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10 && window.visualViewport.scale == 1 && !visualViewportWasResizedSinceLastTheaterOpen) {
             closeCurrentMenu();
             closeTheater();
         }

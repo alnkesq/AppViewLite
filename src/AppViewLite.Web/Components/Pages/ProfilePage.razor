@@ -110,7 +110,7 @@
         </div>
 
         <div class="profile-follow-area" data-profiledid="@SimpleProfile.Did" data-followrkey="@SimpleProfile.FollowRKeyForAttribute" data-followsyou="@SimpleProfile.FollowsYouForAttribute">
-            @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
+            @if (RequestContext.IsLoggedIn && SimpleProfile.Plc != RequestContext.LoggedInUser && SimpleProfile.BlockReason == default)
             {
                 <FollowButton Profile="@SimpleProfile" />
             }
@@ -136,27 +136,30 @@
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
                     <a href="/search?q=from:@(SimpleProfile.HandleIsUncertain || SimpleProfile.PossibleHandle == null ? SimpleProfile.Did : SimpleProfile.PossibleHandle)%20" class="menu-item">Search posts…</a>
 
-                    @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
+                    @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser && (SimpleProfile.BlockReason == default || SimpleProfile.IsFollowedEvenPrivatelyBySelf))
                     {
                         <button actionkind="toggleFollow" data-followkind="private" class="menu-item @(SimpleProfile.IsFollowedBySelf != null ? "display-none" : null)">@(SimpleProfile.IsFollowedEvenPrivatelyBySelf ? "Unfollow (private)" : "Follow privately")</button>
 
-                        @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageNonFollowedReposts))
+                        @if (SimpleProfile.BlockReason == default)
                         {
-                            <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageNonFollowedReposts" TextualFlag="@PrivateFollowFlags.MuteTextualNonFollowedReposts" />
+                            @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageNonFollowedReposts))
+                            {
+                                <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageNonFollowedReposts" TextualFlag="@PrivateFollowFlags.MuteTextualNonFollowedReposts" />
+                            }
+                            @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageSelfReposts))
+                            {
+                                <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageSelfReposts" TextualFlag="@PrivateFollowFlags.MuteTextualSelfReposts" />
+                            }
+
+
+                            @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteAllPosts) != SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImagePosts))
+                            {
+                                <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteImagePosts" />
+                            }
+
+
+                            <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteAllPosts" />
                         }
-                        @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImageSelfReposts))
-                        {
-                            <PrivateFollowPostKindToggleButton User="@SimpleProfile" ImageFlag="@PrivateFollowFlags.MuteImageSelfReposts" TextualFlag="@PrivateFollowFlags.MuteTextualSelfReposts" />
-                        }
-
-
-                        @if (SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteAllPosts) != SimpleProfile.HasPrivateFollowFlag(PrivateFollowFlags.MuteImagePosts))
-                        {
-                            <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteImagePosts" />
-                        }
-
-
-                        <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteAllPosts" />
                     }
                 </div>
 

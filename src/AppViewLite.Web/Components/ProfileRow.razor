@@ -52,7 +52,7 @@
 
     <LabelBadges Labels="@Profile.Labels" ExtraClass="profile-indented" />
 
-    @if (RequestContext.IsLoggedIn && Profile.Plc != RequestContext.LoggedInUser)
+    @if (RequestContext.IsLoggedIn && Profile.Plc != RequestContext.LoggedInUser && Profile.BlockReason == default)
     {
         <FollowButton Profile="@Profile" />
     }

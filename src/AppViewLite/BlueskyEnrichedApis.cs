@@ -1104,10 +1104,11 @@ namespace AppViewLite
 
                 var alreadyHasAllPosts = WithRelationshipsLock(rels =>
                 {
-                    return merged.Where(x => x.PostRecord != null).All(x => 
+                    return merged.All(x => 
                     {
                         var plc = rels.TrySerializeDidMaybeReadOnly(x.PostId.Did, ctx);
                         if (plc == default) return false;
+                        if (x.PostRecord == null) return true; // Repost of a post we don't have. Nothing to write right now (we'll do it later in EnrichAsync)
                         return rels.PostData.ContainsKey(new PostIdTimeFirst(x.RKey, plc));
                     });
                 }, ctx);

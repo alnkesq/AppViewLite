@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace AppViewLite
 {
 
-    public class Watchdog
+    public class Watchdog : IDisposable
     {
         private readonly Timer _timer;
         private readonly TimeSpan _timeout;
@@ -28,6 +28,11 @@ namespace AppViewLite
             var w = new Watchdog(ts, callback);
             w.Kick();
             return w;
+        }
+
+        public void Dispose()
+        {
+            _timer.Dispose();
         }
 
         public void Kick()

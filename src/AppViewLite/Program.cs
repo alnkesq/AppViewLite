@@ -29,7 +29,8 @@ namespace AppViewLite
             Console.Error.WriteLine("NOTE: If you want to use the Web UI, run AppViewLite.Web instead.");
             Console.Error.WriteLine("Press CTRL+C to stop indexing...");
             //indexer.RetrievePlcDirectoryLoopAsync().FireAndForget();
-            await indexer.StartListeningToJetstreamFirehose();
+            indexer.VerifyValidForCurrentRelay = x => { };
+            await indexer.StartListeningToAtProtoFirehoseRepos();
         }
 
     }

@@ -57,6 +57,7 @@ namespace AppViewLite.Models
         public bool IsYou;
 
         public Tid? IsFollowedBySelf;
+        public Tid? IsBlockedBySelf;
         public bool FollowsYou;
         public bool HasBannerImage => BasicData?.BannerCidBytes != null;
 
@@ -74,6 +75,7 @@ namespace AppViewLite.Models
         public PrivateFollow? PrivateFollow;
 
         public string FollowRKeyForAttribute => IsFollowedBySelf?.ToString() ?? (HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow) ? "x" : "-");
+        public string BlockRKeyForAttribute => IsBlockedBySelf?.ToString() ?? "-";
         public int FollowsYouForAttribute => FollowsYou ? 1 : 0;
 
         public bool HasPrivateFollowFlag(PrivateFollowFlags flag) => (PrivateFollow!.Flags & flag) == flag;

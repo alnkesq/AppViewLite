@@ -76,6 +76,15 @@ namespace AppViewLite.Web
             }
 
         }
+        [HttpPost(nameof(CreateBlock))]
+        public async Task<object> CreateBlock([FromBody] DidOnly args)
+        {
+
+            return new
+            {
+                rkey = (await apis.CreateBlockAsync(args.Did, ctx)).ToString()
+            };
+        }
         [HttpPost(nameof(DeleteRepost))]
         public async Task DeleteRepost([FromBody] RKeyOnly rkey)
         {
@@ -97,6 +106,12 @@ namespace AppViewLite.Web
             {
                 await apis.DeleteFollowAsync(Tid.Parse(args.Rkey), ctx);
             }
+        }
+
+        [HttpPost(nameof(DeleteBlock))]
+        public async Task DeleteBlock([FromBody] RKeyOnly args)
+        {
+            await apis.DeleteBlockAsync(Tid.Parse(args.Rkey), ctx);
         }
 
         [HttpPost(nameof(TogglePrivateFollow))]
@@ -209,6 +224,7 @@ namespace AppViewLite.Web
 
         public record DidAndRKey(string Did, string Rkey);
         public record RKeyOnly(string Rkey);
+        public record DidOnly(string Did);
         public record ToggleFollowArgs(string Did, bool Private);
         public record NotificationIdArgs(string NotificationId);
         public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);

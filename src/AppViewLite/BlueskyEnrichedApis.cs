@@ -2444,6 +2444,10 @@ namespace AppViewLite
         {
             return await CreateRecordAsync(new Follow { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }, ctx);
         }
+        public async Task<Tid> CreateBlockAsync(string did, RequestContext ctx)
+        {
+            return await CreateRecordAsync(new Block { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }, ctx);
+        }
 
         private static DateTime UtcNowMillis()
         {
@@ -2453,6 +2457,10 @@ namespace AppViewLite
         public async Task DeleteFollowAsync(Tid rkey, RequestContext ctx)
         {
             await DeleteRecordAsync(Follow.RecordType, rkey, ctx);
+        }
+        public async Task DeleteBlockAsync(Tid rkey, RequestContext ctx)
+        {
+            await DeleteRecordAsync(Block.RecordType, rkey, ctx);
         }
         public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RequestContext ctx)
         {

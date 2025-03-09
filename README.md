@@ -42,7 +42,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 | Keyboard navigation (JK)    |  ✅                |                  |⛔
 | Recently viewed post history|  ✅                |                  |⛔
 | Post interaction settings   |  ✅ Blurred posts  |⛔                  |✅ Nuclear blocks
-| Blocks                      |  ✅ Blurred posts  |⛔                  |✅ Nuclear blocks
+| Blocks                      |  ✅ Blurred posts  |✅                  |✅ Nuclear blocks
 | Labels                      |  ⚠️ Not configurable|                   |✅
 | Lists                       |  ✅                |⛔                  |✅
 | Mutes                       |  ✅                |⚠️ No expiration    |⚠️ No user-specific mute words<br>⚠️ No mute by post type

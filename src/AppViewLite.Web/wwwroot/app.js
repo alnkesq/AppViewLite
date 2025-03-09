@@ -1510,6 +1510,16 @@ var userActions = {
         profileElement.followToggler.toggleIfNotBusyAsync();
         invalidateFollowingPages();
     },
+
+    toggleBlock: async function (profiledid, profileElement, button) { 
+        var blockrkey = profileElement.dataset.blockrkey;
+        if (blockrkey != '-') {
+            await httpPost('DeleteBlock', { did: profiledid, rkey: blockrkey });
+        } else { 
+            await httpPost('CreateBlock', { did: profiledid });
+        }
+        location.reload();
+    },
     
     copyProfileUrl: async function (did) { 
         navigator.clipboard.writeText(location.origin + '/@' + did)

@@ -1404,7 +1404,7 @@ button[disabled], input[type=submit][disabled] {
     z-index: 6;
 }
 
-.follow-button {
+.follow-button, .unblock-button {
     background-color: rgb(37, 51, 66);
     border-radius: 50px;
 }
@@ -1413,7 +1413,7 @@ button[disabled], input[type=submit][disabled] {
     background-color: var(--button-follow-private);
 }
 
-.follow-button-unfollow {
+.follow-button-unfollow, .unblock-button {
     background-color: var(--background-hover);
     color: var(--button-following-text);
 }

@@ -35,13 +35,16 @@
         <ProfileBadges Profile="@Profile" />
     </div>
 
-    <ProfileHandle Profile="@Profile" />
+    <div class="profile-indented">
+        @if (Profile.BlockReason != default || Profile.FollowsYou)
+        {
+            var (blurReasonText, blurReasonFacets) = Profile.GetDisplayInverseFollowRelationship(RequestContext);
+            <span class="profile-follow-relationship"><TextWithFacets Text="@blurReasonText" Facets="@blurReasonFacets" /></span>
+        }
+        <ProfileHandle Profile="@Profile" />
+    </div>
 
-    @if (Profile.BlockReason != default || Profile.FollowsYou)
-    {
-        var (blurReasonText, blurReasonFacets) = Profile.GetDisplayInverseFollowRelationship(RequestContext);
-        <span class="profile-follow-relationship"><TextWithFacets Text="@blurReasonText" Facets="@blurReasonFacets" /></span>
-    }
+
 
     <div class="profile-row-description profile-indented">
         <TextWithFacets Text="@Profile.BasicData?.Description" Facets="@GuessedFacets"></TextWithFacets>

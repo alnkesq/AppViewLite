@@ -22,6 +22,8 @@ namespace AppViewLite.Models
         public string BaseUrl => $"{Author.BaseUrl}/lists/{RKey}";
 
         public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, Data?.AvatarCid, Author.Pds);
+
+        public Tid? MembershipRkey;
     }
 }
 

@@ -2562,14 +2562,19 @@ namespace AppViewLite
             {
                 return rels.ListMemberships.GetValuesSorted(plc, parsedContinuation)
                     .Where(x => !rels.ListItemDeletions.ContainsKey(new(x.ListAuthor, x.ListItemRKey)))
-                    .Select(x => rels.GetList(new(x.ListAuthor, x.ListRKey)))
+                    .Select(x => 
+                    {
+                        var list = rels.GetList(new(x.ListAuthor, x.ListRKey));
+                        list.MembershipRkey = x.ListItemRKey;
+                        return list;
+                    })
                     .Where(x => x.Data?.Deleted != true)
                     .Take(limit + 1)
                     .ToArray();
             }, ctx);
 
             await EnrichAsync(lists, ctx);
-            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => x.ListId.Serialize());
+            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => new ListMembership(x.Author.Plc, x.ListId.RelationshipRKey, x.MembershipRkey!.Value).Serialize());
         }
 
         private async Task<BlueskyFeedGenerator[]> EnrichAsync(BlueskyFeedGenerator[] feeds, RequestContext ctx, CancellationToken ct = default)

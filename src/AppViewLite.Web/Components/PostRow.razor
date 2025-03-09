@@ -79,10 +79,12 @@
     }
 
     private bool isSelfRepost;
-    private string? blurReason;
+    private BlockReasonDisplayStringAndList? blurReason;
+    private string? blurReasonText;
+    private FacetData[]? blurReasonFacets;
 
 
-    protected override void OnParametersSet()
+    protected override async void OnParametersSet()
     {
         if (RequestContextOverride != null)
             RequestContext = RequestContextOverride;
@@ -116,7 +118,9 @@
             rkey => Apis.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
 
-        blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView, IsQuoteList);
+        blurReason = Post.GetBlurReason(IsFocalPost, IsQuote, IsThreadView, IsQuoteList, RequestContext);
+        if (blurReason != null)
+            (blurReasonText, blurReasonFacets) = blurReason.ToTextWithFacets();
 
         isSelfRepost = Post.IsRepost && Post.RepostedBy!.Plc == Post.Author.Plc;
 
@@ -203,7 +207,7 @@
     @if (blurReason != null)
     {
         <div class="post-blur-reason-container">
-            <div class="post-blur-reason">@blurReason</div>
+            <div class="post-blur-reason"><TextWithFacets Text="@blurReasonText" Facets="@blurReasonFacets" /></div>
         </div>
 
     }

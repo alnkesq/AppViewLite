@@ -80,10 +80,10 @@ namespace AppViewLite.Models
 
         public string? OriginalPostUrl => Author.PluggableProtocol?.TryGetOriginalPostUrl(QualifiedPluggablePostId, this);
 
-        public string? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList)
+        public BlockReasonDisplayStringAndList? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList, RequestContext ctx)
         {
     
-            var r = Author.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor);
+            var r = Author.BlockReason.ToDisplayStringWithList(BlockSubjects.YouAndAuthor, ctx);
             if (r != null)
                 return r;
 
@@ -92,9 +92,9 @@ namespace AppViewLite.Models
             if (!isThreadView && !isQuotee && !isQuoteList) return null;
 
             if (QuoterAndAuthorBlockReason != default)
-                return QuoterAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoterAndAuthor);
+                return QuoterAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.QuoterAndAuthor, ctx);
             if (QuoteeAndAuthorBlockReason != default)
-                return QuoteeAndAuthorBlockReason.ToDisplayString(BlockSubjects.QuoteeAndAuthor);
+                return QuoteeAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.QuoteeAndAuthor, ctx);
 
             if (PostBlockReason != PostBlockReasonKind.None)
             {
@@ -115,15 +115,15 @@ namespace AppViewLite.Models
                 };
             }
 
-            if (FocalAndAuthorBlockReason.ToDisplayString(BlockSubjects.FocalAndAuthor) is { } s) return s;
+            if (FocalAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.FocalAndAuthor, ctx) is { } s) return s;
 
             if (isQuotee) return null;
 
             if (isQuoteList) return null;
 
             return
-                ParentAndAuthorBlockReason.ToDisplayString(BlockSubjects.ParentAndAuthor) ??
-                RootAndAuthorBlockReason.ToDisplayString(BlockSubjects.RootAndAuthor);
+                ParentAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.ParentAndAuthor, ctx) ??
+                RootAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.RootAndAuthor, ctx);
             
         }
 

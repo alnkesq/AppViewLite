@@ -84,6 +84,13 @@ namespace AppViewLite.Models
         {
             return DisplayNameOrFallback;
         }
+
+        public (string? Text, FacetData[]? Facets) GetDisplayInverseFollowRelationship(RequestContext ctx)
+        {
+            var b = BlockReason.ToDisplayStringWithList(BlockSubjects.YouAndAuthor, ctx);
+            if (b != null) return b.ToTextWithFacets();
+            return ((FollowsYou ? "Follows you" : null), null);
+        }
     }
 }
 

@@ -1952,3 +1952,9 @@ input[type=radio]{
     accent-color: var(--accent);
 }
 
+.post-blur-reason a, .profile-follow-relationship a {
+    color: var(--black) !important;
+}
+.profile-page-blocked .post-blur-reason {
+    display: none;
+}

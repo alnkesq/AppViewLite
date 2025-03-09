@@ -103,7 +103,8 @@
         <div class="main-padding">
             @if (Profile.Profile.BlockReason != default || Profile.Profile.FollowsYou)
             {
-                <span class="profile-follow-relationship">@(Profile.Profile.BlockReason.ToDisplayString(BlockSubjects.YouAndAuthor) ?? (Profile.Profile.FollowsYou ? "Follows you" : null))</span>
+                var (blurReasonText, blurReasonFacets) = Profile.Profile.GetDisplayInverseFollowRelationship(RequestContext);
+                <span class="profile-follow-relationship"><TextWithFacets Text="@blurReasonText" Facets="@blurReasonFacets" /></span>
             }
             <ProfileHandle Profile="@Profile.Profile" />
         </div>

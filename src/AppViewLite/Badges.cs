@@ -6,8 +6,6 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AppViewLite
 {
@@ -16,6 +14,28 @@ namespace AppViewLite
         public const string KindGovernment = "verified-government";
         public const string KindOrganization = "verified-organization";
         public const string KindGeneric = "verified-generic";
+
+        public static ReloadableFile<FrozenDictionary<string, ProfileBadge>> BadgeOverrides = new(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_BADGE_OVERRIDE_PATH), x => StringUtils.ReadTextFile(x).Select(x =>
+        {
+            var fields = x.Split(",", StringSplitOptions.TrimEntries);
+            if (fields.Length < 2) throw new Exception("Invalid badge override data: insufficient number of fields for " + x);
+            var handleOrDid = fields[0];
+            var kind = fields[1];
+            var url = fields.ElementAtOrDefault(2);
+            var description = fields.ElementAtOrDefault(3);
+            if (string.IsNullOrEmpty(handleOrDid) || string.IsNullOrEmpty(kind))
+                throw new Exception("Invalid badge override data: missing DID/handle or badge kind.");
+            var isHandleBased = !handleOrDid.StartsWith("did:", StringComparison.Ordinal);
+            var badge = new ProfileBadge {
+                Kind = kind,
+                IsHandleBased = isHandleBased,
+                Handle = isHandleBased ? handleOrDid : null,
+                Did = isHandleBased ? null : handleOrDid,
+                Url = !string.IsNullOrEmpty(url) ? url : null,
+                Description = !string.IsNullOrEmpty(description) ? description : null,
+            };
+            return badge;
+        }).ToFrozenDictionary(x => (x.Handle ?? x.Did)!));
 
         private static string? WikidataPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_WIKIDATA_VERIFICATION);
 
@@ -35,6 +55,13 @@ namespace AppViewLite
         {
             var result = new List<ProfileBadge>();
             possibleHandle = possibleHandle != null ? StringUtils.NormalizeHandle(possibleHandle) : null;
+
+            if (BadgeOverrides.GetValue().TryGetValue(did, out var badgeOverride) || (possibleHandle != null && BadgeOverrides.GetValue().TryGetValue(possibleHandle, out badgeOverride)))
+            {
+                if (badgeOverride.Kind == "none")
+                    return [];
+                return [badgeOverride];
+            }
 
             ProfileBadge? badge = null;
             if (possibleHandle != null && IsGovDomain(possibleHandle, out var tld))

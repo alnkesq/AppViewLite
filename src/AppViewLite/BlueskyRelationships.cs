@@ -519,7 +519,7 @@ namespace AppViewLite
             var checkpointsToKeep =
                 allCheckpoints
                 .OrderByDescending(x => x.LastWriteTimeUtc)
-                .Take(3)
+                .Take(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_RECENT_CHECKPOINTS_TO_KEEP) ?? 3)
                 .ToArray();
 
             var keep = checkpointsToKeep

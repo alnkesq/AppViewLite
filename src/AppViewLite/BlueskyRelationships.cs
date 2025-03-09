@@ -2959,7 +2959,10 @@ namespace AppViewLite
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
             profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
             profile.Labels = GetProfileLabels(profile.Plc, ctx.UserContext?.NeedLabels).Select(x => GetLabel(x)).ToArray();
-
+            if (profile.BlockReason != default && ctx.IsLoggedIn && Blocks.HasActor(profile.Plc, ctx.LoggedInUser, out var blockedBySelf))
+            {
+                profile.IsBlockedBySelf = blockedBySelf.RelationshipRKey;
+            }
             // ctx.Session is null when logging in (ourselves)
             profile.PrivateFollow = ctx.UserContext?.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue };
         }

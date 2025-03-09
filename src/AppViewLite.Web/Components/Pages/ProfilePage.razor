@@ -260,8 +260,14 @@
             <div class="tabbed-lists-header-inner">
 
                 <NavLink draggable="false" Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
-                <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
-                <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+                @if (SimpleProfile.PluggableProtocol == null || SimpleProfile.PluggableProtocol.ShouldShowRepliesTab(SimpleProfile))
+                {
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
+                }
+                @if (SimpleProfile.PluggableProtocol == null || SimpleProfile.PluggableProtocol.ShouldShowMediaTab(SimpleProfile))
+                {
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+                }
                 @if (SimpleProfile.PluggableProtocol == null)
                 {
                     <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>

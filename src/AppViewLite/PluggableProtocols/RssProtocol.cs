@@ -927,6 +927,11 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public override bool ShouldIncludeFullReplyChain(BlueskyPost post) => DidToUrl(post.Did).HasHostSuffix("tumblr.com");
+
+        public override bool ShouldShowRepliesTab(BlueskyProfile profile)
+        {
+            return DidToUrl(profile.Did).HasHostSuffix("tumblr.com");
+        }
     }
 }
 

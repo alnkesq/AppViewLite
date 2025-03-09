@@ -427,6 +427,9 @@ namespace AppViewLite.PluggableProtocols
         public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid = false) => Task.FromResult<string?>(null);
 
         public virtual bool ShouldIncludeFullReplyChain(BlueskyPost post) => false;
+
+        public virtual bool ShouldShowRepliesTab(BlueskyProfile profile) => true;
+        public virtual bool ShouldShowMediaTab(BlueskyProfile profile) => true;
     }
 }
 

@@ -303,6 +303,11 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         public override bool ProvidesLikeCount => true;
 
+
+        public override bool ShouldShowRepliesTab(BlueskyProfile profile)
+        {
+            return false;
+        }
     }
 
     public record struct YotsubaBoardId(string Host, string BoardName)

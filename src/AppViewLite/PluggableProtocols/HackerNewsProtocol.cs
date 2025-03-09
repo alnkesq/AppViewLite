@@ -135,6 +135,15 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             return Task.FromResult<string?>(null);
         }
 
+        public override bool ShouldShowRepliesTab(BlueskyProfile profile)
+        {
+            return false;
+        }
+
+        public override bool ShouldShowMediaTab(BlueskyProfile profile)
+        {
+            return false;
+        }
         public override bool ProvidesLikeCount => true;
     }
 }

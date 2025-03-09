@@ -1643,6 +1643,17 @@ async function searchBoxAutocomplete(forceResults) {
     if (new URL(location.href).searchParams.get('kind') == 'feeds') return;
 
     var text = searchbox.value;
+
+    for (const tab of document.querySelectorAll('.tabbed-lists-header-inner a')) {
+        var url = new URL(tab.href);
+        var searchParams = url.searchParams;
+        searchParams.delete('q');
+        if (text) {
+            searchParams.append('q', text);
+        }
+
+        tab.href = url.href;
+    }
     
     if (!autocomplete.lastSearchToken) autocomplete.lastSearchToken = 0;
     var token = ++autocomplete.lastSearchToken;

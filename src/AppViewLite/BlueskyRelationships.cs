@@ -2702,7 +2702,7 @@ namespace AppViewLite
         [DoesNotReturn]
         public static Exception ThrowFatalError(string message)
         {
-            var stackTrace = new StackTrace();
+            var stackTrace = new StackTrace(true);
             Console.Error.WriteLine(message);
             Console.Error.WriteLine(stackTrace.ToString());
             var directory = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FATAL_ERROR_LOG_DIRECTORY);

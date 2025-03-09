@@ -59,7 +59,7 @@ namespace AppViewLite.Models
             return
                 QuotedRKey == null && // Called when the proto is in a compressed state (no need to check QuotedPlc)
                 Media == null &&
-                ExternalUrl == null &&
+                ExternalUrlBpe == null &&
                 EmbedRecordUri == null &&
                 Facets == null &&
                 TextBpe != null &&

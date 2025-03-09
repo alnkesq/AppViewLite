@@ -2341,7 +2341,11 @@ namespace AppViewLite
 
         public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx)
         {
-            return await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
+            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
+
+            var indexer = new Indexer(this);
+            indexer.OnRecordCreated(ctx.UserContext.Did!, record.Type + "/" + tid.ToString(), record, ctx: ctx);
+            return tid;
         }
 
         private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
@@ -2510,6 +2514,8 @@ namespace AppViewLite
         public async Task DeleteRecordAsync(string collection, Tid rkey, RequestContext ctx)
         {
             await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session!.Did, collection, rkey.ToString()!), ctx);
+            var indexer = new Indexer(this);
+            indexer.OnRecordDeleted(ctx.UserContext.Did!, collection + "/" + rkey, ctx: ctx);
         }
 
         public async Task<Tid> CreatePostAsync(string text, PostIdString? inReplyTo, PostIdString? quotedPost, RequestContext ctx)

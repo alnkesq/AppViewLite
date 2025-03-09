@@ -40,7 +40,7 @@ namespace AppViewLite
             this.Apis = apis;
         }
 
-        public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false)
+        public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false, RequestContext? ctx = null)
         {
             using var _ = CreateIngestionThreadPriorityScope();
 
@@ -50,7 +50,7 @@ namespace AppViewLite
             var collection = path.Substring(0, slash);
             var rkey = path.Substring(slash + 1);
             var deletionDate = DateTime.UtcNow;
-            var ctx = RequestContext.CreateForFirehose("Delete:" + collection);
+            ctx ??= RequestContext.CreateForFirehose("Delete:" + collection);
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
@@ -131,7 +131,7 @@ namespace AppViewLite
         }
 
 
-        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false)
+        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false, RequestContext? ctx = null)
         {
             using var priorityScope = CreateIngestionThreadPriorityScope();
 
@@ -140,7 +140,7 @@ namespace AppViewLite
             var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
-            var ctx = RequestContext.CreateForFirehose("Create:" + record.Type);
+            ctx ??= RequestContext.CreateForFirehose("Create:" + record.Type);
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;

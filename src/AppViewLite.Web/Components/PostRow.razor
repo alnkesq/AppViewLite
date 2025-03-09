@@ -131,7 +131,7 @@
         targetForBaseUrlPreferExternal = originalPostUrl != null ? "_blank" : null;
 
         var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Post.Did);
-        ShouldUseCompactView = Post.Data?.Media?.Length > 1 || IsQuote || Post.ShouldUseCompactView;
+        ShouldUseCompactView = Post.Data?.Media?.Length > 1 || IsQuote || (Post.ShouldUseCompactView && !IsFocalPost);
     }
 
     public BlueskyProfile OriginalAuthor => Post.Author;

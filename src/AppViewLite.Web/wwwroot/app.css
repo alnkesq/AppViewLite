@@ -21,6 +21,7 @@ html {
     --menu: rgba(250,250,250, 0.5);
     --menu-text: rgb(37, 51, 66);
     --notification-new: #D6EBFE;
+    --bottom-bar-icon: hsl(211, 28%, 6%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -46,6 +47,7 @@ html {
         --menu: rgba(5,5,5, 0.5);
         --menu-text: --black;
         --notification-new: #001124;
+        --bottom-bar-icon: var(--black);
     }
 }
 
@@ -70,6 +72,7 @@ html {
     --menu: rgba(5,5,5, 0.5);
     --menu-text: --black;
     --notification-new: var(--background-hover);
+    --bottom-bar-icon: var(--black);
 }
 
 
@@ -309,6 +312,7 @@ main {
     width: 100%;
     text-align: center;
     padding-top: 14px;
+    color: var(--bottom-bar-icon);
 }
 
 .image-grid {

@@ -2729,11 +2729,13 @@ namespace AppViewLite
         public BlueskyLabelData? TryGetLabelData(LabelId x)
         {
             var data = LabelData.TryGetPreserveOrderSpanLatest(x, out var bytes) ? DeserializeProto<BlueskyLabelData>(bytes.AsSmallSpan()) : null;
-            if (data != null && data.ReuseDefaultDefinition)
-            { 
-                if (DefaultLabels.DefaultLabelData.TryGetValue(x.NameHash, out var defaults))
-                    return defaults;
+            if (data != null && !data.ReuseDefaultDefinition)
+            {
+                return data;
             }
+            if (DefaultLabels.DefaultLabelData.TryGetValue(x.NameHash, out var defaults))
+                return defaults;
+
             return data;
         }
         public LabelId[] GetPostLabels(PostId postId, HashSet<LabelId>? onlyLabels = null)
@@ -3146,6 +3148,7 @@ namespace AppViewLite
             if (postData.PluggablePostId == null) return null;
             return pluggable.TryGetOriginalPostUrl(new QualifiedPluggablePostId(did, postData.PluggablePostId.Value), post);
         }
+
     }
 
 

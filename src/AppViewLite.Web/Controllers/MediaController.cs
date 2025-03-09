@@ -334,6 +334,17 @@ namespace AppViewLite.Web.Controllers
         private static Color GetBorderAverageColor(Image<Rgba32> image)
         {
             Color borderColor = default;
+            var nw = image[0, 0];
+            var ne = image[image.Width - 1, 0];
+            var sw = image[0, image.Height - 1];
+            var se = image[image.Width - 1, image.Height - 1];
+            var cornerAverageColors = new Rgba32(
+                (byte)(((int)nw.R + ne.R + sw.R + se.R) / 4),
+                (byte)(((int)nw.G + ne.G + sw.G + se.G) / 4),
+                (byte)(((int)nw.B + ne.B + sw.B + se.B) / 4),
+                (byte)(((int)nw.A + ne.A + sw.A + se.A) / 4)
+                );
+            cornerAverageColors = BlendWithWhiteBackground(cornerAverageColors);
             image.ProcessPixelRows(accessor =>
             {
                 var r = 0;
@@ -341,14 +352,14 @@ namespace AppViewLite.Web.Controllers
                 var b = 0;
                 var a = 0;
                 int borderCount = 0;
-                var frequency = new Dictionary<Rgba32, int>();
+                var borderColorFrequency = new Dictionary<Rgba32, int>();
                 void Accumulate(Rgba32 pixel)
                 {
                     r += pixel.R;
                     g += pixel.G;
                     b += pixel.B;
                     a += pixel.A;
-                    CollectionsMarshal.GetValueRefOrAddDefault(frequency, pixel, out _)++;
+                    CollectionsMarshal.GetValueRefOrAddDefault(borderColorFrequency, pixel, out _)++;
                     borderCount++;
                 }
                 foreach (var pixel in accessor.GetRowSpan(0))
@@ -365,10 +376,18 @@ namespace AppViewLite.Web.Controllers
                     Accumulate(image[accessor.Width - 1, i]);
                 }
                 var borderCountFloat = (float)borderCount * 255;
-                var average = new Rgba32(r / borderCountFloat, g / borderCountFloat, b / borderCountFloat, a / borderCountFloat);
-                var mostFrequent = frequency.MaxBy(x => x.Value).Key;
-                if (ColorDistance(average, mostFrequent) < 50) borderColor = mostFrequent;
-                else borderColor = average;
+                var borderAverage = new Rgba32(r / borderCountFloat, g / borderCountFloat, b / borderCountFloat, a / borderCountFloat);
+                var borderMostFrequent = borderColorFrequency.MaxBy(x => x.Value).Key;
+                if (ColorDistance(borderAverage, cornerAverageColors) > 50)
+                {
+                    // Rounded image that fills most of the borders, but not the corners. Prefer corner color (usually white background)
+                    borderColor = cornerAverageColors;
+                }
+                else if (ColorDistance(borderAverage, borderMostFrequent) < 50) borderColor = borderMostFrequent;
+                else
+                {
+                    borderColor = borderAverage;
+                }
             });
             return borderColor;
         }

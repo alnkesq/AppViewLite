@@ -412,8 +412,6 @@ namespace AppViewLite.PluggableProtocols.Rss
                     bodyDom = StringUtils.AsWrappedTextNode(title ?? string.Empty);
                 }
 
-                title = null;
-
                 foreach (var altTag in bodyDom!.QuerySelectorAll(".tmblr-alt-text-helper").ToArray())
                 {
                     altTag.Remove();
@@ -424,6 +422,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                 if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
                     throw new Exception("Non-matching tumblr host");
                 var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId);
+
+
+
+
+
                 if (leafPost.QuotedPost == null && leafPost.Content.Length == 1 && leafPost.Content[0] is IText { } shortenedThread && Regex.IsMatch(shortenedThread.Text, @"^[\w\-]+\:\w"))
                 {
                     var text = shortenedThread.TextContent;
@@ -442,6 +445,13 @@ namespace AppViewLite.PluggableProtocols.Rss
                 }
                 else
                 {
+
+                    if (title != null && (bodyAsText == null || NormalizeTumblrTextForComparison(bodyAsText).Contains(NormalizeTumblrTextForComparison(title), StringComparison.OrdinalIgnoreCase)))
+                    {
+                        title = null;
+                    }
+
+
                     var sequence = new List<TumblrPost>();
                     while (leafPost != null)
                     {
@@ -464,6 +474,22 @@ namespace AppViewLite.PluggableProtocols.Rss
                         if (rootPostId == default) rootPostId = post.PostId;
 
                         var pair = StringUtils.HtmlToFacets(post.Content, x => StringUtils.DefaultElementToFacet(x, null));
+
+                        if (title != null)
+                        {
+                            var prefix = ">" + title + "\n";
+                            var offset = Encoding.UTF8.GetByteCount(prefix);
+                            pair.Text = prefix + pair.Text;
+                            if (pair.Facets != null)
+                            {
+                                foreach (var facet in pair.Facets)
+                                {
+                                    facet.Start += offset;
+                                }
+                            }
+                            title = null;
+                        }
+
                         var subpostData = new BlueskyPostData
                         {
                             Text = pair.Text,
@@ -572,6 +598,11 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data, ctx: ctx);
             return (dateParsed, url);
+        }
+
+        private static string NormalizeTumblrTextForComparison(string title)
+        {
+            return Regex.Replace(title, @"[\s…]", string.Empty);
         }
 
         private static byte[]? UrlToCid(string? imageUrl)

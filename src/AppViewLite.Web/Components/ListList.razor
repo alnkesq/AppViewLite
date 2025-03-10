@@ -30,3 +30,7 @@
         <a href="@continuationUrl">Next</a>
     </div>
 }
+@if (Lists.Length == 0 && NextContinuation == null)
+{
+    <div class="no-results">No lists.</div>
+}

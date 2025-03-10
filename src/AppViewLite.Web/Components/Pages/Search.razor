@@ -161,20 +161,22 @@
     </div>
 </div>
 
-
-@if (Kind == "users")
+@if(!string.IsNullOrEmpty(Q))
 {
-    <ProfileList Profiles="@Profiles" NextContinuation="@NextContinuation" />
-}
-else if(Kind == "feeds")
-{
-    <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
-}
-else if(Kind == "media")
-{
-    <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="true" />
-}
-else
-{
-    <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+    if (Kind == "users")
+    {
+        <ProfileList Profiles="@Profiles" NextContinuation="@NextContinuation" />
+    }
+    else if(Kind == "feeds")
+    {
+        <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
+    }
+    else if(Kind == "media")
+    {
+        <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="true" />
+    }
+    else
+    {
+        <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+    }
 }

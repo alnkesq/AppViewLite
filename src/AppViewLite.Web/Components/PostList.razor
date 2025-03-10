@@ -92,3 +92,8 @@
         <a href="@continuationUrl">Next</a>
     </div>
 }
+
+@if(Posts.Length == 0 && NextContinuation == null)
+{
+    <div class="no-results">No posts.</div>
+}

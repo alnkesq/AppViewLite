@@ -1946,3 +1946,6 @@ input[type=radio]{
 .profile-page-blocked .post-blur-reason {
     display: none;
 }
+.no-results {
+    text-align: center;
+}

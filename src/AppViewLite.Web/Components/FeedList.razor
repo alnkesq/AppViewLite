@@ -30,3 +30,8 @@
         <a href="@continuationUrl">Next</a>
     </div>
 }
+
+@if (Feeds.Length == 0 && NextContinuation == null)
+{
+    <div class="no-results">No feeds.</div>
+}

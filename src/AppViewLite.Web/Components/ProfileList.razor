@@ -5,6 +5,8 @@
 @code {
     [Parameter] public required BlueskyProfile[] Profiles { get; set; }
 
+    [Parameter] public string EmptyListText { get; set; } = "No profiles.";
+
     [Parameter] public string? NextContinuation { get; set; }
     private Uri? continuationUrl;
 
@@ -32,5 +34,5 @@
 }
 @if (Profiles.Length == 0 && NextContinuation == null)
 {
-    <div class="no-results">No profiles.</div>
+    <div class="no-results">@EmptyListText</div>
 }

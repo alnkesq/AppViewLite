@@ -13,6 +13,7 @@
     [Parameter] public bool IsQuoteList { get; set; }
     [Parameter] public bool ShowAsGrid { get; set; }
     [Parameter] public bool FocalVideoAutoPlay { get; set; }
+    [Parameter] public string EmptyListText { get; set; } = "No posts.";
 
     private Uri? continuationUrl;
     private Plc? focalPostPlc;
@@ -95,5 +96,5 @@
 
 @if(Posts.Length == 0 && NextContinuation == null)
 {
-    <div class="no-results">No posts.</div>
+    <div class="no-results">@EmptyListText</div>
 }

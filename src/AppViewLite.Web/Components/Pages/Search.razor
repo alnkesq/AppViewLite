@@ -172,7 +172,7 @@
 {
     if (Kind == "users")
     {
-        <ProfileList Profiles="@Profiles" NextContinuation="@NextContinuation" />
+        <ProfileList Profiles="@Profiles" NextContinuation="@NextContinuation" EmptyListText="No results." />
     }
     else if(Kind == "feeds")
     {
@@ -180,14 +180,14 @@
         {
             <h3 class="main-padding popular-feeds-separator">Popular feeds</h3>
         }
-        <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
+        <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" EmptyListText="No results." />
     }
     else if(Kind == "media")
     {
-        <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="true" />
+        <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="true" EmptyListText="No results." />
     }
     else
     {
-        <PostList Posts="@Posts" NextContinuation="@NextContinuation" />
+        <PostList Posts="@Posts" NextContinuation="@NextContinuation" EmptyListText="No results." />
     }
 }

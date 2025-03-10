@@ -74,6 +74,10 @@ namespace AppViewLite
 
         public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null, long minVersion = default)
         {
+            if (session != null && session.IsLoggedIn)
+            {
+                minVersion = Math.Max(minVersion, session.UserContext.MinVersion);
+            }
             var ctx = new RequestContext
             {
                 Session = session!,
@@ -121,9 +125,22 @@ namespace AppViewLite
             while (true)
             {
                 var oldVersion = this.MinVersion;
-                if (oldVersion >= version) return;
+                if (oldVersion >= version) break;
 
                 Interlocked.CompareExchange(ref MinVersion, version, oldVersion);
+            }
+
+
+            if (IsLoggedIn)
+            {
+                var userContext = this.UserContext;
+                while (true)
+                {
+                    var oldVersion = userContext.MinVersion;
+                    if (oldVersion >= version) break;
+
+                    Interlocked.CompareExchange(ref userContext.MinVersion, version, oldVersion);
+                }
             }
         }
 

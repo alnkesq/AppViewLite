@@ -54,6 +54,8 @@ namespace AppViewLite
 
         public Task? InitializeAsync;
 
+        public long MinVersion;
+
         public AppViewLiteSessionProto? TryGetAppViewLiteSession(string sessionId)
         {
             return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));

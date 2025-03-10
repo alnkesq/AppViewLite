@@ -179,15 +179,9 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var comment = thread.Com?.Trim();
             if (string.IsNullOrEmpty(subject)) subject = null;
             if (string.IsNullOrEmpty(comment)) comment = null;
-
-            var bodyHtml = subject != null && comment != null ? subject + ": " + comment : (subject ?? comment);
+            
+            var bodyHtml = subject != null && comment != null ? ConcatenateSubjectAndComment(subject, comment) : (subject ?? comment);
             var body = ParseHtml(bodyHtml, boardId);
-
-            if (subject != null && comment != null)
-            {
-                body.Facets ??= [];
-                body.Facets = body.Facets.Concat([new FacetData() { Start = 0, Length = Encoding.UTF8.GetByteCount(subject), Bold = true }]).ToArray();
-            }
 
             var threadData = new BlueskyPostData
             {
@@ -211,6 +205,14 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 LastObservedReplyCount.Add(boardAndPostId, replyCount);
             }
             return date;
+        }
+
+        private static string ConcatenateSubjectAndComment(string subject, string comment)
+        {
+            var boldSubject = "<b>" + subject + "</b>";
+            if (comment.StartsWith(@"<span class=""quote"">", StringComparison.Ordinal)) return boldSubject + "<br>" + comment;
+            if (subject.Length != 0 && subject[^1] is '?' or '!' or '.' or ':') return boldSubject + " " + comment;
+            return boldSubject + ": " + comment;
         }
 
         private static (string? Text, FacetData[]? Facets) ParseHtml(string? html, YotsubaBoardId boardId)

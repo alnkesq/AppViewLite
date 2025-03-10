@@ -566,6 +566,7 @@ ul {
     margin-top: 5px;
     font-size: 18.75px;
     margin-bottom: 5px;
+    cursor: text;
 }
 
 .post-focal > .post-meta > .handle-generic{
@@ -772,6 +773,7 @@ ul {
     overflow-wrap: break-word;
     display: block;
     padding-right: 8px;
+    cursor: pointer;
 }
 
 .post-indented, .notification-indented, .notification-post-media {
@@ -791,17 +793,6 @@ ul {
 }
 .notification-background-link {
     top: 0px;
-}
-
-.post-body-link-to-thread-text {
-    color: inherit;
-    display: inline;
-    outline: none;
-    text-decoration: none !important;
-}
-
-.post-body-link-to-thread {
-    cursor: pointer;
 }
 
 .display-block{

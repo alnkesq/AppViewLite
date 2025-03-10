@@ -263,7 +263,7 @@
 
         <div class="post-error post-indented">[@(Post.Data?.Error ?? "Not loaded yet")]</div>
     }
-    <div class="post-body post-indented @(!IsFocalPost ? "post-body-link-to-thread" : null)" href="@baseUrlPreferExternal" target="@targetForBaseUrlPreferExternal">
+    <div class="post-body post-indented">
         <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />
     </div>
 

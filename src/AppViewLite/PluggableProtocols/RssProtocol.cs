@@ -963,6 +963,16 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return DidToUrl(profile.Did).HasHostSuffix("tumblr.com");
         }
+
+        public override bool SupportsProfileMetadataLookup(string did)
+        {
+            return true;
+        }
+
+        public override async Task TryFetchProfileMetadataAsync(string did, RequestContext ctx)
+        {
+            await MaybeRefreshFeedAsync(did, ctx);
+        }
     }
 }
 

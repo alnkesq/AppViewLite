@@ -756,7 +756,7 @@ namespace AppViewLite
                 return proto;
 
             }
-            else if(FailedProfileLookups.ContainsKey(plc))
+            else if (FailedProfileLookups.ContainsKey(plc))
             {
                 return new BlueskyProfileBasicInfo
                 {
@@ -1740,7 +1740,9 @@ namespace AppViewLite
             var basic = GetProfileBasicInfo(plc);
             var did = GetDid(plc);
 
-            if (basic == null && !IsNativeAtProtoDid(did))
+            var pluggable = TryGetPluggableProtocolForDid(did);
+
+            if (basic == null && pluggable != null && !pluggable.SupportsProfileMetadataLookup(did))
                 basic = new BlueskyProfileBasicInfo();
 
             var didDoc = TryGetLatestDidDoc(plc);
@@ -1762,7 +1764,6 @@ namespace AppViewLite
             if (possibleHandle == null && didDoc != null)
                 handleIsCertain = true;
 
-            var pluggable = TryGetPluggableProtocolForDid(did);
             if (pluggable != null)
             {
                 if (possibleHandle == null)

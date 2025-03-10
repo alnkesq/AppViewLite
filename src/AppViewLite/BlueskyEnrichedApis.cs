@@ -248,28 +248,49 @@ namespace AppViewLite
 
         private async Task<long> FetchAndStoreProfileCoreAsync(string did, RequestContext ctx)
         {
-            Profile? response = null;
-            try
+            if (PluggableProtocol.TryGetPluggableProtocolForDid(did) is { } pluggable)
             {
-                response = (Profile)(await GetRecordAsync(did, Profile.RecordType, "self", ctx)).Value;
+                try
+                {
+                    await pluggable.TryFetchProfileMetadataAsync(did, ctx);
+                }
+                catch (Exception)
+                {
+                }
+                return WithRelationshipsWriteLock(rels =>
+                {
+                    var plc = rels.SerializeDid(did, ctx);
+                    var have = rels.Profiles.ContainsKey(plc);
+                    if (!have)
+                        rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
+                    return rels.Version;
+                }, ctx);
             }
-            catch (Exception)
+            else
             {
-            }
+                Profile? response = null;
+                try
+                {
+                    response = (Profile)(await GetRecordAsync(did, Profile.RecordType, "self", ctx)).Value;
+                }
+                catch (Exception)
+                {
+                }
 
-            return WithRelationshipsWriteLock(rels =>
-            {
-                var plc = rels.SerializeDid(did, ctx);
-                if (response != null)
+                return WithRelationshipsWriteLock(rels =>
                 {
-                    rels.StoreProfileBasicInfo(plc, response, ctx);
-                }
-                else
-                {
-                    rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
-                }
-                return rels.Version;
-            }, ctx);
+                    var plc = rels.SerializeDid(did, ctx);
+                    if (response != null)
+                    {
+                        rels.StoreProfileBasicInfo(plc, response, ctx);
+                    }
+                    else
+                    {
+                        rels.FailedProfileLookups.Add(plc, DateTime.UtcNow);
+                    }
+                    return rels.Version;
+                }, ctx);
+            }
         }
 
 

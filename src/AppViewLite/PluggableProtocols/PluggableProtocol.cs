@@ -430,6 +430,9 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool ShouldShowRepliesTab(BlueskyProfile profile) => true;
         public virtual bool ShouldShowMediaTab(BlueskyProfile profile) => true;
+        public virtual bool SupportsProfileMetadataLookup(string did) => false;
+
+        public virtual Task TryFetchProfileMetadataAsync(string did, RequestContext ctx) => Task.FromResult<BlueskyProfileBasicInfo?>(null);
     }
 }
 

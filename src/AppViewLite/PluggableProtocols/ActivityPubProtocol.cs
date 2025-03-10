@@ -296,6 +296,8 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private static ActivityPubUserId TryGetUserIdFromUrl(Uri url)
         {
+            if (IsFalsePositiveDomain(url.GetDomainTrimWww()))
+                return default;
             try
             {
                 var pathSegments = url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

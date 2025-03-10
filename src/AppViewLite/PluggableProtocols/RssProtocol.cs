@@ -225,9 +225,16 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var title = GetValue(rss, "title");
                 if (title != null)
                 {
-                    title = Regex.Replace(Regex.Replace(title, @"\b(RSS feed|Atom feed|RSS|'s blog|'s newsletter|posts|articles|medium)\b", string.Empty, RegexOptions.IgnoreCase), @"[\(\[]\s*[\)\]]", string.Empty).Trim([' ', '-', '•']);
-                    if (string.IsNullOrEmpty(title))
+                    if (title.StartsWith("https://", StringComparison.Ordinal) && StringUtils.TryParseUri(title) is Uri url && url.HasHostSuffix(feedUrl.GetDomainTrimWww()))
+                    {
                         title = null;
+                    }
+                    else
+                    {
+                        title = Regex.Replace(Regex.Replace(title, @"\b(RSS feed|Atom feed|RSS|'s blog|'s newsletter|posts|articles|medium)\b", string.Empty, RegexOptions.IgnoreCase), @"[\(\[]\s*[\)\]]", string.Empty).Trim([' ', '-', '•']);
+                        if (string.IsNullOrEmpty(title))
+                            title = null;
+                    }
 
                 }
                 var altUrl = GetAlternateLink(rss);

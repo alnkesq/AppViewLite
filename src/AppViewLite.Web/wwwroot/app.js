@@ -1,7 +1,7 @@
 
 
 var pageLoadedTimeBeforeInitialScroll = Date.now();
-var visualViewportWasResizedSinceLastTheaterOpen = false;
+var visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
 var liveUpdatesPostIds = new Set();
 var pageTitleOverride = null;
 var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? 0);
@@ -516,7 +516,7 @@ function applyPageElements() {
     } else { 
         document.querySelector('.theater-image').postElement = null;
     }
-    visualViewportWasResizedSinceLastTheaterOpen = false;
+    visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
 
     var postsInViewport = [];
     intersectionObserver = new IntersectionObserver(
@@ -909,7 +909,7 @@ function onInitialLoad() {
     recentPages.push(appliedPageObj);
     
     window.visualViewport.addEventListener('resize', () => {
-        visualViewportWasResizedSinceLastTheaterOpen = true;
+        visualViewportWasResizedSinceLastTheaterOrMenuOpen = true;
     });
 
     window.addEventListener('scroll', e => {
@@ -923,7 +923,7 @@ function onInitialLoad() {
             pageLoadedTimeBeforeInitialScroll = null;
         }
         updateSidebarButtonScrollVisibility();
-        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10 && window.visualViewport.scale == 1 && !visualViewportWasResizedSinceLastTheaterOpen) {
+        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10 && window.visualViewport.scale == 1 && !visualViewportWasResizedSinceLastTheaterOrMenuOpen) {
             closeCurrentMenu();
             closeTheater();
         }
@@ -1165,6 +1165,7 @@ function onInitialLoad() {
                         prevMenu.classList.add('menu-visible');
                         currentlyOpenMenuButton = actionButton;
                         currentlyOpenMenu = prevMenu;
+                        visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
                         ensureMenuFullyVisible();
                         var first = currentlyOpenMenu.querySelector('a, button');
                         if (first) {

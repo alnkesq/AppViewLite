@@ -318,6 +318,11 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return default;
         }
 
+        private static bool IsFalsePositiveDomain(string host)
+        {
+            return host is "medium.com" or "youtube.com";
+        }
+
         public static string GetDid(ActivityPubUserId author)
         {
             author = author.Normalize();

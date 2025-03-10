@@ -166,7 +166,7 @@
 
 @if (PinnedFeeds.Length != 0)
 {
-    <FeedList Feeds="@PinnedFeeds" />
+    <FeedList Feeds="@PinnedFeeds" Compact="true" />
 }
 @if(!string.IsNullOrEmpty(Q) || Feeds.Length != 0)
 {

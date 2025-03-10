@@ -1961,3 +1961,27 @@ input[type=radio]{
 .popular-feeds-separator {
     margin-top: 120px;
 }
+.feed-metadata-row-compact {
+    border-bottom: none;
+    display: flex;
+    padding-top: 0;
+    padding-bottom: 5px;
+}
+
+.feed-metadata-row-compact .feed-metadata-avatar{
+    flex: 0 1 auto;
+    position: relative;
+}
+.feed-metadata-row-compact .feed-metadata-row-name {
+    flex: 1 1 auto;
+    align-self: stretch;
+    margin-left: 10px;
+    display: flex;
+}
+.feed-metadata-row-compact .feed-metadata-row-name a{
+    display: block;
+    flex: 1 1 auto;
+    padding-top: 11px;
+    padding-bottom: 5px;
+    
+}

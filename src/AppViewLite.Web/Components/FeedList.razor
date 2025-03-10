@@ -4,7 +4,7 @@
 
 @code {
     [Parameter] public required BlueskyFeedGenerator[] Feeds { get; set; }
-
+    [Parameter] public bool Compact { get; set; }
     [Parameter] public string? NextContinuation { get; set; }
     private Uri? continuationUrl;
 
@@ -18,7 +18,7 @@
 <ul class="feed-list main-paginated-list">
     @foreach (var feed in Feeds)
     {
-        <FeedRow Feed="feed"/>
+        <FeedRow Feed="feed" Compact="Compact"/>
 
     }
 </ul>

@@ -178,7 +178,7 @@
     {
         @if (string.IsNullOrEmpty(Q) && Feeds.Length != 0 && PinnedFeeds.Length != 0)
         {
-            <h3 class="main-padding">Popular feeds</h3>
+            <h3 class="main-padding popular-feeds-separator">Popular feeds</h3>
         }
         <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
     }

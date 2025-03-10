@@ -1957,3 +1957,7 @@ input[type=radio]{
 .feed-grid-toggle {
     display: inline-block;
 }
+
+.popular-feeds-separator {
+    margin-top: 120px;
+}

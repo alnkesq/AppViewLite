@@ -737,6 +737,24 @@ namespace AppViewLite
             return host;
         }
 
+        internal static Uri? GetSrcSetLargestImageUrl(IElement img, Uri pageUrl)
+        {
+            var srcset = img.GetAttribute("srcset");
+            if (srcset != null)
+            {
+                var sizes = srcset.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                return sizes.Select(x =>
+                {
+                    var parts = x.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (parts.Length < 2) return default;
+
+                    return (Url: Uri.TryCreate(pageUrl, img.GetAttribute("src"), out var url) ? url : null, Size: int.Parse(Regex.Replace(parts[1], @"\D", string.Empty)));
+                }).Where(x => x.Url != null).OrderByDescending(x => x.Size).FirstOrDefault().Url;
+            }
+
+            return Uri.TryCreate(pageUrl, img.GetAttribute("src"), out var url) ? url : null;
+        }
+
         private readonly static FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> KnownFileExtensions = new[]
         {
             "7z",

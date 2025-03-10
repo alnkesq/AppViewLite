@@ -3454,6 +3454,17 @@ namespace AppViewLite
         public static async Task<Uri> GetFaviconUrlAsync(Uri pageUrl)
         {
             var dom = StringUtils.ParseHtml(await DefaultHttpClient.GetStringAsync(pageUrl));
+            if (pageUrl.HasHostSuffix("tumblr.com"))
+            {
+                var img = dom.QuerySelectorAll("img[alt=Avatar]").FirstOrDefault(x => 
+                {
+                    return Uri.TryCreate(pageUrl, x.Closest("a")?.GetAttribute("href"), out var url) && url.GetSegments().FirstOrDefault() == pageUrl.Host.Replace(".tumblr.com", null);
+                });
+                if (img != null && StringUtils.GetSrcSetLargestImageUrl(img, pageUrl) is { } avatarUrl)
+                {
+                    return avatarUrl;
+                }
+            }
             var href = dom.QuerySelector("link[rel='icon'],link[rel='shortcut icon']")?.GetAttribute("href");
             if (!string.IsNullOrEmpty(href))
             {

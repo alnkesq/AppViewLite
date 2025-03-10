@@ -1665,7 +1665,7 @@ namespace AppViewLite
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext ctx)
         {
             var data = await GetFeedGeneratorDataAsync(did, rkey, ctx);
-            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data), ctx);
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data, ctx), ctx);
         }
 
         public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx)
@@ -1674,7 +1674,7 @@ namespace AppViewLite
             var session = ctx.Session;
             var user = session.LoggedInUser!.Value;
 
-            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user), ctx);
+            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user, ctx), ctx);
             var nonHiddenNotifications = notifications.NewNotifications.Concat(notifications.OldNotifications).Where(x => !x.Hidden).ToArray();
             await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).WhereNonNull().ToArray(), ctx);
             await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).WhereNonNull().ToArray(), ctx);
@@ -2719,6 +2719,13 @@ namespace AppViewLite
             
         }
 
+
+        public async Task<BlueskyFeedGenerator[]> GetPinnedFeedsAsync(RequestContext ctx)
+        {
+            var feeds = WithRelationshipsLock(rels => ctx.PrivateProfile.FeedSubscriptions.Select(x => rels.GetFeedGenerator(new Plc(x.FeedPlc), x.FeedRKey, ctx)).ToArray(), ctx);
+            await EnrichAsync(feeds, ctx);
+            return feeds.OrderBy(x => x.DisplayNameOrFallback).ToArray();
+        }
         public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> GetPopularFeedsAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
@@ -2746,7 +2753,7 @@ namespace AppViewLite
                 {
                     if (best.TryDequeue(out var r, out _))
                     {
-                        var f = rels.TryGetFeedGenerator(r);
+                        var f = rels.TryGetFeedGenerator(r, ctx);
                         if (f != null)
                             list.Add(f);
                     }
@@ -2768,7 +2775,7 @@ namespace AppViewLite
             var feeds = WithRelationshipsLock(rels =>
             {
                 return rels.SearchFeeds(queryWords, parsedContinuation ?? RelationshipHashedRKey.MaxValue)
-                .Select(x => rels.TryGetFeedGenerator(x)!)
+                .Select(x => rels.TryGetFeedGenerator(x, ctx)!)
                 .Where(x => 
                 {
                     var words = StringUtils.GetAllWords(x.Data?.DisplayName).Concat(StringUtils.GetAllWords(x.Data?.Description)).Distinct().ToArray();
@@ -2917,7 +2924,7 @@ namespace AppViewLite
                     {
                         rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value, DateTime.UtcNow), ctx);
                     }
-                    return rels.TryGetFeedGenerator(feedId)!;
+                    return rels.TryGetFeedGenerator(feedId, ctx)!;
                 }).ToArray();
             }, ctx);
             await EnrichAsync(feeds, ctx);
@@ -3616,6 +3623,7 @@ namespace AppViewLite
                     var profileProto = rels.AppViewLiteProfiles.TryGetPreserveOrderSpanLatest(plc, out var appviewProfileBytes) ? BlueskyRelationships.DeserializeProto<AppViewLiteProfileProto>(appviewProfileBytes.AsSmallSpan()) : new();
                     profileProto.Sessions ??= [];
                     profileProto.PrivateFollows ??= [];
+                    profileProto.FeedSubscriptions ??= [];
 
                     userContext = new AppViewLiteUserContext
                     {

@@ -223,6 +223,30 @@ namespace AppViewLite.Web
             };
         }
 
+        [HttpPost(nameof(PinFeed))]
+        public void PinFeed(DidAndRKey args)
+        {
+            var plc = apis.SerializeSingleDid(args.Did, ctx);
+            lock (ctx.PrivateProfile)
+            {
+                if (ctx.PrivateProfile.FeedSubscriptions.Any(x => new Plc(x.FeedPlc) == plc && x.FeedRKey == args.Rkey))
+                    return;
+                ctx.PrivateProfile.FeedSubscriptions = ctx.PrivateProfile.FeedSubscriptions.Append(new FeedSubscription { FeedRKey = args.Rkey, FeedPlc = plc.PlcValue }).ToArray();
+            }
+            apis.SaveAppViewLiteProfile(ctx);
+        }
+
+        [HttpPost(nameof(UnpinFeed))]
+        public void UnpinFeed(DidAndRKey args)
+        {
+            var plc = apis.SerializeSingleDid(args.Did, ctx);
+            lock (ctx.PrivateProfile)
+            {
+                ctx.PrivateProfile.FeedSubscriptions = ctx.PrivateProfile.FeedSubscriptions.Where(x => !(new Plc(x.FeedPlc) == plc && x.FeedRKey == args.Rkey)).ToArray();
+            }
+            apis.SaveAppViewLiteProfile(ctx);
+        }
+
 
         public record DidAndRKey(string Did, string Rkey);
         public record RKeyOnly(string Rkey);

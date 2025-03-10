@@ -16,6 +16,7 @@ namespace AppViewLite.Models
         public required BlueskyProfile Author;
         public RelationshipHashedRKey FeedId;
         public long LikeCount;
+        public bool IsPinned;
         public string DisplayNameOrFallback => Data?.DisplayName ?? (Did + "/" + RKey);
         public Plc Plc => FeedId.Plc;
         public string BaseUrl => $"{Author.BaseUrl}/feed/{RKey}";

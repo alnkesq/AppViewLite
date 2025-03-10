@@ -17,6 +17,7 @@ namespace AppViewLite.Models
         [ProtoMember(6)] public int LastAssignedMuteRuleId;
         [ProtoMember(7)] public Theme Theme;
         [ProtoMember(8)] public AccentColor AccentColor;
+        [ProtoMember(9)] public FeedSubscription[] FeedSubscriptions = null!;
     }
 
     [ProtoContract]
@@ -129,6 +130,13 @@ namespace AppViewLite.Models
         Pink,
         Purple,
         Gray,
+    }
+
+    [ProtoContract]
+    public class FeedSubscription
+    {
+        [ProtoMember(1)] public int FeedPlc;
+        [ProtoMember(2)] public required string FeedRKey;
     }
 }
 

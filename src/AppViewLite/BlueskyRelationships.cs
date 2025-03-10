@@ -2164,7 +2164,7 @@ namespace AppViewLite
 
 
 
-        public BlueskyNotification? RehydrateNotification(Notification notification, Plc destination)
+        public BlueskyNotification? RehydrateNotification(Notification notification, Plc destination, RequestContext ctx)
         {
             (PostId post, Plc actor) = notification.Kind switch
             {
@@ -2177,7 +2177,7 @@ namespace AppViewLite
             BlueskyFeedGenerator? feed = null;
             if (notification.Kind == NotificationKind.LikedYourFeed)
             {
-                feed = TryGetFeedGenerator(new RelationshipHashedRKey(destination, (ulong)notification.RKey.TidValue));
+                feed = TryGetFeedGenerator(new RelationshipHashedRKey(destination, (ulong)notification.RKey.TidValue), ctx);
                 actor = notification.Actor;
                 post = default;
             }
@@ -2211,7 +2211,7 @@ namespace AppViewLite
             return count;
         }
 
-        public (BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification) GetNotificationsForUser(Plc user)
+        public (BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification) GetNotificationsForUser(Plc user, RequestContext ctx)
         {
             if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return ([], [], default);
             var newNotificationsCore = Notifications.GetValuesSortedDescending(user, threshold, null).ToArray();
@@ -2220,7 +2220,7 @@ namespace AppViewLite
 
             var newNotifications = 
                 newNotificationsCore
-                .Select(x => RehydrateNotification(x, user))
+                .Select(x => RehydrateNotification(x, user, ctx))
                 .WhereNonNull()
                 .ToArray();
 
@@ -2233,7 +2233,7 @@ namespace AppViewLite
                 .Select(x =>
                 {
                     newestNotification ??= x;
-                    return RehydrateNotification(x, user);
+                    return RehydrateNotification(x, user, ctx);
                 })
                 .WhereNonNull()
                 .TakeWhile(x => 
@@ -2540,11 +2540,11 @@ namespace AppViewLite
             date = new DateTime(date.Ticks, DateTimeKind.Utc);
         }
 
-        public BlueskyFeedGenerator GetFeedGenerator(Plc plc, BlueskyFeedGeneratorData data)
+        public BlueskyFeedGenerator GetFeedGenerator(Plc plc, BlueskyFeedGeneratorData data, RequestContext ctx)
         {
-            return GetFeedGenerator(plc, data.RKey, data);
+            return GetFeedGenerator(plc, data.RKey, ctx, data);
         }
-        public BlueskyFeedGenerator GetFeedGenerator(Plc plc, string rkey, BlueskyFeedGeneratorData? data = null)
+        public BlueskyFeedGenerator GetFeedGenerator(Plc plc, string rkey, RequestContext ctx, BlueskyFeedGeneratorData? data = null)
         {
             data ??= TryGetFeedGeneratorData(new RelationshipHashedRKey(plc, rkey));
             return new BlueskyFeedGenerator
@@ -2553,15 +2553,16 @@ namespace AppViewLite
                  Did = GetDid(plc),
                  RKey = rkey,
                  Author = GetProfile(plc),
-                 LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey))
+                 LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey)),
+                 IsPinned = ctx.IsLoggedIn && ctx.PrivateProfile.FeedSubscriptions.Any(x => new Plc(x.FeedPlc) == plc && x.FeedRKey == rkey),
             };
         }
 
-        public BlueskyFeedGenerator? TryGetFeedGenerator(RelationshipHashedRKey feedId)
+        public BlueskyFeedGenerator? TryGetFeedGenerator(RelationshipHashedRKey feedId, RequestContext ctx)
         {
             var data = TryGetFeedGeneratorData(feedId);
             if (data == null) return null;
-            return GetFeedGenerator(feedId.Plc, data);
+            return GetFeedGenerator(feedId.Plc, data, ctx);
         }
 
         internal object? TryGetAtObject(string? aturi, RequestContext ctx)
@@ -2572,7 +2573,7 @@ namespace AppViewLite
             var plc = SerializeDid(parsed.Did!.Handler, ctx);
             if (parsed.Collection == Generator.RecordType)
             {
-                return GetFeedGenerator(plc, parsed.Rkey);
+                return GetFeedGenerator(plc, parsed.Rkey, ctx);
             }
 
             if (parsed.Collection == FishyFlip.Lexicon.App.Bsky.Graph.List.RecordType)

@@ -1132,6 +1132,7 @@ function onInitialLoad() {
                 console.log(actionKind);
                 var postElement = actionButton.closest('[data-postrkey]');
                 var profileElement = actionButton.closest('[data-profiledid]');
+                var feedElement = actionButton.closest('[data-feeddid]');
                 if (postElement == profileElement) profileElement = null;
 
                 if (postElement) {
@@ -1149,9 +1150,21 @@ function onInitialLoad() {
                 if(profileElement) {
                     var userAction = userActions[actionKind];
                     if (userAction) {
-                        userAction.call(postActions,
+                        userAction.call(userActions,
                             getAncestorData(actionButton, 'profiledid'),
                             actionButton.closest('[data-profiledid]'),
+                            actionButton
+                        );
+                        return;
+                    }
+                }
+                if(feedElement) {
+                    var feedAction = feedActions[actionKind];
+                    if (feedAction) {
+                        feedAction.call(feedActions,
+                            getAncestorData(actionButton, 'feeddid'),
+                            getAncestorData(actionButton, 'feedrkey'),
+                            actionButton.closest('[data-feeddid]'),
                             actionButton
                         );
                         return;
@@ -1397,6 +1410,9 @@ function invalidateFollowingPages() {
 function invalidateLikesPages() { 
     recentPages = recentPages.filter(x => !(x.href.includes('likes=1') || x.href.includes('bookmarks=1')));
 }
+function invalidateFeedPages() { 
+    recentPages = recentPages.filter(x => !(x.href.includes('/search') || x.href.includes('/feed/')));
+}
 
 async function togglePrivateFollow(did, toggleButton, postElement) { 
     var did = toggleButton.dataset.did;
@@ -1531,6 +1547,23 @@ var userActions = {
     togglePrivateFollow: async function (did, profileElement, toggleButton) { 
         await togglePrivateFollow(did, toggleButton);
     }
+}
+
+
+var feedActions = {
+    toggleFeedPin: async function (did, rkey, feedElement) {
+        if (+feedElement.dataset.ispinned) {
+            await httpPost('UnpinFeed', { did: did, rkey: rkey });
+            feedElement.dataset.ispinned = 0
+        } else { 
+            await httpPost('PinFeed', { did: did, rkey: rkey });
+            feedElement.dataset.ispinned = 1
+        }
+        feedElement.querySelectorAll('[actionkind="toggleFeedPin"]').forEach(x => {
+            x.textContent = +feedElement.dataset.ispinned ? 'Unpin feed' : 'Pin feed';
+        });
+        invalidateFeedPages();
+    },
 }
 
 function formatTwoSignificantDigits(displayValue) { 

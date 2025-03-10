@@ -148,6 +148,9 @@ textarea::placeholder, input::placeholder{
 }
 
 
+.custom-feed-author-link{
+    top: 20px !important;
+}
 
 .page {
     position: relative;
@@ -376,6 +379,10 @@ main {
     
     .feed-author-link {
         top: 60px !important; 
+    }
+
+    .custom-feed-author-link{
+        top: 4px !important;
     }
 
     .top-spacer-mobile {
@@ -1269,8 +1276,6 @@ details:not([open]) .summary-when-open {
     text-align: right;
 }
 
-
-
 .compose-form {
     margin-right: 20px;
 }
@@ -1948,4 +1953,7 @@ input[type=radio]{
 }
 .no-results {
     text-align: center;
+}
+.feed-grid-toggle {
+    display: inline-block;
 }

@@ -20,6 +20,7 @@
 
     private BlueskyPost[] Posts = [];
     private BlueskyProfile[] Profiles = [];
+    private BlueskyFeedGenerator[] PinnedFeeds = [];
     private BlueskyFeedGenerator[] Feeds = [];
 
     public bool IsTopPosts => Sort == "top";
@@ -69,6 +70,7 @@
         {
             if (string.IsNullOrEmpty(Q))
             {
+                PinnedFeeds = RequestContext.IsLoggedIn ? await Apis.GetPinnedFeedsAsync(RequestContext) : [];
                 (Feeds, NextContinuation) = await Apis.GetPopularFeedsAsync(Continuation, default, RequestContext);
 
             }
@@ -96,8 +98,8 @@
     }
 }
 
-<PageTitle>@(string.IsNullOrEmpty(Q) ? "Search" : Q + " - Search")</PageTitle>
-<h1>Search</h1>
+<PageTitle>@(Kind == "feeds" ? "Feeds" : string.IsNullOrEmpty(Q) ? "Search" : Q + " - Search")</PageTitle>
+<h1>@(Kind == "feeds" ? "Feeds" : "Search")</h1>
 
 <form action="/search" method="get" class="search-form">
     @if (Kind != null)
@@ -161,7 +163,12 @@
     </div>
 </div>
 
-@if(!string.IsNullOrEmpty(Q))
+
+@if (PinnedFeeds.Length != 0)
+{
+    <FeedList Feeds="@PinnedFeeds" />
+}
+@if(!string.IsNullOrEmpty(Q) || Feeds.Length != 0)
 {
     if (Kind == "users")
     {
@@ -169,6 +176,10 @@
     }
     else if(Kind == "feeds")
     {
+        @if (string.IsNullOrEmpty(Q) && Feeds.Length != 0 && PinnedFeeds.Length != 0)
+        {
+            <h3 class="main-padding">Popular feeds</h3>
+        }
         <FeedList Feeds="@Feeds" NextContinuation="@NextContinuation" />
     }
     else if(Kind == "media")

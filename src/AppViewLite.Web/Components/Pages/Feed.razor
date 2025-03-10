@@ -50,6 +50,7 @@
                 {
                     <button class="menu-item" actionkind="toggleFeedPin">@(Info.IsPinned ? "Unpin feed" : "Pin feed")</button>
                 }
+                <a class="menu-item" href="@Info.Author.BaseUrl/feeds">More feeds from @(Info.Author.DisplayNameOrFallback)</a>
                 <a class="menu-item" href="@Info.Author.BaseUrl">Go to @(Info.Author.DisplayNameOrFallback)'s profile</a>
             </div>
             <button class="post-action-bar-button">

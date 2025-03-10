@@ -748,7 +748,7 @@ namespace AppViewLite
                     var parts = x.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     if (parts.Length < 2) return default;
 
-                    return (Url: Uri.TryCreate(pageUrl, img.GetAttribute("src"), out var url) ? url : null, Size: int.Parse(Regex.Replace(parts[1], @"\D", string.Empty)));
+                    return (Url: Uri.TryCreate(pageUrl, parts[0], out var url) ? url : null, Size: int.Parse(Regex.Replace(parts[1], @"\D", string.Empty)));
                 }).Where(x => x.Url != null).OrderByDescending(x => x.Size).FirstOrDefault().Url;
             }
 

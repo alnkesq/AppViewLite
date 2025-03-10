@@ -501,14 +501,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         {
                             Text = pair.Text,
                             Facets = pair.Facets,
-                            Media = post.Content.OfType<IElement>().SelectMany(x => x.QuerySelectorAll("img")).Select(x =>
-                            {
-                                return new BlueskyMediaData
-                                {
-                                    AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
-                                    Cid = UrlToCid(x.GetAttribute("src"))!
-                                };
-                            }).ToArray()
+                            Media = GetMediaFromDom(post.Content)
                         };
 
 
@@ -605,6 +598,21 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data, ctx: ctx);
             return (dateParsed, url);
+        }
+
+        private static BlueskyMediaData[] GetMediaFromDom(INode[] content)
+        {
+            return content.OfType<IElement>().SelectMany(x => x.QuerySelectorAll("img, video")).Select(x =>
+            {
+                var isVideo = x.TagName == "VIDEO";
+                if (isVideo) { }
+                return new BlueskyMediaData
+                {
+                    AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                    Cid = isVideo ? UrlToCid((x.GetAttribute("src") ?? x.QuerySelector("source")!.GetAttribute("src")) + "\n" + x.GetAttribute("poster"))! : UrlToCid(x.GetAttribute("src"))!,
+                    IsVideo = isVideo,
+                };
+            }).ToArray();
         }
 
         private static string NormalizeTumblrTextForComparison(string title)
@@ -793,6 +801,14 @@ namespace AppViewLite.PluggableProtocols.Rss
             var url = BlueskyRelationships.DecompressBpe(cid)!;
             //bool isFavicon = false;
             if (url.StartsWith('!')) { url = url.Substring(1); /*isFavicon = true;*/ }
+
+            var parts = url.Split("\n");
+            if (parts.Length != 1)
+            {
+                if (preferredSize == ThumbnailSize.video_thumbnail) url = parts[1];
+                else url = parts[0];
+            }
+            
             var result = await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
             //result.IsFavIcon = isFavicon;
             return result;

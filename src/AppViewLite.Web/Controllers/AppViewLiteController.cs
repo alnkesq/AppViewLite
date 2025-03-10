@@ -169,11 +169,13 @@ namespace AppViewLite.Web
                     mutedWords = profile.MuteRules.Select(x => new { word = x.Word, did = x.AppliesToPlc != null ? rels.GetDid(new Plc(x.AppliesToPlc.Value)) : null }).ToArray(),
                 };
             }, ctx);
-            var json = JsonSerializer.Serialize(obj, IndentedOptions);
-            return TypedResults.File(Encoding.UTF8.GetBytes(json), fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now.ToString("yyyy-MM-dd-HHmmss")}.json");
+            return TypedResults.Stream(async stream =>
+            {
+                await JsonSerializer.SerializeAsync(stream, obj);
+            }, fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now.ToString("yyyy-MM-dd-HHmmss")}.json");
         }
 
-        private readonly static JsonSerializerOptions IndentedOptions = new JsonSerializerOptions { WriteIndented = true };
+        //private readonly static JsonSerializerOptions IndentedOptions = new JsonSerializerOptions { WriteIndented = true };
 
         [HttpGet(nameof(SearchAutoComplete))]
         public async Task<object> SearchAutoComplete(string? q, string? forceResults)

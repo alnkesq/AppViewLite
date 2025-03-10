@@ -323,6 +323,49 @@ namespace AppViewLite
             }
             checkpointToLoad = null;
 
+            try 
+            {
+                Lock.EnterUpgradeableReadLock();
+
+                var bskyModeration = SerializeDid("did:plc:ar7c4by46qjdydhdevvrndac", RequestContext.CreateForFirehose("DefaultLabelsInit"));
+                // https://www.atproto-browser.dev/at/did:plc:ar7c4by46qjdydhdevvrndac/app.bsky.labeler.service/self
+                this.DefaultLabelIds = new[]
+                {
+
+                    "!hide",
+                    "!warn",
+                    "porn",
+                    "sexual",
+                    "nudity",
+                    "sexual-figurative",
+                    "graphic-media",
+                    "self-harm",
+                    "sensitive",
+                    "extremist",
+                    "intolerant",
+                    "threat",
+                    "rude",
+                    "illicit",
+                    "security",
+                    "unsafe-link",
+                    "impersonation",
+                    "misinformation",
+                    "scam",
+                    "engagement-farming",
+                    "spam",
+                    "rumor",
+                    "misleading",
+                    "inauthentic"
+
+                }.Select(x => new LabelId(bskyModeration, HashLabelName(x))).ToHashSet();
+            }
+            finally 
+            {
+                Lock.ExitUpgradeableReadLock();
+            }
+
+            
+
             GarbageCollectOldSlices(allowTempFileDeletion: true);
         }
 
@@ -2950,6 +2993,7 @@ namespace AppViewLite
             SaveAppViewLiteProfile(ctx.UserContext);
         }
 
+        public HashSet<LabelId> DefaultLabelIds;
 
         public void PopulateViewerFlags(BlueskyProfile profile, RequestContext ctx)
         {
@@ -2958,7 +3002,7 @@ namespace AppViewLite
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
             profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
-            profile.Labels = GetProfileLabels(profile.Plc, ctx.UserContext?.NeedLabels).Select(x => GetLabel(x)).ToArray();
+            profile.Labels = GetProfileLabels(profile.Plc, ctx.IsLoggedIn ? ctx.UserContext.NeedLabels : this.DefaultLabelIds).Select(x => GetLabel(x)).ToArray();
             if (profile.BlockReason != default && ctx.IsLoggedIn && Blocks.HasActor(profile.Plc, ctx.LoggedInUser, out var blockedBySelf))
             {
                 profile.IsBlockedBySelf = blockedBySelf.RelationshipRKey;
@@ -2986,6 +3030,7 @@ namespace AppViewLite
             copy.DidToPlcConcurrentCache = this.DidToPlcConcurrentCache;
             copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
+            copy.DefaultLabelIds = this.DefaultLabelIds;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var field in fields)
             {

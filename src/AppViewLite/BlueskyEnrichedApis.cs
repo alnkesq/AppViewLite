@@ -458,7 +458,7 @@ namespace AppViewLite
 
                         post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
                     }
-                    post.Labels = rels.GetPostLabels(post.PostId, ctx.UserContext?.NeedLabels).Select(x => rels.GetLabel(x)).ToArray();
+                    post.Labels = rels.GetPostLabels(post.PostId, ctx.IsLoggedIn ? ctx.UserContext.NeedLabels : relationshipsUnlocked.DefaultLabelIds).Select(x => rels.GetLabel(x)).ToArray();
                 }
             }, ctx);
 

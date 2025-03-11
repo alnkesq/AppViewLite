@@ -1098,6 +1098,7 @@ function onInitialLoad() {
     });
 
     document.addEventListener('click', e => {
+        if (e.ctrlKey) return;
         
         var target = e.target;
         var clickFromKeyboard = e.detail === 0;

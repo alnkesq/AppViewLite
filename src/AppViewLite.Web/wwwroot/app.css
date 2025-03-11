@@ -1997,10 +1997,12 @@ input[type=radio]{
 .labeler-mode {
     margin-right: 10px;
     background: var(--label-background);
+    color: var(--black);
 }
 .labeler-mode-active {
     margin-right: 10px;
     background-color: var(--accent);
+    color: var(--white);
 }
 .list-metadata-row-modes{
     text-align: right;

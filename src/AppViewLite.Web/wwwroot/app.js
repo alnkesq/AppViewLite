@@ -459,6 +459,7 @@ function getTextIncludingEmojis(node) {
 }
 
 async function recordPostEngagement(postElement, kind) { 
+    if (postElement.classList.contains('post-blocked')) return;
     if (location.pathname == '/following' && !kind.includes('SeenInFollowingFeed')) { 
         kind += ',SeenInFollowingFeed';
     }
@@ -1099,7 +1100,7 @@ function onInitialLoad() {
 
     document.addEventListener('click', e => {
         if (e.ctrlKey) return;
-        
+
         var target = e.target;
         var clickFromKeyboard = e.detail === 0;
 

@@ -141,7 +141,7 @@ namespace AppViewLite.Models
         public bool IsMuted;
         public bool DidPopulateViewerFlags;
         public MuteRule? MutedByRule;
-        internal bool ShouldMute(RequestContext ctx)
+        internal bool ShouldMuteCore(RequestContext ctx)
         {
             if (RepostedBy != null)
             {

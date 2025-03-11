@@ -1026,7 +1026,8 @@ namespace AppViewLite
                             return post;
                         })
                         .WhereNonNull()
-                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50)
+                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50), 
+                        ctx
                         )
                         .ToArray();
                 }, ctx);
@@ -1205,7 +1206,7 @@ namespace AppViewLite
                     if (posts.Length == 0 && exceededIterations)
                         nextContinuation = null;
 
-                    posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts).ToArray(), ctx);
+                    posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts, ctx).ToArray(), ctx);
                     await EnrichAsync(posts, ctx);
                     return (posts, nextContinuation?.Serialize());
                 }
@@ -1430,7 +1431,7 @@ namespace AppViewLite
                 (p, rels) =>
                 {
                     var posts = p.Select(x => rels.GetPost(x));
-                    posts = rels.EnumerateFeedWithNormalization(posts);
+                    posts = rels.EnumerateFeedWithNormalization(posts, ctx, omitIfMuted: true);
                     return posts.ToArray();
                 }, ctx);
             if (continuation == null && posts.Length == 0)
@@ -1863,7 +1864,7 @@ namespace AppViewLite
             var posts = WithRelationshipsLock(rels =>
             {
                 var posts = rels.EnumerateFollowingFeed(ctx, DateTime.Now.AddDays(-7), maxTid);
-                var normalized = rels.EnumerateFeedWithNormalization(posts, alreadyReturned);
+                var normalized = rels.EnumerateFeedWithNormalization(posts, ctx, alreadyReturned, omitIfMuted: true);
                 return normalized.Take(limit).ToArray();
             }, ctx);
             await EnrichAsync(posts, ctx);
@@ -2091,7 +2092,7 @@ namespace AppViewLite
 
                                 if (shouldIncludeFullReplyChain)
                                 {
-                                    foreach (var (index, item) in rels.MakeFullReplyChain(post).Index())
+                                    foreach (var (index, item) in rels.MakeFullReplyChainExcludingLeaf(post).Index())
                                     {
                                         if (index == 0 && post != item && rels.ShouldIncludeLeafOrRootPostInFollowingFeed(item, ctx) == false)
                                             return false;

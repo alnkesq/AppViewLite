@@ -2360,11 +2360,11 @@ namespace AppViewLite
             if (post.QuotedPost != null)
                 PopulateViewerFlags(post.QuotedPost, ctx);
             post.Labels = GetPostLabels(post.PostId, ctx.NeedsLabels).Select(x => GetLabel(x)).ToArray();
-            post.IsMuted = post.ShouldMute(ctx);
+            post.IsMuted = post.ShouldMuteCore(ctx);
             post.DidPopulateViewerFlags = true;
         }
 
-        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false)
+        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, RequestContext ctx, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false, bool omitIfMuted = false)
         {
             alreadyReturned ??= [];
             foreach (var post in posts)
@@ -2375,7 +2375,16 @@ namespace AppViewLite
 
                 if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                 {
-                    var chain = MakeFullReplyChain(post);
+                    var chain = MakeFullReplyChainExcludingLeaf(post);
+                    if (omitIfMuted) 
+                    {
+                        foreach (var item in chain)
+                        {
+                            PopulateViewerFlags(item, ctx);
+                        }
+
+                        if (chain.Any(x => x.IsMuted)) continue;
+                    }
                     foreach (var item in chain)
                     {
                         alreadyReturned.Add(item.PostId);
@@ -2386,17 +2395,39 @@ namespace AppViewLite
                 {
                     if (!post.IsRepost && post.InReplyToPostId is { } parentId && !onlyIfRequiresFullReplyChain)
                     {
-                        if (alreadyReturned.Add(parentId))
+                        if (!alreadyReturned.Contains(parentId))
                         {
+                            BlueskyPost? rootPost = null;
                             var rootId = post.RootPostId;
                             if (rootId != postId && rootId != parentId)
                             {
-                                if (alreadyReturned.Add(rootId))
+                                if (!alreadyReturned.Contains(rootId))
                                 {
-                                    yield return GetPost(rootId);
+                                    
+                                    rootPost = GetPost(rootId);
+                                    if (omitIfMuted)
+                                    {
+                                        PopulateViewerFlags(rootPost, ctx);
+                                        if (rootPost.IsMuted) continue;
+                                    }
                                 }
                             }
-                            yield return GetPost(parentId);
+
+                            var parentPost = GetPost(parentId);
+                            if (omitIfMuted)
+                            {
+                                PopulateViewerFlags(parentPost, ctx);
+                                if (parentPost.IsMuted) continue;
+                            }
+
+                            if (rootPost != null)
+                            {
+                                alreadyReturned.Add(rootPost.PostId);
+                                yield return rootPost;
+                            }
+
+                            alreadyReturned.Add(parentPost.PostId);
+                            yield return parentPost;
                         }
                     }
                 }
@@ -3068,7 +3099,7 @@ namespace AppViewLite
         }
 
 
-        public List<BlueskyPost> MakeFullReplyChain(BlueskyPost post)
+        public List<BlueskyPost> MakeFullReplyChainExcludingLeaf(BlueskyPost post)
         {
             PostId? current = post.InReplyToPostId!.Value;
             var ancestors = new List<BlueskyPost>();
@@ -3189,8 +3220,13 @@ namespace AppViewLite
             PopulateViewerFlags(post, ctx);
             if (post.IsMuted) return false;
 
+            if (post.Author.BlockReason != default) return false;
+
             PopulateQuotedPost(post, ctx);
-            if (post.QuotedPost?.IsMuted == true) return false;
+            if (post.QuotedPost != null)
+            {
+                if (post.QuotedPost?.IsMuted == true) return false;
+            }
 
             return null;
         }

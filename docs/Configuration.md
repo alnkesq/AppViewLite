@@ -1,4 +1,4 @@
-﻿# Configuration
+# Configuration
 
 You can set the following environment variables:
 
@@ -58,6 +58,9 @@ You can however enable additional protocols:
 ### Nostr
 * `APPVIEWLITE_LISTEN_NOSTR_RELAYS`: Listens to the specified Nostr relays. Example: `nos.lol,bostr.bitcointxoko.com`. Defaults to none.
 * `APPVIEWLITE_NOSTR_IGNORE_REGEX`: Don't ingest posts matching the specified regex.
+
+### RSS
+RSS is enabled by default, and provides support for Tumblr and Reddit as well. Feeds are refreshed periodically as long as at least one user subscribes to them, or when the corresponding profile page is opened.
 
 ## Image proxying and caching
 * `APPVIEWLITE_SERVE_IMAGES`: Enables image serving, instead of relying on an external CDN.

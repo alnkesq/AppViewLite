@@ -137,6 +137,11 @@ namespace AppViewLite.Web
                 if (path != null)
                 {
                     var s = path.AsSpan(1);
+                    if (s.EndsWith('/') && !s.StartsWith("https://") && !s.StartsWith("http://"))
+                    {
+                        ctx.Response.Redirect(string.Concat(path.AsSpan(0, path.Length - 1), ctx.Request.QueryString.ToString()));
+                        return;
+                    }
                     var slash = s.IndexOf('/');
                     var firstSegment = slash != -1 ? s.Slice(0, slash) : s;
 

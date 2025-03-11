@@ -817,7 +817,7 @@ namespace AppViewLite
                 var rootPost = this.GetPostId(root, ctx);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;
-                AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId, ctx);
+                AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
             }
             if (p.Reply?.Parent is { } parent)
             {
@@ -825,7 +825,7 @@ namespace AppViewLite
                 proto.InReplyToPlc = inReplyTo.Author.PlcValue;
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
                 this.DirectReplies.Add(inReplyTo, postId);
-                AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx);
+                AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx, postId.PostRKey.Date);
             }
 
 
@@ -852,7 +852,7 @@ namespace AppViewLite
 
                     embed = rm.Media;
                     this.Quotes.Add(quoted, postId);
-                    AddNotification(quoted.Author, NotificationKind.QuotedYourPost, postId, ctx);
+                    AddNotification(quoted.Author, NotificationKind.QuotedYourPost, postId, ctx, postId.PostRKey.Date);
                 }
             }
 
@@ -890,7 +890,7 @@ namespace AppViewLite
                     if (facet.Did != null)
                     {
                         var plc = SerializeDid(facet.Did, ctx);
-                        AddNotification(plc, NotificationKind.MentionedYou, postId, ctx);
+                        AddNotification(plc, NotificationKind.MentionedYou, postId, ctx, postId.PostRKey.Date);
                     }
                 }
             }
@@ -2135,25 +2135,27 @@ namespace AppViewLite
         {
             return registerForNotificationsCache.Contains(user);
         }
-        public void AddNotification(PostId destination, NotificationKind kind, Plc actor, RequestContext ctx)
+        public void AddNotification(PostId destination, NotificationKind kind, Plc actor, RequestContext ctx, DateTime date)
         {
-            AddNotification(destination.Author, kind, actor, destination.PostRKey, ctx);
+            AddNotification(destination.Author, kind, actor, destination.PostRKey, ctx, date);
         }
-        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, RequestContext ctx)
+        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, RequestContext ctx, DateTime date)
         {
-            AddNotification(destination, kind, actor, default, ctx);
+            AddNotification(destination, kind, actor, default, ctx, date);
         }
-        public void AddNotification(Plc destination, NotificationKind kind, PostId replyId, RequestContext ctx)
+        public void AddNotification(Plc destination, NotificationKind kind, PostId replyId, RequestContext ctx, DateTime date)
         {
-            AddNotification(destination, kind, replyId.Author, replyId.PostRKey, ctx);
+            AddNotification(destination, kind, replyId.Author, replyId.PostRKey, ctx, date);
         }
-        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey, RequestContext ctx)
+        public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey, RequestContext ctx, DateTime date)
         {
             if (SuppressNotificationGeneration != 0) return;
             if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
+            var notification = new Notification((ApproximateDateTime32)date, actor, rkey, kind);
+            if (Notifications.Contains(destination, notification)) return;
+
             if (UsersHaveBlockRelationship(destination, actor) != default) return;
-            var notification = new Notification((ApproximateDateTime32)DateTime.UtcNow, actor, rkey, kind);
             Notifications.Add(destination, notification);
             UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination), (data, handler) => handler(data));
 
@@ -2370,8 +2372,9 @@ namespace AppViewLite
             foreach (var post in posts)
             {
                 var postId = post.PostId;
-                if (!alreadyReturned.Add(postId)) continue;
                 if (post.Data?.Deleted == true) continue;
+
+                if (alreadyReturned.Contains(postId)) continue;
 
                 if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                 {
@@ -2431,6 +2434,7 @@ namespace AppViewLite
                         }
                     }
                 }
+                alreadyReturned.Add(post.PostId);
                 yield return post;
             }
         }
@@ -3225,7 +3229,7 @@ namespace AppViewLite
             PopulateQuotedPost(post, ctx);
             if (post.QuotedPost != null)
             {
-                if (post.QuotedPost?.IsMuted == true) return false;
+                if (post.QuotedPost.IsMuted == true) return false;
             }
 
             return null;

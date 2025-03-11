@@ -147,7 +147,7 @@ namespace AppViewLite
 
         public TaskDictionary<string, RequestContext, Versioned<string>> RunHandleVerificationDict;
         public TaskDictionary<(Plc Plc, string Did), RequestContext, Versioned<DidDocProto>> FetchAndStoreDidDocNoOverrideDict;
-        public TaskDictionary<string, RequestContext, long> FetchAndStoreLabelerServiceMetadataDict;
+        public TaskDictionary<string, RequestContext, (long MinVersion, IReadOnlyList<LabelId> Labels)> FetchAndStoreLabelerServiceMetadataDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreProfileDict;
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
@@ -167,7 +167,7 @@ namespace AppViewLite
             return result.Value;
         }
 
-        private async Task<long> FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext ctx)
+        private async Task<(long MinVersion, IReadOnlyList<LabelId> Labels)> FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext ctx)
         {
             var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value;
 
@@ -176,6 +176,7 @@ namespace AppViewLite
             return WithRelationshipsWriteLock(rels =>
             {
                 var plc = rels.SerializeDid(did, ctx);
+                var labels = new List<LabelId>();
                 foreach (var policy in record.Policies?.LabelValues ?? [])
                 {
                     defs!.TryGetValue(policy, out var def);
@@ -193,9 +194,15 @@ namespace AppViewLite
                         DefaultSetting = def?.DefaultSetting != null ? Enum.Parse<BlueskyLabelDefaultSetting>(def.DefaultSetting, ignoreCase: true) : default,
 
                     };
-                    rels.LabelData.AddRange(new LabelId(plc, BlueskyRelationships.HashLabelName(policy)), BlueskyRelationships.SerializeProto(labelInfo, x => x.Dummy = true));
+                    var labelId = new LabelId(plc, BlueskyRelationships.HashLabelName(policy));
+                    rels.LabelData.AddRange(labelId, BlueskyRelationships.SerializeProto(labelInfo, x => x.Dummy = true));
+                    if (!rels.LabelNames.ContainsKey(labelId.NameHash))
+                    {
+                        rels.LabelNames.AddRange(labelId.NameHash, System.Text.Encoding.UTF8.GetBytes(policy));
+                    }
+                    labels.Add(labelId);
                 }
-                return rels.Version;
+                return (rels.Version, labels);
             }, ctx);
         }
 
@@ -954,8 +961,17 @@ namespace AppViewLite
             return false;
         }
 
+        public async Task<BlueskyLabel[]> GetLabelerLabelsAsync(string did, RequestContext ctx)
+        {
+            var info = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx));
+            ctx.BumpMinimumVersion(info.MinVersion);
 
-        
+            var labels = WithRelationshipsLock(rels => info.Labels.Select(x => rels.GetLabel(x)).ToArray(), ctx);
+            await EnrichAsync(labels, ctx);
+            return labels;
+        }
+
+
         public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool includeBookmarks, bool mediaOnly, int limit, string? continuation, RequestContext ctx)
         {
             EnsureLimit(ref limit);
@@ -2610,7 +2626,7 @@ namespace AppViewLite
             }, ctx);
 
             await EnrichAsync(lists, ctx);
-            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => new ListMembership(x.Author.Plc, x.ListId.RelationshipRKey, x.MembershipRkey!.Value).Serialize());
+            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => new ListMembership(x.Moderator.Plc, x.ListId.RelationshipRKey, x.MembershipRkey!.Value).Serialize());
         }
 
         private async Task<BlueskyFeedGenerator[]> EnrichAsync(BlueskyFeedGenerator[] feeds, RequestContext ctx, CancellationToken ct = default)
@@ -2625,13 +2641,21 @@ namespace AppViewLite
         {
             if (labels.Length == 0) return labels;
 
+            if (ctx.IsLoggedIn)
+            {
+                foreach (var label in labels)
+                {
+                    label.Mode = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == label.Moderator.Plc && x.LabelerNameHash == label.LabelId.NameHash)?.Behavior ?? ModerationBehavior.None;
+                }
+            }
 
+            await EnrichAsync(labels.Select(x => x.Moderator).ToArray(), ctx);
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
-                    var version = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(label.LabelerDid, RequestContext.CreateForTaskDictionary(ctx));
-                    ctx.BumpMinimumVersion(version);
+                    var version = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(label.ModeratorDid, RequestContext.CreateForTaskDictionary(ctx));
+                    ctx.BumpMinimumVersion(version.MinVersion);
                     WithRelationshipsLock(rels =>
                     {
                         label.Data = rels.TryGetLabelData(label.LabelId);
@@ -2645,6 +2669,13 @@ namespace AppViewLite
         {
             if (lists.Length == 0) return lists;
 
+            if (ctx.IsLoggedIn)
+            {
+                foreach (var list in lists)
+                {
+                    list.Mode = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == list.Moderator.Plc && new Tid(x.ListRKey) == list.ListId.RelationshipRKey)?.Behavior ?? ModerationBehavior.None;
+                }
+            }
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(lists.Where(x => x.Data == null).Select(async list =>
@@ -2658,7 +2689,7 @@ namespace AppViewLite
 
                 })), ctx);
             }
-            await EnrichAsync(lists.Select(x => x.Author).ToArray(), ctx, ct: ct);
+            await EnrichAsync(lists.Select(x => x.Moderator).ToArray(), ctx, ct: ct);
             return lists;
         }
 
@@ -3624,6 +3655,7 @@ namespace AppViewLite
                     profileProto.Sessions ??= [];
                     profileProto.PrivateFollows ??= [];
                     profileProto.FeedSubscriptions ??= [];
+                    profileProto.LabelerSubscriptions ??= [];
 
                     userContext = new AppViewLiteUserContext
                     {

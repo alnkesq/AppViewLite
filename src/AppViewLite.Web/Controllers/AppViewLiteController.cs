@@ -158,6 +158,13 @@ namespace AppViewLite.Web
                     did = ctx.UserContext.Did,
                     firstLogin = profile.FirstLogin,
                     sessions = profile.Sessions.Select(x => new { loginDate = x.LogInDate }).ToArray(),
+                    moderationSettings = profile.LabelerSubscriptions.Select(x => new 
+                    { 
+                        labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
+                        listRkey = x.ListRKey != 0 ? new Tid(x.ListRKey).ToString() : null,
+                        labelName = x.ListRKey == 0 ? rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash)).Name : null,
+                        behavior = x.Behavior.ToString(),
+                    }).ToArray(),
                     bookmarks = bookmarks.Select(x => new { dateBookmarked = x.Bookmark.BookmarkRKey.Date, did = x.Did, rkey = x.Bookmark.PostId.PostRKey.ToString(), originalPostUrl = rels.GetOriginalPostUrl(x.Bookmark.PostId, x.Did) }).ToArray(),
                     perUserSettings = profile.PrivateFollows.Where(x => x.Plc != 0).Select(x => new
                     {
@@ -246,7 +253,22 @@ namespace AppViewLite.Web
             }
             apis.SaveAppViewLiteProfile(ctx);
         }
-
+        [HttpPost(nameof(SetLabelerMode))]
+        public void SetLabelerMode(SetLabelerModeArgs args)
+        {
+            var mode = Enum.Parse<ModerationBehavior>(args.Mode);
+            var plc = apis.SerializeSingleDid(args.Did, ctx);
+            var subscription = new LabelerSubscription { LabelerPlc = plc.PlcValue, Behavior = mode };
+            if (args.ListRkey != null)
+                subscription.ListRKey = Tid.Parse(args.ListRkey).TidValue;
+            else
+                subscription.LabelerNameHash = BlueskyRelationships.HashLabelName(args.LabelName!);
+            lock (ctx.PrivateProfile)
+            {
+                ctx.PrivateProfile.LabelerSubscriptions = ctx.PrivateProfile.LabelerSubscriptions.Where(x => !(x.LabelerPlc == subscription.LabelerPlc && x.ListRKey == subscription.ListRKey && x.LabelerNameHash == subscription.LabelerNameHash)).Append(subscription).ToArray();
+            }
+            apis.SaveAppViewLiteProfile(ctx);
+        }
 
         public record DidAndRKey(string Did, string Rkey);
         public record RKeyOnly(string Rkey);
@@ -256,6 +278,7 @@ namespace AppViewLite.Web
         public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);
         public record DeleteBookmarkArgs(string PostDid, string PostRkey, string BookmarkRKey);
         public record ToggleDomainMuteArgs(string Domain, bool Mute);
+        public record SetLabelerModeArgs(string Did, string? ListRkey, string? LabelName, string Mode);
     }
 }
 

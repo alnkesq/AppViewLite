@@ -18,6 +18,7 @@ namespace AppViewLite.Models
         [ProtoMember(7)] public Theme Theme;
         [ProtoMember(8)] public AccentColor AccentColor;
         [ProtoMember(9)] public FeedSubscription[] FeedSubscriptions = null!;
+        [ProtoMember(10)] public LabelerSubscription[] LabelerSubscriptions = null!;
     }
 
     [ProtoContract]
@@ -137,6 +138,15 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public int FeedPlc;
         [ProtoMember(2)] public required string FeedRKey;
+    }
+
+    [ProtoContract]
+    public class LabelerSubscription
+    {
+        [ProtoMember(1)] public required int LabelerPlc;
+        [ProtoMember(2)] public long ListRKey;
+        [ProtoMember(3)] public ulong LabelerNameHash;
+        [ProtoMember(4)] public required ModerationBehavior Behavior;
     }
 }
 

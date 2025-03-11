@@ -3,9 +3,10 @@
 @inject NavigationManager Navigation
 
 @code {
-    [Parameter] public required BlueskyList[] Lists { get; set; }
+    [Parameter] public required IReadOnlyList<BlueskyModerationBase> Lists { get; set; }
 
     [Parameter] public string? NextContinuation { get; set; }
+    [Parameter] public bool ShowModerator { get; set; } = true;
     private Uri? continuationUrl;
 
     protected override void OnParametersSet()
@@ -18,7 +19,7 @@
 <ul class="list-list main-paginated-list">
     @foreach (var list in Lists)
     {
-        <ListRow List="list"/>
+        <ListRow List="list" ShowModerator="ShowModerator"/>
 
     }
 </ul>
@@ -30,7 +31,7 @@
         <a href="@continuationUrl">Next</a>
     </div>
 }
-@if (Lists.Length == 0 && NextContinuation == null)
+@if (Lists.Count == 0 && NextContinuation == null)
 {
     <div class="no-results">No lists.</div>
 }

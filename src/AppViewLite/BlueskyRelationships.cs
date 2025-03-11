@@ -2467,11 +2467,11 @@ namespace AppViewLite
             var did = GetDid(listId.Actor);
             return new BlueskyList
             {
-                Did = did,
+                ModeratorDid = did,
                 ListId = listId,
                 Data = listData ?? TryGetListData(listId),
                 ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()!),
-                Author = GetProfile(listId.Actor)
+                Moderator = GetProfile(listId.Actor)
             };
         }
 
@@ -2765,7 +2765,8 @@ namespace AppViewLite
             return new BlueskyLabel
             {
                 LabelId = x,
-                LabelerDid = GetDid(x.Labeler),
+                Moderator = GetProfile(x.Labeler),
+                ModeratorDid = GetDid(x.Labeler),
                 Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
                 Data = TryGetLabelData(x)
             };

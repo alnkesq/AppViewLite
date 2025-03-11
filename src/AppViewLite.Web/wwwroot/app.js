@@ -1135,6 +1135,7 @@ function onInitialLoad() {
                 var postElement = actionButton.closest('[data-postrkey]');
                 var profileElement = actionButton.closest('[data-profiledid]');
                 var feedElement = actionButton.closest('[data-feeddid]');
+                var listElement = actionButton.closest('[data-moderationdid]');
                 if (postElement == profileElement) profileElement = null;
 
                 if (postElement) {
@@ -1167,6 +1168,19 @@ function onInitialLoad() {
                             getAncestorData(actionButton, 'feeddid'),
                             getAncestorData(actionButton, 'feedrkey'),
                             actionButton.closest('[data-feeddid]'),
+                            actionButton
+                        );
+                        return;
+                    }
+                }
+                if(listElement) {
+                    var listAction = listActions[actionKind];
+                    if (listAction) {
+                        listAction.call(listElement,
+                            getAncestorData(actionButton, 'moderationdid'),
+                            getAncestorData(actionButton, 'moderationlistrkey'),
+                            getAncestorData(actionButton, 'moderationlabelname'),
+                            actionButton.closest('[data-moderationdid]'),
                             actionButton
                         );
                         return;
@@ -1565,6 +1579,16 @@ var feedActions = {
             x.textContent = +feedElement.dataset.ispinned ? 'Unpin feed' : 'Pin feed';
         });
         invalidateFeedPages();
+    },
+}
+
+var listActions = {
+    setLabelerMode: async function (did, listrkey, labelName, listElement, buttonElement) {
+        var mode = buttonElement.dataset.mode;
+        await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: mode });
+    
+        buttonElement.parentElement.querySelectorAll('.labeler-mode').forEach(x => x.classList.remove('labeler-mode-active'));
+        buttonElement.classList.add('labeler-mode-active');
     },
 }
 

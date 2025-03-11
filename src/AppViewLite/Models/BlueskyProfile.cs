@@ -48,7 +48,7 @@ namespace AppViewLite.Models
                 return
                     BlueskyEnrichedApis.Instance.GetAvatarUrl(Did, BasicData.AvatarCidBytes, Pds)
                     ?? PluggableProtocol?.GetDefaultAvatar(Did)
-                    ?? $"/assets/colorized/default-user-avatar-{UserContext?.PrivateProfile?.AccentColor ?? AccentColor.Blue}.svg";
+                    ?? $"/assets/colorized/default-{(DidDoc?.AtProtoLabeler != null ? "labeler" : "user")}-avatar-{UserContext?.PrivateProfile?.AccentColor ?? AccentColor.Blue}.svg";
             }
         }
 

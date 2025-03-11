@@ -1,5 +1,5 @@
 @code {
-    [Parameter] public BlueskyLabel[]? Labels { get; set; }
+    [Parameter] public BlueskyModerationBase[]? Labels { get; set; }
     [Parameter] public string? ExtraClass { get; set; }
 }
 
@@ -8,7 +8,7 @@
     <div class="label-badge-list @ExtraClass">
         @foreach (var label in Labels)
         {
-            <a class="label-badge" href="/@(label.LabelerDid)" title="@(label.Data?.Description ?? "No description available")">
+            <a class="label-badge" href="@label.BaseUrl" title="@(label.Description ?? "No description available")">
                 @label.DisplayNameOrFallback
             </a>
         }

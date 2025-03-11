@@ -9,16 +9,19 @@
     [Parameter][SupplyParameterFromQuery] public int? Likes { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Media { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Bookmarks { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Labeler { get; set; }
 
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
     private FacetData[]? GuessedFacets;
+    public IReadOnlyList<BlueskyModerationBase> LabelerLabels = [];
 
     public bool ShowMediaOnly => (Media ?? 0) != 0;
     public bool ShowLikes => (Likes ?? 0) != 0;
     public bool ShowReplies => !ShowLikes && !ShowBookmarks && (Replies ?? (ShowMediaOnly ? 1 : 0)) != 0;
     public bool ShowReposts => !ShowLikes && !ShowBookmarks && (Reposts ?? (ShowReplies || ShowMediaOnly ? 0 : 1)) != 0;
     public bool ShowBookmarks => (Bookmarks ?? 0) != 0;
+    public bool ShowLabels => (Labeler ?? 0) != 0;
 
     // [Parameter] public string? DidUnprefixed { get; set; }
     // public string? Did => DidUnprefixed != null ? "did:" + DidUnprefixed : null;
@@ -59,17 +62,27 @@
         pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Profile.Profile);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
         GuessedFacets = data?.GetOrGuessFacets();
-        (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
-            Did,
-            includePosts: !ShowLikes && !ShowBookmarks,
-            includeReplies: ShowReplies,
-            includeReposts: ShowReposts,
-            includeLikes: ShowLikes,
-            includeBookmarks: ShowBookmarks,
-            mediaOnly: ShowMediaOnly,
-            limit: default,
-            continuation: Continuation,
-            ctx: RequestContext);
+        if (ShowLabels)
+        {
+            var labels = Continuation == null && SimpleProfile?.DidDoc?.AtProtoLabeler != null ? (await Apis.GetLabelerLabelsAsync(Did, RequestContext)) : [];
+            var lists = await Apis.GetProfileListsAsync(Did, Continuation, default, RequestContext);
+            LabelerLabels = ((IEnumerable<BlueskyModerationBase>)labels).Concat(lists.Lists.Where(x => !labels.Any(y => y.DisplayNameOrFallback == x.DisplayNameOrFallback))).ToArray();
+            NextContinuation = lists.NextContinuation;
+        }
+        else
+        {
+            (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
+                Did,
+                includePosts: !ShowLikes && !ShowBookmarks,
+                includeReplies: ShowReplies,
+                includeReposts: ShowReposts,
+                includeLikes: ShowLikes,
+                includeBookmarks: ShowBookmarks,
+                mediaOnly: ShowMediaOnly,
+                limit: default,
+                continuation: Continuation,
+                ctx: RequestContext);
+        }
         RssError = Profile.RssFeedInfo?.RssErrorMessage;
         if(Profile.RssFeedInfo?.RedirectsTo != null)
         {
@@ -117,7 +130,7 @@
             else if(SimpleProfile.IsBlockedBySelf != null)
             {
                 <button class="unblock-button" actionkind="toggleBlock">Unblock</button>
-                
+
             }
 
             <div class="menu-button-wrapper">
@@ -271,6 +284,10 @@
         <div class="tabbed-lists-header">
             <div class="tabbed-lists-header-inner">
 
+                @if (SimpleProfile.DidDoc?.AtProtoLabeler != null)
+                {
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?labeler=1")">Labeler</NavLink>
+                }
                 <NavLink draggable="false" Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
                 @if (SimpleProfile.PluggableProtocol == null || SimpleProfile.PluggableProtocol.ShouldShowRepliesTab(SimpleProfile))
                 {
@@ -292,18 +309,24 @@
                     {
                         <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
                     }
-                    @if (Profile.HasLists)
-                    {
-                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/lists")">Lists</NavLink>
-                    }
+                }
+                @if (Profile.HasLists && SimpleProfile.DidDoc?.AtProtoLabeler == null)
+                {
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?labeler=1")">Lists</NavLink>
                 }
             </div>
         </div>
 
 
+        @if (ShowLabels)
+        {
+            <ListList Lists="LabelerLabels" NextContinuation="@NextContinuation" ShowModerator="false" />
+        }
+        else
+        {
+            <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowMediaOnly" />
+        }
 
-
-        <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowMediaOnly" />
         @if (pluggableExternalUrl != null)
         {
             <div class="profile-link-to-full-profile">

@@ -277,7 +277,7 @@ main {
     backdrop-filter: blur(10px);
     background-color: rgb(from var(--white) r g b / 0.8);
     border-radius: 100px;
-    border: 1px solid rgb(197, 207, 217);
+    border: 1px solid var(--borders);
     z-index: 30;
     width: 52px;
     height: 52px;
@@ -1582,6 +1582,14 @@ button[disabled], input[type=submit][disabled] {
     overflow-wrap: break-word;
     
 }
+
+.list-metadata-row-hide-moderator .list-metadata-row-name {
+    padding: 10px 0;
+    margin-bottom: 5px;
+}
+.list-metadata-row-hide-moderator .list-metadata-row-author {
+    display: none;
+}
 .list-page-description{
     margin-bottom: 20px;
     color: gray;
@@ -1984,4 +1992,16 @@ input[type=radio]{
     padding-top: 11px;
     padding-bottom: 5px;
     
+}
+
+.labeler-mode {
+    margin-right: 10px;
+    background: var(--label-background);
+}
+.labeler-mode-active {
+    margin-right: 10px;
+    background-color: var(--accent);
+}
+.list-metadata-row-modes{
+    text-align: right;
 }

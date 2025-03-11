@@ -129,10 +129,12 @@ namespace AppViewLite
                 // RSS -> ActivityPub mirrors
                 "rss-parrot.net",
                 "flipboard.com",
+                "rss-mstdn.studiofreesia.com",
 
                 // Nostr -> ActivityPub mirrors
                 "mostr.pub",
                 "cash.app",
+                "nostrplebs.com",
             ];
 
         public static ReloadableFile<AdministrativeBlocklist> Instance = new ReloadableFile<AdministrativeBlocklist>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_BLOCKLIST_PATH), path => 

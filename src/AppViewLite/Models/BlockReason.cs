@@ -195,7 +195,7 @@ namespace AppViewLite.Models
         FocalAndAuthor,
     }
 
-    public record BlockReasonDisplayStringAndList(string DisplayText, BlueskyList? List)
+    public record BlockReasonDisplayStringAndList(string DisplayText, BlueskyModerationBase? List)
     {
         public static implicit operator BlockReasonDisplayStringAndList?(string? text) => text != null ? new BlockReasonDisplayStringAndList(text, default) : null;
 

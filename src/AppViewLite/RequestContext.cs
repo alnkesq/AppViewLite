@@ -1,8 +1,10 @@
 using AppViewLite.Models;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 namespace AppViewLite
@@ -88,6 +90,7 @@ namespace AppViewLite
                 AllowStale = true,
                 StartDate = DateTime.UtcNow,
                 MinVersion = minVersion,
+                LabelSubscriptions = session != null && session.IsLoggedIn ? session.UserContext.PrivateProfile!.LabelerSubscriptions : BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.DefaultLabelSubscriptions
             };
             ctx.InitializeDeadlines();
             return ctx;
@@ -102,6 +105,7 @@ namespace AppViewLite
                 RequestUrl = originalCtx.RequestUrl,
                 MinVersion = originalCtx.MinVersion,
                 StartDate = DateTime.UtcNow,
+                LabelSubscriptions = [],
             };
         }
 
@@ -110,7 +114,8 @@ namespace AppViewLite
             return new RequestContext()
             {
                 Session = null!,
-                StartDate = DateTime.UtcNow, 
+                StartDate = DateTime.UtcNow,
+                LabelSubscriptions = [],
             };
         }
 
@@ -186,6 +191,10 @@ namespace AppViewLite
 
         public bool IsLoggedIn => Session != null && Session.IsLoggedIn;
         public Plc LoggedInUser => Session!.LoggedInUser!.Value;
+
+        public required LabelerSubscription[] LabelSubscriptions;
+        private HashSet<LabelId>? _needsLabels;
+        public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash))).ToHashSet();
     }
 
 }

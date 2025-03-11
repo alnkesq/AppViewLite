@@ -486,7 +486,6 @@ namespace AppViewLite
 
                         post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
                     }
-                    post.Labels = rels.GetPostLabels(post.PostId, ctx.IsLoggedIn ? ctx.UserContext.NeedLabels : relationshipsUnlocked.DefaultLabelIds).Select(x => rels.GetLabel(x)).ToArray();
                 }
             }, ctx);
 
@@ -3740,6 +3739,7 @@ namespace AppViewLite
                 if (userContext.PrivateProfile.FirstLogin == null)
                 {
                     userContext.PrivateProfile.FirstLogin = DateTime.UtcNow;
+                    userContext.PrivateProfile.LabelerSubscriptions = relationshipsUnlocked.DefaultLabelSubscriptions.ToArray();
                     rels.RegisterForNotifications(plc);
                 }
 

@@ -1,14 +1,14 @@
 @code {
-    [Parameter] public BlueskyModerationBase[]? Labels { get; set; }
+    [Parameter] public IReadOnlyList<BlueskyModerationBase>? Labels { get; set; }
     [Parameter] public string? ExtraClass { get; set; }
 }
 
-@if(Labels != null && Labels.Length != 0)
+@if(Labels != null && Labels.Count != 0)
 {
     <div class="label-badge-list @ExtraClass">
         @foreach (var label in Labels)
         {
-            <a class="label-badge" href="@label.BaseUrl" title="@(label.Description ?? "No description available")">
+            <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + "\n\n" + label.Moderator.DisplayNameOrFallback)">
                 @label.DisplayNameOrFallback
             </a>
         }

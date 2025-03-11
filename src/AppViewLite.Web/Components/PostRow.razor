@@ -256,7 +256,7 @@
             </span>
         </div>
     }
-    <LabelBadges Labels="@Post.Labels" ExtraClass="post-indented" />
+    <LabelBadges Labels="@Post.AllLabels.ToArray()" ExtraClass="post-indented" />
 
     @if (Post.Data == null || Post.Data.Error != null)
     {

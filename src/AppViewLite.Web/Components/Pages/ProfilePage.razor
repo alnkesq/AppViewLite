@@ -41,16 +41,16 @@
         await ResolveDidAsync();
         Profile = await Apis.GetFullProfileAsync(Did, RequestContext, Math.Max(MaxFollowersYouFollowNames, MaxFollowersYouFollowAvatars));
 
-        data = Profile.Profile.BasicData;
+        data = SimpleProfile.BasicData;
         description = data?.Description;
-        if (description != null && description.EndsWith("on the fediverse by https://fed.brid.gy/ ]", StringComparison.Ordinal) && Profile.Profile.PossibleHandle != null)
+        if (description != null && description.EndsWith("on the fediverse by https://fed.brid.gy/ ]", StringComparison.Ordinal) && SimpleProfile.PossibleHandle != null)
         {
             var suffix = description.IndexOf("[bridged from ");
             if(suffix != -1)
             {
                 try
                 {
-                    BridgyMirroredProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(Profile.Profile.PossibleHandle!);
+                    BridgyMirroredProfile = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubUserId.Parse(SimpleProfile.PossibleHandle!);
                     description = description.Substring(0, suffix).Trim();
                     if (string.IsNullOrEmpty(description)) description = null;
                 }
@@ -59,7 +59,7 @@
                 }
             }
         }
-        pluggableExternalUrl = Profile.Profile.PluggableProtocol?.TryGetOriginalProfileUrl(Profile.Profile);
+        pluggableExternalUrl = SimpleProfile.PluggableProtocol?.TryGetOriginalProfileUrl(SimpleProfile);
         anchorTargetForProfileUrl = pluggableExternalUrl != null ? "_blank" : null;
         GuessedFacets = data?.GetOrGuessFacets();
         if (ShowLabels)
@@ -98,28 +98,28 @@
 
 @if (Profile != null)
 {
-    <div class="profile-page @(Profile.Profile.BlockReason != default ? "profile-page-blocked" : null)">
-        <div class="profile-banner @(Profile.Profile.HasBannerImage ? null : "profile-banner-no-image")" style="@(!Profile.Profile.HasBannerImage && Profile.Profile.PluggableProtocol?.GetDefaultBannerColor(Profile.Profile.Did) is {} defaultColor ? "background-color: " + defaultColor : null)">
-            @if (Profile.Profile.HasBannerImage)
+    <div class="profile-page @(SimpleProfile.BlockReason != default || SimpleProfile.Labels!.Any(x => x.Mode == ModerationBehavior.Mute) ? "profile-page-blocked" : null)">
+        <div class="profile-banner @(SimpleProfile.HasBannerImage ? null : "profile-banner-no-image")" style="@(!SimpleProfile.HasBannerImage && SimpleProfile.PluggableProtocol?.GetDefaultBannerColor(SimpleProfile.Did) is {} defaultColor ? "background-color: " + defaultColor : null)">
+            @if (SimpleProfile.HasBannerImage)
             {
-                <img src="@Apis.GetImageBannerUrl(Did, Profile.Profile.BasicData!.BannerCidBytes!, Profile.Profile.Pds)" />
+                <img src="@Apis.GetImageBannerUrl(Did, SimpleProfile.BasicData!.BannerCidBytes!, SimpleProfile.Pds)" />
             }
         </div>
         <a class="main-padding profile-image-large-link" href="@Apis.GetImageUrl(ThumbnailSize.avatar, Did, SimpleProfile.BasicData?.AvatarCidBytes, SimpleProfile.Pds)" target="_blank">
-            <img src="@Profile.Profile.AvatarUrl" class="profile-image-large" />
+            <img src="@SimpleProfile.AvatarUrl" class="profile-image-large" />
         </a>
         <h1 class="main-padding">
-            <TextWithFacets Text="@Profile.Profile.DisplayNameOrFallback" Facets="@Profile.Profile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets>
-            <ProfileBadges Profile="@Profile.Profile" />
+            <TextWithFacets Text="@SimpleProfile.DisplayNameOrFallback" Facets="@SimpleProfile.BasicData?.DisplayNameFacets" IsProfileDisplayName="true"></TextWithFacets>
+            <ProfileBadges Profile="@SimpleProfile" />
         </h1>
 
         <div class="main-padding">
-            @if (Profile.Profile.BlockReason != default || Profile.Profile.FollowsYou)
+            @if (SimpleProfile.BlockReason != default || SimpleProfile.FollowsYou)
             {
-                var (blurReasonText, blurReasonFacets) = Profile.Profile.GetDisplayInverseFollowRelationship(RequestContext);
+                var (blurReasonText, blurReasonFacets) = SimpleProfile.GetDisplayInverseFollowRelationship(RequestContext);
                 <span class="profile-follow-relationship"><TextWithFacets Text="@blurReasonText" Facets="@blurReasonFacets" /></span>
             }
-            <ProfileHandle Profile="@Profile.Profile" />
+            <ProfileHandle Profile="@SimpleProfile" />
         </div>
 
         <div class="profile-follow-area" data-profiledid="@SimpleProfile.Did" data-followrkey="@SimpleProfile.FollowRKeyForAttribute" data-blockrkey="@SimpleProfile.BlockRKeyForAttribute" data-followsyou="@SimpleProfile.FollowsYouForAttribute">
@@ -154,7 +154,7 @@
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
                     <a href="/search?q=from:@(SimpleProfile.HandleIsUncertain || SimpleProfile.PossibleHandle == null ? SimpleProfile.Did : SimpleProfile.PossibleHandle)%20" class="menu-item">Search posts…</a>
 
-                    @if (RequestContext.IsLoggedIn && Profile.Profile.Plc != RequestContext.LoggedInUser)
+                    @if (RequestContext.IsLoggedIn && SimpleProfile.Plc != RequestContext.LoggedInUser)
                     {
                         @if (SimpleProfile.BlockReason == default || SimpleProfile.IsFollowedEvenPrivatelyBySelf)
                         {
@@ -193,8 +193,8 @@
 
         <div class="profile-follow-links main-padding">
             @{
-                var followingUrl = Profile.Profile.FollowingUrl;
-                var followersUrl = Profile.Profile.FollowersUrl;
+                var followingUrl = SimpleProfile.FollowingUrl;
+                var followersUrl = SimpleProfile.FollowersUrl;
                 var shouldShowFollowing = followingUrl != null || data?.PluggableProtocolFollowingCount != null;
                 var shouldShowFollowers = followersUrl != null || data?.PluggableProtocolFollowerCount != null;
             }
@@ -202,10 +202,10 @@
             {
                 <a href="@followingUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowingCount Following</a>
             }
-            @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == Profile.Profile.Plc)
+            @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == SimpleProfile.Plc)
             {
                 <text> · </text>
-                <a href="@Profile.Profile.BaseUrl/following-private" class="underline-on-hover">Following (private)</a>
+                <a href="@SimpleProfile.BaseUrl/following-private" class="underline-on-hover">Following (private)</a>
             }
             @if (shouldShowFollowing && shouldShowFollowers)
             {
@@ -215,16 +215,16 @@
             {
                 <a href="@followersUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowerCount Followers</a>
             }
-            @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == Profile.Profile.Plc)
+            @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == SimpleProfile.Plc)
             {
                 <text> · </text>
-                <a href = "@Profile.Profile.BaseUrl/known-followers" class="underline-on-hover">Mutuals</a>
+                <a href = "@SimpleProfile.BaseUrl/known-followers" class="underline-on-hover">Mutuals</a>
             }
         </div>
 
         <div class="profile-description main-padding">
             <TextWithFacets Text="@description" Facets="@GuessedFacets" />
-            @if (pluggableExternalUrl != null && Profile.Profile.PluggableProtocol!.ShouldDisplayExternalLinkInBio)
+            @if (pluggableExternalUrl != null && SimpleProfile.PluggableProtocol!.ShouldDisplayExternalLinkInBio)
             {
                 @if (@description != null)
                 {
@@ -256,10 +256,10 @@
             </div>
         }
 
-        @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0 && RequestContext.LoggedInUser != Profile.Profile.Plc)
+        @if (Profile.FollowedByPeopleYouFollow != null && Profile.FollowedByPeopleYouFollow.Count != 0 && RequestContext.LoggedInUser != SimpleProfile.Plc)
         {
             var knownFollowerCount = Profile.FollowedByPeopleYouFollow.Count;
-            <a class="profile-followers-you-follow main-padding" href="@Profile.Profile.BaseUrl/known-followers">
+            <a class="profile-followers-you-follow main-padding" href="@SimpleProfile.BaseUrl/known-followers">
                 <span class="profile-followers-you-follow-avatars">
                     @foreach (var user in Profile.FollowedByPeopleYouFollow.Take(MaxFollowersYouFollowAvatars).Index())
                     {
@@ -279,40 +279,40 @@
         }
 
 
-        <LabelBadges Labels="@Profile.Profile.Labels" ExtraClass="profile-labels main-padding" />
+        <LabelBadges Labels="@SimpleProfile.Labels" ExtraClass="profile-labels main-padding" />
 
         <div class="tabbed-lists-header">
             <div class="tabbed-lists-header-inner">
 
                 @if (SimpleProfile.DidDoc?.AtProtoLabeler != null)
                 {
-                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?labeler=1")">Labeler</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?labeler=1")">Labeler</NavLink>
                 }
-                <NavLink draggable="false" Match="NavLinkMatch.All" href="@Profile.Profile.BaseUrl">Posts</NavLink>
+                <NavLink draggable="false" Match="NavLinkMatch.All" href="@SimpleProfile.BaseUrl">Posts</NavLink>
                 @if (SimpleProfile.PluggableProtocol == null || SimpleProfile.PluggableProtocol.ShouldShowRepliesTab(SimpleProfile))
                 {
-                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?replies=1")">Replies</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?replies=1")">Replies</NavLink>
                 }
                 @if (SimpleProfile.PluggableProtocol == null || SimpleProfile.PluggableProtocol.ShouldShowMediaTab(SimpleProfile))
                 {
-                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?media=1")">Media</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?media=1")">Media</NavLink>
                 }
                 @if (SimpleProfile.PluggableProtocol == null)
                 {
-                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
-                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?likes=1")">Likes</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?reposts=0&replies=0")">Original posts</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?likes=1")">Likes</NavLink>
                     @if(RequestContext.IsLoggedIn && SimpleProfile.Plc == RequestContext.LoggedInUser)
                     {
-                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?bookmarks=1")">Bookmarks</NavLink>
+                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?bookmarks=1")">Bookmarks</NavLink>
                     }
                     @if (Profile.HasFeeds)
                     {
-                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "/feeds")">Feeds</NavLink>
+                        <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "/feeds")">Feeds</NavLink>
                     }
                 }
                 @if (Profile.HasLists && SimpleProfile.DidDoc?.AtProtoLabeler == null)
                 {
-                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(Profile.Profile.BaseUrl + "?labeler=1")">Lists</NavLink>
+                    <NavLink draggable="false" Match="NavLinkMatch.All" href="@(SimpleProfile.BaseUrl + "?labeler=1")">Lists</NavLink>
                 }
             </div>
         </div>

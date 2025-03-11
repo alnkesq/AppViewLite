@@ -27,6 +27,7 @@ namespace AppViewLite
         public required AppViewLiteUserContext UserContext; // Multiple sessions ("cookies") can share the same user context if they refer to the same user.
 
         public static AppViewLiteSession CreateAnonymous() => new AppViewLiteSession { SessionToken = null, UserContext = new() };
+
     }
 
     public class AppViewLiteUserContext
@@ -40,8 +41,6 @@ namespace AppViewLite
         public string? Did => Profile?.Did;
 
         public Session? PdsSession;
-
-        public HashSet<LabelId>? NeedLabels;
 
         public Dictionary<Plc, PrivateFollow> PrivateFollows = new();
         public AppViewLiteProfileProto? PrivateProfile;
@@ -75,6 +74,8 @@ namespace AppViewLite
             var jwtToken = handler.ReadJwtToken(refreshJwt);
             RefreshTokenExpireDate = jwtToken.ValidTo;
         }
+
+
     }
 
 }

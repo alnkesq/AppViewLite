@@ -4,6 +4,7 @@ using System;
 using AppViewLite.PluggableProtocols;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace AppViewLite.Models
 {
@@ -60,7 +61,7 @@ namespace AppViewLite.Models
         public BlueskyThreadgate? Threadgate;
         public bool ViolatesThreadgate;
 
-        public BlueskyLabel[]? Labels;
+        public BlueskyLabel[] Labels = [];
         public PluggableProtocol? PluggableProtocol => Author.PluggableProtocol;
 
         public PostIdString PostIdStr => new PostIdString(Did, RKey);
@@ -80,6 +81,7 @@ namespace AppViewLite.Models
 
         public string? OriginalPostUrl => Author.PluggableProtocol?.TryGetOriginalPostUrl(QualifiedPluggablePostId, this);
 
+        public IEnumerable<BlueskyModerationBase> AllLabels => this.Labels.Concat(this.Author.Labels);
         public BlockReasonDisplayStringAndList? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList, RequestContext ctx)
         {
     
@@ -88,6 +90,10 @@ namespace AppViewLite.Models
                 return r;
 
             if (isFocal) return null;
+
+            var labelBlur = AllLabels.FirstOrDefault(x => x.Mode is ModerationBehavior.BlurAll or ModerationBehavior.Mute);
+            if (labelBlur != null)
+                return new BlockReasonDisplayStringAndList("[" + labelBlur.DisplayNameOrFallback + "]", labelBlur);
 
             if (!isThreadView && !isQuotee && !isQuoteList) return null;
 
@@ -137,7 +143,6 @@ namespace AppViewLite.Models
         public MuteRule? MutedByRule;
         internal bool ShouldMute(RequestContext ctx)
         {
-            
             if (RepostedBy != null)
             {
                 if (IsSelfRepost)
@@ -172,12 +177,16 @@ namespace AppViewLite.Models
                 }
             }
 
+
+            if (Labels!.Any(x => x.Mode == ModerationBehavior.Mute)) return true;
+
             return false;
             
         }
 
         private bool IsUserMuted(BlueskyProfile user, PrivateFollowFlags imageFlag, PrivateFollowFlags textFlag)
         {
+            if (user.Labels!.Any(x => x.Mode == ModerationBehavior.Mute)) return true;
             if (IsImagePost)
             {
                 return user.HasPrivateFollowFlag(imageFlag);

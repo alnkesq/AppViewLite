@@ -1,6 +1,7 @@
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
 using System;
+using System.Collections.Generic;
 
 namespace AppViewLite.Models
 {
@@ -29,7 +30,7 @@ namespace AppViewLite.Models
             }
         }
 
-        public BlueskyLabel[]? Labels;
+        public IReadOnlyList<BlueskyModerationBase> Labels = [];
 
         public string BaseUrl => "/@" + (HandleIsUncertain || PossibleHandle == null ? Did : PossibleHandle);
 

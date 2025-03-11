@@ -329,35 +329,38 @@ namespace AppViewLite
 
                 var bskyModeration = SerializeDid("did:plc:ar7c4by46qjdydhdevvrndac", RequestContext.CreateForFirehose("DefaultLabelsInit"));
                 // https://www.atproto-browser.dev/at/did:plc:ar7c4by46qjdydhdevvrndac/app.bsky.labeler.service/self
-                this.DefaultLabelIds = new[]
+                this.DefaultLabelSubscriptions = new[]
                 {
 
-                    "!hide",
-                    "!warn",
-                    "porn",
-                    "sexual",
-                    "nudity",
-                    "sexual-figurative",
-                    "graphic-media",
-                    "self-harm",
-                    "sensitive",
-                    "extremist",
-                    "intolerant",
-                    "threat",
-                    "rude",
-                    "illicit",
-                    "security",
-                    "unsafe-link",
-                    "impersonation",
-                    "misinformation",
-                    "scam",
-                    "engagement-farming",
-                    "spam",
-                    "rumor",
-                    "misleading",
-                    "inauthentic"
-
-                }.Select(x => new LabelId(bskyModeration, HashLabelName(x))).ToHashSet();
+                    ("!takedown", ModerationBehavior.Badge),
+                    ("!hide", ModerationBehavior.Badge),
+                    ("!warn", ModerationBehavior.Badge),
+                    //"porn",
+                    //"sexual",
+                    //"nudity",
+                    //"sexual-figurative",
+                    //"graphic-media",
+                    //"self-harm",
+                    //"sensitive",
+                    //"extremist",
+                    //"intolerant",
+                    //"threat",
+                    //"rude",
+                    //"illicit",
+                    ("security", ModerationBehavior.Badge),
+                    ("unsafe-link", ModerationBehavior.Badge),
+                    ("impersonation", ModerationBehavior.Badge),
+                    ("misinformation", ModerationBehavior.Badge),
+                    ("scam", ModerationBehavior.Badge),
+                    ("engagement-farming", ModerationBehavior.Badge),
+                    ("spam", ModerationBehavior.Mute),
+                    ("rumor", ModerationBehavior.Badge),
+                    ("misleading", ModerationBehavior.Badge),
+                    ("inauthentic", ModerationBehavior.Badge),
+                }
+                .Select(x => new LabelerSubscription() { Behavior = x.Item2, LabelerPlc = bskyModeration.PlcValue, LabelerNameHash = HashLabelName(x.Item1) })
+                .Where(x => x.Behavior != ModerationBehavior.None)
+                .ToArray();
             }
             finally 
             {
@@ -2356,6 +2359,7 @@ namespace AppViewLite
                 PopulateViewerFlags(post.RepostedBy, ctx);
             if (post.QuotedPost != null)
                 PopulateViewerFlags(post.QuotedPost, ctx);
+            post.Labels = GetPostLabels(post.PostId, ctx.NeedsLabels).Select(x => GetLabel(x)).ToArray();
             post.IsMuted = post.ShouldMute(ctx);
             post.DidPopulateViewerFlags = true;
         }
@@ -2996,7 +3000,7 @@ namespace AppViewLite
             SaveAppViewLiteProfile(ctx.UserContext);
         }
 
-        public HashSet<LabelId> DefaultLabelIds;
+        public LabelerSubscription[] DefaultLabelSubscriptions;
 
         public void PopulateViewerFlags(BlueskyProfile profile, RequestContext ctx)
         {
@@ -3005,7 +3009,15 @@ namespace AppViewLite
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
             profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
-            profile.Labels = GetProfileLabels(profile.Plc, ctx.IsLoggedIn ? ctx.UserContext.NeedLabels : this.DefaultLabelIds).Select(x => GetLabel(x)).ToArray();
+            profile.Labels = GetProfileLabels(profile.Plc, ctx.NeedsLabels).Select(x => (BlueskyModerationBase)GetLabel(x)).Concat(ctx.LabelSubscriptions.Where(x => x.ListRKey != 0).Select(x =>
+            {
+                var listId = new Models.Relationship(new Plc(x.LabelerPlc), new Tid(x.ListRKey));
+                if (IsMemberOfList(listId, profile.Plc)) 
+                {
+                    return GetList(listId);
+                }
+                return null;
+            }).WhereNonNull()).ToArray();
             if (profile.BlockReason != default && ctx.IsLoggedIn && Blocks.HasActor(profile.Plc, ctx.LoggedInUser, out var blockedBySelf))
             {
                 profile.IsBlockedBySelf = blockedBySelf.RelationshipRKey;
@@ -3033,7 +3045,7 @@ namespace AppViewLite
             copy.DidToPlcConcurrentCache = this.DidToPlcConcurrentCache;
             copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
-            copy.DefaultLabelIds = this.DefaultLabelIds;
+            copy.DefaultLabelSubscriptions = this.DefaultLabelSubscriptions;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var field in fields)
             {
@@ -3155,7 +3167,7 @@ namespace AppViewLite
                 return;
 
 
-            post.QuotedPost = GetPost(new PostId(new Plc(post.Data.QuotedPlc.Value), new Tid(post.Data.QuotedRKey!.Value)));
+            post.QuotedPost = GetPost(new PostId(new Plc(post.Data.QuotedPlc!.Value), new Tid(post.Data.QuotedRKey!.Value)));
             PopulateViewerFlags(post.QuotedPost, ctx);
         }
 

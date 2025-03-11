@@ -9,18 +9,13 @@
         <img src="@List.GetAvatarUrl(RequestContext)" />
     </a>
     <div class="list-metadata-row-name list-indented"><a class="underline-on-hover" href="@List.BaseUrl">@List.DisplayNameOrFallback</a></div>
-    <div class="list-metadata-row-author list-indented">List by <a class="underline-on-hover" href="@List.Moderator.BaseUrl">@List.Moderator.DisplayNameOrFallback</a></div>
+    <div class="list-metadata-row-author list-indented">@(List is BlueskyList ? "List" : "Label") by <a class="underline-on-hover" href="@List.Moderator.BaseUrl">@List.Moderator.DisplayNameOrFallback</a></div>
     <div class="list-metadata-row-description">
         <TextWithFacets Text="@List.Description" Facets="@List.DescriptionFacets" />
     </div>
     @if (RequestContext.IsLoggedIn)
     {
-        <div class="list-metadata-row-modes">
-            @foreach (var (mode, text) in new[] { (ModerationBehavior.None, "Disabled"), (ModerationBehavior.Badge, "Badge"), (ModerationBehavior.BlurAll, "Blur"), (ModerationBehavior.Mute, "Mute") })
-            {
-                <button actionkind="setLabelerMode" class="labeler-mode @(List.Mode == mode ? "labeler-mode-active" : null)" data-mode="@mode">@text</button>
-            }
-        </div>
+        <LabelerSubscriptionButtons List="List" />
     }
 </div>
 

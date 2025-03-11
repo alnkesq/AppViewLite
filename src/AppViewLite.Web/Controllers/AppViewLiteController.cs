@@ -265,7 +265,10 @@ namespace AppViewLite.Web
                 subscription.LabelerNameHash = BlueskyRelationships.HashLabelName(args.LabelName!);
             lock (ctx.PrivateProfile)
             {
-                ctx.PrivateProfile.LabelerSubscriptions = ctx.PrivateProfile.LabelerSubscriptions.Where(x => !(x.LabelerPlc == subscription.LabelerPlc && x.ListRKey == subscription.ListRKey && x.LabelerNameHash == subscription.LabelerNameHash)).Append(subscription).ToArray();
+                var updatedSubscriptions = ctx.PrivateProfile.LabelerSubscriptions.Where(x => !(x.LabelerPlc == subscription.LabelerPlc && x.ListRKey == subscription.ListRKey && x.LabelerNameHash == subscription.LabelerNameHash));
+                if (mode != ModerationBehavior.None)
+                    updatedSubscriptions = updatedSubscriptions.Append(subscription);
+                ctx.PrivateProfile.LabelerSubscriptions = updatedSubscriptions.ToArray();
             }
             apis.SaveAppViewLiteProfile(ctx);
         }

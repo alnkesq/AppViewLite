@@ -2637,6 +2637,15 @@ namespace AppViewLite
             return feeds;
         }
 
+        public async Task<IReadOnlyList<BlueskyModerationBase>> EnrichAsync(IReadOnlyList<BlueskyModerationBase> labels, RequestContext ctx)
+        {
+            var task1 = EnrichAsync(labels.OfType<BlueskyLabel>().ToArray(), ctx);
+            var task2 = EnrichAsync(labels.OfType<BlueskyList>().ToArray(), ctx);
+            await task1;
+            await task2;
+            return labels;
+        }
+
         public async Task<BlueskyLabel[]> EnrichAsync(BlueskyLabel[] labels, RequestContext ctx)
         {
             if (labels.Length == 0) return labels;

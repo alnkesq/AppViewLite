@@ -1,0 +1,32 @@
+@page "/settings/moderation"
+@inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
+@inject NavigationManager Navigation
+
+<a href="/settings" class="blue-link main-padding display-block settings-back-link">&lt; Settings</a>
+
+<h1>Moderation</h1>
+
+@code{
+    public IReadOnlyList<BlueskyModerationBase> Lists = [];
+    protected async override Task OnInitializedAsync()
+    {
+        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/", true);
+        const string BskyModerationDid = "did:plc:ar7c4by46qjdydhdevvrndac";
+        var moderationBsky = Apis.SerializeSingleDid(BskyModerationDid, RequestContext);
+
+        var lists = Apis.WithRelationshipsLock(rels =>
+        {
+            return RequestContext.PrivateProfile.LabelerSubscriptions.Select(x =>
+            {
+                if (x.ListRKey != 0) return (BlueskyModerationBase)rels.GetList(new Relationship(new Plc(x.LabelerPlc), new Numerics.Tid(x.ListRKey)));
+                if (new Plc(x.LabelerPlc) == moderationBsky) return null;
+                return rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash));
+            }).WhereNonNull().ToArray();
+        }, RequestContext).Concat(await Apis.GetLabelerLabelsAsync(BskyModerationDid, RequestContext)).ToArray();
+        await Apis.EnrichAsync(lists, RequestContext);
+        Lists = lists;
+    }
+}
+<ListList Lists="Lists" ShowModerator="true" />
+

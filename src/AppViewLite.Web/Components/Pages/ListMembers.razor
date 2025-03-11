@@ -22,7 +22,12 @@
 <div class="main-padding list-page-description">
     @ListMetadata?.Data?.Description
 </div>
-
+@if (RequestContext.IsLoggedIn && ListMetadata != null)
+{
+    <div class="main-padding" data-moderationdid="@ListMetadata.ModeratorDid" data-moderationlistrkey="@ListMetadata.RKey" data-moderationlabelname="-">
+        <LabelerSubscriptionButtons List="ListMetadata" />
+    </div>
+}
 
 <ProfileList Profiles="Members" NextContinuation="@NextContinuation" />
 

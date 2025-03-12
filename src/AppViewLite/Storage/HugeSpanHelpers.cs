@@ -77,6 +77,92 @@ namespace AppViewLite
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public int CompareTo(T? other) => _comparer.Compare(_value, other);
         }
+
+        public static int IndexOfUsingBinarySearch<T>(this Span<T> span, T needle, Func<T, bool> hasDesiredPrefix) where T : IComparable<T>
+        {
+            return IndexOfUsingBinarySearch((ReadOnlySpan<T>)span, needle, hasDesiredPrefix);
+        }
+        public static int IndexOfUsingBinarySearchLatest<T>(this Span<T> span, T needle, Func<T, bool> hasDesiredPrefix) where T : IComparable<T>
+        {
+            return IndexOfUsingBinarySearchLatest((ReadOnlySpan<T>)span, needle, hasDesiredPrefix);
+        }
+
+        public static int IndexOfUsingBinarySearch<T>(this ReadOnlySpan<T> span, T needle, Func<T, bool> hasDesiredPrefix) where T : IComparable<T>
+        {
+            var index = span.BinarySearch(needle);
+            if (index >= 0) return index;
+
+            index = ~index;
+            if (index == span.Length) return -1;
+            var item = span[index];
+            if (hasDesiredPrefix(item)) return index;
+            return -1;
+        }
+
+
+        public static long IndexOfUsingBinarySearch<T>(this HugeReadOnlySpan<T> span, T needleValueOrPrefix, Func<T, bool> hasDesiredPrefix) where T : IComparable<T>
+        {
+            var index = span.BinarySearch(needleValueOrPrefix);
+            if (index >= 0) return index;
+
+            index = ~index;
+            if (index == span.Length) return -1;
+            var item = span[index];
+            if (hasDesiredPrefix(item)) return index;
+            return -1;
+        }
+
+
+        public static int IndexOfUsingBinarySearchLatest<T>(this ReadOnlySpan<T> span, T needle, Func<T, bool> hasDesiredPrefix) where T : IComparable<T>
+        {
+            var index = span.BinarySearch(needle);
+
+            if (index < 0)
+            {
+                index = ~index;
+                if (index == span.Length) return -1;
+                if (!hasDesiredPrefix(span[index])) return -1;
+            }
+
+            while (true)
+            {
+                var indexNext = index + 1;
+                if (indexNext < span.Length && hasDesiredPrefix(span[indexNext]))
+                {
+                    index++;
+                }
+                else break;
+            }
+
+            return index;
+        }
+
+
+        public static long IndexOfUsingBinarySearchLatest<T>(this HugeReadOnlySpan<T> span, T needle, Func<T, bool> hasDesiredPrefix) where T : IComparable<T>
+        {
+            var index = span.BinarySearch(needle);
+
+            if (index < 0)
+            {
+                index = ~index;
+                if (index == span.Length) return -1;
+                if (!hasDesiredPrefix(span[index])) return -1;
+            }
+
+            while (true)
+            {
+                var indexNext = index + 1;
+                if (indexNext < span.Length && hasDesiredPrefix(span[indexNext]))
+                {
+                    index++;
+                }
+                else break;
+            }
+
+            return index;
+        }
+
+
     }
 }
 

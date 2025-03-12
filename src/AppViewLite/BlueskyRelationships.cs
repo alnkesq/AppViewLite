@@ -22,6 +22,7 @@ using System.Text;
 using System.Threading;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 
 namespace AppViewLite
 {
@@ -106,6 +107,8 @@ namespace AppViewLite
         public TimeSpan PlcDirectoryStaleness => DateTime.UtcNow - PlcDirectorySyncDate;
 
         public Stopwatch? ReplicaAge;
+        public bool IsReplica => ReplicaAge != null;
+        public bool IsPrimary => !IsReplica;
 
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<ICheckpointable> disposables = new();
@@ -901,6 +904,9 @@ namespace AppViewLite
 
             if (proto.QuotedRKey != null)
                 NotifyPostStatsChange(proto.QuotedPostId!.Value, postId.Author);
+
+            AddPostToRecentPostCache(postId.Author, new UserRecentPostWithScore(postId.PostRKey, proto.InReplyToPostId?.Author ?? default, 0));
+
             return proto;
         }
 
@@ -2253,23 +2259,25 @@ namespace AppViewLite
 
         }
 
-        internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDate, Tid? maxDate)
+        internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDateExclusive, Tid? maxDateExclusive)
         {
-            return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDate, default), maxDate != null ? new RecentPost(maxDate.Value, default) : null).Select(x => (new PostId(author, x.RKey), x.InReplyTo));
+            return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDateExclusive, default), maxDateExclusive != null ? new RecentPost(maxDateExclusive.Value, default) : null).Select(x => (new PostId(author, x.RKey), x.InReplyTo));
         }
-        internal IEnumerable<PostId> EnumerateRecentMediaPosts(Plc author, Tid minDate, Tid? maxDate)
+        internal IEnumerable<PostId> EnumerateRecentMediaPosts(Plc author, Tid minDateExclusive, Tid? maxDateExclusive)
         {
-            return this.UserToRecentMediaPosts.GetValuesSortedDescending(author, minDate, maxDate).Select(x => new PostId(author, x));
+            return this.UserToRecentMediaPosts.GetValuesSortedDescending(author, minDateExclusive, maxDateExclusive).Select(x => new PostId(author, x));
         }
-        internal IEnumerable<RecentRepost> EnumerateRecentReposts(Plc author, Tid minDate, Tid? maxDate)
+        internal IEnumerable<RecentRepost> EnumerateRecentReposts(Plc author, Tid minDateExclusive, Tid? maxDateExclusive)
         {
-            return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDate, default), maxDate != null ? new RecentRepost(maxDate.Value, default) : null);
+            return this.UserToRecentReposts.GetValuesSortedDescending(author, new RecentRepost(minDateExclusive, default), maxDateExclusive != null ? new RecentRepost(maxDateExclusive.Value, default) : null);
         }
 
-        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTid)
+        public ConcurrentDictionary<Plc, UserRecentPostWithScore[]> UserToRecentPopularPosts = new(); // within each user, posts are sorted by rkey
+
+        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTidExclusive)
         {
             var loggedInUser = ctx.LoggedInUser;
-            var thresholdDate = minDate != default ? Tid.FromDateTime(minDate) : default;
+            var minDateAsTid = minDate != default ? Tid.FromDateTime(minDate) : default;
 
 
             var follows = GetFollowingFast(ctx);
@@ -2283,7 +2291,11 @@ namespace AppViewLite
                 {
                     var author = pair.Plc;
                     return this
-                        .EnumerateRecentPosts(author, thresholdDate, maxTid)
+                        //.EnumerateRecentPosts(author, thresholdDate, maxTid)
+                        .GetRecentPopularPosts(author, pair.IsPrivate)
+                        .Reverse()
+                        .SkipWhile(x => maxTidExclusive != null && x.RKey.CompareTo(maxTidExclusive.Value) >= 0)
+                        .TakeWhile(x => minDateAsTid.CompareTo(x.RKey) <= 0)
                         .Select(x =>
                         {
                             var postAuthor = author;
@@ -2306,7 +2318,7 @@ namespace AppViewLite
                                 return null;
                             }
 
-                            var post = GetPost(x.PostId);
+                            var post = GetPost(postAuthor, x.RKey);
                             if (post.Data == null) return null;
                             if (post.Data.IsReplyToUnspecifiedPost == true) return null;
 
@@ -2328,7 +2340,7 @@ namespace AppViewLite
                     var reposter = pair.Plc;
                     BlueskyProfile? reposterProfile = null;
                     return this
-                        .EnumerateRecentReposts(reposter, thresholdDate, maxTid)
+                        .EnumerateRecentReposts(reposter, minDateAsTid, maxTidExclusive)
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId);
@@ -3080,7 +3092,9 @@ namespace AppViewLite
             copy.DidToPlcConcurrentCache = this.DidToPlcConcurrentCache;
             copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
+            copy.UserToRecentPopularPosts = this.UserToRecentPopularPosts;
             copy.DefaultLabelSubscriptions = this.DefaultLabelSubscriptions;
+            copy.PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var field in fields)
             {
@@ -3095,6 +3109,7 @@ namespace AppViewLite
                     // Console.Error.WriteLine("Extra field: " + field.Name);
                 }
             }
+            this.PostAuthorsSinceLastReplicaSnapshot.Clear();
             copy.ReplicaAge = Stopwatch.StartNew();
 
             // . Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + "
@@ -3122,12 +3137,12 @@ namespace AppViewLite
         }
 
 
-        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?> plcToRecentPostLikes)
+        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>? plcToRecentPostLikes)
         {
             var likeCount = Likes.GetApproximateActorCount(postId);
             if (likeCount == 0 && couldBePluggablePost)
             {
-                if (!plcToRecentPostLikes.TryGetValue(postId.Author, out var recentPostLikes))
+                if (plcToRecentPostLikes == null || !plcToRecentPostLikes.TryGetValue(postId.Author, out var recentPostLikes))
                 {
                     var did = GetDid(postId.Author);
                     if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
@@ -3138,7 +3153,8 @@ namespace AppViewLite
                     {
                         recentPostLikes = null;
                     }
-                    plcToRecentPostLikes[postId.Author] = recentPostLikes;
+                    if (plcToRecentPostLikes != null)
+                        plcToRecentPostLikes[postId.Author] = recentPostLikes;
                 }
                 if (recentPostLikes != null)
                 {
@@ -3252,6 +3268,91 @@ namespace AppViewLite
             return pluggable.TryGetOriginalPostUrl(new QualifiedPluggablePostId(did, postData.PluggablePostId.Value), post);
         }
 
+
+        public readonly static TimeSpan BalancedFeedMaximumAge = TimeSpan.FromDays(2);
+
+        public IEnumerable<UserRecentPostWithScore> GetRecentPopularPosts(Plc plc, bool couldBePluggablePost)
+        {
+            while (true)
+            {
+                if (UserToRecentPopularPosts.TryGetValue(plc, out var result))
+                    return result;
+
+                // This code usually runs on the readonly replica, which can slightly lag behind the primary.
+                // UserToRecentPopularPosts is shared across primary and replica.
+                // This means 1-2 seconds of likes might be missing from the stats of UserToRecentPopularPosts.
+                var results = GetRecentPopularPostsCore(plc, couldBePluggablePost);
+
+
+                // If this user posted just a few seconds ago and we're in replica, we might not have complete data. Return without caching the result.
+                // It's ok to miss some likes for stats, but not ok to miss posts.
+                if (IsReplica && PostAuthorsSinceLastReplicaSnapshot.Contains(plc))
+                    return results; 
+
+
+                if (UserToRecentPopularPosts.TryAdd(plc, results))
+                    return results;
+            }
+        }
+        private UserRecentPostWithScore[] GetRecentPopularPostsCore(Plc plc, bool couldBePluggablePost)
+        {
+            var now = DateTime.UtcNow;
+            return UserToRecentPosts.GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(now - BalancedFeedMaximumAge), default))
+                .Select(x =>
+                {
+                    var likeCount = GetApproximateLikeCount(new PostIdTimeFirst(x.RKey, plc), couldBePluggablePost: couldBePluggablePost, null);
+                    return new UserRecentPostWithScore(x.RKey, x.InReplyTo, (int)Math.Min(likeCount, int.MaxValue));
+                })
+                .OrderBy(x => x.RKey)
+                .ToArray();
+        }
+
+        public ConcurrentSet<Plc> PostAuthorsSinceLastReplicaSnapshot = new();
+
+        public void IncrementRecentPopularPostLikeCount(PostId postId, int incrementBy)
+        {
+            if (UserToRecentPopularPosts.TryGetValue(postId.Author, out var recentPosts))
+            {
+                var index = recentPosts.AsSpan().IndexOfUsingBinarySearch(new UserRecentPostWithScore(postId.PostRKey, default, default), x => x.RKey == postId.PostRKey);
+
+                if (index != -1)
+                {
+                    if (recentPosts[index].ApproximateLikeCount < int.MaxValue)
+                        recentPosts[index].ApproximateLikeCount++;
+                }
+
+            }
+        }
+
+        public void AddPostToRecentPostCache(Plc author, UserRecentPostWithScore post)
+        {
+            PostAuthorsSinceLastReplicaSnapshot.TryAdd(author);
+
+            if (UserToRecentPopularPosts.TryGetValue(author, out var recentPopularPosts))
+            {
+                if (recentPopularPosts.AsSpan().IndexOfUsingBinarySearch(new UserRecentPostWithScore(post.RKey, default, default), x => x.RKey == post.RKey) != -1)
+                    return;
+                var threshold = DateTime.UtcNow - BlueskyRelationships.BalancedFeedMaximumAge;
+
+                var updated = new List<UserRecentPostWithScore>();
+                foreach (var other in recentPopularPosts)
+                {
+                    if (other.RKey.Date < threshold) continue;
+                    if (post.RKey != default && post.RKey.CompareTo(other.RKey) < 0)
+                    {
+                        updated.Add(post);
+                        post = default;
+                    }
+                    updated.Add(other);
+                }
+                if (post.RKey != default)
+                    updated.Add(post);
+#if DEBUG
+                //_ = updated.AssertOrderedAndUnique(x => x.RKey).Count();
+#endif
+                UserToRecentPopularPosts[author] = updated.ToArray();
+            }
+        }
     }
 
 

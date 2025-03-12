@@ -210,10 +210,21 @@ namespace AppViewLite.PluggableProtocols
                     rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
 
                 var simplePostId = new PostId(authorPlc, postId.PostId.Tid);
+
+
                 var likeCountForScoring = (data.PluggableLikeCountForScoring ?? data.PluggableLikeCount).GetValueOrDefault();
+
+                rels.AddPostToRecentPostCache(authorPlc, new UserRecentPostWithScore(simplePostId.PostRKey, data.InReplyToPostId?.Author ?? default, likeCountForScoring));
+
+
                 if (likeCountForScoring != 0)
                 {
-                    rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, likeCountForScoring));
+                    var prevLikeCount = rels.RecentPluggablePostLikeCount.GetValueWithPrefixLatest(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, default), x => x.PostRKey == simplePostId.PostRKey)?.LikeCount ?? 0;
+                    if (likeCountForScoring > prevLikeCount)
+                    {
+                        rels.RecentPluggablePostLikeCount.Add(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, likeCountForScoring));
+                        rels.IncrementRecentPopularPostLikeCount(simplePostId, likeCountForScoring - prevLikeCount);
+                    }
                 }
                 rels.PostData.AddRange(simplePostId, BlueskyRelationships.SerializePostData(data, postId.Did));
 

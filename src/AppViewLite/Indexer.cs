@@ -169,12 +169,15 @@ namespace AppViewLite
                             BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                             var likeRkey = GetMessageTid(path, Like.RecordType + "/");
-                            relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey));
+                            var added = relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey));
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
                             var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
                             relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
                             relationships.NotifyPostStatsChange(postId, commitPlc);
                             
+
+                            if (added)
+                                relationships.IncrementRecentPopularPostLikeCount(postId, 1);
                         }
                         else if (l.Subject.Uri.Collection == Generator.RecordType)
                         {
@@ -228,6 +231,7 @@ namespace AppViewLite
                     {
                         var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
+
                         var proto = relationships.StorePostInfoExceptData(p, postId, ctx);
                         if (proto != null)
                         {

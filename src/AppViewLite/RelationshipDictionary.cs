@@ -180,11 +180,11 @@ namespace AppViewLite
             return 0;
         }
 
-        public void Add(TTarget target, Relationship relationship)
+        public bool Add(TTarget target, Relationship relationship)
         {
             if (HasActor(target, relationship.Actor, out var oldrel))
             {
-                if (oldrel == relationship) return;
+                if (oldrel == relationship) return false;
                 Delete(oldrel, DateTime.UtcNow, target);
             }
             creations.Add(target, relationship);
@@ -207,6 +207,7 @@ namespace AppViewLite
                     relationshipIdHashToApproxTarget.Add(GetRelationshipHash(relationship), approxTarget.Value);
                 }
             }
+            return true;
         }
 
 

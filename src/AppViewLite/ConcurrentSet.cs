@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    internal class ConcurrentSet<T> where T : notnull
+    public class ConcurrentSet<T> where T : notnull
     {
         private ConcurrentDictionary<T, bool> dict = new();
         public int Count => dict.Count;
@@ -22,6 +22,11 @@ namespace AppViewLite
         }
 
         public bool Contains(T value) => dict.ContainsKey(value);
+
+        public void Clear()
+        {
+            dict.Clear();
+        }
     }
 }
 

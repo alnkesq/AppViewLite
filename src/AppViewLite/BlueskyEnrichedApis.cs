@@ -1883,7 +1883,7 @@ namespace AppViewLite
     
 
             var now = DateTime.UtcNow;
-            var minDate = now.AddDays(-2);
+            var minDate = now - BlueskyRelationships.BalancedFeedMaximumAge;
 
 
             var loggedInUser = ctx.LoggedInUser;
@@ -1901,10 +1901,20 @@ namespace AppViewLite
                 {
                     var plc = pair.Plc;
 
+
+#if false
                     var posts = rels.UserToRecentPosts
                         .GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(minDate), default))
                         .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
                         .ToArray();
+#else
+                    var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/);
+
+                    var posts = postsFast
+                        .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
+                        .Where(x => x.RKey.Date >= minDate)
+                        .ToArray();
+#endif
                     var reposts = rels.UserToRecentReposts
                         .GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default))
                         .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
@@ -1919,7 +1929,8 @@ namespace AppViewLite
                         Plc: plc,
                         Posts: posts
                             .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
-                            .Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate, plcToRecentPostLikes)))
+                            //.Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate, plcToRecentPostLikes)))
+                            .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
                             .ToArray(), 
                        Reposts: reposts
                             .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes)))

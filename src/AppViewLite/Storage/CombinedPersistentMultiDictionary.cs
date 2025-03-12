@@ -1022,6 +1022,28 @@ namespace AppViewLite.Storage
         private List<MultiDictionary2<TKey, TValue>> NextReplicaCanBeBuiltFrom = new(); // only populated in primary
         private CombinedPersistentMultiDictionary<TKey, TValue>? ReplicatedFrom; // only populated in replica
 
+        public TValue? GetValueWithPrefix(TKey key, TValue valueOrPrefix, Func<TValue, bool> hasDesiredPrefix)
+        {
+            foreach (var chunk in GetValuesChunkedLatestFirst(key))
+            {
+                var span = chunk.AsSpan();
+                var index = span.IndexOfUsingBinarySearch(valueOrPrefix, hasDesiredPrefix);
+                if (index != -1)
+                    return span[index];
+            }
+            return null;
+        }
+        public TValue? GetValueWithPrefixLatest(TKey key, TValue valueOrPrefix, Func<TValue, bool> hasDesiredPrefix)
+        {
+            foreach (var chunk in GetValuesChunkedLatestFirst(key))
+            {
+                var span = chunk.AsSpan();
+                var index = span.IndexOfUsingBinarySearchLatest(valueOrPrefix, hasDesiredPrefix);
+                if (index != -1)
+                    return span[index];
+            }
+            return null;
+        }
     }
 
 

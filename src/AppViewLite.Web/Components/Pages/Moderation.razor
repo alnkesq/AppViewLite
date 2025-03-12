@@ -11,7 +11,7 @@
     public IReadOnlyList<BlueskyModerationBase> Lists = [];
     protected async override Task OnInitializedAsync()
     {
-        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/", true);
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
         const string BskyModerationDid = "did:plc:ar7c4by46qjdydhdevvrndac";
         var moderationBsky = Apis.SerializeSingleDid(BskyModerationDid, RequestContext);
 

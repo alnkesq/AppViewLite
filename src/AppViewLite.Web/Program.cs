@@ -372,7 +372,11 @@ namespace AppViewLite.Web
             return message;
         }
 
-       
+        public static void RedirectIfNotLoggedIn(this NavigationManager navigation, RequestContext ctx)
+        {
+            if (ctx.IsLoggedIn) return;
+            navigation.NavigateTo("/login?return=" + Uri.EscapeDataString(new Uri(navigation.Uri).PathAndQuery), true);
+        }
 
     }
 }

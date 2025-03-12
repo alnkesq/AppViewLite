@@ -11,7 +11,7 @@
     private Notification newestNotification;
     protected override async Task OnParametersSetAsync()
     {
-        if (!RequestContext.IsLoggedIn) NavigationManager.NavigateTo("/");
+        NavigationManager.RedirectIfNotLoggedIn(RequestContext);
         (newNotifications, oldNotifications, newestNotification) = await Apis.GetCoalescedNotificationsAsync(RequestContext);
     }
 }

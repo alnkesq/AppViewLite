@@ -17,8 +17,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
         if (string.IsNullOrEmpty(Did)) Did = null;
-        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/", true);
         Model ??= new() { AppliesTo = Did };
         ProfileByPlc = Apis.WithRelationshipsLockForDids(Did != null ? [Did] : [], (_, rels) =>
         {

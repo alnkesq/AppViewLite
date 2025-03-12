@@ -16,7 +16,11 @@
     [SupplyParameterFromForm]
     private LoginData? Model { get; set; }
 
-    protected override void OnInitialized() => Model ??= new();
+    protected override void OnInitialized()
+    {
+        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/", true);
+        Model ??= new();
+    }
 
     private void Submit()
     {

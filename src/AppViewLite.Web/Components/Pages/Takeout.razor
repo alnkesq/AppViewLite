@@ -1,5 +1,14 @@
 @page "/settings/takeout"
 @inject RequestContext RequestContext
+@inject NavigationManager Navigation
+
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
+    }
+}
 
 <a href="/settings" class="blue-link main-padding display-block settings-back-link">&lt; Settings</a>
 
@@ -66,7 +75,4 @@ Write-Host "All your images have been downloaded."
 </div>
 
 
-@code {
-
-}
 

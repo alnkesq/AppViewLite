@@ -1,6 +1,7 @@
 @page "/@{did}/following-private"
 @page "/@{did}@{activityPubInstance}/following-private"
 @inherits ProfileComponentBase
+@inject NavigationManager Navigation
 
 @code {
     private BlueskyProfile[] Following = [];
@@ -9,6 +10,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
+
         await ResolveDidAsync();
         (Following, NextContinuation) = await Apis.GetFollowingPrivateAsync(Did, Continuation, default, RequestContext);
     }

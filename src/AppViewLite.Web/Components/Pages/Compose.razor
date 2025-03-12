@@ -19,7 +19,7 @@
 
     protected override void OnInitialized()
     {
-        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/login", true);
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
         Model ??= new();
     }
 

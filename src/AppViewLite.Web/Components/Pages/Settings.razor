@@ -1,5 +1,14 @@
 @page "/settings"
+@inject NavigationManager Navigation
+@inject RequestContext RequestContext
 
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
+    }
+}
 <h1>Settings</h1>
 
 <div class="main-padding">

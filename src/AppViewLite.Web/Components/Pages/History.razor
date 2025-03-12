@@ -1,6 +1,7 @@
 @page "/history"
 @inject RequestContext RequestContext
 @inject BlueskyEnrichedApis Apis
+@inject NavigationManager Navigation
 
 @code {
 
@@ -9,6 +10,7 @@
     private PostsAndContinuation Posts = new();
     protected override async Task OnParametersSetAsync()
     {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
         Posts = await Apis.GetRecentlyViewedPosts(Continuation, RequestContext);
     }
 }

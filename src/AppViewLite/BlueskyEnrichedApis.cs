@@ -3872,12 +3872,13 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> GetRecentlyViewedPosts(string? continuation, RequestContext ctx, int limit = 0)
         {
             EnsureLimit(ref limit, 30);
-            var continuationParsed = continuation != null ? new TimePostSeen(new DateTime(long.Parse(continuation), DateTimeKind.Utc), default) : (TimePostSeen?)null;
-            var postsAndDates = WithRelationshipsLock(rels => rels.SeenPostsByDate.GetValuesSortedDescending(ctx.LoggedInUser, null, continuationParsed).DistinctBy(x => x.PostId).Take(limit).Select(x => (x.Date, Post: rels.GetPost(x.PostId))).ToArray(), ctx);
+            var continuationParsed = continuation != null ? TimePostSeen.Deserialize(continuation) : (TimePostSeen?)null;
+            var shouldTake = new HashSet<PostId>();
+            var postsAndDates = WithRelationshipsLock(rels => rels.SeenPostsByDate.GetValuesSortedDescending(ctx.LoggedInUser, null, continuationParsed).Select(x => (Engagement: x, ShouldTake: shouldTake.Add(x.PostId))).TakeWhile(x => shouldTake.Count <= limit).Select(x => (x.Engagement, Post: x.ShouldTake ? rels.GetPost(x.Engagement.PostId) : null)).ToArray(), ctx);
 
-            var posts = postsAndDates.Select(x => x.Post).ToArray();
+            var posts = postsAndDates.Select(x => x.Post).WhereNonNull().ToArray();
             await EnrichAsync(posts, ctx);
-            return new PostsAndContinuation(posts, posts.Length != 0 ? posts[^1].Date.Ticks.ToString() : null);
+            return new PostsAndContinuation(posts, postsAndDates.Length != 0 ? postsAndDates[^1].Engagement.Serialize() : null);
         }
 
         public void ToggleDomainMute(string domain, bool mute, RequestContext ctx)

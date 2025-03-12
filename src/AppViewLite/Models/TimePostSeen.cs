@@ -16,6 +16,13 @@ namespace AppViewLite.Models
             if (cmp != 0) return cmp;
             return this.PostId.CompareTo(other.PostId);
         }
+
+        public string Serialize() => Date.Ticks + "_" + PostId.Serialize();
+        public static TimePostSeen Deserialize(string s)
+        {
+            var parts = s.Split('_', 2);
+            return new TimePostSeen(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), PostId.Deserialize(parts[1]));
+        }
     }
 }
 

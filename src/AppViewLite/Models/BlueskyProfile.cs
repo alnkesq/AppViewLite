@@ -10,7 +10,7 @@ namespace AppViewLite.Models
         public required string Did;
         public int PlcId;
         public Plc Plc => new Plc(PlcId);
-
+        public bool DidOmitDescription;
         public string? DisplayName => BasicData?.DisplayName;
         public string DisplayNameOrFallback
         {

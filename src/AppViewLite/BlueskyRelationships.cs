@@ -748,7 +748,7 @@ namespace AppViewLite
             return new PostIdString(uri.Did!.Handler, uri.Rkey);
         }
 
-        public BlueskyProfileBasicInfo? GetProfileBasicInfo(Plc plc)
+        public BlueskyProfileBasicInfo? GetProfileBasicInfo(Plc plc, bool canOmitDescription = false)
         {
             if (Profiles.TryGetPreserveOrderSpanLatest(plc, out var arr))
             {
@@ -757,7 +757,8 @@ namespace AppViewLite
                 lock (textCompressorUnlocked)
                 {
                     textCompressorUnlocked.DecompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
-                    textCompressorUnlocked.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
+                    if (!canOmitDescription)
+                        textCompressorUnlocked.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
                 }
                 return proto;
 
@@ -1624,7 +1625,7 @@ namespace AppViewLite
         {
             return new BlueskyPost
             {
-                Author = GetProfile(id.Author, ctx),
+                Author = GetProfile(id.Author, ctx, canOmitDescription: true),
                 RKey = id.PostRKey.ToString()!,
                 LikeCount = Likes.GetActorCount(id),
                 QuoteCount = Quotes.GetValueCount(id),
@@ -1640,7 +1641,7 @@ namespace AppViewLite
             var d = TryGetPostData(id);
             if (d == null) return default;
             if (d.InReplyToPlc == null) return (d, null);
-            return (d, GetProfile(new Plc(d.InReplyToPlc.Value), ctx));
+            return (d, GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true));
 
         }
 
@@ -1743,16 +1744,16 @@ namespace AppViewLite
             ms.Seek(0, SeekOrigin.Begin);
             return ProtoBuf.Serializer.Deserialize<T>(ms);
         }
-        public BlueskyProfile GetProfile(Plc plc, RequestContext? ctx)
+        public BlueskyProfile GetProfile(Plc plc, RequestContext? ctx, bool canOmitDescription = false)
         {
-            return GetProfile(plc, relationshipRKey: null, ctx: ctx);
+            return GetProfile(plc, relationshipRKey: null, ctx: ctx, canOmitDescription: canOmitDescription);
         }
 
 
-        public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null, RequestContext? ctx = null)
+        public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null, RequestContext? ctx = null, bool canOmitDescription = false)
         {
-            if (ctx?.ProfileCache?.TryGetValue(plc, out var cached) == true) return cached;
-            var basic = GetProfileBasicInfo(plc);
+            if (ctx?.ProfileCache?.TryGetValue(plc, out var cached) == true && (canOmitDescription || !cached.DidOmitDescription)) return cached;
+            var basic = GetProfileBasicInfo(plc, canOmitDescription: canOmitDescription);
             var did = GetDid(plc);
 
             var pluggable = TryGetPluggableProtocolForDid(did);
@@ -1820,8 +1821,10 @@ namespace AppViewLite
                 IsMediaBlockedByAdministrativeRule = isMediaBlockedByAdministrativeRule,
                 Badges = Badges.GetBadges(plc, did, possibleHandle),
                 PluggableProtocol = pluggable,
+                DidOmitDescription = canOmitDescription,
             };
-            ctx?.ProfileCache?.TryAdd(plc, result);
+            if(ctx?.ProfileCache is { } dict)
+                dict[plc] = result;
             return result;
         }
 
@@ -1883,7 +1886,7 @@ namespace AppViewLite
             {
                 Profile = GetProfile(plc, ctx),
                 Followers = Follows.GetActorCount(plc),
-                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! } ).ToList() : null,
+                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx, canOmitDescription: true) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! } ).ToList() : null,
                 HasFeeds = FeedGenerators.GetInRangeUnsorted(new RelationshipHashedRKey(plc, 0), new RelationshipHashedRKey(plc.GetNext(), 0)).Any(),
                 HasLists = Lists.GetInRangeUnsorted(new Relationship(plc, default), new Relationship(plc.GetNext(), default)).Any(),
             };
@@ -2824,7 +2827,7 @@ namespace AppViewLite
             return new BlueskyLabel
             {
                 LabelId = x,
-                Moderator = GetProfile(x.Labeler, ctx),
+                Moderator = GetProfile(x.Labeler, ctx, canOmitDescription: true),
                 ModeratorDid = GetDid(x.Labeler),
                 Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
                 Data = TryGetLabelData(x)
@@ -2978,7 +2981,7 @@ namespace AppViewLite
             if (repost != default)
             {
                 post.RepostDate = repost.RelationshipRKey.Date;
-                post.RepostedBy = GetProfile(repost.Actor, ctx);
+                post.RepostedBy = GetProfile(repost.Actor, ctx, canOmitDescription: true);
             }
             return post;
         }

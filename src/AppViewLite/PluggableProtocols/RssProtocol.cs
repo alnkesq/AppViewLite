@@ -695,6 +695,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                 tumblrBlogId = customDomain ? url.Host : url.Host.Split('.')[0];
                 postId = long.Parse(segments[1]);
             }
+            else if (segments[0] == "blog" && segments[1] == "view")
+            {
+                tumblrBlogId = customDomain ? url.Host : segments[2];
+                postId = long.Parse(segments[3]);
+            }
             else
             {
                 if (customDomain) throw new Exception();

@@ -602,7 +602,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         private static BlueskyMediaData[] GetMediaFromDom(INode[] content)
         {
-            return content.OfType<IElement>().SelectMany(x => x.QuerySelectorAll("img, video")).Select(x =>
+            return content.OfType<IElement>().SelectMany(x => x.TagName is "IMG" or "VIDEO" ? [x] : x.QuerySelectorAll("img, video").AsEnumerable()).Select(x =>
             {
                 var isVideo = x.TagName == "VIDEO";
                 if (isVideo) { }

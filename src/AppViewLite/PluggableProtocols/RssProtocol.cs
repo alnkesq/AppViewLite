@@ -434,7 +434,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
 
 
-                if (leafPost.QuotedPost == null && leafPost.Content.Length == 1 && leafPost.Content[0] is IText { } shortenedThread && Regex.IsMatch(shortenedThread.Text, @"^[\w\-]+\:\w"))
+                if (leafPost.QuotedPost == null && IsTumblrAttribution(leafPost.Content) is { } shortenedThread)
                 {
                     var text = shortenedThread.TextContent;
                     var space = text.IndexOf(' ');
@@ -600,6 +600,13 @@ namespace AppViewLite.PluggableProtocols.Rss
             return (dateParsed, url);
         }
 
+        private static IText? IsTumblrAttribution(IReadOnlyList<INode> content)
+        {
+            if (content.Count == 1 && content[0] is IText { } shortenedThread && Regex.IsMatch(shortenedThread.Text, @"^[\w\-]+\:\w"))
+                return shortenedThread;
+            return null;
+        }
+
         private static BlueskyMediaData[] GetMediaFromDom(INode[] content)
         {
             return content.OfType<IElement>().SelectMany(x => x.TagName is "IMG" or "VIDEO" ? [x] : x.QuerySelectorAll("img, video").AsEnumerable()).Select(x =>
@@ -645,11 +652,16 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var nextSiblings = new List<INode>();
 
                 // For image only posts, content can be before the attribution
+                var possiblePreviousNodes = new List<INode>();
                 foreach (var prev in bodyDom.ChildNodes)
                 {
                     if (prev == attributionLink || prev == blockquote) break;
-                    nextSiblings.Add(prev);
+                    possiblePreviousNodes.Add(prev);
                 }
+
+                if (IsTumblrAttribution(possiblePreviousNodes) == null)
+                    nextSiblings.AddRange(possiblePreviousNodes);
+
                 var sibling = blockquote.NextSibling;
                 while (sibling != null)
                 {

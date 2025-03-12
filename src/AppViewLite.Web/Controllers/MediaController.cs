@@ -232,7 +232,7 @@ namespace AppViewLite.Web.Controllers
         {
             if (bytes != null)
             {
-                cacheStream.Write(bytes);
+                await cacheStream.WriteAsync(bytes, ct);
             }
             else
             {

@@ -643,6 +643,13 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var attributionUrl = attributionLink?.GetAttribute("href");
                 var originalPostId = attributionUrl != null ? GetTumblrPostId(new Uri(attributionUrl), CreateSyntheticTid(postId.SuggestedTid.Date.AddSeconds(-10), attributionUrl)) : default;
                 var nextSiblings = new List<INode>();
+
+                // For image only posts, content can be before the attribution
+                foreach (var prev in bodyDom.ChildNodes)
+                {
+                    if (prev == attributionLink || prev == blockquote) break;
+                    nextSiblings.Add(prev);
+                }
                 var sibling = blockquote.NextSibling;
                 while (sibling != null)
                 {

@@ -567,7 +567,13 @@ namespace AppViewLite
                 body = null;
                 return default;
             }
-            body = ParseHtml(html).Body!;
+            var doc = ParseHtml(html);
+            body = doc.Body!;
+            foreach (var emoji in body.QuerySelectorAll(".wp-smiley").ToArray())
+            {
+                var text = emoji.GetAttribute("alt");
+                emoji.ReplaceWith(doc.CreateTextNode(text ?? string.Empty));
+            }
             return HtmlToFacets(body, getFacet);
         }
         public static IHtmlDocument ParseHtml(string? html)

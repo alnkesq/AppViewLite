@@ -1540,28 +1540,28 @@ namespace AppViewLite
         {
             return Reposts.GetRelationshipsSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
-        public BlueskyPost[] GetPostQuotes(Plc plc, string rkey, PostId continuation, int limit)
+        public BlueskyPost[] GetPostQuotes(Plc plc, string rkey, PostId continuation, int limit, RequestContext? ctx = null)
         {
-            return Quotes.GetValuesSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(GetPost).ToArray();
+            return Quotes.GetValuesSorted(GetPostId(plc, rkey), continuation).Take(limit).Select(x => GetPost(x, ctx)).ToArray();
         }
 
         public BlueskyPost GetPost(string did, string rkey, RequestContext ctx)
         {
             return GetPost(GetPostId(did, rkey, ctx));
         }
-        public BlueskyPost GetPost(Plc plc, Tid rkey)
+        public BlueskyPost GetPost(Plc plc, Tid rkey, RequestContext? ctx = null)
         {
-            return GetPost(new PostId(plc, rkey));
+            return GetPost(new PostId(plc, rkey), ctx);
         }
         public BlueskyPost GetPost(ATUri uri, RequestContext ctx)
         {
-            return GetPost(GetPostId(uri, ctx));
+            return GetPost(GetPostId(uri, ctx), ctx);
         }
 
-        public BlueskyPost GetPost(PostId id)
+        public BlueskyPost GetPost(PostId id, RequestContext? ctx = null)
         {
-            var post = GetPostWithoutData(id);
-            (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id);
+            var post = GetPostWithoutData(id, ctx);
+            (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id, ctx);
             if (post.Data != null)
             {
                 if (post.Data.PluggableReplyCount != null)
@@ -1620,11 +1620,11 @@ namespace AppViewLite
             
         }
 
-        public BlueskyPost GetPostWithoutData(PostId id)
+        public BlueskyPost GetPostWithoutData(PostId id, RequestContext? ctx = null)
         {
             return new BlueskyPost
             {
-                Author = GetProfile(id.Author),
+                Author = GetProfile(id.Author, ctx),
                 RKey = id.PostRKey.ToString()!,
                 LikeCount = Likes.GetActorCount(id),
                 QuoteCount = Quotes.GetValueCount(id),
@@ -1635,12 +1635,12 @@ namespace AppViewLite
             };
         }
 
-        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo) TryGetPostDataAndInReplyTo(PostId id)
+        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo) TryGetPostDataAndInReplyTo(PostId id, RequestContext? ctx = null)
         {
             var d = TryGetPostData(id);
             if (d == null) return default;
             if (d.InReplyToPlc == null) return (d, null);
-            return (d, GetProfile(new Plc(d.InReplyToPlc.Value)));
+            return (d, GetProfile(new Plc(d.InReplyToPlc.Value), ctx));
 
         }
 
@@ -1743,9 +1743,15 @@ namespace AppViewLite
             ms.Seek(0, SeekOrigin.Begin);
             return ProtoBuf.Serializer.Deserialize<T>(ms);
         }
-
-        public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null)
+        public BlueskyProfile GetProfile(Plc plc, RequestContext? ctx)
         {
+            return GetProfile(plc, relationshipRKey: null, ctx: ctx);
+        }
+
+
+        public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null, RequestContext? ctx = null)
+        {
+            if (ctx?.ProfileCache?.TryGetValue(plc, out var cached) == true) return cached;
             var basic = GetProfileBasicInfo(plc);
             var did = GetDid(plc);
 
@@ -1800,7 +1806,7 @@ namespace AppViewLite
                 basic.BannerCidBytes = null;
             }
 
-            return new BlueskyProfile()
+            var result = new BlueskyProfile()
             {
                 PlcId = plc.PlcValue,
                 Did = did,
@@ -1815,6 +1821,8 @@ namespace AppViewLite
                 Badges = Badges.GetBadges(plc, did, possibleHandle),
                 PluggableProtocol = pluggable,
             };
+            ctx?.ProfileCache?.TryAdd(plc, result);
+            return result;
         }
 
         public static string? MaybeBridgyHandleToFediHandle(string? handle)
@@ -1873,9 +1881,9 @@ namespace AppViewLite
         {
             return new BlueskyFullProfile
             {
-                Profile = GetProfile(plc),
+                Profile = GetProfile(plc, ctx),
                 Followers = Follows.GetActorCount(plc),
-                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! } ).ToList() : null,
+                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! } ).ToList() : null,
                 HasFeeds = FeedGenerators.GetInRangeUnsorted(new RelationshipHashedRKey(plc, 0), new RelationshipHashedRKey(plc.GetNext(), 0)).Any(),
                 HasLists = Lists.GetInRangeUnsorted(new Relationship(plc, default), new Relationship(plc.GetNext(), default)).Any(),
             };
@@ -2200,7 +2208,7 @@ namespace AppViewLite
             { 
                 EventDate = notification.EventDate,
                 Kind = notification.Kind, 
-                Post = post != default ? GetPost(post) : null, Profile = actor != default ? GetProfile(actor) : default,
+                Post = post != default ? GetPost(post, ctx) : null, Profile = actor != default ? GetProfile(actor, ctx) : default,
                 Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
                 Feed = feed,
@@ -2318,7 +2326,7 @@ namespace AppViewLite
                                 return null;
                             }
 
-                            var post = GetPost(postAuthor, x.RKey);
+                            var post = GetPost(new PostId(postAuthor, x.RKey), ctx);
                             if (post.Data == null) return null;
                             if (post.Data.IsReplyToUnspecifiedPost == true) return null;
 
@@ -2343,7 +2351,7 @@ namespace AppViewLite
                         .EnumerateRecentReposts(reposter, minDateAsTid, maxTidExclusive)
                         .Select(x =>
                         {
-                            var post = GetPost(x.PostId);
+                            var post = GetPost(x.PostId, ctx);
                             post.RepostedBy = (reposterProfile ??= GetProfile(reposter));
                             post.RepostDate = x.RepostRKey.Date;
                             requireFollowStillValid[post] = (reposter, default, default);
@@ -2373,7 +2381,7 @@ namespace AppViewLite
                 PopulateViewerFlags(post.RepostedBy, ctx);
             if (post.QuotedPost != null)
                 PopulateViewerFlags(post.QuotedPost, ctx);
-            post.Labels = GetPostLabels(post.PostId, ctx.NeedsLabels).Select(x => GetLabel(x)).ToArray();
+            post.Labels = GetPostLabels(post.PostId, ctx.NeedsLabels).Select(x => GetLabel(x, ctx)).ToArray();
             post.IsMuted = post.ShouldMuteCore(ctx);
             post.DidPopulateViewerFlags = true;
         }
@@ -2390,7 +2398,7 @@ namespace AppViewLite
 
                 if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                 {
-                    var chain = MakeFullReplyChainExcludingLeaf(post);
+                    var chain = MakeFullReplyChainExcludingLeaf(post, ctx);
                     if (omitIfMuted) 
                     {
                         foreach (var item in chain)
@@ -2419,7 +2427,7 @@ namespace AppViewLite
                                 if (!alreadyReturned.Contains(rootId))
                                 {
                                     
-                                    rootPost = GetPost(rootId);
+                                    rootPost = GetPost(rootId, ctx);
                                     if (omitIfMuted)
                                     {
                                         PopulateViewerFlags(rootPost, ctx);
@@ -2428,7 +2436,7 @@ namespace AppViewLite
                                 }
                             }
 
-                            var parentPost = GetPost(parentId);
+                            var parentPost = GetPost(parentId, ctx);
                             if (omitIfMuted)
                             {
                                 PopulateViewerFlags(parentPost, ctx);
@@ -2603,7 +2611,7 @@ namespace AppViewLite
                  Data = data,
                  Did = GetDid(plc),
                  RKey = rkey,
-                 Author = GetProfile(plc),
+                 Author = GetProfile(plc, ctx),
                  LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey)),
                  IsPinned = ctx.IsLoggedIn && ctx.PrivateProfile.FeedSubscriptions.Any(x => new Plc(x.FeedPlc) == plc && x.FeedRKey == rkey),
             };
@@ -2811,12 +2819,12 @@ namespace AppViewLite
             throw new Exception(message);
         }
         public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(label));
-        public BlueskyLabel GetLabel(LabelId x)
+        public BlueskyLabel GetLabel(LabelId x, RequestContext? ctx = null)
         {
             return new BlueskyLabel
             {
                 LabelId = x,
-                Moderator = GetProfile(x.Labeler),
+                Moderator = GetProfile(x.Labeler, ctx),
                 ModeratorDid = GetDid(x.Labeler),
                 Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
                 Data = TryGetLabelData(x)
@@ -2964,13 +2972,13 @@ namespace AppViewLite
             return postId;
         }
 
-        internal BlueskyPost GetPostAndMaybeRepostedBy(PostId postId, Relationship repost)
+        internal BlueskyPost GetPostAndMaybeRepostedBy(PostId postId, Relationship repost, RequestContext? ctx)
         {
-            var post = GetPost(postId);
+            var post = GetPost(postId, ctx);
             if (repost != default)
             {
                 post.RepostDate = repost.RelationshipRKey.Date;
-                post.RepostedBy = GetProfile(repost.Actor);
+                post.RepostedBy = GetProfile(repost.Actor, ctx);
             }
             return post;
         }
@@ -3118,13 +3126,13 @@ namespace AppViewLite
         }
 
 
-        public List<BlueskyPost> MakeFullReplyChainExcludingLeaf(BlueskyPost post)
+        public List<BlueskyPost> MakeFullReplyChainExcludingLeaf(BlueskyPost post, RequestContext? ctx = null)
         {
             PostId? current = post.InReplyToPostId!.Value;
             var ancestors = new List<BlueskyPost>();
             while (current != null)
             {
-                var parent = GetPost(current.Value);
+                var parent = GetPost(current.Value, ctx);
                 ancestors.Add(parent);
                 current = parent.InReplyToPostId;
             }
@@ -3218,7 +3226,7 @@ namespace AppViewLite
                 return;
 
 
-            post.QuotedPost = GetPost(new PostId(new Plc(post.Data.QuotedPlc!.Value), new Tid(post.Data.QuotedRKey!.Value)));
+            post.QuotedPost = GetPost(new PostId(new Plc(post.Data.QuotedPlc!.Value), new Tid(post.Data.QuotedRKey!.Value)), ctx);
             PopulateViewerFlags(post.QuotedPost, ctx);
         }
 

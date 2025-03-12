@@ -72,8 +72,8 @@ namespace AppViewLite.Web
             {
                 posts = requests.Select(x =>
                 {
-                    var post = rels.GetPost(rels.GetPostId(x.did, x.rkey, ctx));
-                    post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy, ctx)) : null;
+                    var post = rels.GetPost(rels.GetPostId(x.did, x.rkey, ctx), ctx);
+                    post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy, ctx), ctx) : null;
                     return post;
                 }).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid, ctx) : null;

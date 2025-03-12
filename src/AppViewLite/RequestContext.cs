@@ -72,7 +72,7 @@ namespace AppViewLite
             ShortDeadline = shortTimeout != null ? Task.Delay(shortTimeout.Value) : null;
         }
 
-
+        public ConcurrentDictionary<Plc, BlueskyProfile>? ProfileCache;
 
         public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null, long minVersion = default)
         {
@@ -90,6 +90,7 @@ namespace AppViewLite
                 AllowStale = true,
                 StartDate = DateTime.UtcNow,
                 MinVersion = minVersion,
+                ProfileCache = new(),
                 LabelSubscriptions = session != null && session.IsLoggedIn ? session.UserContext.PrivateProfile!.LabelerSubscriptions : BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.DefaultLabelSubscriptions
             };
             ctx.InitializeDeadlines();

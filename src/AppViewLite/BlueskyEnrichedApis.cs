@@ -214,7 +214,7 @@ namespace AppViewLite
 
             if (!IsReadOnly)
             {
-                foreach (var profile in profiles)
+                foreach (var profile in profiles.Distinct())
                 {
                     if (profile.HandleIsUncertain)
                     {
@@ -222,7 +222,7 @@ namespace AppViewLite
                     }
                 }
 
-                await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Select(async profile =>
+                await AwaitWithShortDeadline(Task.WhenAll(profiles.Where(x => x.BasicData == null).Distinct().Select(async profile =>
                 {
                     var version = await FetchAndStoreProfileDict.GetValueAsync(profile.Did, RequestContext.CreateForTaskDictionary(ctx));
                     ctx.BumpMinimumVersion(version);
@@ -494,7 +494,7 @@ namespace AppViewLite
             {
                 if (post.Data == null)
                 {
-                    (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey, ctx));
+                    (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey, ctx), ctx);
                 }
 
                 if (loadQuotes)
@@ -504,7 +504,7 @@ namespace AppViewLite
 
                 if (post.Data?.InReplyToPlc != null && post.InReplyToUser == null)
                 {
-                    post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value));
+                    post.InReplyToUser = rels.GetProfile(new Plc(post.Data.InReplyToPlc.Value), ctx);
                 }
 
 
@@ -984,7 +984,7 @@ namespace AppViewLite
 
             BlueskyPost ? GetPostIfRelevant(BlueskyRelationships rels, PostId postId, CollectionKind kind)
             {
-                var post = rels.GetPost(postId);
+                var post = rels.GetPost(postId, ctx);
 
                 if (kind == CollectionKind.Posts)
                 {
@@ -1020,7 +1020,7 @@ namespace AppViewLite
                             var post = GetPostIfRelevant(rels, x.PostId, x.IsRepost ? CollectionKind.Reposts : CollectionKind.Posts);
                             if (post != null && x.IsRepost)
                             {
-                                post.RepostedBy = profile ??= rels.GetProfile(plc);
+                                post.RepostedBy = profile ??= rels.GetProfile(plc, ctx);
                                 post.RepostDate = x.RKey.Date;
                             }
                             return post;
@@ -1171,7 +1171,7 @@ namespace AppViewLite
                             if (fastReturnedPostsSet.Contains(post.PostIdStr)) return null;
                             if (x.Kind == CollectionKind.Reposts)
                             {
-                                post.RepostedBy = (profile ??= rels.GetProfile(plc));
+                                post.RepostedBy = (profile ??= rels.GetProfile(plc, ctx));
                                 post.RepostDate = x.RKey.Date;
                             }
                             else if (x.Kind == CollectionKind.Likes)
@@ -1278,7 +1278,7 @@ namespace AppViewLite
                 while (thread[0].IsReply)
                 {
                     var p = thread[0];
-                    var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value), ctx);
+                    var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value, ctx), ctx);
                     if (before++ >= 20) break;
                     if (prepend.Data == null)
                     {
@@ -1300,7 +1300,7 @@ namespace AppViewLite
                         foreach (var child in children)
                         {
                             AddOpExhaustiveReplies(child);
-                            opReplies.Add(rels.GetPost(child));
+                            opReplies.Add(rels.GetPost(child, ctx));
                         }
                     }
                     AddOpExhaustiveReplies(focalPostId);
@@ -1316,7 +1316,7 @@ namespace AppViewLite
             {
                 var groups = new List<List<BlueskyPost>>();
 
-                var otherReplies = rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x)).ToArray();
+                var otherReplies = rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x, ctx)).ToArray();
                 foreach (var otherReply in otherReplies)
                 {
                     var group = new List<BlueskyPost>();
@@ -1333,7 +1333,7 @@ namespace AppViewLite
                             .ThenByDescending(x => x.PostId.PostRKey.Date)
                             .FirstOrDefault();
                         if (bestSubReply == default) break;
-                        lastAdded = rels.GetPost(bestSubReply.PostId);
+                        lastAdded = rels.GetPost(bestSubReply.PostId, ctx);
                         group.Add(lastAdded);
                         if (otherReplies.Length >= 2 && group.Count >= 4) break;
                         if (otherReplies.Length >= 3 && group.Count >= 2) break;
@@ -1358,12 +1358,12 @@ namespace AppViewLite
 
         public BlueskyPost GetSinglePost(string did, string rkey, RequestContext ctx)
         {
-            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPost(plc, Tid.Parse(rkey)), ctx);
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPost(plc, Tid.Parse(rkey), ctx), ctx);
         }
 
         public BlueskyProfile GetSingleProfile(string did, RequestContext ctx)
         {
-            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc), ctx);
+            return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfile(plc, ctx), ctx);
         }
 
         public Plc SerializeSingleDid(string did, RequestContext ctx)
@@ -1430,7 +1430,7 @@ namespace AppViewLite
                 }, 
                 (p, rels) =>
                 {
-                    var posts = p.Select(x => rels.GetPost(x));
+                    var posts = p.Select(x => rels.GetPost(x, ctx));
                     posts = rels.EnumerateFeedWithNormalization(posts, ctx, omitIfMuted: true);
                     return posts.ToArray();
                 }, ctx);
@@ -1570,7 +1570,7 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> GetPostQuotesAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 30);
-            var posts = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostQuotes(plc, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1), ctx);
+            var posts = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostQuotes(plc, rkey, continuation != null ? PostId.Deserialize(continuation) : default, limit + 1, ctx), ctx);
             var nextContinuation = SerializeRelationshipContinuationPlcFirst(posts, limit);
             SortByDescendingRelationshipRKey(ref posts);
             //DeterministicShuffle(posts, did + rkey);
@@ -2059,7 +2059,7 @@ namespace AppViewLite
                             if (replies.Count == 0) return null;
                             foreach (var reply in replies.OrderByDescending(x => (x.PostId.Author == post.AuthorId, x.PerUserScore)).Where(x => !isPostSeen(x.PostId)))
                             {
-                                var p = rels.GetPost(reply.PostId);
+                                var p = rels.GetPost(reply.PostId, ctx);
                                 if (ShouldInclude(p)) return p;
                             }
 
@@ -2070,7 +2070,7 @@ namespace AppViewLite
                         {
                             if (!alreadyReturnedPosts.Add(postScore.PostId)) return false;
 
-                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost);
+                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost, ctx);
                             if (!ShouldInclude(post)) return false;
 
                             var threadLength = 0;
@@ -2103,7 +2103,7 @@ namespace AppViewLite
 
                                 if (shouldIncludeFullReplyChain)
                                 {
-                                    foreach (var (index, item) in rels.MakeFullReplyChainExcludingLeaf(post).Index())
+                                    foreach (var (index, item) in rels.MakeFullReplyChainExcludingLeaf(post, ctx).Index())
                                     {
                                         if (index == 0 && post != item && rels.ShouldIncludeLeafOrRootPostInFollowingFeed(item, ctx) == false)
                                             return false;
@@ -2113,7 +2113,7 @@ namespace AppViewLite
                                 else
                                 {
 
-                                    var parent = rels.GetPost(inReplyToPostId);
+                                    var parent = rels.GetPost(inReplyToPostId, ctx);
 
                                     BlueskyPost rootPost;
 
@@ -2121,7 +2121,7 @@ namespace AppViewLite
                                     {
                                         if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(parent, ctx) == false)
                                             return false;
-                                        rootPost = rels.GetPost(post.RootPostId);
+                                        rootPost = rels.GetPost(post.RootPostId, ctx);
                                     }
                                     else
                                     {

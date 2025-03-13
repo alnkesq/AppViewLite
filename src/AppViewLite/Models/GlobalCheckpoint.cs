@@ -1,10 +1,7 @@
 using ProtoBuf;
+using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ZstdSharp.Unsafe;
 
 namespace AppViewLite.Models
 {
@@ -33,9 +30,15 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public long StartTime;
         [ProtoMember(2)] public long EndTime;
+        [ProtoMember(3)] public long PruneId;
         public override string ToString()
         {
             return StartTime + "-" + EndTime;
+        }
+
+        public SliceName ToSliceName()
+        {
+            return new SliceName(new DateTime(StartTime, DateTimeKind.Utc), new DateTime(EndTime, DateTimeKind.Utc), PruneId);
         }
     }
 }

@@ -133,8 +133,8 @@ namespace AppViewLite
         }
 
         public string BaseDirectory { get; }
-        private IDisposable lockFile;
-        private Dictionary<string, string[]>? checkpointToLoad;
+        private IDisposable? lockFile;
+        private Dictionary<string, SliceName[]>? checkpointToLoad;
         private GlobalCheckpoint loadedCheckpoint;
         internal Dictionary<string, Dictionary<nuint, bool>> AccessedMemoryPagesByTaskType = new();
 
@@ -143,7 +143,7 @@ namespace AppViewLite
             disposables.Add(r);
             return r;
         }
-        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
             return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(
                 BaseDirectory + "/" + name,
@@ -151,7 +151,8 @@ namespace AppViewLite
                 behavior
             ) {
                 WriteBufferSize = TableWriteBufferSize,
-                OnCompactation = onCompactation 
+                OnCompactation = onCompactation,
+                ShouldPreserveKey = shouldPreserveKey,
             });
         }
         private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
@@ -193,7 +194,7 @@ namespace AppViewLite
             checkpointsDir.Create();
             var latestCheckpoint = checkpointsDir.EnumerateFiles("*.pb").MaxBy(x => (DateTime?)x.LastWriteTimeUtc);
             loadedCheckpoint = latestCheckpoint != null ? DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(latestCheckpoint.FullName)) : new GlobalCheckpoint();
-            checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.StartTime + "-" + x.EndTime).ToArray());
+            checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray());
 
 
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
@@ -220,7 +221,7 @@ namespace AppViewLite
             ProfileSearchPrefix8 = RegisterDictionary<SizeLimitedWord8, Plc>("profile-search-prefix");
             ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
-            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder) ;
+            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder, shouldPreserveKey: (ctx, postId) => ctx.ShouldPreservePost(postId));
             RecentPluggablePostLikeCount = RegisterDictionary<Plc, RecentPostLikeCount>("recent-post-like-count", onCompactation: x => x.DistinctByAssumingOrderedInputLatest(x => x.PostRKey));
             PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32");
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
@@ -375,7 +376,7 @@ namespace AppViewLite
             GarbageCollectOldSlices(allowTempFileDeletion: true);
         }
 
-        public IEnumerable<PostEngagement> CompactPostEngagements(IEnumerable<PostEngagement> enumerable)
+        public static IEnumerable<PostEngagement> CompactPostEngagements(IEnumerable<PostEngagement> enumerable)
         {
             return enumerable.GroupAssumingOrderedInput(x => x.PostId)
                 .Select(x =>
@@ -536,11 +537,11 @@ namespace AppViewLite
 
                         checkpointTable.Slices = activeSlices.ActiveSlices.Select(x =>
                         {
-                            var interval = CombinedPersistentMultiDictionary.GetSliceInterval(x + ".");
                             return new GlobalCheckpointSlice()
                             {
-                                StartTime = interval.StartTime.Ticks,
-                                EndTime = interval.EndTime.Ticks,
+                                StartTime = x.StartTime.Ticks,
+                                EndTime = x.EndTime.Ticks,
+                                PruneId = x.PruneId,
                             };
                         }).ToArray();
                     }
@@ -2715,7 +2716,7 @@ namespace AppViewLite
             proto.Pds = null;
         }
 
-        internal void DecompressDidDoc(DidDocProto proto)
+        public void DecompressDidDoc(DidDocProto proto)
         {
             if (proto.PdsId == null) return;
             proto.Pds = DeserializePds(new Pds(proto.PdsId.Value));
@@ -3363,6 +3364,60 @@ namespace AppViewLite
 #endif
                 UserToRecentPopularPosts[author] = updated.ToArray();
             }
+        }
+
+        private readonly static long MinSizeForPruning = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_PRUNE_MIN_SIZE) ?? (1024 * 1024 * 1024);
+        private readonly static TimeSpan PruningInterval = TimeSpan.FromDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_INTERVAL_DAYS) ?? 10);
+        public void Prune()
+        {
+            AppViewLitePruningContext? pruningContext = null;
+
+            var anythingPruned = false;
+            foreach (var table in this.AllMultidictionaries)
+            {
+                if (table.MaybePrune(() => pruningContext ??= CreatePruningContext(), MinSizeForPruning, PruningInterval))
+                    anythingPruned = true;
+            }
+
+            if (anythingPruned)
+                GlobalFlush();
+        }
+
+        private AppViewLitePruningContext CreatePruningContext()
+        {
+            var preserveUsers = new HashSet<Plc>();
+            var preservePosts = new HashSet<PostId>();
+
+            foreach (var (appviewLiteUser, appviewLiteUserBytes) in this.AppViewLiteProfiles.EnumerateUnsortedGrouped())
+            {
+                preserveUsers.Add(appviewLiteUser);
+                var profile = BlueskyRelationships.DeserializeProto<AppViewLiteProfileProto>(appviewLiteUserBytes.AsSmallSpan());
+                foreach (var privateFollow in profile.PrivateFollows ?? [])
+                {
+                    if ((privateFollow.Flags & PrivateFollowFlags.PrivateFollow) != 0)
+                        preserveUsers.Add(new Plc(privateFollow.Plc));
+                }
+            }
+
+            foreach (var (bookmarker, bookmark) in this.Bookmarks.EnumerateUnsorted())
+            {
+                preservePosts.Add(bookmark.PostId);
+            }
+            foreach (var (viewer, engagement) in this.SeenPosts.EnumerateUnsorted())
+            {
+                preservePosts.Add(engagement.PostId);
+            }
+            foreach (var (appviewLiteUser, followee) in this.RegisteredUserToFollowees.EnumerateUnsorted())
+            {
+                preserveUsers.Add(followee.Member);
+            }
+
+            return new AppViewLitePruningContext
+            {
+                PreservePosts = preservePosts,
+                PreserveUsers = preserveUsers,
+                OldPostThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_OLD_DAYS) ?? 7)),
+            };
         }
     }
 

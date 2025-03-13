@@ -147,7 +147,7 @@ namespace AppViewLite.Web
             var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).ToArray();
             var obj = apis.WithRelationshipsLock(rels => 
             {
-                var seenPosts =  rels.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
+                var seenPosts =  BlueskyRelationships.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
                 foreach (var item in rels.SeenPostsByDate.GetValuesUnsorted(ctx.LoggedInUser))
                 {
                     ref var p = ref CollectionsMarshal.GetValueRefOrAddDefault(seenPosts, item.PostId, out var _);

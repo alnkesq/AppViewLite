@@ -7,8 +7,8 @@ namespace AppViewLite.Storage
 {
     public class SimpleColumnarWriter : IDisposable
     {
-        
-        private (BinaryWriter Writer, Action Commit)[] _columnWriters;
+        private bool wasCommitted;
+        private (BinaryWriter Writer, Action Commit, string TempFile)[] _columnWriters;
         public SimpleColumnarWriter(string destinationPrefix, int columnCount)
         {
             _columnWriters = Enumerable.Range(0, columnCount).Select(i =>
@@ -16,7 +16,7 @@ namespace AppViewLite.Storage
                     var destFile = destinationPrefix + ".col" + i + ".dat";
                     var tempFile = destFile + ".tmp";
                     var z = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, 4096);
-                    return (new BinaryWriter(z), new Action(() => File.Move(tempFile, destFile, true)));
+                    return (new BinaryWriter(z), new Action(() => File.Move(tempFile, destFile, true)), tempFile);
                 }).ToArray();
         }
 
@@ -31,6 +31,7 @@ namespace AppViewLite.Storage
 
         public long CommitAndGetSize()
         {
+            wasCommitted = true;
             var size = DisposeAndGetSize();
             foreach (var item in _columnWriters)
             {
@@ -43,6 +44,8 @@ namespace AppViewLite.Storage
             foreach (var item in _columnWriters)
             {
                 item.Writer.Dispose();
+                if (!wasCommitted)
+                    File.Delete(item.TempFile);
             }
         }
         public long DisposeAndGetSize()
@@ -52,6 +55,8 @@ namespace AppViewLite.Storage
             {
                 size += item.Writer.BaseStream.Length;
                 item.Writer.Dispose();
+                if (!wasCommitted)
+                    File.Delete(item.TempFile);
             }
             return size;
         }

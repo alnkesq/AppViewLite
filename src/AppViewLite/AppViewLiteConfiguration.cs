@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,7 +25,17 @@ namespace AppViewLite
         public static int? GetInt32(AppViewLiteParameter parameter)
         {
             var s = GetString(parameter);
-            return s != null ? int.Parse(s) : null;
+            return s != null ? int.Parse(s, CultureInfo.InvariantCulture) : null;
+        }
+        public static long? GetInt64(AppViewLiteParameter parameter)
+        {
+            var s = GetString(parameter);
+            return s != null ? long.Parse(s, CultureInfo.InvariantCulture) : null;
+        }
+        public static double? GetDouble(AppViewLiteParameter parameter)
+        {
+            var s = GetString(parameter);
+            return s != null ? double.Parse(s, CultureInfo.InvariantCulture) : null;
         }
         public static bool? GetBool(AppViewLiteParameter parameter)
         {
@@ -81,6 +92,10 @@ namespace AppViewLite
         APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS,
         APPVIEWLITE_BADGE_OVERRIDE_PATH,
         APPVIEWLITE_RECENT_CHECKPOINTS_TO_KEEP,
+        APPVIEWLITE_PRUNE_OLD_DAYS,
+        APPVIEWLITE_PRUNE_MIN_SIZE,
+        APPVIEWLITE_PRUNE_INTERVAL_DAYS,
+        APPVIEWLITE_RUN_PRUNING,
     }
 }
 

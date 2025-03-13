@@ -34,7 +34,7 @@ namespace AppViewLite
         { 
         }
 #nullable restore
-        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, string[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
+        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
         {
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
@@ -327,7 +327,7 @@ namespace AppViewLite
                 }.WhereNonNull();
         }
 
-        public (string TableName, string[] ActiveSlices)[] GetActiveSlices()
+        public (string TableName, SliceName[] ActiveSlices)[] GetActiveSlices()
         {
             return GetComponents().SelectMany(x => x.GetActiveSlices()).ToArray();
         }

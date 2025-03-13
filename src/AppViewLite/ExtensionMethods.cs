@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using AppViewLite.Models;
 using AppViewLite.Storage;
 using AppViewLite.Storage;
 using System;
@@ -201,6 +202,9 @@ namespace AppViewLite
             }
             return dict;
         }
+
+        public static bool ShouldPreservePost(this PruningContext ctx, PostId postId) => ((AppViewLitePruningContext)ctx).ShouldPreservePost(postId);
+        public static bool ShouldPreserveUser(this PruningContext ctx, Plc user) => ((AppViewLitePruningContext)ctx).ShouldPreserveUser(user);
     }
 
 

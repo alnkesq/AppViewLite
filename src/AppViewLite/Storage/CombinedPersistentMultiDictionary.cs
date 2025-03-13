@@ -8,7 +8,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 
 namespace AppViewLite.Storage
 {
@@ -22,9 +21,14 @@ namespace AppViewLite.Storage
 
     public interface ICheckpointable : IFlushable
     { 
-        public (string TableName, string[] ActiveSlices)[] GetActiveSlices();
+        public (string TableName, SliceName[] ActiveSlices)[] GetActiveSlices();
     }
 
+    public record struct SliceName(DateTime StartTime, DateTime EndTime, long PruneId)
+    {
+        public string BaseName => StartTime.Ticks + "-" + EndTime.Ticks + (PruneId != 0 ? "-" + PruneId : null);
+        public bool IsPruned => (PruneId % 2) != 0;
+    }
 
     public abstract class CombinedPersistentMultiDictionary
     {
@@ -42,12 +46,13 @@ namespace AppViewLite.Storage
             LastFlushed = DateTime.UtcNow;
         }
 
-        public static (DateTime StartTime, DateTime EndTime) GetSliceInterval(string fileName)
+        public static SliceName GetSliceInterval(string fileName)
         {
             var dot = fileName.IndexOf('.');
             var baseName = fileName.Substring(0, dot);
-            var dash = baseName.IndexOf('-');
-            return (new DateTime(long.Parse(baseName.Substring(0, dash)), DateTimeKind.Utc), new DateTime(long.Parse(baseName.Substring(dash + 1)), DateTimeKind.Utc));
+            var parts = baseName.Split('-');
+            
+            return new SliceName(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), parts.Length == 2 ? 0 : long.Parse(parts[2]));
 
         }
         public virtual long InMemorySize { get; }
@@ -73,6 +78,8 @@ namespace AppViewLite.Storage
         }
 
         public abstract void ReturnQueueForNextReplica();
+
+        public abstract bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval);
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -82,6 +89,7 @@ namespace AppViewLite.Storage
         private Stopwatch? lastFlushed;
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public Func<IEnumerable<TValue>, IEnumerable<TValue>>? OnCompactation;
+        public Func<PruningContext, TKey, bool>? ShouldPreserveKey;
 
         public event EventHandler? AfterCompactation;
         private bool DeleteOldFilesOnCompactation;
@@ -94,7 +102,7 @@ namespace AppViewLite.Storage
         }
 #nullable restore
 
-        public CombinedPersistentMultiDictionary(string directory, string[]? slices, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
+        public CombinedPersistentMultiDictionary(string directory, SliceName[]? sliceNames, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
             : base(directory, behavior)
         {
 
@@ -104,34 +112,45 @@ namespace AppViewLite.Storage
             System.IO.Directory.CreateDirectory(directory);
 
             this.slices = new();
+            this.prunedSlices = new();
 
             try
             {
-                if (slices != null)
+                if (sliceNames != null)
                 {
                     DeleteOldFilesOnCompactation = false;
-                    foreach (var slice in slices)
+                    foreach (var sliceName in sliceNames)
                     {
-                        this.slices.Add(OpenSlice(directory, slice + ".col0", behavior, mandatory: true));
+                        if (sliceName.IsPruned) this.prunedSlices.Add(sliceName);
+                        else
+                        {
+                            this.slices.Add(OpenSlice(directory, sliceName, behavior, mandatory: true));
+                        }
                     }
                 }
                 else
                 {
                     DeleteOldFilesOnCompactation = true;
-                    foreach (var slice in Directory.EnumerateFiles(directory, "*.col0.dat").OrderBy(x => CombinedPersistentMultiDictionary.GetSliceInterval(Path.GetFileName(x))))
+                    foreach (var sliceName in Directory.EnumerateFiles(directory, "*.col0.dat").Select(x => CombinedPersistentMultiDictionary.GetSliceInterval(Path.GetFileName(x))).OrderBy(x => (x.StartTime, x.EndTime, x.PruneId)))
                     {
-                        var s = OpenSlice(directory, slice, behavior, mandatory: false);
-                        if (s == default) continue;
-                        this.slices.Add(s);
+                        if (sliceName.IsPruned) this.prunedSlices.Add(sliceName);
+                        else
+                        {
+                            var s = OpenSlice(directory, sliceName, behavior, mandatory: false);
+                            if (s == default) continue;
+                            this.slices.Add(s);
+                        }
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 foreach (var slice in this.slices)
                 {
                     slice.ReaderHandle.Dispose();
                 }
+                if (sliceNames != null && ex is FileNotFoundException fnf)
+                    throw new Exception($"Slice not found: {fnf.FileName}, referenced by the latest checkpoint file.", ex);
                 throw;
             }
 
@@ -139,32 +158,32 @@ namespace AppViewLite.Storage
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
         }
 
-        private static SliceInfo OpenSlice(string directory, string fileName, PersistentDictionaryBehavior behavior, bool mandatory)
+        private static SliceInfo OpenSlice(string directory, SliceName sliceName, PersistentDictionaryBehavior behavior, bool mandatory)
         {
-            var baseName = fileName.Substring(0, fileName.LastIndexOf(".col", StringComparison.Ordinal));
             ImmutableMultiDictionaryReader<TKey, TValue> reader;
             try
             {
-                reader = new ImmutableMultiDictionaryReader<TKey, TValue>(Path.Combine(directory, baseName), behavior);
+                reader = new ImmutableMultiDictionaryReader<TKey, TValue>(Path.Combine(directory, sliceName.BaseName), behavior);
             }
             catch (FileNotFoundException) when (!mandatory)
             {
-                var fullPath = Path.Combine(directory, fileName);
+                var fullPath = Path.Combine(directory, sliceName.BaseName);
                 Console.Error.WriteLine("Partial slice: " + fullPath);
                 File.Move(fullPath, fullPath + ".orphan-slice");
                 return default;
             }
-            var interval = CombinedPersistentMultiDictionary.GetSliceInterval(fileName);
-
 
             return new SliceInfo(
-                interval.StartTime,
-                interval.EndTime,
+                sliceName.StartTime,
+                sliceName.EndTime,
+                sliceName.PruneId,
                 new(reader));
         }
 
         private MultiDictionary2<TKey, TValue> queue;
         public List<SliceInfo> slices;
+        public List<SliceName> prunedSlices;
+
 
         public event EventHandler? BeforeFlush;
         public event EventHandler? AfterFlush;
@@ -172,10 +191,10 @@ namespace AppViewLite.Storage
         public event EventHandler? BeforeWrite;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, long SizeInBytes)
+        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, long PruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, long SizeInBytes)
         {
-            public SliceInfo(DateTime startTime, DateTime endTime, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> readerHandle)
-                 :this(startTime, endTime, readerHandle, readerHandle.Value.SizeInBytes)
+            public SliceInfo(DateTime startTime, DateTime endTime, long pruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> readerHandle)
+                 :this(startTime, endTime, pruneId, readerHandle, readerHandle.Value.SizeInBytes)
             { 
            
             }
@@ -255,7 +274,7 @@ namespace AppViewLite.Storage
                 OriginalWriteBytes += size;
                 queue.Clear();
                 LastFlushed = DateTime.UtcNow;
-                slices.Add(new(date, date, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
+                slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {StringUtils.ToHumanBytes(size)}");
 
                 if (!disposing)
@@ -332,6 +351,7 @@ namespace AppViewLite.Storage
             }
             var mergedStartTime = inputs[0].StartTime;
             var mergedEndTime = inputs[^1].EndTime;
+            var mergedPruneId = inputs.Max(x => x.PruneId);
             var mergedPrefix = this.DirectoryPath + "/" + mergedStartTime.Ticks + "-" + mergedEndTime.Ticks;
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
@@ -375,7 +395,7 @@ namespace AppViewLite.Storage
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
-                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, new(new(mergedPrefix, behavior))));
+                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior))));
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
@@ -903,9 +923,9 @@ namespace AppViewLite.Storage
                 key.CompareTo(maxExclusive) < 0;
         }
 
-        public (string TableName, string[] ActiveSlices)[] GetActiveSlices()
+        public (string TableName, SliceName[] ActiveSlices)[] GetActiveSlices()
         {
-            return [(Path.GetFileName(this.DirectoryPath), slices.Select(x => x.StartTime.Ticks + "-" + x.EndTime.Ticks).ToArray())];
+            return [(Path.GetFileName(this.DirectoryPath), slices.Select(x => new SliceName(x.StartTime, x.EndTime, x.PruneId)).Concat(prunedSlices).ToArray())];
         }
 
         
@@ -927,7 +947,7 @@ namespace AppViewLite.Storage
 
         public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
         {
-            var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.ReaderHandle.AddRef())).ToList(), behavior);
+            var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.PruneId, x.ReaderHandle.AddRef())).ToList(), behavior);
             copy.ReplicatedFrom = this;
 
             // The root CloneAsReadOnly() is called from within a traditional lock.
@@ -1043,6 +1063,90 @@ namespace AppViewLite.Storage
                     return span[index];
             }
             return null;
+        }
+
+        public override bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval)
+        {
+            if (pendingCompactation != null) return false;
+            try
+            {
+                return MaybePruneCore(getPruningContext, minSizeForPruning, pruningInterval);
+            }
+            catch (Exception ex)
+            {
+                Environment.FailFast("Error during pruning.", ex);
+                throw;
+            }
+        }
+
+        public bool MaybePruneCore(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval)
+        {
+            if (ShouldPreserveKey == null) return false;
+
+            var pruneId = (DateTime.UtcNow.Ticks / 2) * 2; // Preserved slices have EVEN pruneIds. Pruned slices have ODD pruneIds.
+            var now = DateTime.UtcNow;
+            var prunedAnything = false;
+            for (int sliceIdx = 0; sliceIdx < slices.Count; sliceIdx++)
+            {
+                var slice = slices[sliceIdx];
+
+                if (slice.SizeInBytes < minSizeForPruning) continue;
+
+                var sliceLastPruned = new DateTime(Math.Max(slice.EndTime.Ticks, slice.PruneId), DateTimeKind.Utc);
+                if ((now - sliceLastPruned) < pruningInterval) continue;
+
+                var pruningContext = getPruningContext();
+
+                Console.Error.WriteLine("Pruning: " + slice.Reader.PathPrefix);
+                var basePath = this.DirectoryPath + "/" + slice.StartTime.Ticks + "-" + slice.EndTime.Ticks + "-";
+                
+                var preservePruneId = pruneId++; // preservePruneId is EVEN
+                var prunePruneId = pruneId++; // prunePruneId is ODD
+
+                using var preservedWriter = new ImmutableMultiDictionaryWriter<TKey, TValue>(basePath + preservePruneId, behavior);
+                using var prunedWriter = new ImmutableMultiDictionaryWriter<TKey, TValue>(basePath + prunePruneId, behavior);
+
+                foreach (var group in slice.Reader.Enumerate())
+                {
+                    if (ShouldPreserveKey(pruningContext, group.Key))
+                    {
+                        preservedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                    }
+                    else
+                    {
+                        prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                    }
+                }
+
+                if (prunedWriter.KeyCount == 0)
+                {
+                    Console.Error.WriteLine("  Nothing was pruned.");
+                    prunedWriter.Dispose();
+                    preservedWriter.Dispose();
+                    continue;
+                }
+                prunedAnything = true;
+                slice.ReaderHandle.Dispose();
+                slices.RemoveAt(sliceIdx);
+
+                var prunedBytes = prunedWriter.CommitAndGetSize();
+                prunedSlices.Add(new SliceName(slice.StartTime, slice.EndTime, prunePruneId));
+
+                if (preservedWriter.KeyCount != 0)
+                {
+                    var preservedBytes = preservedWriter.CommitAndGetSize(); 
+                    Console.Error.WriteLine($"  Pruned: {StringUtils.ToHumanBytes(slice.SizeInBytes)} -> {StringUtils.ToHumanBytes(prunedBytes)} (old) + {StringUtils.ToHumanBytes(preservedBytes)} (preserve)");
+                    slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior))));
+                }
+                else
+                {
+                    Console.Error.WriteLine($"  Everything was pruned ({StringUtils.ToHumanBytes(slice.SizeInBytes)})");
+                    preservedWriter.Dispose();
+                    sliceIdx--;
+                }
+                
+            }
+            return prunedAnything;
         }
     }
 

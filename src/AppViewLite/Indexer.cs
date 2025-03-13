@@ -232,6 +232,10 @@ namespace AppViewLite
                         var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
+                        var didDoc = relationships.TryGetLatestDidDoc(commitPlc);
+                        if (didDoc != null && Apis.AdministrativeBlocklist.ShouldBlockIngestion(null, didDoc))
+                            return;
+
                         var proto = relationships.StorePostInfoExceptData(p, postId, ctx);
                         if (proto != null)
                         {

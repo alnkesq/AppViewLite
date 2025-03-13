@@ -218,7 +218,7 @@ namespace AppViewLite
                 {
                     if (profile.HandleIsUncertain)
                     {
-                        VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, ctx).FireAndForget();
+                        VerifyHandleAndNotifyAsync(profile.Did, profile.PossibleHandle, RequestContext.ToNonUrgent(ctx)).FireAndForget();
                     }
                 }
 

@@ -25,8 +25,10 @@ namespace AppViewLite
 
         public bool AllowStale { get; set; }
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
-        public int ReadLockEnterCount;
+        
         public int WriteOrUpgradeLockEnterCount;
+        public int ReadsFromPrimary;
+        public int ReadsFromSecondary;
 
         public AccentColor AccentColor => IsLoggedIn ? PrivateProfile.AccentColor : AccentColor.Blue;
 
@@ -48,12 +50,11 @@ namespace AppViewLite
         {
         }
 
-        private bool addedToMetricsTable;
+        private int addedToMetricsTable;
         public void AddToMetricsTable()
         {
-            if (addedToMetricsTable) return;
-            addedToMetricsTable = true;
-            if (IsUrgent) { }
+            if (IsUrgent && WriteOrUpgradeLockEnterCount != 0) { }
+            if (Interlocked.Increment(ref addedToMetricsTable) != 1) return;
             var queue = IsUrgent ? RecentRequestContextsUrgent : RecentRequestContextsNonUrgent;
             queue.Enqueue(this);
             if (queue.Count >= 1000)
@@ -97,18 +98,41 @@ namespace AppViewLite
             return ctx;
         }
 
-        public static RequestContext CreateForTaskDictionary(RequestContext originalCtx)
+        public static RequestContext CreateForTaskDictionary(RequestContext originalCtx, bool possiblyUrgent = false)
         {
+            if (originalCtx.IsUrgent) { }
             return new RequestContext()
             {
                 Session = null!,
-                IsUrgent = originalCtx.IsUrgent,
+                IsUrgent = possiblyUrgent && originalCtx.IsUrgent,
                 RequestUrl = originalCtx.RequestUrl,
                 MinVersion = originalCtx.MinVersion,
                 StartDate = DateTime.UtcNow,
                 LabelSubscriptions = [],
             };
         }
+
+
+        public static RequestContext ToNonUrgent(RequestContext originalCtx)
+        {
+            if (!originalCtx.IsUrgent) return originalCtx;
+            return new RequestContext()
+            {
+                Session = originalCtx.Session,
+                IsUrgent = false,
+                AllowStale = originalCtx.AllowStale,
+                ProfileCache = originalCtx.ProfileCache,
+                ShortDeadline = originalCtx.ShortDeadline,
+                SignalrConnectionId = originalCtx.SignalrConnectionId,
+                shortTimeout = originalCtx.shortTimeout,
+                RequestUrl = originalCtx.RequestUrl,
+                MinVersion = originalCtx.MinVersion,
+                StartDate = originalCtx.StartDate,
+                LabelSubscriptions = originalCtx.LabelSubscriptions,
+            };
+        }
+
+
 
         public static RequestContext CreateForFirehose(string reason)
         {
@@ -195,6 +219,7 @@ namespace AppViewLite
 
         public required LabelerSubscription[] LabelSubscriptions;
         private HashSet<LabelId>? _needsLabels;
+
         public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash))).ToHashSet();
     }
 

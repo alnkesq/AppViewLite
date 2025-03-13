@@ -184,6 +184,8 @@ namespace AppViewLite
                     var minVersion = ctx.MinVersion;
                     var replica = this.readOnlyReplicaRelationshipsUnlocked;
                     replica.Lock.EnterReadLock();
+                    Interlocked.Increment(ref ctx.ReadsFromSecondary);
+                    ctx.AddToMetricsTable();
                     try
                     {
                         replica.EnsureNotDisposed();
@@ -198,7 +200,7 @@ namespace AppViewLite
 
 
 
-            ctx.ReadLockEnterCount++;
+            Interlocked.Increment(ref ctx.ReadsFromPrimary);
             ctx.AddToMetricsTable();
             
 

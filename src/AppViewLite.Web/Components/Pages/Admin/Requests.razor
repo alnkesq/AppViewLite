@@ -11,7 +11,8 @@
     <tr>
         <th style="text-align: left">Date</th>
         <th style="text-align: left">Path</th>
-        <th>Read locks</th>
+        <th title="Reads from readonly replica">Reads repl.</th>
+        <th title="Reads from primary">Reads prim.</th>
         <th>Write/upgr. locks</th>
         <th>Lock waits</th>
     </tr>
@@ -21,12 +22,15 @@
     {
         var w = req.TimeSpentWaitingForLocks.Elapsed;
         var wc = req.WriteOrUpgradeLockEnterCount;
-        var rc = req.ReadLockEnterCount;
-        if ((wc == 0 && rc == 0) || req.RequestUrl == "/debug/requests") continue;
+        
+        var readsFromPrimary = req.ReadsFromPrimary;
+        var readsFromSecondary = req.ReadsFromSecondary;
+        if ((wc == 0 && readsFromPrimary == 0 && readsFromSecondary == 0) || req.RequestUrl == "/debug/requests") continue;
         <tr>
             <td style="text-align: left">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</td>
             <td style="text-align: left; white-space: nowrap; max-width: 600px; text-overflow: ellipsis; overflow: hidden;">@req.RequestUrl</td>
-            <td>@(rc != 0 ? rc : "-")</td>
+            <td>@(readsFromSecondary != 0 ? readsFromSecondary : "-")</td>
+            <td>@(readsFromPrimary != 0 ? readsFromPrimary : "-")</td>
             <td>@(wc != 0 ? wc : "-")</td>
             <td>@(w != default ? (w.TotalMilliseconds).ToString("0.000") : "-")</td>
         </tr>

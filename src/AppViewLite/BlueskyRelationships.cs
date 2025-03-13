@@ -1939,14 +1939,15 @@ namespace AppViewLite
             Dispose();
         }
 
-        internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst maxPostIdExlusive)
+        internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst? maxPostIdExlusive, DateTime now)
         {
-            var index = slice.Reader.BinarySearch(maxPostIdExlusive);
+            var index = maxPostIdExlusive != null ? slice.Reader.BinarySearch(maxPostIdExlusive.Value) : (slice.Reader.KeyCount + 1);
             if (index >= 0) index--;
             else index = ~index;
             for (long i = index - 1; i >= 0; i--)
             {
                 var postId = slice.Reader.Keys[i];
+                if (postId.PostRKey.Date > now) continue;
                 if (PostDeletions.ContainsKey(postId)) continue;
                 var postData = DeserializePostData(slice.Reader.GetValues(i).Span.AsSmallSpan, postId);
                 yield return GetPost(postId, postData);

@@ -1505,17 +1505,18 @@ namespace AppViewLite
             return result!;
         }
 
-        public async Task<PostsAndContinuation> GetFirehosePostsAsync(DateTime maxDate, bool includeReplies, string? continuation, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetFirehosePostsAsync(DateTime? maxDate, bool includeReplies, string? continuation, RequestContext ctx)
         {
             var limit = 30;
-            var maxPostIdExclusive = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : new PostIdTimeFirst(Tid.FromDateTime(maxDate, 0), default);
+            PostIdTimeFirst? maxPostIdExclusive = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : maxDate != null ? new PostIdTimeFirst(Tid.FromDateTime(maxDate.Value), default) : null;
             var posts = WithRelationshipsLock(rels =>
             {
+                var now = DateTime.UtcNow;
                 var enumerables = rels.PostData.slices.Select(slice =>
                 {
-                    return rels.GetRecentPosts(slice, maxPostIdExclusive); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
+                    return rels.GetRecentPosts(slice, maxPostIdExclusive, now); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 })
-                .Append(rels.PostData.QueuedItems.Where(x => x.Key.CompareTo(maxPostIdExclusive) < 0 && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key))))
+                .Append(rels.PostData.QueuedItems.Where(x => x.Key.PostRKey.Date < now).Where(x => (!maxPostIdExclusive.HasValue || x.Key.CompareTo(maxPostIdExclusive.Value) < 0) && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key))))
                 .ToArray();
 
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)))

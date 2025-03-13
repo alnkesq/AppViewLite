@@ -3092,6 +3092,13 @@ namespace AppViewLite
                 ThrowIncorrectLockUsageException("Attempting to read without holding a read lock.");
             }
         }
+        public void AssertHasWriteLock()
+        {
+            if (!Lock.IsWriteLockHeld)
+            {
+                ThrowIncorrectLockUsageException("Attempting to write without holding a write lock.");
+            }
+        }
 
         public ICloneableAsReadOnly CloneAsReadOnly()
         {
@@ -3370,8 +3377,10 @@ namespace AppViewLite
         private readonly static TimeSpan PruningInterval = TimeSpan.FromDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_INTERVAL_DAYS) ?? 10);
         public void Prune()
         {
+            if (IsReadOnly) throw new InvalidOperationException();
             AppViewLitePruningContext? pruningContext = null;
 
+            AssertHasWriteLock();
             var anythingPruned = false;
             foreach (var table in this.AllMultidictionaries)
             {
@@ -3381,16 +3390,34 @@ namespace AppViewLite
 
             if (anythingPruned)
                 GlobalFlush();
+            else
+                Console.Error.WriteLine("Nothing to prune.");
         }
 
         private AppViewLitePruningContext CreatePruningContext()
         {
+            Console.Error.WriteLine("Pruning...");
+            Console.Error.WriteLine("  Creating pruning context...");
             var preserveUsers = new HashSet<Plc>();
             var preservePosts = new HashSet<PostId>();
+            var neighborhoodScore = new Dictionary<Plc, int>();
+            var appViewLiteUsers = new HashSet<Plc>();
 
+            Console.Error.WriteLine("    Collecting pluggable protocol profiles...");
+            foreach (var (plc, didBytes) in this.PlcToDidOther.EnumerateUnsortedGrouped())
+            {
+                var did = Encoding.UTF8.GetString(didBytes.AsSmallSpan());
+                if (!BlueskyRelationships.IsNativeAtProtoDid(did))
+                    preserveUsers.Add(plc);
+            }
+            var allowlistedPluggableProfiles = preserveUsers.Count;
+
+
+            Console.Error.WriteLine("    Collecting AppViewLite users and their private follows...");
             foreach (var (appviewLiteUser, appviewLiteUserBytes) in this.AppViewLiteProfiles.EnumerateUnsortedGrouped())
             {
                 preserveUsers.Add(appviewLiteUser);
+                appViewLiteUsers.Add(appviewLiteUser);
                 var profile = BlueskyRelationships.DeserializeProto<AppViewLiteProfileProto>(appviewLiteUserBytes.AsSmallSpan());
                 foreach (var privateFollow in profile.PrivateFollows ?? [])
                 {
@@ -3399,18 +3426,122 @@ namespace AppViewLite
                 }
             }
 
-            foreach (var (bookmarker, bookmark) in this.Bookmarks.EnumerateUnsorted())
-            {
-                preservePosts.Add(bookmark.PostId);
-            }
-            foreach (var (viewer, engagement) in this.SeenPosts.EnumerateUnsorted())
-            {
-                preservePosts.Add(engagement.PostId);
-            }
+            Console.Error.WriteLine("    Collecting AppViewLite users and their public follows...");
             foreach (var (appviewLiteUser, followee) in this.RegisteredUserToFollowees.EnumerateUnsorted())
             {
                 preserveUsers.Add(followee.Member);
             }
+
+            Console.Error.WriteLine("    Collecting AppViewLite users' private bookmarks...");
+            foreach (var (bookmarker, bookmark) in this.Bookmarks.EnumerateUnsorted())
+            {
+                preservePosts.Add(bookmark.PostId);
+                var score = PruneScore_ReceivesLike * PruneScore_LikeMultiplierIfAppViewLiteUser;
+                IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, bookmark.PostId.Author, out _), score);
+            }
+
+            Console.Error.WriteLine("    Collecting AppViewLite users' seen posts...");
+            foreach (var (viewer, engagement) in this.SeenPosts.EnumerateUnsorted())
+            {
+                preservePosts.Add(engagement.PostId);
+            }
+
+
+            static void IncrementSaturated(ref int value, int increment)
+            {
+                var updated = (long)value + increment;
+                value = (int)(Math.Min(updated, int.MaxValue));
+            }
+
+
+            Console.Error.WriteLine("    Collecting frequent followers/followees of AppViewLite users and their followees...");
+            Stopwatch lastProgressPrint = Stopwatch.StartNew();
+            void PrintProgress(long processed, long total)
+            {
+                if (processed == total || lastProgressPrint.ElapsedMilliseconds > 5000)
+                {
+                    Console.Error.WriteLine($"      {((double)processed / total * 100):0.0}%");
+                    lastProgressPrint.Restart();
+                }
+            }
+            long totalFollows = this.Follows.creations.ValueCount;
+            long processedFollows = 0;
+            foreach (var (followee, followerRelationship) in this.Follows.creations.EnumerateUnsorted())
+            {
+                processedFollows++;
+                PrintProgress(processedFollows, totalFollows);
+                var follower = followerRelationship.Actor;
+
+                if (preserveUsers.Contains(follower))
+                {
+                    // Users that core users frequently follow
+                    var score = PruneScore_ReceivesFollow;
+                    if (appViewLiteUsers.Contains(follower)) score = int.MaxValue;
+                    IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, followee, out _), score);
+                }
+                if (preserveUsers.Contains(followee))
+                {
+                    // Frequent followers of core users
+                    var score = PruneScore_SendsFollow;
+                    if (appViewLiteUsers.Contains(followee)) score = int.MaxValue;
+                    IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, follower, out _), score);
+                }
+            }
+            lastProgressPrint.Restart();
+            Console.Error.WriteLine("    Collecting frequent likers/likees of AppViewLite users and their followees...");
+
+            long totalLikes = this.Likes.creations.ValueCount;
+            long processedLikes = 0;
+            foreach (var (postId, like) in this.Likes.creations.EnumerateUnsorted())
+            {
+                processedLikes++;
+                PrintProgress(processedLikes, totalLikes);
+                
+                var from = like.Actor;
+                var to = postId.Author;
+
+                if (preserveUsers.Contains(from))
+                {
+                    // Users that core users frequently like
+                    var score = PruneScore_ReceivesLike;
+                    if (appViewLiteUsers.Contains(from))
+                    {
+                        score *= PruneScore_LikeMultiplierIfAppViewLiteUser;
+                        preservePosts.Add(postId); // Preserve posts liked by AppViewLite users.
+                    }
+                    IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, to, out _), score);
+                }
+                if (preserveUsers.Contains(to))
+                {
+                    // Frequent likers of core users
+                    var score = PruneScore_SendsLike;
+                    if (appViewLiteUsers.Contains(to))
+                    {
+                        score *= PruneScore_LikeMultiplierIfAppViewLiteUser;
+                        // AppViewLite user is the author of this liked post. Such posts are always preserved by ShouldPreservePost.
+                    }
+                    IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, from, out _), score);
+                }
+            }
+            Console.Error.WriteLine("    Neighborhood scores computed, selecting top scores...");
+
+            var priorityQueue = new PriorityQueue<Plc, int>();
+            foreach (var (plc, score) in neighborhoodScore)
+            {
+                priorityQueue.Enqueue(plc, -score);
+            }
+
+            var neighborhoodSize = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRUNE_NEIGHBORHOOD_SIZE) ?? 1_000_000) + allowlistedPluggableProfiles;
+            while (true)
+            {
+                if (!priorityQueue.TryDequeue(out var plc, out var priority)) break;
+                var score = -priority;
+
+                if (preserveUsers.Count >= neighborhoodSize && score < int.MaxValue) break;
+                preserveUsers.Add(plc);
+            }
+            Console.Error.WriteLine($"    Pruning neighborhood computed. Will preserve content from {preserveUsers.Count} users, and {preservePosts.Count} isolated posts.");
+            Console.Error.WriteLine("    Proceeding with actual pruning...");
 
             return new AppViewLitePruningContext
             {
@@ -3419,9 +3550,34 @@ namespace AppViewLite
                 OldPostThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_OLD_DAYS) ?? 7)),
             };
         }
+
+        public const int PruneScore_SendsLike = 1;
+        public const int PruneScore_ReceivesLike = 3;
+
+        public const int PruneScore_SendsFollow = 3;
+        public const int PruneScore_ReceivesFollow = 9;
+
+        public const int PruneScore_LikeMultiplierIfAppViewLiteUser = 4;
+
+        public void MaybeEnterWriteLockAndPrune()
+        {
+            if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_RUN_PRUNING).GetValueOrDefault())
+            {
+                Lock.EnterWriteLock();
+                try
+                {
+                    Prune();
+                }
+                finally
+                {
+                    Lock.ExitWriteLock();
+                }
+            }
+        }
     }
 
 
     public delegate void LiveNotificationDelegate(Versioned<PostStatsNotification> notification, Plc commitPlc);
 }
+
 

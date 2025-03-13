@@ -695,6 +695,8 @@ namespace AppViewLite.Storage
             MaybeFlush();
         }
 
+        public long GroupCount => queue.GroupCount + slices.Sum(x => x.Reader.KeyCount);
+        public long ValueCount => queue.ValueCount + slices.Sum(x => x.Reader.ValueCount);
 
         public TimeSpan? MaximumInMemoryBufferDuration { get; set; }
         public TKey? MaximumKey
@@ -1097,7 +1099,7 @@ namespace AppViewLite.Storage
 
                 var pruningContext = getPruningContext();
 
-                Console.Error.WriteLine("Pruning: " + slice.Reader.PathPrefix);
+                Console.Error.WriteLine("  Pruning: " + slice.Reader.PathPrefix + ".col*.dat (" + StringUtils.ToHumanBytes(slice.SizeInBytes) + ")");
                 var basePath = this.DirectoryPath + "/" + slice.StartTime.Ticks + "-" + slice.EndTime.Ticks + "-";
                 
                 var preservePruneId = pruneId++; // preservePruneId is EVEN
@@ -1120,7 +1122,7 @@ namespace AppViewLite.Storage
 
                 if (prunedWriter.KeyCount == 0)
                 {
-                    Console.Error.WriteLine("  Nothing was pruned.");
+                    Console.Error.WriteLine("    Nothing was pruned.");
                     prunedWriter.Dispose();
                     preservedWriter.Dispose();
                     continue;
@@ -1135,12 +1137,12 @@ namespace AppViewLite.Storage
                 if (preservedWriter.KeyCount != 0)
                 {
                     var preservedBytes = preservedWriter.CommitAndGetSize(); 
-                    Console.Error.WriteLine($"  Pruned: {StringUtils.ToHumanBytes(slice.SizeInBytes)} -> {StringUtils.ToHumanBytes(prunedBytes)} (old) + {StringUtils.ToHumanBytes(preservedBytes)} (preserve)");
+                    Console.Error.WriteLine($"    Pruned: {StringUtils.ToHumanBytes(slice.SizeInBytes)} -> {StringUtils.ToHumanBytes(prunedBytes)} (old) + {StringUtils.ToHumanBytes(preservedBytes)} (preserve)");
                     slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior))));
                 }
                 else
                 {
-                    Console.Error.WriteLine($"  Everything was pruned ({StringUtils.ToHumanBytes(slice.SizeInBytes)})");
+                    Console.Error.WriteLine($"    Everything was pruned ({StringUtils.ToHumanBytes(slice.SizeInBytes)})");
                     preservedWriter.Dispose();
                     sliceIdx--;
                 }

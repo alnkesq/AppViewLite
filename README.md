@@ -10,6 +10,7 @@ It includes:
 <img src="https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/appviewlite.png" alt="Screenshot of the bsky.app profile on AppViewLite" width="600">
 
 Indexing the firehose (posts, likes, reposts, follows, blocks) takes about 2.2 GB of disk space per day. By contrast, the raw data from the firehose (without inverse indexes) is reported to be around 200 GB per day.
+You can optionally [prune](docs/Configuration.md#Pruning) old content that doesn't involve the social graph neighborhood of the users that use your AppViewLite instance.
 
 **Tip**: You can browse to `http://localhost:PORT/profile/...` to easily convert a bsky.app URL into an AppViewLite one, or you can paste a profile URL into the search bar.
 

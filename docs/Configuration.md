@@ -12,7 +12,7 @@ You can set the following environment variables:
 * `APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN`: For debugging only, will allow you to "log in" to any account (but obviously you won't be able to perform PDS writes). Defaults to `0`.
 * `APPVIEWLITE_READONLY`: Forbids database writes (useful for debugging data issues without the firehose interfering).
 * `APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS`: External previews to these domains will be always displayed in compact format (not just when quoted or the post was already seen by the user).
-* `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exists during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
+* `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exits during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
 
 ## Storage (low level configuration)
 * `APPVIEWLITE_USE_READONLY_REPLICA`: If enabled, most requests will be served from a readonly snapshot of the database (so that we don't have to wait for any current write lock to complete). Defaults to `1`.
@@ -30,7 +30,7 @@ You can set the following environment variables:
 * `APPVIEWLITE_HANDLE_TO_DID_MAX_STALE_HOURS`: For how many hours we cache handle resolutions. Defaults to 10 days.
 * `APPVIEWLITE_DID_DOC_MAX_STALE_HOURS`: For how many hours we cache DID docs. If the PLC directory is up to date (by this amount), we cache indefinitely. Defaults to 2 days.
 * `APPVIEWLITE_PLC_DIRECTORY`: Alternate PLC directory prefix. Defaults to `https://plc.directory`
-* `APPVIEWLITE_DID_DOC_OVERRIDES`: Path to an optional text file, where each line is `did:plc:example pds.example handle.example`. Will be reloaded dynamically if it changes. The listed PDSes will be listened from directly, without relaying on the main firehose.
+* `APPVIEWLITE_DID_DOC_OVERRIDES`: Path to an optional text file, where each line is `did:plc:example pds.example handle.example`. Will be reloaded dynamically if it changes. The listed PDSes will be listened from directly, without relying on the main firehose.
 
 ## Administrative rules
 * `APPVIEWLITE_BLOCKLIST_PATH`: path to an `.ini` file whose sections can be `[noingest]`, `[nodisplay]`, `[nooutboundconnect]` (or combinations, like `[noingest,nodisplay]`) to block specific DIDs or domains (and all their subdomains) of all types (PDSes, Mastodon instances, handles, Mastodon external media...)
@@ -70,3 +70,41 @@ RSS is enabled by default, and provides support for Tumblr and Reddit as well. F
 * `APPVIEWLITE_CACHE_FEED_THUMBS`: Whether feed image thumbnails and profile banners should be cached to disk. Defaults to `0`.
 
 You can also add a domain to the `[nooutboundconnect]` section of `APPVIEWLITE_BLOCKLIST_PATH` (see above).
+
+## Pruning
+Pruning can be used to free up disk space, by splitting each slice into a *preserved* and a *pruned* part. The *preserved* part will contain all recent Firehose posts, plus all historical posts from users that have ever used the current AppViewLite instance, and the users they frequently interact with or follow. *Pruned* slices can be deleted or moved to offline storage.
+
+Pruning does *not* run in the background, it requires temporary maintanance downtime.
+
+There's currently no way of merging *preserved* and *pruned* slices back together, or to load pruned slices anyways, so make sure you run a [backup](Backup.md) first.
+
+* `APPVIEWLITE_RUN_PRUNING`: Performs any pending pruning on startup (defaults to `0`).
+* `APPVIEWLITE_PRUNE_OLD_DAYS`: Content older than this number of days *might* be pruned. Content newer than this is always preserved, no matter who it is from. Defaults to `30` days.
+* `APPVIEWLITE_PRUNE_NEIGHBORHOOD_SIZE`: Preserves all the content that involves this number of users with the highest neighborhood score. Pluggable protocol profiles are always preserved and don't count against this threshold. Defaults to `1000000` (one million).
+* `APPVIEWLITE_PRUNE_MIN_SIZE`: Only slices larger than this amount of bytes will be considered for pruning. Smaller ones will be preserved in full. Defaults to `1073741824` (1GB)
+* `APPVIEWLITE_PRUNE_INTERVAL_DAYS`: Only slices that were last pruned or written this amount of days ago will be considered for pruning. Defaults to `10`.
+
+
+*Preserved* slices have names in the format
+
+* `startTime-endTime.col*.dat` or
+* `startTime-endTime-pruneId.col*.dat` (where `pruneId` is even),
+
+*Pruned* slices have names in the format
+* `startTime-endTime-pruneId.col*.dat` (where `pruneId` is odd).
+
+AppViewLite will refuse to start if the file of any `preserved` slice is missing, but will work fine if `pruned` slices are missing (in fact, they wouldn't be loaded even if they existed).
+
+The neighborhood score for a user is the sum of:
+
+* Follows
+   * Infinity if they're followed by an AppViewLite user
+   * 9 for each follow from a followee of an AppViewLite user
+   * Infinity if they follow an AppViewLite user
+   * 3 if they follow a followee of an AppViewLite user
+
+* Likes
+   * 12 for each like from an AppViewLite user
+   * 3 for each like from a followee of an AppViewLite user
+   * 3 for each like they send to an AppViewLite user
+   * 1 for each like they send to a followee of an AppViewLite user

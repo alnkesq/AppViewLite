@@ -18,6 +18,7 @@ namespace AppViewLite
         public bool ShouldPreservePost(PostId postId)
         {
             if (postId.PostRKey.CompareTo(OldPostThreshold) >= 0) return true;
+            if (PreservePosts.Contains(postId)) return true;
             if (ShouldPreserveUser(postId.Author)) return true;
 
             return false;

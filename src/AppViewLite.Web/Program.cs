@@ -21,9 +21,8 @@ namespace AppViewLite.Web
         public static async Task Main(string[] args)
         {
             Relationships = new();
-            if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_RUN_PRUNING).GetValueOrDefault())
-                Relationships.Prune();
-
+            Relationships.MaybeEnterWriteLockAndPrune();
+            
             using var apis = new BlueskyEnrichedApis(Relationships, useReadOnlyReplica: true);
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));

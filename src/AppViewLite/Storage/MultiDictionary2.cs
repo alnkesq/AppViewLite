@@ -143,6 +143,7 @@ namespace AppViewLite
         public long LastVirtualSliceIdExclusive;
 
         public int GroupCount => dict.Count;
+        public long ValueCount => dict.Values.Sum(x => (long)x.Count);
 
         public IEnumerable<TKey> Keys => dict.Keys;
 

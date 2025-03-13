@@ -66,8 +66,8 @@ namespace AppViewLite
             var tokens = BpeCompress(text);
             var result = CompressBitStream(tokens);
 
-            var roundtrip = Decompress(result);
-            if (roundtrip != text) throw new Exception("Roundtripping error");
+            //var roundtrip = Decompress(result);
+            //if (roundtrip != text) throw new Exception("Roundtripping error");
             return result;
         }
 

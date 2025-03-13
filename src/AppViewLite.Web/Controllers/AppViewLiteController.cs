@@ -178,11 +178,11 @@ namespace AppViewLite.Web
             }, ctx);
             return TypedResults.Stream(async stream =>
             {
-                await JsonSerializer.SerializeAsync(stream, obj);
+                await JsonSerializer.SerializeAsync(stream, obj, TakeoutJsonOptions);
             }, fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now.ToString("yyyy-MM-dd-HHmmss")}.json");
         }
 
-        //private readonly static JsonSerializerOptions IndentedOptions = new JsonSerializerOptions { WriteIndented = true };
+        private readonly static JsonSerializerOptions TakeoutJsonOptions = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
 
         [HttpGet(nameof(SearchAutoComplete))]
         public async Task<object> SearchAutoComplete(string? q, string? forceResults)

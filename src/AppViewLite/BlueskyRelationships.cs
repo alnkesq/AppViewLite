@@ -913,6 +913,8 @@ namespace AppViewLite
             return proto;
         }
 
+        private readonly static HashedWord[] LanguageEnumToHashedSearchIndex = Enumerable.Range(0, (short)Enum.GetValues<LanguageEnum>().Max() + 1).Select(x => HashWord("%lang-" + ((LanguageEnum)x).ToString())).ToArray();
+
         public void IndexPost(BlueskyPostData proto)
         {
             var postId = proto.PostId;
@@ -920,7 +922,9 @@ namespace AppViewLite
             var approxPostDate = GetApproxTime32(postId.PostRKey);
 
             if (proto.Language != LanguageEnum.Unknown)
-                AddToSearchIndex("%lang-" + proto.Language!.Value.ToString(), approxPostDate);
+            {
+                PostTextSearch.Add(LanguageEnumToHashedSearchIndex[(int)proto.Language!.Value], approxPostDate);
+            }
             PostTextSearch.Add(HashPlcForTextSearch(postId.Author), approxPostDate);
 
             if (proto.Text != null)

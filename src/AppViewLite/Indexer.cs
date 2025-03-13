@@ -375,6 +375,7 @@ namespace AppViewLite
             {
                 using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
                 var tcs = new TaskCompletionSource();
+                using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
                 {
                     tcs.TrySetCanceled();
@@ -392,7 +393,11 @@ namespace AppViewLite
                 };
                 firehose.OnRecordReceived += (s, e) =>
                 {
-                    TryProcessRecord(() => OnJetStreamEvent(e), e.Record.Did?.Handler);
+                    TryProcessRecord(() => 
+                    {
+                        OnJetStreamEvent(e);
+                        watchdog.Kick();
+                    }, e.Record.Did?.Handler);
                 };
                 await firehose.ConnectAsync(token: ct);
                 await tcs.Task;
@@ -404,19 +409,27 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), protocol => 
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog) => 
             {
-                protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() => OnRepoFirehoseEvent(s, e), e.Message.Commit?.Repo?.Handler);
+                protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() => 
+                {
+                    OnRepoFirehoseEvent(s, e);
+                    watchdog.Kick();
+                }, e.Message.Commit?.Repo?.Handler);
             }, ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), protocol =>
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), (protocol, watchdog) =>
             {
-                protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() => OnLabelFirehoseEvent(s, e), nameForDebugging);
+                protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() => 
+                {
+                    OnLabelFirehoseEvent(s, e);
+                    watchdog.Kick();
+                }, nameForDebugging);
             }, ct);
         }
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol> setupHandler, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
@@ -428,7 +441,7 @@ namespace AppViewLite
                     tcs.TrySetCanceled();
                     firehose.Dispose();
                 });
-                
+                using var watchdog = CreateFirehoseWatchdog(tcs);
 
                 firehose.OnConnectionUpdated += (_, e) =>
                 {
@@ -439,12 +452,22 @@ namespace AppViewLite
                         tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
                     }
                 };
-                setupHandler(firehose);
+                setupHandler(firehose, watchdog);
                 await subscribeKind(firehose);
 
                 await tcs.Task;
             }, ct);
            
+        }
+
+        private Watchdog CreateFirehoseWatchdog(TaskCompletionSource tcs)
+        {
+            // TODO: temporary debugging code
+            return new Watchdog(TimeSpan.FromSeconds(120), () =>
+            {
+                File.AppendAllText(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/firehose-watchdog.txt", DateTime.UtcNow.ToString("O") + " " + FirehoseUrl + "\n");
+                tcs.TrySetException(new Exception("Firehose watchdog"));
+            });
         }
 
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)

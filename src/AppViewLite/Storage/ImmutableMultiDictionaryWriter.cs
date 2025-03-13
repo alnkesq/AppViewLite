@@ -21,6 +21,44 @@ namespace AppViewLite.Storage
         public long KeyCount { get; private set; }
         public long ValueCount => currentValueOffset;
 
+
+
+        public struct AddContext
+        {
+            internal TKey key;
+            internal long startOffset;
+            internal TValue? prev;
+        }
+        public AddContext CreateAddContext(TKey key)
+        {
+            return new AddContext
+            {
+                key = key,
+                startOffset = currentValueOffset,
+            };
+        }
+
+        public void AddPresorted(ref AddContext ctx, TValue value)
+        {
+            if (behavior == PersistentDictionaryBehavior.SortedValues && ctx.prev != null && value.CompareTo(ctx.prev.Value) < 0) throw new ArgumentException();
+            ctx.prev = value;
+
+            writer.WriteElement(1, value);
+
+            currentValueOffset++;
+        }
+
+        public void FinishGroup(ref AddContext ctx)
+        {
+            if (ctx.startOffset != currentValueOffset)
+            {
+                if (behavior == PersistentDictionaryBehavior.SingleValue && (currentValueOffset - ctx.startOffset) != 1) throw new Exception();
+                writer.WriteElement(0, ctx.key);
+                WriteStartOffset(ctx.startOffset);
+                KeyCount++;
+            }
+        }
+
         public void AddPresorted(TKey key, IEnumerable<TValue> sortedValues)
         {
 

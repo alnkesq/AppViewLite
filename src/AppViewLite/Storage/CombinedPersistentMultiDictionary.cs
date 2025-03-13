@@ -90,6 +90,7 @@ namespace AppViewLite.Storage
         private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public Func<IEnumerable<TValue>, IEnumerable<TValue>>? OnCompactation;
         public Func<PruningContext, TKey, bool>? ShouldPreserveKey;
+        public Func<PruningContext, TKey, TValue, bool>? ShouldPreserveValue;
 
         public event EventHandler? AfterCompactation;
         private bool DeleteOldFilesOnCompactation;
@@ -1083,7 +1084,7 @@ namespace AppViewLite.Storage
 
         public bool MaybePruneCore(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval)
         {
-            if (ShouldPreserveKey == null) return false;
+            if (ShouldPreserveKey == null && ShouldPreserveValue == null) return false;
 
             var pruneId = (DateTime.UtcNow.Ticks / 2) * 2; // Preserved slices have EVEN pruneIds. Pruned slices have ODD pruneIds.
             var now = DateTime.UtcNow;
@@ -1110,13 +1111,43 @@ namespace AppViewLite.Storage
 
                 foreach (var group in slice.Reader.Enumerate())
                 {
-                    if (ShouldPreserveKey(pruningContext, group.Key))
+                    if (ShouldPreserveValue != null)
                     {
-                        preservedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                        if (ShouldPreserveKey != null && !ShouldPreserveKey(pruningContext, group.Key))
+                        {
+                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                        }
+                        else
+                        {
+                            var preservedGroupCtx = preservedWriter.CreateAddContext(group.Key);
+                            var prunedGroupCtx = prunedWriter.CreateAddContext(group.Key);
+
+                            foreach (var value in group.Values)
+                            {
+                                if (ShouldPreserveValue(pruningContext, group.Key, value))
+                                {
+                                    preservedWriter.AddPresorted(ref preservedGroupCtx, value);
+                                }
+                                else
+                                {
+                                    prunedWriter.AddPresorted(ref prunedGroupCtx, value);
+                                }
+                            }
+
+                            preservedWriter.FinishGroup(ref preservedGroupCtx);
+                            prunedWriter.FinishGroup(ref prunedGroupCtx);
+                        }
                     }
                     else
                     {
-                        prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                        if (ShouldPreserveKey!(pruningContext, group.Key))
+                        {
+                            preservedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                        }
+                        else
+                        {
+                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                        }
                     }
                 }
 

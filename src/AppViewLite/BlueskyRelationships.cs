@@ -143,7 +143,7 @@ namespace AppViewLite
             disposables.Add(r);
             return r;
         }
-        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null, Func<PruningContext, TKey, TValue, bool>? shouldPreserveValue = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
             return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(
                 BaseDirectory + "/" + name,
@@ -153,6 +153,7 @@ namespace AppViewLite
                 WriteBufferSize = TableWriteBufferSize,
                 OnCompactation = onCompactation,
                 ShouldPreserveKey = shouldPreserveKey,
+                ShouldPreserveValue = shouldPreserveValue,
             });
         }
         private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
@@ -3547,7 +3548,7 @@ namespace AppViewLite
             {
                 PreservePosts = preservePosts,
                 PreserveUsers = preserveUsers,
-                OldPostThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_OLD_DAYS) ?? 7)),
+                OldPostThreshold = Tid.FromDateTime(DateTime.UtcNow.AddDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_OLD_DAYS) ?? 30)),
             };
         }
 

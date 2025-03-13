@@ -20,6 +20,7 @@
     <PackageReference Include="AngleSharp" Version="1.2.0" />
     <PackageReference Include="NNostr.Client" Version="0.0.53" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.2" />
   </ItemGroup>
 
 </Project>

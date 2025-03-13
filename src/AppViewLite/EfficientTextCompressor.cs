@@ -1,3 +1,4 @@
+using Microsoft.Extensions.ObjectPool;
 using Microsoft.ML.Tokenizers;
 using Sewer56.BitStream;
 using Sewer56.BitStream.ByteStreams;
@@ -6,38 +7,48 @@ using System.Collections.Generic;
 
 namespace AppViewLite
 {
-    public class EfficientTextCompressor
+    public static class EfficientTextCompressor
     {
-
-
-
-        private readonly TiktokenTokenizer tokenizer;
-        public EfficientTextCompressor()
+        // Wrapper, because ObjectPool<T> needs T with public parameterless ctor.
+        internal class TiktokenWrapper
         {
-            tokenizer = TiktokenTokenizer.CreateForModel("gpt-4o");
-
+            public readonly TiktokenTokenizer Tokenizer;
+            public TiktokenWrapper()
+            { 
+                this.Tokenizer = TiktokenTokenizer.CreateForModel("gpt-4o"); 
+            }
         }
+
+
+
+        private readonly static ObjectPool<TiktokenWrapper> TokenizerPool = ObjectPool.Create<TiktokenWrapper>();
+
 
         public const int MaxLength = 1024 * 4;
-        private IReadOnlyList<int> BpeCompress(string text)
+        private static IReadOnlyList<int> BpeCompress(string text)
         {
             if (text.Length > MaxLength) throw new UnexpectedFirehoseDataException("Exceeded maximum text size for BPE compression.");
-            return tokenizer.EncodeToIds(text, int.MaxValue, out var normalized, out var consumed, considerPreTokenization: false, considerNormalization: false);
+            var tokenizer = TokenizerPool.Get();
+            var result = tokenizer.Tokenizer.EncodeToIds(text, int.MaxValue, out var normalized, out var consumed, considerPreTokenization: false, considerNormalization: false);
+            TokenizerPool.Return(tokenizer);
+            return result;
         }
-        private string BpeDecompress(IReadOnlyList<int> bpe)
+        private static string BpeDecompress(IReadOnlyList<int> bpe)
         {
-            var t = tokenizer.Decode(bpe);
+            var tokenizer = TokenizerPool.Get();
+            var t = tokenizer.Tokenizer.Decode(bpe);
+            TokenizerPool.Return(tokenizer);
             return t;
         }
 
-        public void DecompressInPlace(ref string? text, ref byte[]? compressed)
+        public static void DecompressInPlace(ref string? text, ref byte[]? compressed)
         {
             if (compressed == null) return;
             text = Decompress(compressed);
             compressed = null;
         }
 
-        public void CompressInPlace(ref string? text, ref byte[]? compressed)
+        public static void CompressInPlace(ref string? text, ref byte[]? compressed)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -49,7 +60,7 @@ namespace AppViewLite
             text = null;
         }
 
-        public byte[]? Compress(string? text)
+        public static byte[]? Compress(string? text)
         {
             if (string.IsNullOrEmpty(text)) return null;
             var tokens = BpeCompress(text);
@@ -60,19 +71,19 @@ namespace AppViewLite
             return result;
         }
 
-        public int Step1 = 11;
-        public int Step2 = 14;
-        public int Step3 = 0;
-        public int MaxBitSize = 18;
+        public const int Step1 = 11;
+        public const int Step2 = 14;
+        public const int Step3 = 0;
+        public const int MaxBitSize = 18;
 
 
-        private int BitStreamStepCount =>
+        private readonly static int BitStreamStepCount =
                 Step1 == 0 ? 0 :
                 Step2 == 0 ? 1 :
                 Step3 == 0 ? 2 :
                 3;
 
-        public IReadOnlyList<int> DecompressBitStream(byte[] bytes)
+        public static IReadOnlyList<int> DecompressBitStream(byte[] bytes)
         {
             var bitstream = new BitStream<ArrayByteStream>(new ArrayByteStream(bytes));
 
@@ -115,7 +126,7 @@ namespace AppViewLite
 
         }
 
-        public byte[] CompressBitStream(IReadOnlyList<int> tokens)
+        public static byte[] CompressBitStream(IReadOnlyList<int> tokens)
         {
             var buffer = new byte[tokens.Count * 4];
             var bitstream = new BitStream<ArrayByteStream>(new ArrayByteStream(buffer));
@@ -133,26 +144,26 @@ namespace AppViewLite
                 var t = (uint)token;
 
 
-                switch (stepCount)
-                {
-                    case 0:
-                        WriteChecked(t, MaxBitSize);
-                        break;
-                    case 1:
-                        if (token < (1 << Step1))
-                        {
-                            bitstream.WriteBit(0);
-                            WriteChecked(t, Step1);
-                        }
-                        else
-                        {
+                //switch (stepCount)
+                //{
+                //    case 0:
+                //        WriteChecked(t, MaxBitSize);
+                //        break;
+                //    case 1:
+                //        if (token < (1 << Step1))
+                //        {
+                //            bitstream.WriteBit(0);
+                //            WriteChecked(t, Step1);
+                //        }
+                //        else
+                //        {
 
-                            bitstream.WriteBit(1);
-                            WriteChecked(t, MaxBitSize);
+                //            bitstream.WriteBit(1);
+                //            WriteChecked(t, MaxBitSize);
 
-                        }
-                        break;
-                    case 2:
+                //        }
+                //        break;
+                //    case 2:
                         if (token < (1 << Step1))
                         {
                             bitstream.WriteBit(0);
@@ -173,45 +184,45 @@ namespace AppViewLite
                                 WriteChecked(t, MaxBitSize);
                             }
                         }
-                        break;
+                    //    break;
                   
-                    case 3:
-                        if (token < (1 << Step1))
-                        {
-                            bitstream.WriteBit(0);
-                            WriteChecked(t, Step1);
-                        }
-                        else
-                        {
-                            if (token < (1 << Step2))
-                            {
-                                bitstream.WriteBit(1);
-                                bitstream.WriteBit(0);
-                                WriteChecked(t, Step2);
-                            }
-                            else
-                            {
+                    //case 3:
+                    //    if (token < (1 << Step1))
+                    //    {
+                    //        bitstream.WriteBit(0);
+                    //        WriteChecked(t, Step1);
+                    //    }
+                    //    else
+                    //    {
+                    //        if (token < (1 << Step2))
+                    //        {
+                    //            bitstream.WriteBit(1);
+                    //            bitstream.WriteBit(0);
+                    //            WriteChecked(t, Step2);
+                    //        }
+                    //        else
+                    //        {
 
-                                if (token < (1 << Step3))
-                                {
-                                    bitstream.WriteBit(1);
-                                    bitstream.WriteBit(1);
-                                    bitstream.WriteBit(0);
-                                    WriteChecked(t, Step3);
-                                }
-                                else
-                                {
+                    //            if (token < (1 << Step3))
+                    //            {
+                    //                bitstream.WriteBit(1);
+                    //                bitstream.WriteBit(1);
+                    //                bitstream.WriteBit(0);
+                    //                WriteChecked(t, Step3);
+                    //            }
+                    //            else
+                    //            {
 
-                                    bitstream.WriteBit(1);
-                                    bitstream.WriteBit(1);
-                                    bitstream.WriteBit(1);
-                                    WriteChecked(t, MaxBitSize);
-                                }
-                            }
-                        }
+                    //                bitstream.WriteBit(1);
+                    //                bitstream.WriteBit(1);
+                    //                bitstream.WriteBit(1);
+                    //                WriteChecked(t, MaxBitSize);
+                    //            }
+                    //        }
+                    //    }
 
-                        break;
-                }
+                    //    break;
+                //}
 
             }
 
@@ -220,7 +231,7 @@ namespace AppViewLite
 
         }
 
-        public string? Decompress(byte[]? compressed)
+        public static string? Decompress(byte[]? compressed)
         {
             if (compressed == null || compressed.Length == 0) return null;
             var bpe = DecompressBitStream(compressed);

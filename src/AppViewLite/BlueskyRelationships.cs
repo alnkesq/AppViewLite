@@ -756,12 +756,11 @@ namespace AppViewLite
             {
                 var span = arr.AsSmallSpan();
                 var proto = DeserializeProto<BlueskyProfileBasicInfo>(arr.AsSmallSpan());
-                lock (textCompressorUnlocked)
-                {
-                    textCompressorUnlocked.DecompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
-                    if (!canOmitDescription)
-                        textCompressorUnlocked.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
-                }
+
+                EfficientTextCompressor.DecompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
+                if (!canOmitDescription)
+                    EfficientTextCompressor.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
+                
                 return proto;
 
             }
@@ -1248,13 +1247,9 @@ namespace AppViewLite
 
         public void StoreProfileBasicInfo(Plc plc, BlueskyProfileBasicInfo proto)
         {
-            lock (textCompressorUnlocked)
-            {
-                textCompressorUnlocked.CompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
-                textCompressorUnlocked.CompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
-            }
 
-
+            EfficientTextCompressor.CompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
+            EfficientTextCompressor.CompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
 
             Profiles.AddRange(plc, SerializeProto(proto, x => x.Dummy = true));
         }
@@ -1286,8 +1281,6 @@ namespace AppViewLite
             }
             ProfileSearchPrefix2.Add(SizeLimitedWord2.Create(word), plc);
         }
-
-        internal readonly static EfficientTextCompressor textCompressorUnlocked = new();
 
         internal void StorePostInfo(PostId postId, Post p, string did, RequestContext ctx)
         {
@@ -1417,29 +1410,27 @@ namespace AppViewLite
                 }
             }
 
-            lock (textCompressorUnlocked)
+            EfficientTextCompressor.CompressInPlace(ref proto.Text, ref proto.TextBpe);
+            EfficientTextCompressor.CompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
+            EfficientTextCompressor.CompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
+            EfficientTextCompressor.CompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
+            if (proto.Media != null)
             {
-                textCompressorUnlocked.CompressInPlace(ref proto.Text, ref proto.TextBpe);
-                textCompressorUnlocked.CompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
-                textCompressorUnlocked.CompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
-                textCompressorUnlocked.CompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
-                if (proto.Media != null)
+                foreach (var media in proto.Media)
                 {
-                    foreach (var media in proto.Media)
-                    {
-                        textCompressorUnlocked.CompressInPlace(ref media.AltText, ref media.AltTextBpe);
-                    }
-                }
-                if (proto.Facets != null)
-                {
-                    foreach (var facet in proto.Facets)
-                    {
-                        textCompressorUnlocked.CompressInPlace(ref facet.Link, ref facet.LinkBpe);
-                        textCompressorUnlocked.CompressInPlace(ref facet.InlineImageUrl, ref facet.InlineImageUrlBpe);
-                        textCompressorUnlocked.CompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
-                    }
+                    EfficientTextCompressor.CompressInPlace(ref media.AltText, ref media.AltTextBpe);
                 }
             }
+            if (proto.Facets != null)
+            {
+                foreach (var facet in proto.Facets)
+                {
+                    EfficientTextCompressor.CompressInPlace(ref facet.Link, ref facet.LinkBpe);
+                    EfficientTextCompressor.CompressInPlace(ref facet.InlineImageUrl, ref facet.InlineImageUrlBpe);
+                    EfficientTextCompressor.CompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
+                }
+            }
+            
 
             PostId postId = proto.PostId;
             PostId rootPostId = proto.RootPostId;
@@ -1471,29 +1462,28 @@ namespace AppViewLite
 
             if (!skipBpeDecompression)
             {
-                lock (textCompressorUnlocked)
+
+                EfficientTextCompressor.DecompressInPlace(ref proto.Text, ref proto.TextBpe);
+                EfficientTextCompressor.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
+                EfficientTextCompressor.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
+                EfficientTextCompressor.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
+                if (proto.Media != null)
                 {
-                    textCompressorUnlocked.DecompressInPlace(ref proto.Text, ref proto.TextBpe);
-                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
-                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
-                    textCompressorUnlocked.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
-                    if (proto.Media != null)
+                    foreach (var media in proto.Media)
                     {
-                        foreach (var media in proto.Media)
-                        {
-                            textCompressorUnlocked.DecompressInPlace(ref media.AltText, ref media.AltTextBpe);
-                        }
-                    }
-                    if (proto.Facets != null)
-                    {
-                        foreach (var facet in proto.Facets)
-                        {
-                            textCompressorUnlocked.DecompressInPlace(ref facet.Link, ref facet.LinkBpe);
-                            textCompressorUnlocked.DecompressInPlace(ref facet.InlineImageUrl, ref facet.InlineImageUrlBpe);
-                            textCompressorUnlocked.DecompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
-                        }
+                        EfficientTextCompressor.DecompressInPlace(ref media.AltText, ref media.AltTextBpe);
                     }
                 }
+                if (proto.Facets != null)
+                {
+                    foreach (var facet in proto.Facets)
+                    {
+                        EfficientTextCompressor.DecompressInPlace(ref facet.Link, ref facet.LinkBpe);
+                        EfficientTextCompressor.DecompressInPlace(ref facet.InlineImageUrl, ref facet.InlineImageUrlBpe);
+                        EfficientTextCompressor.DecompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
+                    }
+                }
+                
             }
             
 
@@ -2879,19 +2869,15 @@ namespace AppViewLite
         public static byte[]? CompressBpe(string? text)
         {
             if (string.IsNullOrEmpty(text)) return null;
-            lock (textCompressorUnlocked)
-            {
-                return textCompressorUnlocked.Compress(text);
-            }
+            return EfficientTextCompressor.Compress(text);
         }
 
         public static string? DecompressBpe(byte[]? bpe)
         {
             if (bpe == null || bpe.Length == 0) return null;
-            lock (textCompressorUnlocked)
-            {
-                return textCompressorUnlocked.Decompress(bpe);
-            }
+
+            return EfficientTextCompressor.Decompress(bpe);
+            
         }
 
 

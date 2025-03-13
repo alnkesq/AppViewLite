@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AppViewLite
@@ -12,6 +13,7 @@ namespace AppViewLite
     {
         private ConcurrentDictionary<TKey, TValue> dict;
         private int capacity;
+        private int approximateCount; // Approximate because dict = new() and approximateCount = 0 don't happen atomically.
         public ConcurrentFullEvictionCache(int capacity)
         {
             this.capacity = capacity;
@@ -33,18 +35,22 @@ namespace AppViewLite
         }
         public void Add(TKey key, TValue value)
         {
-            if (dict.Count == capacity)
+            if (dict.TryAdd(key, value))
             {
-                // Console.Error.WriteLine("Evict everything.");
-                dict = new(-1, capacity);
+                var incremented = Interlocked.Increment(ref approximateCount);
+                if (incremented >= capacity)
+                {
+                    // It's ok to have races here. Count is only approximate.
+                    dict = new();
+                    approximateCount = 0;
+                }
             }
-            if (!dict.ContainsKey(key))
-                dict[key] = value;
         }
 
         public void Remove(TKey key)
         {
-            dict.TryRemove(key, out _);
+            if (dict.TryRemove(key, out _))
+                Interlocked.Decrement(ref approximateCount);
         }
     }
 }

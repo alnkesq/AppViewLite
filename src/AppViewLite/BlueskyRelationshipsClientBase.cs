@@ -345,7 +345,7 @@ namespace AppViewLite
             Stopwatch? sw = null;
             int gc = 0;
 
-            ctx.WriteOrUpgradeLockEnterCount++;
+            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
             ctx.AddToMetricsTable();
             
 
@@ -392,7 +392,7 @@ namespace AppViewLite
             int gc = 0;
 
 
-            ctx.WriteOrUpgradeLockEnterCount++;
+            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
             ctx.AddToMetricsTable();
             
 

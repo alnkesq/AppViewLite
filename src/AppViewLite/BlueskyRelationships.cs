@@ -188,7 +188,7 @@ namespace AppViewLite
             
 
 
-            lockFile = new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);
+            lockFile = isReadOnly ? null : new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);
 
             var checkpointsDir = new DirectoryInfo(basedir + "/checkpoints");
             checkpointsDir.Create();

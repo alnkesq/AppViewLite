@@ -484,14 +484,17 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                         if (title != null)
                         {
-                            var prefix = ">" + title + "\n";
-                            var offset = Encoding.UTF8.GetByteCount(prefix);
-                            pair.Text = prefix + pair.Text;
-                            if (pair.Facets != null)
+                            if (!title.StartsWith(post.PostId.BlogId + ":", StringComparison.OrdinalIgnoreCase))
                             {
-                                foreach (var facet in pair.Facets)
+                                var prefix = ">" + title + "\n";
+                                var offset = Encoding.UTF8.GetByteCount(prefix);
+                                pair.Text = prefix + pair.Text;
+                                if (pair.Facets != null)
                                 {
-                                    facet.Start += offset;
+                                    foreach (var facet in pair.Facets)
+                                    {
+                                        facet.Start += offset;
+                                    }
                                 }
                             }
                             title = null;
@@ -655,7 +658,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var possiblePreviousNodes = new List<INode>();
                 foreach (var prev in bodyDom.ChildNodes)
                 {
-                    if (prev == attributionLink || prev == blockquote) break;
+                    if (prev == attribution || prev == blockquote) break;
                     possiblePreviousNodes.Add(prev);
                 }
 

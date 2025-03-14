@@ -198,22 +198,25 @@ namespace AppViewLite
                 }
             }
 
-
-
-            Interlocked.Increment(ref ctx.ReadsFromPrimary);
             ctx.AddToMetricsTable();
-            
+
 
 
             BeforeLockEnter?.Invoke(ctx);
 
             if (urgent) 
             {
+                var invoker = new object();
+
                 var tcs = new TaskCompletionSource<object?>();
                 ctx.TimeSpentWaitingForLocks.Start();
-                var task = new UrgentReadTask(() => 
+                var task = new UrgentReadTask((currentInvoker) => 
                 {
                     ctx.TimeSpentWaitingForLocks.Stop();
+
+                    if (invoker == currentInvoker) Interlocked.Increment(ref ctx.ReadsFromPrimaryLate);
+                    else Interlocked.Increment(ref ctx.ReadsFromPrimaryStolen);
+
                     return func(relationshipsUnlocked);
                 }, tcs);
 
@@ -223,7 +226,7 @@ namespace AppViewLite
                 {
                     WithRelationshipsLock(rels =>
                     {
-                        RunPendingUrgentReadTasks();
+                        RunPendingUrgentReadTasks(invoker);
                     }, ctx, urgent: false);
                 });
 
@@ -243,7 +246,7 @@ namespace AppViewLite
             try
             {
                 ctx.TimeSpentWaitingForLocks.Stop();
-
+                Interlocked.Increment(ref ctx.ReadsFromPrimaryNonUrgent);
                 rels.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
                 sw = Stopwatch.StartNew();
@@ -320,13 +323,13 @@ namespace AppViewLite
             }
         }
 
-        private void RunPendingUrgentReadTasks()
+        private void RunPendingUrgentReadTasks(object? invoker = null)
         {
             while (urgentReadTasks.TryDequeue(out var urgentReadTask))
             {
                 try
                 {
-                    urgentReadTask.Tcs.SetResult(urgentReadTask.Run());
+                    urgentReadTask.Tcs.SetResult(urgentReadTask.Run(invoker));
                 }
                 catch (Exception ex)
                 {
@@ -561,6 +564,6 @@ namespace AppViewLite
         Upgradeable,
     }
 
-    public record UrgentReadTask(Func<object?> Run, TaskCompletionSource<object?> Tcs);
+    public record UrgentReadTask(Func<object?, object?> Run, TaskCompletionSource<object?> Tcs);
 }
 

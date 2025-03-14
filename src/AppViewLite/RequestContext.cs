@@ -27,7 +27,9 @@ namespace AppViewLite
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
         
         public int WriteOrUpgradeLockEnterCount;
-        public int ReadsFromPrimary;
+        public int ReadsFromPrimaryStolen;
+        public int ReadsFromPrimaryLate;
+        public int ReadsFromPrimaryNonUrgent;
         public int ReadsFromSecondary;
 
         public AccentColor AccentColor => IsLoggedIn ? PrivateProfile.AccentColor : AccentColor.Blue;

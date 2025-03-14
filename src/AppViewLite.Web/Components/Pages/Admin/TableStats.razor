@@ -6,9 +6,10 @@
 <PageTitle>Table stats</PageTitle>
 
 @{
-    var tables = Apis.WithRelationshipsLock(rels =>
+    var tables = Apis.WithRelationshipsUpgradableLock(rels =>
             {
-                return rels.AllMultidictionaries.Select(x => (x.Name, x.InMemorySize, x.LastFlushed, x.OriginalWriteBytes, x.CompactationWriteBytes)).ToArray();
+                // Upgradable lock, so that we get the primary
+                return rels.AllMultidictionaries.Select(x => (x.Name, x.InMemorySize, x.LastFlushed, x.OriginalWriteBytes, x.CompactationWriteBytes, x.OnDiskSize)).ToArray();
             }, RequestContext);
 }
 
@@ -16,6 +17,7 @@
 <table class="debug-table">
     <tr>
         <th style="text-align: left">Name</th>
+        <th>Size on disk</th>
         <th>Buffered</th>
         <th>Flushed</th>
         <th>Original writes</th>
@@ -28,7 +30,8 @@
 {
     <tr>
         <td style="text-align: left">@table.Name</td>
-        <td>@StringUtils.ToHumanBytes(@table.InMemorySize)</td>
+        <td>@StringUtils.ToHumanBytes(table.OnDiskSize)</td>
+        <td>@StringUtils.ToHumanBytes(table.InMemorySize)</td>
         <td>@StringUtils.ToHumanDate(table.LastFlushed)</td>
         <td>@StringUtils.ToHumanBytes(table.OriginalWriteBytes)</td>
         <td>@StringUtils.ToHumanBytes(table.CompactationWriteBytes)</td>

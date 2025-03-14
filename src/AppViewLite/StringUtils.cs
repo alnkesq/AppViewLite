@@ -3,6 +3,7 @@ using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using AppViewLite.Models;
+using AppViewLite.Storage;
 using DuckDbSharp.Types;
 using System;
 using System.Collections.Frozen;
@@ -647,10 +648,7 @@ namespace AppViewLite
 
         public static string ToHumanBytes(long bytes)
         {
-            if (bytes < 1024) return bytes.ToString();
-            if (bytes < 1024 * 1024) return ((double)bytes / 1024).ToString("0.0") + " KB";
-            if (bytes < 1024 * 1024 * 1024) return ((double)bytes / 1024 / 1024).ToString("0.0") + " MB";
-            return ((double)bytes / 1024 / 1024 / 1024).ToString("0.0") + " GB";
+            return CombinedPersistentMultiDictionary.ToHumanBytes(bytes);
         }
 
         public static string[] GetSegments(this Uri url) => url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);

@@ -38,12 +38,24 @@ namespace AppViewLite.Storage
         public DateTime LastFlushed;
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
+
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
             this.DirectoryPath = directory;
             this.behavior = behavior;
             this.Name = Path.GetFileName(directory);
             LastFlushed = DateTime.UtcNow;
+        }
+
+        public static string ToHumanBytes(long bytes)
+        {
+            if (bytes < 0) return "-" + ToHumanBytes(-bytes);
+            if (bytes == 0) return "0 KB";
+            if (bytes < 1024) return ((double)Math.Max(bytes, 102) / 1024).ToString("0.0") + " KB";
+            if (bytes < 1024 * 1024) return ((double)bytes / 1024).ToString("0.0") + " KB";
+            if (bytes < 1024 * 1024 * 1024) return ((double)bytes / (1024L * 1024)).ToString("0.0") + " MB";
+            if (bytes < 1024L * 1024 * 1024 * 1024) return ((double)bytes / (1024L * 1024 * 1024)).ToString("0.0") + " GB";
+            return ((double)bytes / (1024L * 1024 * 1024 * 1024)).ToString("0.0") + " TB";
         }
 
         public static SliceName GetSliceInterval(string fileName)
@@ -56,6 +68,7 @@ namespace AppViewLite.Storage
 
         }
         public virtual long InMemorySize { get; }
+        public virtual long OnDiskSize { get; }
 
         [DoesNotReturn]
         public static void Abort(Exception? ex)
@@ -276,7 +289,7 @@ namespace AppViewLite.Storage
                 queue.Clear();
                 LastFlushed = DateTime.UtcNow;
                 slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
-                Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {StringUtils.ToHumanBytes(size)}");
+                Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {ToHumanBytes(size)}");
 
                 if (!disposing)
                     MaybeStartCompactation();
@@ -380,7 +393,7 @@ namespace AppViewLite.Storage
                     // Here we are again inside the lock.
                     var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
                     CompactationWriteBytes += size;
-                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => StringUtils.ToHumanBytes(x.SizeInBytes))) + " => " + StringUtils.ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
+                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     foreach (var input in inputs)
                     {
@@ -733,6 +746,7 @@ namespace AppViewLite.Storage
         }
 
         public override long InMemorySize => queue.SizeInBytes;
+        public override long OnDiskSize => slices.Sum(x => x.SizeInBytes);
 
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
         private Task<Action>? pendingCompactation;
@@ -931,8 +945,6 @@ namespace AppViewLite.Storage
             return [(Path.GetFileName(this.DirectoryPath), slices.Select(x => new SliceName(x.StartTime, x.EndTime, x.PruneId)).Concat(prunedSlices).ToArray())];
         }
 
-        
-
         private MultiDictionary2<TKey, TValue>? AcquireOldReplicaForRecycling()
         {
             var nextReplicaCanBeBuiltFrom = NextReplicaCanBeBuiltFrom;
@@ -1100,7 +1112,7 @@ namespace AppViewLite.Storage
 
                 var pruningContext = getPruningContext();
 
-                Console.Error.WriteLine("  Pruning: " + slice.Reader.PathPrefix + ".col*.dat (" + StringUtils.ToHumanBytes(slice.SizeInBytes) + ")");
+                Console.Error.WriteLine("  Pruning: " + slice.Reader.PathPrefix + ".col*.dat (" + ToHumanBytes(slice.SizeInBytes) + ")");
                 var basePath = this.DirectoryPath + "/" + slice.StartTime.Ticks + "-" + slice.EndTime.Ticks + "-";
                 
                 var preservePruneId = pruneId++; // preservePruneId is EVEN
@@ -1168,12 +1180,12 @@ namespace AppViewLite.Storage
                 if (preservedWriter.KeyCount != 0)
                 {
                     var preservedBytes = preservedWriter.CommitAndGetSize(); 
-                    Console.Error.WriteLine($"    Pruned: {StringUtils.ToHumanBytes(slice.SizeInBytes)} -> {StringUtils.ToHumanBytes(prunedBytes)} (old) + {StringUtils.ToHumanBytes(preservedBytes)} (preserve)");
+                    Console.Error.WriteLine($"    Pruned: {ToHumanBytes(slice.SizeInBytes)} -> {ToHumanBytes(prunedBytes)} (old) + {ToHumanBytes(preservedBytes)} (preserve)");
                     slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior))));
                 }
                 else
                 {
-                    Console.Error.WriteLine($"    Everything was pruned ({StringUtils.ToHumanBytes(slice.SizeInBytes)})");
+                    Console.Error.WriteLine($"    Everything was pruned ({ToHumanBytes(slice.SizeInBytes)})");
                     preservedWriter.Dispose();
                     sliceIdx--;
                 }

@@ -631,7 +631,8 @@ namespace AppViewLite
                 did = Encoding.UTF8.GetString(r.AsSmallSpan());
             }
             else
-            {  
+            {
+                if (allowMissingIfReplica && IsReplica) return null;
                 throw new Exception("Missing DID string for Plc(" + plc + ")");
 
             }

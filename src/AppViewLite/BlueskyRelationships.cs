@@ -207,7 +207,7 @@ namespace AppViewLite
 
             Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24);
             Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24);
-            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24);
+            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new RelationshipProbabilisticCache<Plc>(256 * 1024 * 1024, 3));
             Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24);
 
             Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");

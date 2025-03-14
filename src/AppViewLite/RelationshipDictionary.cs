@@ -29,18 +29,21 @@ namespace AppViewLite
         private IReadOnlyList<CombinedPersistentMultiDictionary> _multidictionaries;
         public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries => _multidictionaries;
 
+        private RelationshipProbabilisticCache<TTarget>? relationshipCache;
+
 #nullable disable
         internal RelationshipDictionary()
         { 
         }
 #nullable restore
-        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null)
+        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null)
         {
-            CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+            CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
-                return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior) { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
+                return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior, caches) { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
             }
-            this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty);
+            this.relationshipCache = relationshipCache;
+            this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null);
             this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
             this.deletionCounts = CreateMultiDictionary<TTarget, int>("-deletion-counts", PersistentDictionaryBehavior.SortedValues);
             this.deletionCounts.OnCompactation = z => new[] { z.Max() };
@@ -117,6 +120,16 @@ namespace AppViewLite
         public bool HasActor(TTarget target, Plc actor, out Relationship relationship)
         {
             relationship = default;
+
+            var cannotPossiblyExist = false;
+            if (relationshipCache != null)
+            {
+                if (!relationshipCache.PossiblyContains(target, actor))
+                {
+                    cannotPossiblyExist = true;
+                }
+            }
+
             var chunks = creations.GetValuesChunkedLatestFirst(target);
             foreach (var chunk in chunks)
             {
@@ -140,6 +153,8 @@ namespace AppViewLite
                     if (IsDeleted(next))
                         return false;
                     relationship = next;
+                    if (cannotPossiblyExist)
+                        CombinedPersistentMultiDictionary.Abort("Probabilistic filter returned false, but relationship was actually found.");
                     return true;
                 }
             }

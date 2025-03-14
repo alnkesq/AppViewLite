@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
@@ -71,6 +72,11 @@ namespace AppViewLite.Storage
         public virtual long OnDiskSize { get; }
 
         [DoesNotReturn]
+        public static void Abort(string? message)
+        {
+            Abort(new Exception(message));
+        }
+        [DoesNotReturn]
         public static void Abort(Exception? ex)
         {
             Console.Error.WriteLine("Unexpected condition occurred. Aborting.");
@@ -93,6 +99,7 @@ namespace AppViewLite.Storage
         public abstract void ReturnQueueForNextReplica();
 
         public abstract bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval);
+
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -108,6 +115,8 @@ namespace AppViewLite.Storage
         public event EventHandler? AfterCompactation;
         private bool DeleteOldFilesOnCompactation;
 
+        private CachedView[]? Caches;
+
 #nullable disable
         private CombinedPersistentMultiDictionary(string directory, List<SliceInfo> slices, PersistentDictionaryBehavior behavior)
             : base(directory, behavior)
@@ -116,7 +125,7 @@ namespace AppViewLite.Storage
         }
 #nullable restore
 
-        public CombinedPersistentMultiDictionary(string directory, SliceName[]? sliceNames, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues)
+        public CombinedPersistentMultiDictionary(string directory, SliceName[]? sliceNames, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CachedView[]? caches = null)
             : base(directory, behavior)
         {
 
@@ -127,6 +136,12 @@ namespace AppViewLite.Storage
 
             this.slices = new();
             this.prunedSlices = new();
+            if (caches != null && caches.Length == 0) caches = null;
+            this.Caches = caches;
+            if (caches != null)
+            {
+                if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
+            }
 
             try
             {
@@ -138,7 +153,9 @@ namespace AppViewLite.Storage
                         if (sliceName.IsPruned) this.prunedSlices.Add(sliceName);
                         else
                         {
-                            this.slices.Add(OpenSlice(directory, sliceName, behavior, mandatory: true));
+                            var s = OpenSlice(directory, sliceName, behavior, mandatory: true);
+                            AddToCaches(s);
+                            this.slices.Add(s);
                         }
                     }
                 }
@@ -152,6 +169,7 @@ namespace AppViewLite.Storage
                         {
                             var s = OpenSlice(directory, sliceName, behavior, mandatory: false);
                             if (s == default) continue;
+                            AddToCaches(s);
                             this.slices.Add(s);
                         }
                     }
@@ -170,6 +188,45 @@ namespace AppViewLite.Storage
 
 
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
+        }
+
+        private void AddToCaches(TKey key, TValue value)
+        {
+            if (Caches == null) return;
+            foreach (var cache in Caches)
+            {
+                cache.Add(key, value);
+            }
+        }
+
+        private unsafe void AddToCaches(SliceInfo slice)
+        {
+            if (Caches == null) return;
+            foreach (var cache in Caches)
+            {
+                if (cache.ShouldPersistCacheForSlice(slice))
+                {
+
+                    var cachePath = cache.GetCachePathForSlice(slice);
+                    if (!File.Exists(cachePath))
+                    {
+                        Console.Error.WriteLine("Materializing cache: " + cachePath);
+                        cache.MaterializeCacheFile(slice, cachePath);
+                    }
+
+                    Console.Error.WriteLine("Reading cache: " + cachePath);
+                    cache.LoadCacheFile(cachePath);
+                }
+                else
+                {
+                    Console.Error.WriteLine("Reading into cache (omit cache materialization): " + slice.Reader.PathPrefix + " [" + cache.Identifier + "]");
+                    cache.LoadFromOriginalSlice(slice);
+                }
+            }                
+
+
+
+
         }
 
         private static SliceInfo OpenSlice(string directory, SliceName sliceName, PersistentDictionaryBehavior behavior, bool mandatory)
@@ -680,6 +737,7 @@ namespace AppViewLite.Storage
         public void Add(TKey key, TValue value)
         {
             OnBeforeWrite();
+            AddToCaches(key, value);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
@@ -691,6 +749,8 @@ namespace AppViewLite.Storage
             }
             MaybeFlush();
         }
+
+  
 
         private void OnBeforeWrite()
         {
@@ -705,6 +765,15 @@ namespace AppViewLite.Storage
                 if (values.Length == 0) throw new ArgumentException();
                 queue.RemoveAll(key);
             }
+
+            if (Caches != null)
+            {
+                foreach (var value in values)
+                {
+                    AddToCaches(key, value);
+                }
+            }
+
             queue.AddRange(key, values);
             MaybeFlush();
         }
@@ -1193,7 +1262,28 @@ namespace AppViewLite.Storage
             }
             return prunedAnything;
         }
+
+        public abstract class CachedView
+        {
+            public abstract string Identifier { get; }
+
+            public abstract void Add(TKey key, TValue value);
+
+            public abstract bool ShouldPersistCacheForSlice(SliceInfo slice);
+
+            public string GetCachePathForSlice(SliceInfo slice) => slice.Reader.PathPrefix + "." + Identifier + ".cache";
+
+            public abstract void MaterializeCacheFile(SliceInfo slice, string destination);
+
+            public abstract void LoadCacheFile(string cachePath);
+
+            public abstract void LoadFromOriginalSlice(SliceInfo slice);
+        }
     }
+
+
+
+
 
 
 }

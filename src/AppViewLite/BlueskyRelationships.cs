@@ -156,9 +156,9 @@ namespace AppViewLite
                 ShouldPreserveValue = shouldPreserveValue,
             });
         }
-        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget) where TTarget : unmanaged, IComparable<TTarget>
+        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget, RelationshipProbabilisticCache<TTarget>? relationshipCache = null) where TTarget : unmanaged, IComparable<TTarget>
         {
-            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget));
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache));
         }
 
         public bool IsReadOnly { get; private set; }

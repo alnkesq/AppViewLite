@@ -126,6 +126,11 @@ namespace AppViewLite
             {
                 if (!relationshipCache.PossiblyContains(target, actor))
                 {
+                    if ((target.GetHashCode() ^ actor.GetHashCode()) % 256 >= 16)
+                    {
+                        return false;
+                    }
+                    // In rare cases, proceed anyways, and fail assertion if we are wrong.
                     cannotPossiblyExist = true;
                 }
             }

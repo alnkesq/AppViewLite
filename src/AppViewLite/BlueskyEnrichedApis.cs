@@ -988,7 +988,7 @@ namespace AppViewLite
 
                 if (kind == CollectionKind.Posts)
                 {
-                    if (!includeReplies && !post.IsRootPost) return null;
+                    if (!includeReplies && !post.IsRootPost && !(post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)) return null;
                 }
 
                 if (mediaOnly && post.Data?.Media == null)

@@ -154,7 +154,7 @@ namespace AppViewLite
                         return false;
                     relationship = next;
                     if (cannotPossiblyExist)
-                        CombinedPersistentMultiDictionary.Abort("Probabilistic filter returned false, but relationship was actually found.");
+                        BlueskyRelationships.ThrowFatalError("Probabilistic filter returned false, but relationship was actually found.");
                     return true;
                 }
             }

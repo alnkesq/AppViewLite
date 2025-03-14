@@ -611,6 +611,10 @@ namespace AppViewLite
 
         public string GetDid(Plc plc)
         {
+            return TryGetDid(plc, allowMissingIfReplica: false)!;
+        }
+        public string? TryGetDid(Plc plc, bool allowMissingIfReplica = false)
+        {
             string did;
 
             if (PlcToDidConcurrentCache.TryGetValue(plc, out var cached))

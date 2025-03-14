@@ -40,6 +40,7 @@ namespace AppViewLite
                 //       `int i = lo + ((hi - lo) >> 1);`
                 long i = (long)(((ulong)hi + (ulong)lo) >> 1);
 
+                // MemoryInstrumentation.OnAccess(ref Unsafe.Add(ref spanStart, (nint)i));
                 long c = comparable.CompareTo(Unsafe.Add(ref spanStart, (nint)i));
                 if (c == 0)
                 {

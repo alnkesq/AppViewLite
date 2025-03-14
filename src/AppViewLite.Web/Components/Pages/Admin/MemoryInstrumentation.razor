@@ -1,0 +1,24 @@
+@page "/debug/memory-instrumentation"
+@using AppViewLite.Web.Components.Layout
+@using System.Diagnostics
+@using AppViewLite
+
+<table>
+    <tr>
+        <th>Section</th>
+        <th>Cache misses</th>
+    </tr>
+    @{
+        var stats = AppViewLite.MemoryInstrumentation.GetStats(AppViewLite.Storage.MemoryMappedFileSlim.GetPageToSectionFunc());
+        
+        foreach (var item in stats.OrderByDescending(x => x.CacheMisses))
+        {
+            <tr>
+                <td>@item.TableName</td>
+                <td>@item.CacheMisses</td>
+            </tr>
+        }
+
+        
+    }
+</table>

@@ -1,6 +1,7 @@
 using Microsoft.Win32.SafeHandles;
 using System;
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.MemoryMappedFiles;
@@ -15,6 +16,8 @@ namespace AppViewLite.Storage
 {
     public unsafe class MemoryMappedFileSlim : IDisposable
     {
+        public static ConcurrentDictionary<MemoryMappedFileSlim, byte> Sections = new();
+        private string Path;
         public MemoryMappedFileSlim(string path, bool randomAccess = false)
             : this(path, writable: false, FileShare.Read, randomAccess: randomAccess)
         { 
@@ -30,9 +33,41 @@ namespace AppViewLite.Storage
             var stream = mmap.CreateViewStream(0, 0, access);
             this.handle = stream.SafeMemoryMappedViewHandle;
             handle.AcquirePointer(ref ptr);
+            Path = path;
+            Sections[this] = 0;
         }
 
 
+
+        public unsafe static Func<nuint, string?> GetPageToSectionFunc()
+        {
+            var sorted = Sections.Keys
+                .Select(x => (x.Path, Start: (nuint)x.Pointer, x.Length))
+                .Where(x => x.Length != 0)
+                .OrderBy(x => x.Start)
+                .ToArray();
+            var lookup = sorted.Select(x => x.Start).ToArray();
+
+            return addr =>
+            {
+                var index = lookup.AsSpan().BinarySearch(addr);
+                if (index < 0)
+                {
+                    index = ~index;
+                    if (index == 0) return null;
+                    index--;
+                    var section = sorted[index];
+                    if (addr >= section.Start)
+                    {
+                        if (addr < section.Start + (nuint)section.Length)
+                            return section.Path;
+                    }
+                    return null;
+                }
+                return sorted[index].Path;
+            };
+
+        }
 
         public MemoryMappedFileSlim(FileStream fileStream)
             : this(fileStream.Name)
@@ -53,6 +88,7 @@ namespace AppViewLite.Storage
         {
             if (Interlocked.Increment(ref disposed) == 1) 
             {
+                Sections.TryRemove(this, out _);
                 handle.ReleasePointer();
                 handle.Dispose();
                 mmap.Dispose();
@@ -118,7 +154,8 @@ namespace AppViewLite.Storage
         {
             throw new System.IO.EndOfStreamException();
         }
-        
+
+
     }
 }
 

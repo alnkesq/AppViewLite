@@ -205,9 +205,9 @@ namespace AppViewLite
             PdsHashToPdsId = RegisterDictionary<DuckDbUuid, Pds>("pds-hash-to-id", PersistentDictionaryBehavior.SingleValue);
 
 
-            Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24);
-            Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24);
-            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new RelationshipProbabilisticCache<Plc>(256 * 1024 * 1024, 3));
+            Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24, new(1024 * 1024 * 1024, 6));
+            Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24, new(256 * 1024 * 1024, 10));
+            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new(256 * 1024 * 1024, 6));
             Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24);
 
             Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");

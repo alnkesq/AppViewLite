@@ -27,6 +27,16 @@ namespace AppViewLite
             ref T spanStart, long length, TComparable comparable)
             where TComparable : IComparable<T>, allows ref struct
         {
+#if MEMORY_INSTRUMENTATION
+            if (MemoryInstrumentation.ShouldSample()) return BinarySearchInstrumented(ref spanStart, length, comparable);
+#endif
+            return BinarySearchNonInstrumented(ref spanStart, length, comparable);
+        }
+
+        public static long BinarySearchNonInstrumented<T, TComparable>(
+            ref T spanStart, long length, TComparable comparable)
+            where TComparable : IComparable<T>, allows ref struct
+        {
             long lo = 0;
             long hi = length - 1;
             // If length == 0, hi == -1, and loop will not be entered
@@ -40,8 +50,47 @@ namespace AppViewLite
                 //       `int i = lo + ((hi - lo) >> 1);`
                 long i = (long)(((ulong)hi + (ulong)lo) >> 1);
 
-                // MemoryInstrumentation.OnAccess(ref Unsafe.Add(ref spanStart, (nint)i));
                 long c = comparable.CompareTo(Unsafe.Add(ref spanStart, (nint)i));
+                if (c == 0)
+                {
+                    return i;
+                }
+                else if (c > 0)
+                {
+                    lo = i + 1;
+                }
+                else
+                {
+                    hi = i - 1;
+                }
+            }
+            // If none found, then a negative number that is the bitwise complement
+            // of the index of the next element that is larger than or, if there is
+            // no larger element, the bitwise complement of `length`, which
+            // is `lo` at this point.
+            return ~lo;
+        }
+
+        public static long BinarySearchInstrumented<T, TComparable>(
+            ref T spanStart, long length, TComparable comparable)
+            where TComparable : IComparable<T>, allows ref struct
+        {
+            long lo = 0;
+            long hi = length - 1;
+            // If length == 0, hi == -1, and loop will not be entered
+            while (lo <= hi)
+            {
+                // PERF: `lo` or `hi` will never be negative inside the loop,
+                //       so computing median using uints is safe since we know
+                //       `length <= int.MaxValue`, and indices are >= 0
+                //       and thus cannot overflow an uint.
+                //       Saves one subtraction per loop compared to
+                //       `int i = lo + ((hi - lo) >> 1);`
+                long i = (long)(((ulong)hi + (ulong)lo) >> 1);
+
+                ref var value = ref Unsafe.Add(ref spanStart, (nint)i);
+                MemoryInstrumentation.OnAccess(in value);
+                long c = comparable.CompareTo(value);
                 if (c == 0)
                 {
                     return i;

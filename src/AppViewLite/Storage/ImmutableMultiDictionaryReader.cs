@@ -102,6 +102,7 @@ namespace AppViewLite.Storage
             if (IsSingleValue)
                 return 1;
             var offsets = this.Offsets!;
+            MemoryInstrumentation.MaybeOnAccess(in offsets[index]);
             ulong startOffset = offsets[index];
             ulong endOffset = index == offsets.Length - 1 ? (ulong)Values.Length : offsets[index + 1];
             return checked((int)(endOffset - startOffset));
@@ -162,7 +163,8 @@ namespace AppViewLite.Storage
         {
             if (index == -1) return default;
             if (IsSingleValue) return Values.Slice(index, 1);
-            return Values.Slice(Offsets![index], GetValueCount(index));
+            var offset = Offsets![index];
+            return Values.Slice(offset, GetValueCount(index));
         }
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()

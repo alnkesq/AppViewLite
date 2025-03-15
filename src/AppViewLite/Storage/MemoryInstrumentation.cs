@@ -16,11 +16,22 @@ namespace AppViewLite
     public static unsafe class MemoryInstrumentation
     {
         const int PageSize = 4096;
+        public static bool ShouldSample() => ((ulong)System.Diagnostics.Stopwatch.GetTimestamp()) % 128 == 0;
 
-        public static void OnAccess<T>(ref T item)
+        [Conditional("MEMORY_INSTRUMENTATION")]
+        public static void MaybeOnAccess<T>(ref readonly T addr)
         {
-            OnAccess(Unsafe.AsPointer(ref item));
+            if (ShouldSample())
+                OnAccess(in addr);
         }
+
+        [Conditional("MEMORY_INSTRUMENTATION")]
+        public static void OnAccess<T>(ref readonly T item)
+        {
+            OnAccess(Unsafe.AsPointer(ref Unsafe.AsRef(in item)));
+        }
+
+        [Conditional("MEMORY_INSTRUMENTATION")]
         public static void OnAccess(void* ptr)
         {
             var page = ((nuint)ptr) & ~(nuint)(PageSize - 1);
@@ -85,6 +96,8 @@ namespace AppViewLite
 
             }
         }
+
+
     }
 }
 

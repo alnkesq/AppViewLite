@@ -126,7 +126,7 @@ namespace AppViewLite
             {
                 if (!relationshipCache.PossiblyContains(target, actor))
                 {
-                    if ((target.GetHashCode() ^ actor.GetHashCode()) % 256 >= 16)
+                    if ((uint)(target.GetHashCode() ^ actor.GetHashCode()) % 256 > 2)
                     {
                         return false;
                     }

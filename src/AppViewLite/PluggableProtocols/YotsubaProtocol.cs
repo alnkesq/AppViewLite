@@ -44,6 +44,9 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         private async Task DiscoverFromHostAsync(string host, CancellationToken ct)
         {
+
+            await Task.Delay(TimeSpan.FromMinutes(1), ct);
+
             var ctx = RequestContext.CreateForFirehose("Yotsuba:" + host);
             var boards = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaBoardMetadataResponseJson>(GetApiPrefix(host) + "/boards.json", JsonOptions, ct);
 

@@ -24,6 +24,8 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                 OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"));
                 while (true)
                 {
+                    await Task.Delay(TimeSpan.FromMinutes(10), ct);
+
                     // Official API would require polling scores for every individual thread: https://hacker-news.firebaseio.com/v0/newstories.json
                     
                     var ctx = RequestContext.CreateForFirehose("HackerNews");
@@ -64,8 +66,6 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                             OnRepostDiscovered(HackerNewsMainDid, postId, date, ctx);
                     }
 
-                    await Task.Delay(TimeSpan.FromMinutes(10), ct);
-                    return;
                 }
             }, ct);
         }

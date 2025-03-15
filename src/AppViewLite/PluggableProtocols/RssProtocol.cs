@@ -42,6 +42,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             while (true)
             {
 
+                await Task.Delay(TimeSpan.FromMinutes(10), ct);
+
                 var followerToActualFeeds = new Dictionary<Plc, HashSet<Plc>>();
                 var ctx = RequestContext.CreateForFirehose("Rss");
                 Apis.WithRelationshipsLock(rels =>
@@ -93,7 +95,6 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 }, ctx);
 
-                await Task.Delay(TimeSpan.FromMinutes(10), ct);
             }
         }
 

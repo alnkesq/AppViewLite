@@ -178,8 +178,8 @@ namespace AppViewLite
             else if (slot._manyValuesSorted != null)
             {
                 if (slot._manyValuesSorted == EmptyValueSet) throw new Exception();
-                slot._manyValuesSorted.Add(value);
-                AddMemoryPressure(PerValueSize);
+                if (slot._manyValuesSorted.Add(value))
+                    AddMemoryPressure(PerValueSize);
             }
             else 
             {

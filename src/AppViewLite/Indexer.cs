@@ -942,7 +942,7 @@ namespace AppViewLite
                     {
                         lock (this)
                         {
-                            if (LastLagBehindWarningPrint != null && LastLagBehindWarningPrint.ElapsedMilliseconds < 500)
+                            if (LastLagBehindWarningPrint != null && LastLagBehindWarningPrint.ElapsedMilliseconds < LagBehindWarnIntervalMs)
                                 return;
                             LastLagBehindWarningPrint ??= Stopwatch.StartNew();
                             LastLagBehindWarningPrint.Restart();
@@ -964,6 +964,7 @@ namespace AppViewLite
                 disposed = true;
             }
 
+            public readonly static long LagBehindWarnIntervalMs = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS) ?? 500;
             public readonly static long LagBehindWarnThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD) ?? 100;
             public readonly static long LagBehindErrorThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD) ?? 10000;
         }

@@ -417,7 +417,6 @@ namespace AppViewLite
         }
 
 
-
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
             return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog, accounting) => 
@@ -925,11 +924,13 @@ namespace AppViewLite
             public void OnRecordReceived()
             {
                 
-                Interlocked.Increment(ref RecordsReceived);
+                var received = Interlocked.Increment(ref RecordsReceived);
                 
                 if (disposed) return;
 
-                var lagBehind = RecordsReceived - RecordsProcessed;
+                var processed = Interlocked.Read(in RecordsProcessed);
+
+                var lagBehind = received - processed;
                 if (lagBehind >= LagBehindErrorThreshold)
                 {
                     BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
@@ -947,7 +948,7 @@ namespace AppViewLite
                             LastLagBehindWarningPrint ??= Stopwatch.StartNew();
                             LastLagBehindWarningPrint.Restart();
                         }
-                        Console.Error.WriteLine("Struggling to process the firehose quickly enough, lagging behind: " + lagBehind);
+                        Console.Error.WriteLine($"Struggling to process the firehose quickly enough, lagging behind: {lagBehind} ({processed}/{received}, {(100.0 * processed / received):0.0}%)");
                     }
                 }
 

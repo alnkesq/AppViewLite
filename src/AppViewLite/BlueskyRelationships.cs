@@ -1271,7 +1271,7 @@ namespace AppViewLite
             foreach (var word in descriptionWords.Except(nameWords))
             {
                 var hash = HashWord(word);
-                ProfileSearchDescriptionOnly.AddIfMissing(hash, plc);
+                ProfileSearchDescriptionOnly.Add(hash, plc);
             }
         }
 

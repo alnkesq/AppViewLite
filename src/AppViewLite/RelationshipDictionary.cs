@@ -11,7 +11,9 @@ using System.Runtime.InteropServices;
 namespace AppViewLite
 {
     public abstract class RelationshipDictionary
-    { 
+    {
+        protected readonly static bool UseProbabilisticSets = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_PROBABILISTIC_SETS) ?? true;
+
         public abstract IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries { get; }
     }
     public class RelationshipDictionary<TTarget> : RelationshipDictionary, ICheckpointable, ICloneableAsReadOnly where TTarget : unmanaged, IComparable<TTarget>
@@ -38,6 +40,9 @@ namespace AppViewLite
 #nullable restore
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null)
         {
+            if (!UseProbabilisticSets)
+                relationshipCache = null;
+            
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
                 return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior, caches) { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };

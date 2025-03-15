@@ -378,15 +378,20 @@ namespace AppViewLite
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
                 var tcs = new TaskCompletionSource();
+                using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
+                using var accounting = new LagBehindAccounting();
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
                 {
                     tcs.TrySetCanceled();
                     firehose.Dispose();
                 });
-
+                firehose.OnRawMessageReceived += (s, e) =>
+                {
+                    // Called synchronously by the firehose socket reader
+                    accounting.OnRecordReceived();
+                };
                 firehose.OnConnectionUpdated += (_, e) =>
                 {
                     if (ct.IsCancellationRequested) return;
@@ -398,11 +403,12 @@ namespace AppViewLite
                 };
                 firehose.OnRecordReceived += (s, e) =>
                 {
+                    // Called from a Task.Run(() => ...) by the firehose socket reader
                     TryProcessRecord(() => 
                     {
                         OnJetStreamEvent(e);
                         watchdog.Kick();
-                    }, e.Record.Did?.Handler);
+                    }, e.Record.Did?.Handler, accounting);
                 };
                 await firehose.ConnectAsync(token: ct);
                 await tcs.Task;
@@ -414,40 +420,45 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog) => 
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog, accounting) => 
             {
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() => 
                 {
                     OnRepoFirehoseEvent(s, e);
                     watchdog.Kick();
-                }, e.Message.Commit?.Repo?.Handler);
+                }, e.Message.Commit?.Repo?.Handler, accounting);
             }, ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), (protocol, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), (protocol, watchdog, accounting) =>
             {
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() => 
                 {
                     OnLabelFirehoseEvent(s, e);
                     watchdog.Kick();
-                }, nameForDebugging);
+                }, nameForDebugging, accounting);
             }, ct);
         }
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog> setupHandler, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog, LagBehindAccounting> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                using var firehose = new FishyFlip.ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
                 var tcs = new TaskCompletionSource();
+                using var firehose = new ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
+                using var accounting = new LagBehindAccounting();
+                using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
                 {
                     tcs.TrySetCanceled();
                     firehose.Dispose();
                 });
-                using var watchdog = CreateFirehoseWatchdog(tcs);
-
+                firehose.OnMessageReceived += (s, e) =>
+                {
+                    // Called synchronously by the firehose socket reader
+                    accounting.OnRecordReceived();
+                };
                 firehose.OnConnectionUpdated += (_, e) =>
                 {
                     if (ct.IsCancellationRequested) return;
@@ -457,9 +468,8 @@ namespace AppViewLite
                         tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
                     }
                 };
-                setupHandler(firehose, watchdog);
+                setupHandler(firehose, watchdog, accounting);
                 await subscribeKind(firehose);
-
                 await tcs.Task;
             }, ct);
            
@@ -566,7 +576,7 @@ namespace AppViewLite
             return importer.LargestSeenRev;
         }
 
-        private static void TryProcessRecord(Action action, string? authorForDebugging)
+        private static void TryProcessRecord(Action action, string? authorForDebugging, LagBehindAccounting? accounting = null)
         {
             try
             {
@@ -577,11 +587,15 @@ namespace AppViewLite
                 Console.Error.WriteLine(authorForDebugging + ": " + ex.Message);
             }
             catch (OperationCanceledException)
-            { 
+            {
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(authorForDebugging + ": " + ex);
+            }
+            finally
+            {
+                accounting?.OnRecordProcessed();
             }
         }
 
@@ -901,6 +915,57 @@ namespace AppViewLite
         {
             if (handle.Length > 100) handle = string.Concat(handle.AsSpan(0, 50), "...");
             return handle;
+        }
+
+        public class LagBehindAccounting : IDisposable
+        {
+            public long RecordsReceived;
+            public long RecordsProcessed;
+            private bool disposed;
+            public void OnRecordReceived()
+            {
+                
+                Interlocked.Increment(ref RecordsReceived);
+                
+                if (disposed) return;
+
+                var lagBehind = RecordsReceived - RecordsProcessed;
+                if (lagBehind >= LagBehindErrorThreshold)
+                {
+                    BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
+                }
+
+
+                if ((RecordsReceived % 30) == 0)
+                {
+                    if (lagBehind >= LagBehindWarnThreshold)
+                    {
+                        lock (this)
+                        {
+                            if (LastLagBehindWarningPrint != null && LastLagBehindWarningPrint.ElapsedMilliseconds < 500)
+                                return;
+                            LastLagBehindWarningPrint ??= Stopwatch.StartNew();
+                            LastLagBehindWarningPrint.Restart();
+                        }
+                        Console.Error.WriteLine("Struggling to process the firehose quickly enough, lagging behind: " + lagBehind);
+                    }
+                }
+
+
+            }
+            private Stopwatch? LastLagBehindWarningPrint;
+            public void OnRecordProcessed()
+            {
+                Interlocked.Increment(ref RecordsProcessed);
+            }
+
+            public void Dispose()
+            {
+                disposed = true;
+            }
+
+            public readonly static long LagBehindWarnThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD) ?? 100;
+            public readonly static long LagBehindErrorThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD) ?? 10000;
         }
     }
 }

@@ -186,8 +186,6 @@ namespace AppViewLite
             this.IsReadOnly = isReadOnly;
             Directory.CreateDirectory(basedir);
 
-            
-
 
             lockFile = isReadOnly ? null : new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);
 

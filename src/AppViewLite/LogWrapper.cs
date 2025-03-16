@@ -30,7 +30,7 @@ namespace AppViewLite
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            var text = formatter(state, exception);
+            var text = logLevel + ": " + formatter(state, exception);
             if (exception != null)
             {
                 if (logLevel >= exceptionMinLogLevel)

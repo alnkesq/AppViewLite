@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.PluggableProtocols
 {
-    public abstract class PluggableProtocol
+    public abstract class PluggableProtocol : LoggableBase
     {
         public PluggableProtocol(string didPrefix)
         {
@@ -344,8 +344,7 @@ namespace AppViewLite.PluggableProtocols
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine("Pluggable protocol error:");
-                    Console.Error.WriteLine(ex);
+                    LogNonCriticalException("Pluggable protocol error", ex);
                 }
                 await Task.Delay(intervalBetweenRetries ?? TimeSpan.FromSeconds(30), ct);
             }

@@ -176,46 +176,6 @@ namespace AppViewLite
             }
         }
 
-
-
-#if false
-        // Blazor server code
-        public RequestContext OnStateChanged(Action a)
-        {
-            var synchronizationContext = SynchronizationContext.Current!;
-            var lockObj = new Lock();
-
-
-            Watchdog? watchdog = null;
-            var ctx = new RequestContext(Session, longTimeout, shortTimeout, SignalrConnectionId);
-
-            ctx._triggerStateChange = () =>
-            {
-                Console.Error.WriteLine("   RecordReceived!");
-                lock (lockObj)
-                {
-                    watchdog ??= Watchdog.Create(TimeSpan.FromMilliseconds(100), () =>
-                    {
-                        lock (lockObj)
-                        {
-                            watchdog = null;
-                        }
-                        synchronizationContext.Post(_ =>
-                        {
-
-                            a();
-                            Console.Error.WriteLine("       ONSTATECHANGE!");
-                        }, null);
-                    });
-
-                }
-
-            };
-            ctx.InitializeDeadlines(); // reinitialize, don't reuse (blazor server navigations don't provide a new request context)
-            return ctx;
-        }
-#endif
-
         public bool IsLoggedIn => Session != null && Session.IsLoggedIn;
         public Plc LoggedInUser => Session!.LoggedInUser!.Value;
 

@@ -38,7 +38,7 @@ namespace AppViewLite
             if (enqueued.Count == 0 && !RemoteEnumerationExhausted)
             {
                 var resumeFrom = new Tid(Math.Min(LastReturnedTid.TidValue, oldestEnqueued.TidValue));
-                Console.Error.WriteLine("FETCHING " + Kind + " from " + (resumeFrom != Tid.MaxValue ? resumeFrom.Date.ToString() : "(now)"));
+                LoggableBase.LogInfo("FETCHING " + Kind + " from " + (resumeFrom != Tid.MaxValue ? resumeFrom.Date.ToString() : "(now)"));
                 var newitems = (await RetrieveAsync(resumeFrom)).Select(x =>
                 {
                     if (!Tid.TryParse(x.RKey, out var rkey)) return default;
@@ -59,7 +59,7 @@ namespace AppViewLite
             }
             else
             {
-                Console.Error.WriteLine("No need to fetch new items for " + Kind);
+                LoggableBase.LogInfo("No need to fetch new items for " + Kind);
             }
             return enqueued.ToArray();
         }

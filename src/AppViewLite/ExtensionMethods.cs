@@ -24,7 +24,7 @@ namespace AppViewLite
                     {
                         return;
                     }
-                    Console.Error.WriteLine(t.Exception);
+                    LoggableBase.LogLowImportanceException(t.Exception);
                 }
             }, TaskContinuationOptions.OnlyOnFaulted);
         }

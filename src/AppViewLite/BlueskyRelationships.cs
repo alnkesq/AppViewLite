@@ -26,7 +26,7 @@ using System.Collections.Concurrent;
 
 namespace AppViewLite
 {
-    public class BlueskyRelationships : IDisposable, ICloneableAsReadOnly
+    public class BlueskyRelationships : LoggableBase, IDisposable, ICloneableAsReadOnly
     {
 
         public long Version = 1;
@@ -127,16 +127,16 @@ namespace AppViewLite
 
         public BlueskyRelationships()
             : this(
-                  AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData"), 
+                  AppViewLiteConfiguration.GetDataDirectory(), 
                   AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
         {
+            Log("Loaded.");
         }
 
         public string BaseDirectory { get; }
         private IDisposable? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
         private GlobalCheckpoint loadedCheckpoint;
-        internal Dictionary<string, Dictionary<nuint, bool>> AccessedMemoryPagesByTaskType = new();
 
         private T Register<T>(T r) where T : ICheckpointable
         {
@@ -465,12 +465,10 @@ namespace AppViewLite
             Lock.EnterWriteLock();
             try
             {
-                PrintMemoryPageAccesses();
 
                 IsDisposing = true;
                 if (!_disposed)
                 {
-
                     foreach (var d in disposables)
                     {
                         if (IsReadOnly) d.DisposeNoFlush();
@@ -489,6 +487,9 @@ namespace AppViewLite
                     }
                     lockFile?.Dispose();
                     _disposed = true;
+
+                    if (IsPrimary)
+                        Log("Disposed primary BlueskyRelationships.");
                 }
 
             }
@@ -504,16 +505,8 @@ namespace AppViewLite
             {
                 foreach (var item in recordTypeDurations.OrderByDescending(x => x.Value.TotalTime))
                 {
-                    Console.Error.WriteLine(item.Value + " " + item.Key + " (" + item.Value.Count + ", avg. " + (long)(item.Value.TotalTime / item.Value.Count).TotalMicroseconds  + ")");
+                    Log(item.Value + " " + item.Key + " (" + item.Value.Count + ", avg. " + (long)(item.Value.TotalTime / item.Value.Count).TotalMicroseconds  + ")");
                 }
-            }
-        }
-
-        public void PrintMemoryPageAccesses()
-        {
-            foreach (var item in AccessedMemoryPagesByTaskType.Select(x => (Key: x.Key, Count: x.Value.Count)).OrderByDescending(x => x.Count))
-            {
-                Console.Error.WriteLine("Accessed pages for " + item.Key + ":\t\t" + item.Count);
             }
         }
 
@@ -522,6 +515,7 @@ namespace AppViewLite
             if (IsReadOnly) return;
             try
             {
+                Log("Capturing checkpoint");
                 loadedCheckpoint.Tables ??= new();
                 foreach (var table in disposables)
                 {
@@ -1934,6 +1928,7 @@ namespace AppViewLite
         {
             ShutdownRequestedCts.Cancel();
             Dispose();
+            FlushLog();
         }
 
         internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst? maxPostIdExlusive, DateTime now)
@@ -2489,9 +2484,10 @@ namespace AppViewLite
             if (lastGlobalFlush.Elapsed.TotalSeconds > GlobalPeriodicFlushSeconds)
             {
                 if (IsReadOnly) return;
-                Console.Error.WriteLine("====== START OF GLOBAL PERIODIC FLUSH ======");
+                Log("Global periodic flush...");
+                LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
                 GlobalFlush();
-                Console.Error.WriteLine("====== END OF GLOBAL PERIODIC FLUSH ======");
+                LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
             }
         }
 
@@ -2810,14 +2806,9 @@ namespace AppViewLite
         public static Exception ThrowFatalError(string message)
         {
             var stackTrace = new StackTrace(true);
-            Console.Error.WriteLine(message);
-            Console.Error.WriteLine(stackTrace.ToString());
-            var directory = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_FATAL_ERROR_LOG_DIRECTORY);
-            if (directory != null)
-            {
-                Directory.CreateDirectory(directory);
-                File.WriteAllText(Path.Combine(directory, DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".log"), message + "\n" + stackTrace.ToString());
-            }
+            Log(message);
+            Log(stackTrace.ToString());
+            LoggableBase.FlushLog();
             Environment.FailFast(message);
             throw new Exception(message);
         }
@@ -3120,14 +3111,14 @@ namespace AppViewLite
                 }
                 else
                 {
-                    // Console.Error.WriteLine("Extra field: " + field.Name);
+                    // LogInfo("Extra field: " + field.Name);
                 }
             }
             this.PostAuthorsSinceLastReplicaSnapshot.Clear();
             copy.ReplicaAge = Stopwatch.StartNew();
 
             // . Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + "
-            Console.Error.WriteLine("Captured readonly replica, time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
+            LogInfo("Captured readonly replica, time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
             return copy;
         }
 
@@ -3386,19 +3377,19 @@ namespace AppViewLite
             if (anythingPruned)
                 GlobalFlush();
             else
-                Console.Error.WriteLine("Nothing to prune.");
+                Log("Nothing to prune.");
         }
 
         private AppViewLitePruningContext CreatePruningContext()
         {
-            Console.Error.WriteLine("Pruning...");
-            Console.Error.WriteLine("  Creating pruning context...");
+            Log("Pruning...");
+            Log("  Creating pruning context...");
             var preserveUsers = new HashSet<Plc>();
             var preservePosts = new HashSet<PostId>();
             var neighborhoodScore = new Dictionary<Plc, int>();
             var appViewLiteUsers = new HashSet<Plc>();
 
-            Console.Error.WriteLine("    Collecting pluggable protocol profiles...");
+            Log("    Collecting pluggable protocol profiles...");
             foreach (var (plc, didBytes) in this.PlcToDidOther.EnumerateUnsortedGrouped())
             {
                 var did = Encoding.UTF8.GetString(didBytes.AsSmallSpan());
@@ -3408,7 +3399,7 @@ namespace AppViewLite
             var allowlistedPluggableProfiles = preserveUsers.Count;
 
 
-            Console.Error.WriteLine("    Collecting AppViewLite users and their private follows...");
+            Log("    Collecting AppViewLite users and their private follows...");
             foreach (var (appviewLiteUser, appviewLiteUserBytes) in this.AppViewLiteProfiles.EnumerateUnsortedGrouped())
             {
                 preserveUsers.Add(appviewLiteUser);
@@ -3421,13 +3412,13 @@ namespace AppViewLite
                 }
             }
 
-            Console.Error.WriteLine("    Collecting AppViewLite users and their public follows...");
+            Log("    Collecting AppViewLite users and their public follows...");
             foreach (var (appviewLiteUser, followee) in this.RegisteredUserToFollowees.EnumerateUnsorted())
             {
                 preserveUsers.Add(followee.Member);
             }
 
-            Console.Error.WriteLine("    Collecting AppViewLite users' private bookmarks...");
+            Log("    Collecting AppViewLite users' private bookmarks...");
             foreach (var (bookmarker, bookmark) in this.Bookmarks.EnumerateUnsorted())
             {
                 preservePosts.Add(bookmark.PostId);
@@ -3435,7 +3426,7 @@ namespace AppViewLite
                 IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, bookmark.PostId.Author, out _), score);
             }
 
-            Console.Error.WriteLine("    Collecting AppViewLite users' seen posts...");
+            Log("    Collecting AppViewLite users' seen posts...");
             foreach (var (viewer, engagement) in this.SeenPosts.EnumerateUnsorted())
             {
                 preservePosts.Add(engagement.PostId);
@@ -3449,13 +3440,13 @@ namespace AppViewLite
             }
 
 
-            Console.Error.WriteLine("    Collecting frequent followers/followees of AppViewLite users and their followees...");
+            Log("    Collecting frequent followers/followees of AppViewLite users and their followees...");
             Stopwatch lastProgressPrint = Stopwatch.StartNew();
             void PrintProgress(long processed, long total)
             {
                 if (processed == total || lastProgressPrint.ElapsedMilliseconds > 5000)
                 {
-                    Console.Error.WriteLine($"      {((double)processed / total * 100):0.0}%");
+                    LogInfo($"      {((double)processed / total * 100):0.0}%");
                     lastProgressPrint.Restart();
                 }
             }
@@ -3483,7 +3474,7 @@ namespace AppViewLite
                 }
             }
             lastProgressPrint.Restart();
-            Console.Error.WriteLine("    Collecting frequent likers/likees of AppViewLite users and their followees...");
+            Log("    Collecting frequent likers/likees of AppViewLite users and their followees...");
 
             long totalLikes = this.Likes.creations.ValueCount;
             long processedLikes = 0;
@@ -3518,7 +3509,7 @@ namespace AppViewLite
                     IncrementSaturated(ref CollectionsMarshal.GetValueRefOrAddDefault(neighborhoodScore, from, out _), score);
                 }
             }
-            Console.Error.WriteLine("    Neighborhood scores computed, selecting top scores...");
+            Log("    Neighborhood scores computed, selecting top scores...");
 
             var priorityQueue = new PriorityQueue<Plc, int>();
             foreach (var (plc, score) in neighborhoodScore)
@@ -3535,8 +3526,8 @@ namespace AppViewLite
                 if (preserveUsers.Count >= neighborhoodSize && score < int.MaxValue) break;
                 preserveUsers.Add(plc);
             }
-            Console.Error.WriteLine($"    Pruning neighborhood computed. Will preserve content from {preserveUsers.Count} users, and {preservePosts.Count} isolated posts.");
-            Console.Error.WriteLine("    Proceeding with actual pruning...");
+            Log($"    Pruning neighborhood computed. Will preserve content from {preserveUsers.Count} users, and {preservePosts.Count} isolated posts.");
+            Log("    Proceeding with actual pruning...");
 
             return new AppViewLitePruningContext
             {
@@ -3569,6 +3560,10 @@ namespace AppViewLite
                 }
             }
         }
+
+
+
+
     }
 
 

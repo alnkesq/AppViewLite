@@ -71,7 +71,7 @@ namespace AppViewLite
                     var stopListening = SecondaryFirehoses.Where(x => !pdsesToDids.ContainsKey(x.Key));
                     foreach (var oldpds in stopListening)
                     {
-                        Console.Error.WriteLine("Stopping secondary firehose: " + oldpds.Key);
+                        Log("Stopping secondary firehose: " + oldpds.Key);
                         oldpds.Value.Cancel();
                         SecondaryFirehoses.Remove(oldpds.Key);
                     }
@@ -89,7 +89,7 @@ namespace AppViewLite
                                     throw new Exception($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
                             };
                             indexer.FirehoseUrl = new Uri(newpds);
-                            Console.Error.WriteLine("Starting secondary firehose: " + newpds);
+                            Log("Starting secondary firehose: " + newpds);
                             indexer.StartListeningToAtProtoFirehoseRepos(cts.Token).FireAndForget();
                             SecondaryFirehoses.Add(newpds, cts);
                         }
@@ -398,7 +398,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(ex);
+                LogNonCriticalException(ex);
                 return null;
             }
         }
@@ -725,7 +725,7 @@ namespace AppViewLite
             {
                 while (true)
                 {
-                    Console.Error.WriteLine("Try top search with minLikes: " + minLikes);
+                    LogInfo("Try top search with minLikes: " + minLikes);
                     var latest = await SearchLatestPostsAsync(options with { MinLikes = Math.Max(minLikes, options.MinLikes) }, ctx, limit: limit * 2, enrichOutput: false, alreadyProcessedPosts: searchSession.AlreadyProcessed);
                     if (latest.Posts.Length != 0)
                     {
@@ -1252,7 +1252,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(ex.Message);
+                LogLowImportanceException(ex);
                 return default;
             }
         }
@@ -3157,7 +3157,7 @@ namespace AppViewLite
             try
             {
                 // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
-                //Console.Error.WriteLine("ResolveHandleCoreAsync: " + handle);
+                //LogInfo("ResolveHandleCoreAsync: " + handle);
                 
                 if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {
@@ -3290,7 +3290,7 @@ namespace AppViewLite
 
         internal static async Task<DidDocProto> GetDidDocCoreNoOverrideAsync(string did)
         {
-            Console.Error.WriteLine("GetDidDocAsync: " + did);
+            LogInfo("GetDidDocAsync: " + did);
             string didDocUrl;
             if (did.StartsWith("did:web:", StringComparison.Ordinal))
             {

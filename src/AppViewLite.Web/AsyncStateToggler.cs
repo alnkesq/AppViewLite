@@ -59,7 +59,7 @@ namespace AppViewLite.Web
             {
                 (HaveRelationship, rkey, ActorCount) = prevState;
                 notifyChange();
-                Console.Error.WriteLine("Toggle failed: " + ex);
+                LoggableBase.LogNonCriticalException("Toggle failed", ex);
             }
             finally
             {

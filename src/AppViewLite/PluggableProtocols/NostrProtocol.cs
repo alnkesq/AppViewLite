@@ -56,7 +56,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                     }
                     catch (Exception ex)
                     {
-                        Console.Error.WriteLine(ex);
+                        LogLowImportanceException(ex);
                     }
                 }
             };
@@ -194,7 +194,6 @@ namespace AppViewLite.PluggableProtocols.Nostr
             {
                 if (e.Content == "hello") return; // avoid noisy exceptions
                 var p = System.Text.Json.JsonSerializer.Deserialize<NostrProfileJson>(e.Content!, JsonOptions)!;
-                //Console.Error.WriteLine(e.Content);
 
                 var nip05 = p.nip05.ValueKind == JsonValueKind.String ? p.nip05.GetString() : null;
                 if (IsMirrorProfile(p, nip05))
@@ -236,7 +235,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             //else if (kind == NostrEventKind.Event_Deletion_Request) { }
             //else
             //{
-            //    Console.Error.WriteLine(kind);
+            //    LogInfo(kind);
             //}
 
 

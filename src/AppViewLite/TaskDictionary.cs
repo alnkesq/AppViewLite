@@ -79,7 +79,7 @@ namespace AppViewLite
             }
             catch(Exception ex)
             {
-                Console.Error.WriteLine($"TaskDictionary error for {key}: " + ex.Message);
+                LoggableBase.LogLowImportanceException($"TaskDictionary error for {key}", ex);
                 throw;
             }
             finally

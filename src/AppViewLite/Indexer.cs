@@ -110,7 +110,7 @@ namespace AppViewLite
                     {
                         relationships.ListBlockDeletions.Add(new Relationship(rel.Actor, rel.RelationshipRKey), deletionDate);
                     }
-                    //else Console.Error.WriteLine("Deletion of unknown object type: " + collection);
+                    //else LogInfo("Deletion of unknown object type: " + collection);
                 }
 
                 relationships.LogPerformance(sw, "Delete-" + path);
@@ -302,7 +302,7 @@ namespace AppViewLite
                         var rkey = GetMessageRKey(path, Generator.RecordType + "/");
                         relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
                     }
-                    //else Console.Error.WriteLine("Creation of unknown object type: " + path);
+                    //else LogInfo("Creation of unknown object type: " + path);
                     relationships.LogPerformance(sw, "Create-" + path);
                     relationships.MaybeGlobalFlush();
                 }
@@ -333,7 +333,7 @@ namespace AppViewLite
             if (!currentlyRunningRecordRetrievals.TryAdd(uri.ToString())) return;
             Task.Run(async () =>
             {
-                Console.Error.WriteLine("Fetching record " + uri);
+                LogInfo("Fetching record " + uri);
                 
                 var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey, ctx));
 
@@ -585,14 +585,14 @@ namespace AppViewLite
             }
             catch (UnexpectedFirehoseDataException ex)
             {
-                Console.Error.WriteLine(authorForDebugging + ": " + ex.Message);
+                LogInfo(authorForDebugging + ": " + ex.Message);
             }
             catch (OperationCanceledException)
             {
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(authorForDebugging + ": " + ex);
+                LogNonCriticalException(authorForDebugging ?? "Unknown record author", ex);
             }
             finally
             {
@@ -717,7 +717,7 @@ namespace AppViewLite
                 if (entries.Count == 0) return;
 
 
-                Log("Flushing " + entries.Count + " PLC directory entries (" + lastRetrievedDidDoc.ToString("yyyy-MM-dd") + ")");
+                LogInfo("Flushing " + entries.Count + " PLC directory entries (" + lastRetrievedDidDoc.ToString("yyyy-MM-dd") + ")");
                 WithRelationshipsWriteLock(rels =>
                 {
                     rels.AvoidFlushes++; // We'll perform many writes, avoid frequent intermediate flushes.
@@ -740,7 +740,7 @@ namespace AppViewLite
 
                             rels.IndexHandle(entry.Handle, entry.TrustedDid!, ctx);
                         }
-                        Log("PLC directory entries flushed.");
+                        LogInfo("PLC directory entries flushed.");
                     }
                     finally
                     {
@@ -781,7 +781,7 @@ namespace AppViewLite
         {
             while (true)
             {
-                Log("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
+                LogInfo("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
                 using var stream = await  BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync(BlueskyEnrichedApis.PlcDirectoryPrefix + "/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
                 var prevLastRetrievedDidDoc = lastRetrievedDidDoc;
                 var itemsInPage = 0;
@@ -822,11 +822,6 @@ namespace AppViewLite
 
                 await Task.Delay(500);
             }
-        }
-
-        private static void Log(string v)
-        {
-            Console.Error.WriteLine(v);
         }
 
 
@@ -877,7 +872,7 @@ namespace AppViewLite
                             handles.Add(handle);
                         }
                         else
-                            Console.Error.WriteLine("Invalid handle: " + handle);
+                            LogInfo("Invalid handle: " + handle);
 
                     }
                     else
@@ -961,7 +956,7 @@ namespace AppViewLite
                             LastLagBehindWarningPrint ??= Stopwatch.StartNew();
                             LastLagBehindWarningPrint.Restart();
                         }
-                        Console.Error.WriteLine($"Struggling to process the firehose quickly enough, lagging behind: {lagBehind} ({processed}/{received}, {(100.0 * processed / received):0.0}%)");
+                        LogInfo($"Struggling to process the firehose quickly enough, lagging behind: {lagBehind} ({processed}/{received}, {(100.0 * processed / received):0.0}%)");
                     }
                 }
 

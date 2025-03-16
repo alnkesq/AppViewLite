@@ -31,7 +31,7 @@ namespace AppViewLite
 
         public void Log(string v)
         {
-            Console.Error.WriteLine(logPrefix + v);
+            LoggableBase.LogInfo(logPrefix + v);
         }
 
         public Tid LargestSeenRev;

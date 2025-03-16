@@ -96,7 +96,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
                     averageThreadsPerDay /= 2;
-                    Console.Error.WriteLine(ex);
+                    LogNonCriticalException(ex);
                 }
 
                 var intervalDays = 0.5 / averageThreadsPerDay;
@@ -129,7 +129,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                     }
                     catch (Exception ex)
                     {
-                        Console.Error.WriteLine(ex);
+                        LogNonCriticalException(ex);
                     }
                 }
             }

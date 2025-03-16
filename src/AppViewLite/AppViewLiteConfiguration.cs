@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -48,6 +49,11 @@ namespace AppViewLite
                 _ => throw new Exception($"Unparseable boolean configuration: {parameter}={s}")
             };
         }
+
+        public static string GetDataDirectory()
+        {
+            return GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData");
+        }
     }
 
     public enum AppViewLiteParameter
@@ -78,7 +84,6 @@ namespace AppViewLite
         APPVIEWLITE_LABEL_FIREHOSES,
         APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS,
         APPVIEWLITE_LISTEN_NOSTR_RELAYS,
-        APPVIEWLITE_FATAL_ERROR_LOG_DIRECTORY,
         APPVIEWLITE_YOTSUBA_HOSTS,
         APPVIEWLITE_BLOCKLIST_PATH,
         APPVIEWLITE_DISABLE_SLICE_GC,

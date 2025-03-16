@@ -59,7 +59,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine(ex);
+                    LogLowImportanceException(ex);
                 }
             }
         }

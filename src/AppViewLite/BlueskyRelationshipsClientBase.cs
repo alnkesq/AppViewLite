@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public abstract class BlueskyRelationshipsClientBase : IDisposable
+    public abstract class BlueskyRelationshipsClientBase : LoggableBase, IDisposable
     {
 
         protected readonly BlueskyRelationships relationshipsUnlocked;
@@ -176,7 +176,7 @@ namespace AppViewLite
 
                 if (ctx.MinVersion > readOnlyReplicaRelationshipsUnlocked.Version)
                 {
-                    Console.Error.WriteLine("Performing read from primary for " + ctx.RequestUrl);
+                    LogInfo("Performing read from primary for " + ctx.RequestUrl);
                     /* continue with primary instead */
                 }
                 else
@@ -491,7 +491,7 @@ namespace AppViewLite
                         break;
                 }
  
-                Console.Error.WriteLine("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason +" " + ctx.RequestUrl);
+                LogInfo("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason +" " + ctx.RequestUrl);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();
@@ -517,7 +517,7 @@ namespace AppViewLite
                              "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[TResult,TStateMachine]" or
                              "System.Threading.ExecutionContext"
                          ) continue;
-                        Console.Error.WriteLine("    " + typeName + "." + method.Name + " (" + frame.GetFileName() + ":" + frame.GetFileLineNumber() + ")");
+                        LogInfo("    " + typeName + "." + method.Name + " (" + frame.GetFileName() + ":" + frame.GetFileLineNumber() + ")");
                     }
                 }
             }
@@ -554,6 +554,7 @@ namespace AppViewLite
 
 
         public static ThreadPriorityScope CreateIngestionThreadPriorityScope() => new ThreadPriorityScope(ThreadPriority.Lowest);
+
     }
 
     public enum LockKind

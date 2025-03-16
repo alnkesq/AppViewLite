@@ -271,7 +271,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
                     catch (Exception ex)
                     {
-                        Console.Error.WriteLine(ex);
+                        LogLowImportanceException(ex);
                     }
                 }
 

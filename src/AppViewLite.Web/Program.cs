@@ -20,6 +20,7 @@ namespace AppViewLite.Web
 
         public static async Task Main(string[] args)
         {
+            LoggableBase.Initialize();
             Relationships = new();
             Relationships.MaybeEnterWriteLockAndPrune();
             
@@ -79,7 +80,7 @@ namespace AppViewLite.Web
                 var httpContext = StaticServiceProvider.GetRequiredService<IHttpContextAccessor>()?.HttpContext;
                 if (httpContext != null)
                 {
-                    Console.Error.WriteLine("Ctx was not passed for " + httpContext.Request.GetEncodedPathAndQuery());
+                    LoggableBase.Log("Ctx was not passed for " + httpContext.Request.GetEncodedPathAndQuery());
                     // we might have forgotten to pass a ctx
                 }
             };

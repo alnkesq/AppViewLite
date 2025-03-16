@@ -171,6 +171,8 @@ namespace AppViewLite
                             var likeRkey = GetMessageTid(path, Like.RecordType + "/");
                             var added = relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey));
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
+
+                            // TODO: here we perform the binary search twice: 1 for HasActor, 2 for GetApproximateActorCount.
                             var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
                             relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
                             relationships.NotifyPostStatsChange(postId, commitPlc);

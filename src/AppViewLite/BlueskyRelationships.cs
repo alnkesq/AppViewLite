@@ -2495,7 +2495,7 @@ namespace AppViewLite
             }
         }
 
-        private void GlobalFlush()
+        public void GlobalFlush()
         {
             if (IsReadOnly) throw new InvalidOperationException();
             foreach (var table in disposables)

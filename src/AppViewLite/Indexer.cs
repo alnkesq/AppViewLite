@@ -382,7 +382,7 @@ namespace AppViewLite
             {
                 var tcs = new TaskCompletionSource();
                 using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
-                using var accounting = new LagBehindAccounting();
+                using var accounting = new LagBehindAccounting(Apis);
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
                 {
@@ -448,7 +448,7 @@ namespace AppViewLite
             {
                 var tcs = new TaskCompletionSource();
                 using var firehose = new ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
-                using var accounting = new LagBehindAccounting();
+                using var accounting = new LagBehindAccounting(Apis);
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
                 {
@@ -935,7 +935,18 @@ namespace AppViewLite
                 var lagBehind = received - processed;
                 if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
                 {
-                    BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
+                    
+                    Interlocked.Decrement(ref RecordsReceived);
+                    var errorText = "Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind;
+                    if (LagBehindErrorDropEvents)
+                    {
+                        throw new Exception(errorText);
+                    }
+                    else
+                    {
+                        apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), RequestContext.CreateForFirehose("FlushBeforeLagBehindExit"));
+                        BlueskyRelationships.ThrowFatalError(errorText);
+                    }
                 }
 
 
@@ -957,6 +968,8 @@ namespace AppViewLite
 
             }
             private Stopwatch? LastLagBehindWarningPrint;
+            private BlueskyEnrichedApis apis;
+
             public void OnRecordProcessed()
             {
                 Interlocked.Increment(ref RecordsProcessed);
@@ -970,6 +983,12 @@ namespace AppViewLite
             public readonly static long LagBehindWarnIntervalMs = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS) ?? 500;
             public readonly static long LagBehindWarnThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD) ?? 100;
             public readonly static long LagBehindErrorThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD) ?? 10000;
+            public readonly static bool LagBehindErrorDropEvents = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_DROP_EVENTS) ?? false;
+
+            public LagBehindAccounting(BlueskyEnrichedApis apis)
+            {
+                this.apis = apis;
+            }
         }
     }
 }

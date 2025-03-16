@@ -438,7 +438,7 @@ namespace AppViewLite
             return GetApproxPlc24(rkeyHash.Plc, saturate);
         }
 
-        protected bool IsDisposing;
+        public bool IsDisposing { get; private set; }
         public bool IsDisposed => _disposed;
 
         public StrongBox<(StackTrace StackTrace, int ManagedThreadId)>? LastStackTraceOnWriteLockEnter;

@@ -931,7 +931,7 @@ namespace AppViewLite
                 var processed = Interlocked.Read(in RecordsProcessed);
 
                 var lagBehind = received - processed;
-                if (lagBehind >= LagBehindErrorThreshold)
+                if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
                 {
                     BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
                 }

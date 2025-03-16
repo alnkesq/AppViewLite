@@ -7,7 +7,8 @@ namespace AppViewLite
     {
         private readonly LogLevel exceptionMinLogLevel;
         private readonly LogLevel messageMinLogLevel;
-
+        public Func<Exception, bool>? IsLowImportanceException;
+        public Func<string, bool>? IsLowImportanceMessage;
         public LogWrapper()
             : this(LogLevel.Warning, LogLevel.Warning)
         {
@@ -33,7 +34,7 @@ namespace AppViewLite
             var text = logLevel + ": " + formatter(state, exception);
             if (exception != null)
             {
-                if (logLevel >= exceptionMinLogLevel)
+                if (logLevel >= exceptionMinLogLevel && IsLowImportanceException?.Invoke(exception) != true && IsLowImportanceMessage?.Invoke(text) != true)
                 {
                     LogNonCriticalException(text, exception);
                 }
@@ -44,7 +45,7 @@ namespace AppViewLite
             }
             else
             {
-                if (logLevel >= messageMinLogLevel && !IsLowImportanceMessage(text))
+                if (logLevel >= messageMinLogLevel && IsLowImportanceMessage?.Invoke(text) != true)
                 {
                     Log(text);
                 }

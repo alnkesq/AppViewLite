@@ -44,7 +44,7 @@ namespace AppViewLite
             }
             else
             {
-                if (logLevel >= messageMinLogLevel)
+                if (logLevel >= messageMinLogLevel && !IsLowImportanceMessage(text))
                 {
                     Log(text);
                 }

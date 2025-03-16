@@ -37,9 +37,23 @@ namespace AppViewLite
             Console.Error.WriteLine(text);
             LogToFile(text);
         }
+
+
+        private static bool IsLowImportanceException(Exception ex)
+        {
+            return ex.AnyInnerException(IsLowImportanceExceptionCore);
+        }
+
+        private static bool IsLowImportanceExceptionCore(Exception ex)
+        {
+            if (ex is UnexpectedFirehoseDataException) return true;
+
+            return false;
+        }
+
         public static void LogNonCriticalException(Exception ex)
         {
-            if (ex.AnyInnerException(x => x is UnexpectedFirehoseDataException))
+            if (IsLowImportanceException(ex))
                 LogInfo(ex.Message);
             else
                 Log(ex.ToString());
@@ -47,11 +61,19 @@ namespace AppViewLite
 
         public static void LogNonCriticalException(string text, Exception ex)
         {
-            if (ex.AnyInnerException(x => x is UnexpectedFirehoseDataException))
+            if (IsLowImportanceException(ex) || IsLowImportanceMessage(text))
                 LogInfo(text + ": " + ex.Message);
             else
                 Log(text + ": " + ex.ToString());
         }
+
+        public static bool IsLowImportanceMessage(string text)
+        {
+            return
+                text.Contains("Failed to deserialize ATWebSocketRecord", StringComparison.Ordinal) ||
+                text.Contains(@"""kind"":""commit"",""commit"":{""rev"":""");
+        }
+
         public static void LogLowImportanceException(Exception ex)
         {
             LogInfo(ex.Message);

@@ -1,0 +1,45 @@
+@page "/feed"
+@inject NavigationManager Navigation
+@inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
+
+@code {
+    [Parameter] [SupplyParameterFromQuery] public required string Endpoint { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public int Media { get; set; }
+    [Parameter] [SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+    private string? DisplayName;
+    private BlueskyPost[] Posts = [];
+    private bool ShowAsGrid => Media == 1;
+    protected override async Task OnParametersSetAsync()
+    {
+        var ctx = RequestContext;
+        var url = new Uri(Endpoint);
+        DisplayName = StringUtils.GetDisplayHost(url);
+        (Posts, _, NextContinuation) = await Apis.GetFeedAsync(null, null, Continuation, ctx, forGrid: ShowAsGrid, customEndpoint: url);
+    }
+}
+
+<PageTitle>@DisplayName</PageTitle>
+<h1>@DisplayName</h1>
+
+
+<div class="feed-author-link custom-feed-author-link">
+    <div class="feed-grid-toggle">
+        @if (ShowAsGrid)
+        {
+            <a href="@Navigation.WithQueryParameter("media", null)">Posts</a>
+            <span> | <b>Grid</b></span>
+        }
+        else
+        {
+            <span><b>Posts</b> | </span>
+            <a href="@Navigation.WithQueryParameter("media", "1")">Grid</a>
+
+        }
+    </div>
+</div>
+
+
+
+<PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowAsGrid" />

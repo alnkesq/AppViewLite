@@ -1373,13 +1373,13 @@ namespace AppViewLite
 
         //private Dictionary<(string Did, string RKey), (BlueskyFeedGeneratorData Info, DateTime DateCached)> FeedDomainCache = new();
 
-        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator Info, string? NextContinuation)> GetFeedAsync(string did, string rkey, string? continuation, RequestContext ctx, bool forGrid = false, int limit = default)
+        public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator? Info, string? NextContinuation)> GetFeedAsync(string? did, string? rkey, string? continuation, RequestContext ctx, bool forGrid = false, int limit = default, Uri? customEndpoint = null)
         {
             EnsureLimit(ref limit, 30);
-            var feedGenInfo = await GetFeedGeneratorAsync(did, rkey, ctx);
-            if (!feedGenInfo.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
+            var feedGenInfo = did != null ? await GetFeedGeneratorAsync(did, rkey!, ctx) : null;
+            if (customEndpoint == null && !feedGenInfo!.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
 
-            var proxyViaPds = ctx.IsLoggedIn;
+            var proxyViaPds = ctx.IsLoggedIn && customEndpoint == null;
 
 
 
@@ -1403,7 +1403,10 @@ namespace AppViewLite
                 }
                 else
                 {
-                    var skeletonUrl = $"https://{feedGenInfo.Data.ImplementationDid.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}&limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
+                    var suffix = $"limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
+                    var skeletonUrl =
+                        customEndpoint != null ? customEndpoint.AbsoluteUri + (string.IsNullOrEmpty(customEndpoint.Query) ? "?" : "&") + suffix : 
+                        $"https://{feedGenInfo!.Data!.ImplementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}?{suffix}";
 
                     postsJson = (await DefaultHttpClient.GetFromJsonAsync<AtFeedSkeletonResponse>(skeletonUrl))!;
                 }
@@ -3869,6 +3872,11 @@ namespace AppViewLite
                 catch
                 {
                 }
+            }
+
+            if (url.AbsolutePath.StartsWith("/xrpc/app.bsky.feed.getFeedSkeleton", StringComparison.Ordinal))
+            {
+                return "/feed?endpoint=" + Uri.EscapeDataString(url.AbsoluteUri);
             }
 
             foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)

@@ -107,7 +107,7 @@ namespace AppViewLite.Web.ApiCompat
             var uri = await apis.ResolveUriAsync(feed, ctx);
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
-            var (posts, displayName, nextContinuation) = await apis.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, ctx);
+            var (posts, info, nextContinuation) = await apis.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, ctx);
             await apis.PopulateFullInReplyToAsync(posts, ctx);
             return new GetFeedOutput
             {

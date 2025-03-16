@@ -207,8 +207,8 @@ namespace AppViewLite.Storage
 
         public long BinarySearch<TComparable>(TComparable comparable) where TComparable : IComparable<TKey>, allows ref struct
         {
-            if (comparable.CompareTo(MinimumKey) < 0) return ~0;
             if (comparable.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
+            if (comparable.CompareTo(MinimumKey) < 0) return ~0;
 
 #if false
             var result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);

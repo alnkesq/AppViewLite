@@ -22,7 +22,12 @@ You can set the following environment variables:
 * `APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE`: If the buffer of a table grows larger than this amount of bytes, it will be flushed to disk even before the next `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`. Defaults to `10485760` (10 MB).
 * `APPVIEWLITE_DISABLE_SLICE_GC`: If enabled, old slices won't be garbage collected, even after compactation (they will be however ignored and not loaded).
 * `APPVIEWLITE_RECENT_CHECKPOINTS_TO_KEEP`: How many old checkpoints to keep before garbage collecting old slices. Defaults to `3`.
-* `APPVIEWLITE_FATAL_ERROR_LOG_DIRECTORY`: Path to a directory where to dump fatal errors before an emergency exit.
+* `APPVIEWLITE_USE_PROBABILISTIC_SETS`: Uses a probabilistic cache to reduce disk reads. Defaults to `1`, but while developing you might want to set it to `0` since it increases startup time.
+* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD`: Prints a warning if the backlog of pending records to process is above this threshold. Defaults to `100`.
+* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD`: Errors out if the backlog of pending records to process is above this threshold. Defaults to `10000`.
+* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_DROP_EVENTS`: Drops firehose events instead of terminating the process if the error threshold is reached. Defaults to `0` (fatal exit).
+* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS`: How often to print lag behind warning messages, at most. Defaults to `500` ms.
+
 
 ## Handle and DID doc resolution
 * `APPVIEWLITE_DNS_SERVER`: DNS server for TXT resolutions. Defaults to `1.1.1.1`

@@ -2483,8 +2483,9 @@ namespace AppViewLite
             
             var pds = diddoc.Pds;
             if (pds == null) throw new UnexpectedFirehoseDataException("No PDS is specified in the DID doc of this user.");
-            var builder = new ATProtocolBuilder();
-            builder.WithInstanceUrl(new Uri(pds));
+            var builder = new ATProtocolBuilder()
+                .WithInstanceUrl(new Uri(pds))
+                .WithLogger(new LogWrapper());
             var dict = new Dictionary<ATDid, Uri>
             {
                 { new ATDid(did), new Uri(pds) }

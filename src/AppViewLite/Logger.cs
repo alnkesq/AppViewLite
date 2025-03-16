@@ -39,12 +39,18 @@ namespace AppViewLite
         }
         public static void LogNonCriticalException(Exception ex)
         {
-            Log(ex.ToString());
+            if (ex.AnyInnerException(x => x is UnexpectedFirehoseDataException))
+                LogInfo(ex.Message);
+            else
+                Log(ex.ToString());
         }
 
         public static void LogNonCriticalException(string text, Exception ex)
         {
-            Log(text + ": " + ex.ToString());
+            if (ex.AnyInnerException(x => x is UnexpectedFirehoseDataException))
+                LogInfo(text + ": " + ex.Message);
+            else
+                Log(text + ": " + ex.ToString());
         }
         public static void LogLowImportanceException(Exception ex)
         {

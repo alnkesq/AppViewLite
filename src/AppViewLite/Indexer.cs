@@ -381,7 +381,7 @@ namespace AppViewLite
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
                 var tcs = new TaskCompletionSource();
-                using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).Build();
+                using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).WithLogger(new LogWrapper()).Build();
                 using var accounting = new LagBehindAccounting(Apis);
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
@@ -447,7 +447,7 @@ namespace AppViewLite
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
                 var tcs = new TaskCompletionSource();
-                using var firehose = new ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).Build();
+                using var firehose = new ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).WithLogger(new LogWrapper()).Build();
                 using var accounting = new LagBehindAccounting(Apis);
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
@@ -918,6 +918,10 @@ namespace AppViewLite
             public long RecordsReceived;
             public long RecordsProcessed;
             private bool disposed;
+
+
+
+
             public void OnRecordReceived()
             {
                 
@@ -935,6 +939,14 @@ namespace AppViewLite
                     var errorText = "Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind;
                     if (LagBehindErrorDropEvents)
                     {
+                        lock (this)
+                        {
+                            if (LastDropEventsWarningPrint != null && LastDropEventsWarningPrint.ElapsedMilliseconds < 5000)
+                                throw new UnexpectedFirehoseDataException(errorText);
+                            LastDropEventsWarningPrint ??= Stopwatch.StartNew();
+                            LastDropEventsWarningPrint.Restart();
+                        }
+
                         throw new Exception(errorText);
                     }
                     else
@@ -963,6 +975,7 @@ namespace AppViewLite
 
             }
             private Stopwatch? LastLagBehindWarningPrint;
+            private Stopwatch? LastDropEventsWarningPrint;
             private BlueskyEnrichedApis apis;
 
             public void OnRecordProcessed()

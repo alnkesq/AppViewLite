@@ -34,6 +34,8 @@ namespace AppViewLite.Web
             BlueskyEnrichedApis.Instance = apis;
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
+            builder.Logging.ClearProviders();
+            builder.Logging.AddProvider(new LogWrapper.Provider());
             builder.Services.AddRazorComponents();
             builder.Services.AddRazorPages();
             builder.Services.AddSingleton<BlueskyEnrichedApis>(_ => apis);

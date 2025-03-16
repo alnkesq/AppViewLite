@@ -886,7 +886,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             else if (feedUrl.HasHostSuffix("tumblr.com"))
             {
-                return $"https://www.tumblr.com/{feedUrl.Host}/{postId.PostId.Int64}";
+                return $"https://www.tumblr.com/{feedUrl.Host.Split('.')[0]}/{postId.PostId.Int64}";
             }
             return post.Data?.ExternalUrl;
         }

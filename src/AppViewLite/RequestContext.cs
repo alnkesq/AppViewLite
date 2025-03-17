@@ -32,6 +32,9 @@ namespace AppViewLite
         public int ReadsFromPrimaryNonUrgent;
         public int ReadsFromSecondary;
 
+        public long StopwatchTicksSpentInsideSecondaryLock;
+        public long StopwatchTicksSpentInsidePrimaryLock;
+        public bool GarbageCollectionsOccurredInsideLock;
         public AccentColor AccentColor => IsLoggedIn ? PrivateProfile.AccentColor : AccentColor.Blue;
 
         public static Func<string, string, object[], Task>? SendSignalrImpl;
@@ -55,7 +58,6 @@ namespace AppViewLite
         private int addedToMetricsTable;
         public void AddToMetricsTable()
         {
-            if (IsUrgent && WriteOrUpgradeLockEnterCount != 0) { }
             if (Interlocked.Increment(ref addedToMetricsTable) != 1) return;
             var queue = IsUrgent ? RecentRequestContextsUrgent : RecentRequestContextsNonUrgent;
             queue.Enqueue(this);
@@ -131,6 +133,7 @@ namespace AppViewLite
                 MinVersion = originalCtx.MinVersion,
                 StartDate = originalCtx.StartDate,
                 LabelSubscriptions = originalCtx.LabelSubscriptions,
+                FirehoseReason = originalCtx.FirehoseReason,
             };
         }
 
@@ -143,8 +146,11 @@ namespace AppViewLite
                 Session = null!,
                 StartDate = DateTime.UtcNow,
                 LabelSubscriptions = [],
+                FirehoseReason = reason,
             };
         }
+
+        public string DebugText => FirehoseReason ?? RequestUrl ?? "Unknown";
 
         public void IncreaseTimeout(TimeSpan? shortTimeout = null)
         {

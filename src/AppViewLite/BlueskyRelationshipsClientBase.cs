@@ -185,7 +185,8 @@ namespace AppViewLite
                     var replica = this.readOnlyReplicaRelationshipsUnlocked;
                     replica.Lock.EnterReadLock();
                     Interlocked.Increment(ref ctx.ReadsFromSecondary);
-                    ctx.AddToMetricsTable();
+                    var sw2 = Stopwatch.StartNew();
+                    var gc2 = GC.CollectionCount(0);
                     try
                     {
                         replica.EnsureNotDisposed();
@@ -194,12 +195,10 @@ namespace AppViewLite
                     finally
                     {
                         replica.Lock.ExitReadLock();
+                        MaybeLogLongLockUsage(sw2, gc2, LockKind.SecondaryRead, ctx);
                     }
                 }
             }
-
-            ctx.AddToMetricsTable();
-
 
 
             BeforeLockEnter?.Invoke(ctx);
@@ -217,7 +216,16 @@ namespace AppViewLite
                     if (invoker == currentInvoker) Interlocked.Increment(ref ctx.ReadsFromPrimaryLate);
                     else Interlocked.Increment(ref ctx.ReadsFromPrimaryStolen);
 
-                    return func(relationshipsUnlocked);
+                    var sw = Stopwatch.StartNew();
+                    var gc = GC.CollectionCount(0);
+                    try
+                    {
+                        return func(relationshipsUnlocked);
+                    }
+                    finally
+                    {
+                        MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryReadUrgent, ctx);
+                    }
                 }, tcs);
 
                 urgentReadTasks.Enqueue(task);
@@ -260,7 +268,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 rels.Lock.ExitReadLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.Read, PrintLongReadLocksThreshold, ctx);
+                MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryRead, ctx);
             }
 
         }
@@ -348,9 +356,7 @@ namespace AppViewLite
             Stopwatch? sw = null;
             int gc = 0;
 
-            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
-            ctx.AddToMetricsTable();
-            
+            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);           
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             relationshipsUnlocked.OnBeforeWriteLockEnter();
@@ -382,7 +388,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.Write, PrintLongWriteLocksThreshold, ctx);
+                MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryWrite, ctx);
             }
         }
 
@@ -395,9 +401,7 @@ namespace AppViewLite
             int gc = 0;
 
 
-            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
-            ctx.AddToMetricsTable();
-            
+            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);            
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             BeforeLockEnter?.Invoke(ctx);
@@ -419,7 +423,7 @@ namespace AppViewLite
             {
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
-                MaybeLogLongLockUsage(sw, gc, LockKind.Upgradeable, PrintLongUpgradeableLocksThreshold, ctx);
+                MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryUpgradeable, ctx);
             }
 
         }
@@ -461,21 +465,46 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public readonly static int PrintLongReadLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS) ?? 30;
-        public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
-        public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
+        //public readonly static int PrintLongReadLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS) ?? 30;
+        //public readonly static int PrintLongWriteLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS) ?? PrintLongReadLocksThreshold;
+        //public readonly static int PrintLongUpgradeableLocksThreshold = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS) ?? PrintLongWriteLocksThreshold;
 
-        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, int threshold, RequestContext ctx, string? reason = null)
+        public readonly static TimeSpan PrintLongPrimaryLocks = TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_LONG_LOCK_PRIMARY_MS) ?? 30);
+        public readonly static TimeSpan PrintLongSecondaryLocks = TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_LONG_LOCK_SECONDARY_MS) ?? 50);
+
+
+        private static readonly double StopwatchTickConversionFactor = TimeSpan.TicksPerSecond / (double)Stopwatch.Frequency;
+        public static TimeSpan StopwatchTicksToTimespan(long stopwatchTicks) => new TimeSpan((long)(stopwatchTicks * StopwatchTickConversionFactor));
+
+        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, RequestContext ctx)
         {
             if (sw == null) return;
+            sw.Stop();
+            var hadGcs = GC.CollectionCount(0) - prevGcCount;
 
-            if (sw.ElapsedMilliseconds > threshold)
+            if (hadGcs != 0)
+                ctx.GarbageCollectionsOccurredInsideLock = true;
+
+            var isSecondary = lockKind == LockKind.SecondaryRead;
+
+            long totalStopwatchTicks;
+            if (isSecondary)
+                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsideSecondaryLock, sw.ElapsedTicks);
+            else
+                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsidePrimaryLock, sw.ElapsedTicks);
+
+            var isAboveThreshold = StopwatchTicksToTimespan(totalStopwatchTicks) >= (isSecondary ? PrintLongSecondaryLocks : PrintLongPrimaryLocks);
+            if (ctx.IsUrgent || isAboveThreshold)
+                ctx.AddToMetricsTable();
+
+            if (hadGcs != 0) return;
+
+
+            if (isAboveThreshold && false)
             {
-                sw.Stop();
-                var hadGcs = GC.CollectionCount(0) - prevGcCount;
-                if (hadGcs != 0) return;
-                
-                
+
+
+
                 if (Debugger.IsAttached) return; // would pollute stderr when stepping
 
 
@@ -491,7 +520,7 @@ namespace AppViewLite
                         break;
                 }
  
-                LogInfo("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + reason +" " + ctx.RequestUrl);
+                LogInfo("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + ctx.DebugText);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();
@@ -560,9 +589,11 @@ namespace AppViewLite
     public enum LockKind
     { 
         None,
-        Read,
-        Write,
-        Upgradeable,
+        PrimaryRead,
+        PrimaryWrite,
+        PrimaryUpgradeable,
+        PrimaryReadUrgent,
+        SecondaryRead,
     }
 
     public record UrgentReadTask(Func<object?, object?> Run, TaskCompletionSource<object?> Tcs);

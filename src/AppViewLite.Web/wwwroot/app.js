@@ -339,9 +339,11 @@ function fastNavigateIfLink(event) {
     return false;
 }
 
+var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/settings/mute', '/debug/locks', '/debug/requests'];
+
 function canFastNavigateTo(url) { 
     if (url.host != window.location.host) return false;
-    if (url.pathname == '/login' || url.pathname == '/logout' || url.pathname == '/settings/mute') return false;
+    if (NO_FAST_NAVIGATE_PATHS.includes(url.pathname)) return false;
     if (url.pathname.startsWith('/img/') || url.pathname.startsWith('/watch/') || url.pathname.startsWith('/api/')) return false;
     return true;
 }

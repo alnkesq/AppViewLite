@@ -1,21 +1,37 @@
 @page "/debug/requests"
-<h1>Requests</h1>
+@using SixLabors.ImageSharp.PixelFormats
+@layout AppViewLite.Web.Components.Layout.NoLayout
+<h1>Requests (urgent + slow)</h1>
 <PageTitle>Requests</PageTitle>
 
+@code {
+    private static string GetCellBackground(long value, long min)
+    {
+        var max = min * 16;
+        var ratio = (double)(value - min) / (max - min);
+
+        var brightness = (byte)Math.Clamp((int)Math.Round((1 - ratio) * 255), 0, 255);
+
+        var color = new Rgba32(255, brightness, brightness);
+        return "#" + color.ToHex();
+    }
+}
 
 <table class="debug-table">
     <tr>
         <th style="text-align: left">Date</th>
         <th style="text-align: left">Path</th>
         <th title="Reads from readonly replica">Reads repl.</th>
-        <th title="Reads from primary (stolen work)">Reads prim. (stolen)</th>
-        <th title="Reads from primary (late work)">Reads prim. (late)</th>
+        <th title="Reads from primary (urgent stolen lock)">Reads prim. (stolen)</th>
+        <th title="Reads from primary (late)">Reads prim. (late)</th>
         <th title="Write or upgradeable locks">Write/upgr. locks</th>
-        <th>Lock waits</th>
+        <th title="Time spent waiting for locks (ms)">Lock waits</th>
+        <th title="Time spent while holding a lock to the primary database (ms)">Primary time</th>
+        <th title="Time spent while holding a lock to the secondary database (ms)">Secondary time</th>
     </tr>
 
 
-    @foreach (var req in RequestContext.RecentRequestContextsUrgent.OrderByDescending(x => x.StartDate))
+    @foreach (var req in RequestContext.RecentRequestContextsUrgent.OrderByDescending(x => x.StartDate).Concat(RequestContext.RecentRequestContextsNonUrgent.OrderByDescending(x => x.StartDate)))
     {
         var w = req.TimeSpentWaitingForLocks.Elapsed;
 
@@ -24,15 +40,20 @@
         var readsFromPrimaryStolen = req.ReadsFromPrimaryStolen;
         var readsFromPrimaryLate = req.ReadsFromPrimaryLate;
         var writes = req.WriteOrUpgradeLockEnterCount;
+        var primaryTime = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(req.StopwatchTicksSpentInsidePrimaryLock);
+        var secondaryTime = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(req.StopwatchTicksSpentInsideSecondaryLock);
+        var writeTime = new TimeSpan((long)(double)req.StopwatchTicksSpentInsidePrimaryLock * TimeSpan.TicksPerSecond / System.Diagnostics.Stopwatch.Frequency);
         if ((readsFromSecondary == 0 && readsFromPrimaryStolen == 0 && readsFromPrimaryLate == 0 && writes == 0) || req.RequestUrl == "/debug/requests") continue;
         <tr>
             <td style="text-align: left">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</td>
-            <td style="text-align: left; white-space: nowrap; max-width: 600px; text-overflow: ellipsis; overflow: hidden;">@req.RequestUrl</td>
+            <td style="text-align: left; white-space: nowrap; max-width: 600px; text-overflow: ellipsis; overflow: hidden;">@req.DebugText</td>
             <td>@(readsFromSecondary != 0 ? readsFromSecondary : "-")</td>
             <td>@(readsFromPrimaryStolen != 0 ? readsFromPrimaryStolen : "-")</td>
             <td>@(readsFromPrimaryLate != 0 ? readsFromPrimaryLate : "-")</td>
             <td>@(writes != 0 ? writes : "-")</td>
-            <td>@(w != default ? (w.TotalMilliseconds).ToString("0.000") : "-")</td>
+            <td style="background: @GetCellBackground(w.Ticks, TimeSpan.FromMilliseconds(50).Ticks)">@(w != default ? (w.TotalMilliseconds).ToString("0.000") : "-")</td>
+            <td style="background: @GetCellBackground(primaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongPrimaryLocks.Ticks)">@(req.GarbageCollectionsOccurredInsideLock && primaryTime != default ? "[GC] " : null)@(primaryTime != default ? (primaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>
+            <td style="background: @GetCellBackground(secondaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongSecondaryLocks.Ticks)">@(req.GarbageCollectionsOccurredInsideLock && secondaryTime != default ? "[GC] " : null)@(secondaryTime != default ? (secondaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>
         </tr>
     }
 </table>

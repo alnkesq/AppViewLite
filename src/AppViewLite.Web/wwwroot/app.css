@@ -1872,7 +1872,7 @@ h1 .profile-badge img{
 }
 
 body:has(.debug-table){
-    max-width: 1600px;
+    max-width: 1800px;
 }
 
 .quoted-text{

@@ -86,7 +86,7 @@ namespace AppViewLite
                             indexer.VerifyValidForCurrentRelay = did =>
                             {
                                 if (!didsHashset.Contains(did))
-                                    throw new Exception($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
+                                    throw new UnexpectedFirehoseDataException($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
                             };
                             indexer.FirehoseUrl = new Uri(newpds);
                             Log("Starting secondary firehose: " + newpds);

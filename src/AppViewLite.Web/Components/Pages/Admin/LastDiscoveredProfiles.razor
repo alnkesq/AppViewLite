@@ -1,0 +1,22 @@
+@page "/debug/recent-profiles"
+@inherits ProfileComponentBase
+@inject NavigationManager Navigation
+
+@code {
+    private BlueskyProfile[] Users = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
+
+        (Users, NextContinuation) = await Apis.GetRecentProfiles(Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>Recent profiles</PageTitle>
+<h1>Recent profiles</h1>
+
+<ProfileList Profiles="Users" NextContinuation="@NextContinuation" />
+

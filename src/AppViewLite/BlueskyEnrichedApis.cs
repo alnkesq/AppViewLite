@@ -423,6 +423,24 @@ namespace AppViewLite
             }).FireAndForget();
         }
 
+
+        public async Task<ProfilesAndContinuation> GetAppViewLiteUsers(string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+            var parsedContinuation = StringUtils.DeserializeFromString<Plc>(continuation);
+            var users = WithRelationshipsLock(rels => rels.AppViewLiteProfiles.EnumerateKeysSortedDescending(parsedContinuation).Select(x => rels.GetProfile(x, ctx)).Take(limit + 1).ToArray(), ctx);
+            await EnrichAsync(users, ctx);
+            return GetPageAndNextPaginationFromLimitPlus1(users, limit, x => StringUtils.SerializeToString(x.Plc));
+        }
+        public async Task<ProfilesAndContinuation> GetRecentProfiles(string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+            var parsedContinuation = StringUtils.DeserializeFromString<Plc>(continuation);
+            var users = WithRelationshipsLock(rels => SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([rels.PlcToDidOther.EnumerateKeysSortedDescending(parsedContinuation), rels.PlcToDidPlc.EnumerateKeysSortedDescending(parsedContinuation)], x => x, new ReverseComparer<Plc>()).Select(x => rels.GetProfile(x, ctx)).Take(limit + 1).ToArray(), ctx);
+            await EnrichAsync(users, ctx);
+            return GetPageAndNextPaginationFromLimitPlus1(users, limit, x => StringUtils.SerializeToString(x.Plc));
+        }
+
         public async Task<ProfilesAndContinuation> GetFollowingPrivateAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             if (!ctx.IsLoggedIn || did != ctx.Session.Did)
@@ -2947,8 +2965,8 @@ namespace AppViewLite
             {
                 return (itemsPlusOne, null);
             }
-
         }
+        
 
         public async Task<(BlueskyList[] Lists, string? NextContinuation)> GetProfileListsAsync(string did, string? continuation, int limit, RequestContext ctx)
         {

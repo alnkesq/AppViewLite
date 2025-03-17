@@ -1,0 +1,22 @@
+@page "/admin/appviewlite-users"
+@inherits ProfileComponentBase
+@inject NavigationManager Navigation
+
+@code {
+    private BlueskyProfile[] Users = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
+
+        (Users, NextContinuation) = await Apis.GetAppViewLiteUsers(Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>AppViewLite users</PageTitle>
+<h1>AppViewLite users</h1>
+
+<ProfileList Profiles="Users" NextContinuation="@NextContinuation" />
+

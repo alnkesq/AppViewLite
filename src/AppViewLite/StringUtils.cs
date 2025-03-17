@@ -6,6 +6,7 @@ using AppViewLite.Models;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
 using System;
+using System.Buffers.Text;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -757,6 +758,21 @@ namespace AppViewLite
             }
 
             return Uri.TryCreate(pageUrl, img.GetAttribute("src"), out var url) ? url : null;
+        }
+
+        public static T? DeserializeFromString<T>(string? continuation) where T : unmanaged
+        {
+            if (string.IsNullOrEmpty(continuation)) return null;
+            var bytes = Base64Url.DecodeFromChars(continuation);
+            if (bytes.Length != Unsafe.SizeOf<T>())
+                throw new ArgumentException();
+            return MemoryMarshal.Cast<byte, T>(bytes)[0];   
+        }
+
+        public static string SerializeToString<T>(T value) where T : unmanaged
+        {
+            var bytes = MemoryMarshal.AsBytes<T>(new ReadOnlySpan<T>(in value));
+            return Base64Url.EncodeToString(bytes);
         }
 
         private readonly static FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> KnownFileExtensions = new[]

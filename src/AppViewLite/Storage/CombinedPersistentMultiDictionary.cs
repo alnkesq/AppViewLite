@@ -966,6 +966,31 @@ namespace AppViewLite.Storage
             }
         }
 
+        public IEnumerable<TKey> EnumerateKeysSortedDescending(TKey? maxExclusive)
+        {
+            var keyChunks = this.EnumerateKeyChunks();
+            if (maxExclusive != null)
+            {
+                keyChunks = keyChunks
+                    .Select(x => 
+                    {
+                        var index = x.AsSpan().BinarySearch(maxExclusive.Value);
+                        if (index >= 0)
+                        {
+                            return x.Slice(0, index);
+                        }
+                        else
+                        {
+                            index = ~index;
+                            return x.Slice(0, index);
+                        }
+                    })
+                    .Where(x => x.Count != 0);
+            }
+
+            return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered<TKey, TKey>(keyChunks.Select(x => x.Reverse()).ToArray(), x => x, new ReverseComparer<TKey>()).DistinctAssumingOrderedInput(skipCheck: true);
+        }
+
         public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive)
         {
             foreach (var q in queue)

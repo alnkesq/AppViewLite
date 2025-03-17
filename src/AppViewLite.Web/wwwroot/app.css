@@ -1660,6 +1660,7 @@ button[disabled], input[type=submit][disabled] {
 .post-blocked > .post-author-image-link-container > .post-author-image-link,
 .post-blocked > .post-author-image-link,
 .post-blocked > .post-body,
+.post-blocked > .post-error,
 .post-blocked > .post-external-gif,
 .post-blocked > .post-external-preview,
 .post-blocked > .post-image-list,

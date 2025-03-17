@@ -3,22 +3,31 @@
 @using System.Diagnostics
 @using AppViewLite
 
-<table>
-    <tr>
-        <th>Section</th>
-        <th>Cache misses</th>
-    </tr>
-    @{
-        var stats = AppViewLite.MemoryInstrumentation.GetStats(AppViewLite.Storage.MemoryMappedFileSlim.GetPageToSectionFunc());
-        
-        foreach (var item in stats.OrderByDescending(x => x.CacheMisses))
-        {
-            <tr>
-                <td>@item.TableName</td>
-                <td>@item.CacheMisses</td>
-            </tr>
-        }
+<PageTitle>Memory instrumentation</PageTitle>
+<h1>Memory instrumentation</h1>
+@if (AppViewLite.MemoryInstrumentation.IsEnabled)
+{
+    <table>
+        <tr>
+            <th>Section</th>
+            <th>Cache misses</th>
+        </tr>
+        @{
+            var stats = AppViewLite.MemoryInstrumentation.GetStats(AppViewLite.Storage.MemoryMappedFileSlim.GetPageToSectionFunc());
 
-        
-    }
-</table>
+            foreach (var item in stats.OrderByDescending(x => x.CacheMisses))
+            {
+                <tr>
+                    <td>@item.TableName</td>
+                    <td>@item.CacheMisses</td>
+                </tr>
+            }
+
+
+        }
+    </table>
+}
+else
+{
+    <div class="main-padding">This page requires AppViewLite to be compiled with MEMORY_INSTRUMENTATION.</div>
+}

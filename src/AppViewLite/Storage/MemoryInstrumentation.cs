@@ -15,6 +15,12 @@ namespace AppViewLite
 {
     public static unsafe class MemoryInstrumentation
     {
+#if MEMORY_INSTRUMENTATION
+        public readonly static bool IsEnabled = true;
+#else
+        public readonly static bool IsEnabled = false;
+#endif
+
         const int PageSize = 4096;
         public static bool ShouldSample() => ((ulong)System.Diagnostics.Stopwatch.GetTimestamp()) % 128 == 0;
 

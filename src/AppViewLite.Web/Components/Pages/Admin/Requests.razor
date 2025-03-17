@@ -1,10 +1,6 @@
 @page "/debug/requests"
-<h3>Requests</h3>
-
-@code {
-
-}
-
+<h1>Requests</h1>
+<PageTitle>Requests</PageTitle>
 
 
 <table class="debug-table">
@@ -12,9 +8,9 @@
         <th style="text-align: left">Date</th>
         <th style="text-align: left">Path</th>
         <th title="Reads from readonly replica">Reads repl.</th>
-        <th title="Reads from primary (stolen work)">Reads prim (stolen)</th>
-        <th title="Reads from primary (late work)">Reads prim (late)</th>
-        <th>Write/upgr. locks</th>
+        <th title="Reads from primary (stolen work)">Reads prim. (stolen)</th>
+        <th title="Reads from primary (late work)">Reads prim. (late)</th>
+        <th title="Write or upgradeable locks">Write/upgr. locks</th>
         <th>Lock waits</th>
     </tr>
 

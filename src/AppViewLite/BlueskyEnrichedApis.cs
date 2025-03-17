@@ -3923,6 +3923,26 @@ namespace AppViewLite
             }
             SaveAppViewLiteProfile(ctx);
         }
+
+        public object GetCountersThreadSafe()
+        {
+            return new
+            {
+                CarImportCount = this.carImports.Count,
+                FetchAndStoreDidDocNoOverrideDict = this.FetchAndStoreDidDocNoOverrideDict.Count,
+                FetchAndStoreLabelerServiceMetadataDict = this.FetchAndStoreLabelerServiceMetadataDict.Count,
+                FetchAndStoreListMetadataDict = this.FetchAndStoreListMetadataDict.Count,
+                FetchAndStorePostDict = this.FetchAndStorePostDict.Count,
+                FetchAndStoreProfileDict = this.FetchAndStoreProfileDict.Count,
+                recentSearches = this.recentSearches.Count,
+                RunHandleVerificationDict = this.RunHandleVerificationDict.Count,
+                SecondaryFirehoses = this.SecondaryFirehoses.Count,
+                SessionDictionary = this.SessionDictionary.Count,
+                UserContexts = this.UserContexts.Count,
+                Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
+                Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
+            };
+        }
     }
 }
 

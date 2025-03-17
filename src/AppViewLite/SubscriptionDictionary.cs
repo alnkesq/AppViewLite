@@ -11,7 +11,7 @@ namespace AppViewLite
     public class SubscriptionDictionary<TKey, TDelegate> where TDelegate: Delegate where TKey: notnull
     {
         private readonly ConcurrentDictionary<TKey, TDelegate> subscriptions = new();
-
+        public int Count => subscriptions.Count;
         public void MaybeNotifyOutsideLock(TKey key, Action<TDelegate> invoke)
         {
             if (subscriptions.TryGetValue(key, out var handler))

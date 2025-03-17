@@ -25,7 +25,8 @@ namespace AppViewLite
             return dict.TryGetValue(key, out value);
         }
 
-
+        public int Count => dict.Count;
+        public int ApproximateCount => approximateCount;
         public TValue this[TKey key]
         {
             set

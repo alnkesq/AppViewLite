@@ -40,6 +40,8 @@ namespace AppViewLite
             inner.StartAsync(key, extraArgs, onCompleted);
         }
 
+        public int Count => inner.Count;
+
     }
     public class TaskDictionary<TKey, TExtraArgs, TValue> where TKey: notnull
     {
@@ -69,6 +71,7 @@ namespace AppViewLite
             
         }
 
+        public int Count => dict.Count;
 
         private async Task<TValue> CreateTaskAsync(TKey key, TExtraArgs extraArgs)
         {

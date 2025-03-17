@@ -1,0 +1,15 @@
+@page "/debug/counters"
+@inject BlueskyEnrichedApis Apis
+<PageTitle>Counters</PageTitle>
+<h2>Counters</h2>
+
+
+@code {
+
+}
+
+<pre style="white-space: pre-wrap">
+
+    @System.Text.Json.JsonSerializer.Serialize(Apis.GetCountersThreadSafe(), new System.Text.Json.JsonSerializerOptions(){ WriteIndented = true })
+</pre>
+

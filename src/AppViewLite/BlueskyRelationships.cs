@@ -774,8 +774,6 @@ namespace AppViewLite
         private readonly static FrozenDictionary<string, LanguageEnum> languageToEnum = Enum.GetValues<LanguageEnum>().ToFrozenDictionary(x => x.ToString().Replace('_', '-'), x => x);
 
 
-
-        private List<BlueskyPostData> testDataForCompression = new();
         public BlueskyPostData? StorePostInfoExceptData(Post p, PostId postId, RequestContext ctx)
         {
             if (postId == default) throw new Exception();
@@ -3563,7 +3561,30 @@ namespace AppViewLite
 
 
 
-
+        public object GetCountersThreadSafe()
+        {
+            return new
+            {
+                this.AvoidFlushes,
+                checkpointToLoad = this.checkpointToLoad?.Count,
+                DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
+                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.Count,
+                lastGlobalFlush = this.lastGlobalFlush.Elapsed,
+                this.PlcDirectoryStaleness,
+                this.PlcDirectorySyncDate,
+                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.Count,
+                PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
+                PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
+                recordTypeDurations = this.recordTypeDurations.Count,
+                registerForNotificationsCache = this.registerForNotificationsCache.Count,
+                this.ReplicaAge?.Elapsed,
+                ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
+                this.SuppressNotificationGeneration,
+                UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
+                UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
+                this.Version,
+            };
+        }
     }
 
 

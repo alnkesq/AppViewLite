@@ -76,6 +76,8 @@ namespace AppViewLite
             RefreshTokenExpireDate = jwtToken.ValidTo;
         }
 
+        public ConcurrentSet<PostId>? RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts;
+        public DateTime RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset;
 
     }
 

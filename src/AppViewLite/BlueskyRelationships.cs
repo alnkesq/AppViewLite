@@ -553,6 +553,19 @@ namespace AppViewLite
                     }
                 }
 
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    var handle = lockFile!.SafeFileHandle.DangerousGetHandle();
+                    // First we flush all file data to physical disk, then we save the .pb checkpoint
+                    if (syncfs((int)handle) < 0)
+                        throw new Win32Exception("syncfs failed with errno " + Marshal.GetLastWin32Error());
+
+                    // On Windows, FlushFileBuffers() can work:
+                    // - on individual files, but could many individual writes increase write amplification?
+                    //     - would this be mitigated by writing everything, then flushing everything?
+                    // - on a whole volume, but it requires administrative privileges.
+                }
+
 
                 var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
                 File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));

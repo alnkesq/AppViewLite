@@ -1913,8 +1913,8 @@ namespace AppViewLite
             {
 
                 var possibleFollows = rels.GetFollowingFast(ctx);
-
-                var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx.LoggedInUser);
+                
+                var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
 
                 var plcToRecentPostLikes = new Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>();
 
@@ -2039,11 +2039,17 @@ namespace AppViewLite
 
                     WithRelationshipsLock(rels =>
                     {
-                        var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(loggedInUser);
+                        var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
 
                         bool IsPostSeenOrAlreadyReturned(PostId postId) => alreadyReturnedPosts.Contains(postId) || isPostSeen(postId);
 
                         bool ShouldInclude(BlueskyPost post)
+                        {
+                            var result = ShouldIncludeCore(post);
+                            if (!result) BlueskyRelationships.DiscardPost(post.PostId, ctx);
+                            return result;
+                        }
+                        bool ShouldIncludeCore(BlueskyPost post)
                         {
                             var shouldInclude = rels.ShouldIncludeLeafPostInFollowingFeed(post, ctx);
                             if (shouldInclude != null) return shouldInclude.Value;
@@ -2239,6 +2245,8 @@ namespace AppViewLite
             await EnrichAsync(posts, ctx);
             return new PostsAndContinuation(posts, null);
         }
+
+        
 
         //private static Dictionary<PostId, DateTime> GetMostRecentRepostDates(ScoredBlueskyPost[] candidates)
         //{
@@ -3529,6 +3537,7 @@ namespace AppViewLite
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
+                    ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts!.TryAdd(postId);
                     now = now.AddTicks(1);
                 }
 

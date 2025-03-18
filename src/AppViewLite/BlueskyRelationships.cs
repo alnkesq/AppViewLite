@@ -2389,13 +2389,24 @@ namespace AppViewLite
                 .Where(x =>
                 {
                     var triplet = requireFollowStillValid[x];
-                    
-                    if (!(follows.IsStillFollowed(triplet.A, this) && follows.IsStillFollowed(triplet.B, this) && follows.IsStillFollowed(triplet.C, this)))
-                        return false;
 
-                    return ShouldIncludeLeafPostInFollowingFeed(x, ctx) ?? true;
+                    if (!(follows.IsStillFollowed(triplet.A, this) && follows.IsStillFollowed(triplet.B, this) && follows.IsStillFollowed(triplet.C, this)))
+                    {
+                        DiscardPost(x.PostId, ctx);
+                        return false;
+                    }
+
+                    var shouldInclude = ShouldIncludeLeafPostInFollowingFeed(x, ctx) ?? true;
+                    if (!shouldInclude)
+                        DiscardPost(x.PostId, ctx);
+                    return shouldInclude;
                 })!;
             return result;
+        }
+
+        public static void DiscardPost(PostId postId, RequestContext ctx)
+        {
+            ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
         }
 
         public void PopulateViewerFlags(BlueskyPost post, RequestContext ctx)
@@ -3002,14 +3013,20 @@ namespace AppViewLite
         }
 
 
-        public Func<PostIdTimeFirst, bool> GetIsPostSeenFuncForUserRequiresLock(Plc loggedInUser)
+        public Func<PostIdTimeFirst, bool> GetIsPostSeenFuncForUserRequiresLock(RequestContext ctx)
         {
-            var seenPosts = SeenPosts.GetValuesChunked(loggedInUser).ToArray();
+            MaybeUpdateRecentlyAlreadySeenOrDiscardedPosts(ctx);
+            var seenPostsInMemory = ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts!;
+            var seenPostsInMemoryThreshold = (ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset - BalancedFeedMaximumAge).AddSeconds(60);
+            var seenPosts = SeenPosts.GetValuesChunked(ctx.LoggedInUser).ToArray();
 
             var cache = new Dictionary<PostIdTimeFirst, bool>();
 
             return postId =>
             {
+                if (seenPostsInMemory.Contains(postId)) return true;
+                if (postId.PostRKey.Date > seenPostsInMemoryThreshold) return false;
+
                 bool Core()
                 {
                     foreach (var slice in seenPosts)
@@ -3033,11 +3050,30 @@ namespace AppViewLite
                 if (!cache.TryGetValue(postId, out var result))
                 {
                     result = Core();
+                    cache[postId] = result;
+
+                    if (result)
+                        DiscardPost(postId, ctx);
                 }
                 return result;
             };
         }
 
+        private void MaybeUpdateRecentlyAlreadySeenOrDiscardedPosts(RequestContext ctx)
+        {
+            var now = DateTime.UtcNow;
+            var userContext = ctx.UserContext;
+            if (userContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts == null || (now - userContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset).TotalHours >= 36)
+            {
+                var postSet = new ConcurrentSet<PostId>();
+                foreach (var item in this.SeenPostsByDate.GetValuesUnsorted(ctx.LoggedInUser, new TimePostSeen(now - BalancedFeedMaximumAge, default)))
+                {
+                    postSet.TryAdd(item.PostId);
+                }
+                userContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts = postSet;
+                userContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset = now;
+            }
+        }
 
         internal static void EnsureNotExcessivelyFutureDate(Tid tid)
         {

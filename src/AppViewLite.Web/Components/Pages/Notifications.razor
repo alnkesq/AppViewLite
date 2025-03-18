@@ -29,3 +29,10 @@
 {
     <NotificationRow Notification="@notification" />
 }
+
+@if (newNotifications.Length + oldNotifications.Length <= 3)
+{
+    <div class="empty-notifications-message main-padding">
+        Note: notifications that occurred before your first login to AppViewLite are not available.
+    </div>
+}

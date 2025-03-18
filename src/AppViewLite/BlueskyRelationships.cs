@@ -23,6 +23,7 @@ using System.Threading;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Collections.Concurrent;
+using System.ComponentModel;
 
 namespace AppViewLite
 {
@@ -85,7 +86,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<HashedWord, Plc> HandleToPossibleDids;
         public CombinedPersistentMultiDictionary<Pds, byte> PdsIdToString;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Pds> PdsHashToPdsId;
-        public CombinedPersistentMultiDictionary<DateTime, int> LastRetrievedPlcDirectoryEntry;
+        public CombinedPersistentMultiDictionary<DateTime, byte> LastRetrievedPlcDirectoryEntry;
         public CombinedPersistentMultiDictionary<DuckDbUuid, HandleVerificationResult> HandleToDidVerifications;
         public CombinedPersistentMultiDictionary<PostId, LabelEntry> PostLabels;
         public CombinedPersistentMultiDictionary<Plc, LabelEntry> ProfileLabels;
@@ -130,11 +131,24 @@ namespace AppViewLite
                   AppViewLiteConfiguration.GetDataDirectory(), 
                   AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
         {
+            if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CHECK_NUL_FILES) ?? true)
+            {
+                var potentiallyCorrupt = AllMultidictionaries.SelectMany(x => x.GetPotentiallyCorruptFiles()).ToArray();
+                if (potentiallyCorrupt.Length != 0)
+                {
+                    Log("The following slices begin or end with many NUL bytes and are probably corrupt. This can happen after an abrupt system power-off. Consider manually reverting to a previous checkpoint file.");
+                    foreach (var item in potentiallyCorrupt)
+                    {
+                        Log(item);
+                    }
+                    ThrowFatalError("Potentially corrupt slices were detected. See log for details.");
+                }
+            }
             Log("Loaded.");
         }
 
         public string BaseDirectory { get; }
-        private IDisposable? lockFile;
+        private FileStream? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
         private GlobalCheckpoint loadedCheckpoint;
 
@@ -263,7 +277,7 @@ namespace AppViewLite
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
             DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
-            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory", PersistentDictionaryBehavior.KeySetOnly);
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications");
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
@@ -272,12 +286,12 @@ namespace AppViewLite
             LabelData = RegisterDictionary<LabelId, byte>("label-data", PersistentDictionaryBehavior.PreserveOrder);
 
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
-            KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
+            KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.KeySetOnly);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
             SeenPosts = RegisterDictionary<Plc, PostEngagement>("seen-posts-2", onCompactation: CompactPostEngagements);
             SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
-            NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.SingleValue);
+            NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
 
             
 
@@ -540,6 +554,19 @@ namespace AppViewLite
                     }
                 }
 
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    var handle = lockFile!.SafeFileHandle.DangerousGetHandle();
+                    // First we flush all file data to physical disk, then we save the .pb checkpoint
+                    if (syncfs((int)handle) < 0)
+                        throw new Win32Exception("syncfs failed with errno " + Marshal.GetLastWin32Error());
+
+                    // On Windows, FlushFileBuffers() can work:
+                    // - on individual files, but could many individual writes increase write amplification?
+                    //     - would this be mitigated by writing everything, then flushing everything?
+                    // - on a whole volume, but it requires administrative privileges.
+                }
+
 
                 var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
                 File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
@@ -552,6 +579,9 @@ namespace AppViewLite
                 CombinedPersistentMultiDictionary.Abort(ex);
             }
         }
+
+        [DllImport("libc.so.6", SetLastError = true)]
+        public static extern int syncfs(int fd);
 
         private void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
@@ -569,7 +599,7 @@ namespace AppViewLite
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
-                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.StartTime + "-" + x.EndTime).Distinct().ToArray()));
+                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.SliceBaseName).Distinct().ToArray()));
             foreach (var table in keep)
             {
                 foreach (var file in new DirectoryInfo(Path.Combine(BaseDirectory, table.TableName)).EnumerateFiles())

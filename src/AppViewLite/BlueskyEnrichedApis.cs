@@ -1422,6 +1422,7 @@ namespace AppViewLite
                 else
                 {
                     var suffix = $"limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
+
                     var skeletonUrl =
                         customEndpoint != null ? customEndpoint.AbsoluteUri + (string.IsNullOrEmpty(customEndpoint.Query) ? "?" : "&") + suffix :
                         $"https://{feedGenInfo!.Data!.ImplementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}?{suffix}";

@@ -33,8 +33,10 @@ namespace AppViewLite.Models
         [ProtoMember(3)] public long PruneId;
         public override string ToString()
         {
-            return StartTime + "-" + EndTime;
+            return SliceBaseName;
         }
+
+        public string SliceBaseName => ToSliceName().BaseName;
 
         public SliceName ToSliceName()
         {

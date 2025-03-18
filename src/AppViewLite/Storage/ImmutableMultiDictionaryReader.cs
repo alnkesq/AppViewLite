@@ -6,6 +6,7 @@ using AppViewLite.Numerics;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace AppViewLite.Storage
 {
@@ -16,17 +17,24 @@ namespace AppViewLite.Storage
         private readonly PersistentDictionaryBehavior behavior;
         private DangerousHugeReadOnlyMemory<TKey> pageKeys;
         private readonly MemoryMappedFileSlim? pageKeysMmap;
-        private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
+
+        public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
+        public bool HasOffsets => !IsSingleValueOrKeySet;
+        public bool HasValues => behavior != PersistentDictionaryBehavior.KeySetOnly;
+
         public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
-            this.columnarReader = new SimpleColumnarReader(pathPrefix, IsSingleValue ? 2 : 3);
+            this.columnarReader = new SimpleColumnarReader(pathPrefix, 
+                behavior == PersistentDictionaryBehavior.KeySetOnly ? 1 :
+                behavior == PersistentDictionaryBehavior.SingleValue ? 2 :
+                3);
             this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
-            if (!IsSingleValue)
+            if (HasOffsets)
                 this.Offsets = columnarReader.GetColumnHugeMemory<UInt48>(2);
 
             if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)
@@ -59,8 +67,35 @@ namespace AppViewLite.Storage
                 this.MinimumKey = Keys[0];
                 this.MaximumKey = Keys[Keys.Length - 1];
             }
-            this.SizeInBytes = Keys.Length * Unsafe.SizeOf<TKey>() + Values.Length * Unsafe.SizeOf<TValue>() + (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
+            this.SizeInBytes = 
+                Keys.Length * Unsafe.SizeOf<TKey>() +
+                (HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0) + 
+                (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
 
+        }
+
+        public IEnumerable<string> GetPotentiallyCorruptFiles()
+        {
+            if (IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<TKey>)Keys)))
+                yield return columnarReader.Columns[0].Path;
+
+            if (behavior != PersistentDictionaryBehavior.KeySetOnly)
+            {
+                if (IsPotentiallyCorrupt(Values))
+                    yield return columnarReader.Columns[1].Path;
+
+                if (HasOffsets && Offsets!.Length >= 2 && IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<UInt48>)Offsets!)))
+                    yield return columnarReader.Columns[2].Path;
+            }
+        }
+
+        private unsafe static bool IsPotentiallyCorrupt<T>(DangerousHugeReadOnlyMemory<T> column) where T : unmanaged
+        {
+            var span = new HugeReadOnlySpan<byte>((byte*)column.Pointer, column.Length * Unsafe.SizeOf<T>());
+            var maxLength = (int)Math.Min(span.Length, 256);
+            var begin = span.Slice(0, maxLength).AsSmallSpan;
+            var end = span.Slice(span.Length - maxLength).AsSmallSpan;
+            return !begin.ContainsAnyExcept((byte)0) || !end.ContainsAnyExcept((byte)0);
         }
 
         const int MinSizeBeforeKeyCache = 2 * 1024 * 1024;
@@ -70,14 +105,13 @@ namespace AppViewLite.Storage
 
 
         public HugeReadOnlyMemory<TKey> Keys;
-        public DangerousHugeReadOnlyMemory<TValue> Values => columnarReader.GetColumnDangerousHugeMemory<TValue>(1);
+        public DangerousHugeReadOnlyMemory<TValue> Values => HasValues ? columnarReader.GetColumnDangerousHugeMemory<TValue>(1) : throw new InvalidOperationException();
         public HugeReadOnlyMemory<UInt48>? Offsets;
 
-
-
+        public int ColumnCount => columnarReader.Columns.Count;
 
         public long KeyCount => Keys.Length;
-        public long ValueCount => Values.Length;
+        public long ValueCount => HasValues ? Values.Length : KeyCount;
 
         public void Dispose()
         {
@@ -99,7 +133,7 @@ namespace AppViewLite.Storage
         public int GetValueCount(long index)
         {
             if (index == -1) return 0;
-            if (IsSingleValue)
+            if (IsSingleValueOrKeySet)
                 return 1;
             var offsets = this.Offsets!;
             MemoryInstrumentation.MaybeOnAccess(in offsets[index]);
@@ -162,40 +196,61 @@ namespace AppViewLite.Storage
         public DangerousHugeReadOnlyMemory<TValue> GetValues(long index)
         {
             if (index == -1) return default;
-            if (IsSingleValue) return Values.Slice(index, 1);
+            if (behavior == PersistentDictionaryBehavior.SingleValue) return Values.Slice(index, 1);
+            if (behavior == PersistentDictionaryBehavior.KeySetOnly) return SingletonDefaultValue;
             var offset = Offsets![index];
             return Values.Slice(offset, GetValueCount(index));
         }
+        private readonly static DangerousHugeReadOnlyMemory<TValue> SingletonDefaultValue = SingletonDefaultNativeMemory<TValue>.Singleton;
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()
         {
-            if (!IsSingleValue) throw new InvalidOperationException();
-            var allValues = this.Values;
             var keys = this.Keys;
             var count = keys.Length;
 
-            for (long i = 0; i < count; i++)
+            if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
-                yield return (keys[i], allValues[i]);
+                var allValues = this.Values;
+
+                for (long i = 0; i < count; i++)
+                {
+                    yield return (keys[i], allValues[i]);
+                }
             }
+            else if (behavior == PersistentDictionaryBehavior.KeySetOnly)
+            {
+                for (long i = 0; i < count; i++)
+                {
+                    yield return (keys[i], default);
+                }
+            }
+            else throw new InvalidOperationException();
+            
         }
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
         {
-            var allValues = this.Values;
             var keys = this.Keys;
             var count = keys.Length;
 
-            if (IsSingleValue)
+            if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
+                var allValues = this.Values;
                 for (long i = 0; i < count; i++)
                 {
                     yield return (keys[i], allValues.Slice(i, 1));
                 }
             }
+            else if (behavior == PersistentDictionaryBehavior.KeySetOnly)
+            {
+                for (long i = 0; i < count; i++)
+                {
+                    yield return (keys[i], SingletonDefaultValue);
+                }
+            }
             else
             {
-
+                var allValues = this.Values;
                 var offsets = this.Offsets!;
                 for (long i = 0; i < count; i++)
                 {
@@ -271,6 +326,16 @@ namespace AppViewLite.Storage
                 return pageIndex * KeyCountPerPage;
             }
         }
+    }
+
+    internal struct SingletonDefaultNativeMemory<T> where T : unmanaged
+    {
+        static unsafe SingletonDefaultNativeMemory()
+        {
+            var ptr = NativeMemory.AllocZeroed((nuint)Unsafe.SizeOf<T>());
+            Singleton = new DangerousHugeReadOnlyMemory<T>((T*)ptr, 1);
+        }
+        public readonly static DangerousHugeReadOnlyMemory<T> Singleton;
     }
 }
 

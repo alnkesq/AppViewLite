@@ -67,6 +67,9 @@ This AppView runs independently of the main `bsky.app` APIs.
 
 Optionally, you can set [various configuration settings](https://github.com/alnkesq/AppViewLite/blob/main/docs/Configuration.md), including  `APPVIEWLITE_DIRECTORY` to specify where the data should be stored.
 
+### Custom PDS Accounts
+If your account is hosted on a non-Bluesky PDS, set `PDS_ENABLE_DID_DOC_WITH_SESSION=true` in your `pds.env` file. If you are not the admin of your PDS, reach out to them to ask them to do so. (If you're not sure if you're an admin, you are not an admin)
+
 ## Storage mechanism
 Each "table" is a set of memory-mapped columnar storage files that associates one key, to one or many values.
 Both the keys and the values within a key are ordered to enable fast binary search lookups.

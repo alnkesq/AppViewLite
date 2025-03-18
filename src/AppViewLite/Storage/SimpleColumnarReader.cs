@@ -28,6 +28,7 @@ namespace AppViewLite.Storage
             this.columns = cols.ToArray();
         }
 
+        public IReadOnlyList<MemoryMappedFileSlim> Columns => columns;
         public void Dispose()
         {
             foreach (var col in columns)

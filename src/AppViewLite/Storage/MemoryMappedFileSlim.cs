@@ -17,7 +17,7 @@ namespace AppViewLite.Storage
     public unsafe class MemoryMappedFileSlim : IDisposable
     {
         public static ConcurrentDictionary<MemoryMappedFileSlim, byte> Sections = new();
-        private string Path;
+        public string Path { get; private set; }
         public MemoryMappedFileSlim(string path, bool randomAccess = false)
             : this(path, writable: false, FileShare.Read, randomAccess: randomAccess)
         { 

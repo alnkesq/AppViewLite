@@ -130,6 +130,19 @@ namespace AppViewLite
                   AppViewLiteConfiguration.GetDataDirectory(), 
                   AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
         {
+            if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CHECK_NUL_FILES) ?? true)
+            {
+                var potentiallyCorrupt = AllMultidictionaries.SelectMany(x => x.GetPotentiallyCorruptFiles()).ToArray();
+                if (potentiallyCorrupt.Length != 0)
+                {
+                    Log("The following slices begin or end with many NUL bytes and are probably corrupt. This can happen after an abrupt system power-off. Consider manually reverting to a previous checkpoint file.");
+                    foreach (var item in potentiallyCorrupt)
+                    {
+                        Log(item);
+                    }
+                    ThrowFatalError("Potentially corrupt slices were detected. See log for details.");
+                }
+            }
             Log("Loaded.");
         }
 

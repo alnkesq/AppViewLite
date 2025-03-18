@@ -6,6 +6,7 @@ using AppViewLite.Numerics;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace AppViewLite.Storage
 {
@@ -20,6 +21,7 @@ namespace AppViewLite.Storage
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
+
         public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
         {
             this.PathPrefix = pathPrefix;
@@ -61,6 +63,17 @@ namespace AppViewLite.Storage
             }
             this.SizeInBytes = Keys.Length * Unsafe.SizeOf<TKey>() + Values.Length * Unsafe.SizeOf<TValue>() + (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
 
+        }
+
+        public string[] GetPotentiallyCorruptFiles() => columnarReader.Columns.Where(x => IsPotentiallyCorrupt(x)).Select(x => x.Path).ToArray();
+
+        private unsafe static bool IsPotentiallyCorrupt(MemoryMappedFileSlim x)
+        {
+            var span = new HugeReadOnlySpan<byte>(x.ptr, x.Length);
+            var maxLength = (int)Math.Min(span.Length, 256);
+            var begin = span.Slice(0, maxLength).AsSmallSpan;
+            var end = span.Slice(span.Length - maxLength).AsSmallSpan;
+            return !begin.ContainsAnyExcept((byte)0) || !end.ContainsAnyExcept((byte)0);
         }
 
         const int MinSizeBeforeKeyCache = 2 * 1024 * 1024;

@@ -39,6 +39,7 @@ namespace AppViewLite.Storage
         public DateTime LastFlushed;
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
+        public abstract string[] GetPotentiallyCorruptFiles();
 
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
@@ -1286,6 +1287,11 @@ namespace AppViewLite.Storage
                 
             }
             return prunedAnything;
+        }
+
+        public override string[] GetPotentiallyCorruptFiles()
+        {
+            return slices.SelectMany(x => x.Reader.GetPotentiallyCorruptFiles()).ToArray();
         }
 
         public abstract class CachedView

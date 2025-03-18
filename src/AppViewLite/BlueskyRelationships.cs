@@ -582,7 +582,7 @@ namespace AppViewLite
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
-                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.StartTime + "-" + x.EndTime).Distinct().ToArray()));
+                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.SliceBaseName).Distinct().ToArray()));
             foreach (var table in keep)
             {
                 foreach (var file in new DirectoryInfo(Path.Combine(BaseDirectory, table.TableName)).EnumerateFiles())

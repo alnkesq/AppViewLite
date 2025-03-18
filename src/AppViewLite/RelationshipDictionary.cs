@@ -175,6 +175,9 @@ namespace AppViewLite
 
         public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
         {
+            if (target != null)
+                EnsureValidTarget(target.Value);
+
             if (!IsDeleted(rel))
             {
                 deletions.Add(rel, deletionDate);
@@ -193,7 +196,11 @@ namespace AppViewLite
             return target;
         }
 
-
+        private static void EnsureValidTarget(TTarget value)
+        {
+            if (EqualityComparer<TTarget>.Default.Equals(value, default))
+                BlueskyRelationships.ThrowFatalError("target is default(TTarget)");
+        }
 
         public int GetDeletionCount(TTarget target)
         {
@@ -207,6 +214,8 @@ namespace AppViewLite
 
         public bool Add(TTarget target, Relationship relationship)
         {
+            EnsureValidTarget(target);
+
             if (HasActor(target, relationship.Actor, out var oldrel))
             {
                 if (oldrel == relationship) return false;

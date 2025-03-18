@@ -1422,9 +1422,8 @@ namespace AppViewLite
                 else
                 {
                     var suffix = $"limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
-                    var skeletonUrl =
-                        customEndpoint != null ? customEndpoint.AbsoluteUri + (string.IsNullOrEmpty(customEndpoint.Query) ? "?" : "&") + suffix : 
-                        $"https://{feedGenInfo!.Data!.ImplementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}?{suffix}";
+                    var endpoint = customEndpoint?.AbsoluteUri ?? $"https://{feedGenInfo!.Data!.ImplementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{Uri.EscapeDataString(did!)}/app.bsky.feed.generator/{Uri.EscapeDataString(rkey!)}";
+                    var skeletonUrl = endpoint + (endpoint.Contains('?') ? '&' : '?') + suffix;
 
                     postsJson = (await DefaultHttpClient.GetFromJsonAsync<AtFeedSkeletonResponse>(skeletonUrl))!;
                 }

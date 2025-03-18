@@ -18,6 +18,7 @@ namespace AppViewLite.Storage
         SortedValues,
         SingleValue,
         PreserveOrder,
+        KeySetOnly,
     }
 
     public interface ICheckpointable : IFlushable

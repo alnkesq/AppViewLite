@@ -22,6 +22,8 @@ namespace AppViewLite.Storage
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
 
+        public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
+        public bool HasOffsets => !IsSingleValueOrKeySet;
         public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
         {
             this.PathPrefix = pathPrefix;
@@ -65,11 +67,24 @@ namespace AppViewLite.Storage
 
         }
 
-        public string[] GetPotentiallyCorruptFiles() => columnarReader.Columns.Where(x => IsPotentiallyCorrupt(x)).Select(x => x.Path).ToArray();
-
-        private unsafe static bool IsPotentiallyCorrupt(MemoryMappedFileSlim x)
+        public IEnumerable<string> GetPotentiallyCorruptFiles()
         {
-            var span = new HugeReadOnlySpan<byte>(x.ptr, x.Length);
+            if (IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<TKey>)Keys)))
+                yield return columnarReader.Columns[0].Path;
+
+            if (behavior != PersistentDictionaryBehavior.KeySetOnly)
+            {
+                if (IsPotentiallyCorrupt(Values))
+                    yield return columnarReader.Columns[1].Path;
+
+                if (HasOffsets && Offsets!.Length >= 2 && IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<UInt48>)Offsets!)))
+                    yield return columnarReader.Columns[2].Path;
+            }
+        }
+
+        private unsafe static bool IsPotentiallyCorrupt<T>(DangerousHugeReadOnlyMemory<T> column) where T : unmanaged
+        {
+            var span = new HugeReadOnlySpan<byte>((byte*)column.Pointer, column.Length * Unsafe.SizeOf<T>());
             var maxLength = (int)Math.Min(span.Length, 256);
             var begin = span.Slice(0, maxLength).AsSmallSpan;
             var end = span.Slice(span.Length - maxLength).AsSmallSpan;

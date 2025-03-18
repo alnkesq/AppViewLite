@@ -82,6 +82,7 @@ namespace AppViewLite.Storage
     {
         private T* ptr;
         private readonly long length;
+        public T* Pointer => ptr;
         public HugeReadOnlySpan<T> Span
         {
             get

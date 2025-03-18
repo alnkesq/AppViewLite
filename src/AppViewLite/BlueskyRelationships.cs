@@ -147,7 +147,7 @@ namespace AppViewLite
         }
 
         public string BaseDirectory { get; }
-        private IDisposable? lockFile;
+        private FileStream? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
         private GlobalCheckpoint loadedCheckpoint;
 

@@ -52,7 +52,7 @@ namespace AppViewLite.Storage
 
         private static void EnsureDefaultValue(TValue value)
         {
-            if (!value.Equals(default))
+            if (!EqualityComparer<TValue>.Default.Equals(value, default))
                 throw new ArgumentException();
         }
 

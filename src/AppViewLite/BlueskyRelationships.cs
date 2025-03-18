@@ -579,6 +579,9 @@ namespace AppViewLite
             }
         }
 
+        [DllImport("libc.so.6", SetLastError = true)]
+        public static extern int syncfs(int fd);
+
         private void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
             if (IsReadOnly) return;

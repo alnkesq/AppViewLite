@@ -25,6 +25,9 @@
                     <div class="page-error" data-islogouterror="@(exception.AnyInnerException(x => x is LoggedOutException) ? 1 : 0)">
                         ❌
                         @Program.GetExceptionDisplayText(exception)
+                        <p>
+                            If you use a non-Bluesky PDS, please follow <a class="blue-link" href="https://github.com/alnkesq/AppViewLite?tab=readme-ov-file#custom-pds-accounts">these instructions</a> to make sure your PDS is properly configured.
+                        </p>
                     </div>
                 </Body>
             </AppViewLite.Web.Components.Layout.MainLayout>
@@ -38,4 +41,3 @@
 </body>
 
 </html>
-

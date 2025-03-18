@@ -105,10 +105,10 @@ namespace AppViewLite
                 {
                     if (DangerousUnlockedRelationships.IsDisposed) return;
                     DidDocOverrides.GetValue();
-                    await Task.Delay(TimeSpan.FromSeconds(10)); 
+                    await Task.Delay(TimeSpan.FromSeconds(10));
                 }
             }))();
-            
+
 
             relationships.NotificationGenerated += Relationships_NotificationGenerated;
         }
@@ -132,7 +132,7 @@ namespace AppViewLite
             if (notification.Kind is NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost)
             {
                 var postId = new PostId(destination, notification.RKey);
-                if (!rels.PostData.ContainsKey(postId) && !rels.FailedPostLookups.ContainsKey(postId)) 
+                if (!rels.PostData.ContainsKey(postId) && !rels.FailedPostLookups.ContainsKey(postId))
                 {
                     var post = rels.GetPost(postId);
                     DispatchOutsideTheLock(() => EnrichAsync([post], ctx).FireAndForget());
@@ -355,7 +355,7 @@ namespace AppViewLite
                         rels.FailedPostLookups.Add(id, DateTime.UtcNow);
                     }
                 }
-                finally 
+                finally
                 {
                     rels.SuppressNotificationGeneration--;
                 }
@@ -413,7 +413,7 @@ namespace AppViewLite
                 handle = diddoc.Handle;
                 if (handle == null) return;
             }
-            
+
             RunHandleVerificationAsync(handle, ctx).ContinueWith(task =>
             {
                 var k = task.IsCompletedSuccessfully && task.Result == did ? handle : null;
@@ -457,7 +457,7 @@ namespace AppViewLite
             var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x)).ToArray(), ctx);
             await EnrichAsync(profiles, ctx);
             return (profiles.Take(limit).ToArray(), profiles.Length == limit ? (offset + limit).ToString() : null);
-            
+
         }
 
         public async Task<ProfilesAndContinuation> GetFollowingAsync(string did, string? continuation, int limit, RequestContext ctx)
@@ -611,7 +611,7 @@ namespace AppViewLite
 
             await EnrichAsync(posts.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
             await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).WhereNonNull().ToArray(), ctx, ct: ct);
-            
+
             if (loadQuotes)
             {
                 var r = posts.Select(x => x.QuotedPost).WhereNonNull().ToArray();
@@ -649,7 +649,7 @@ namespace AppViewLite
             return posts;
         }
 
-        
+
 
         public void DispatchOutsideTheLock(Action value)
         {
@@ -739,7 +739,7 @@ namespace AppViewLite
             bool HasEnoughPrefetchedResults() => searchSession.AlreadyProcessed.Count(x => x.Value.LikeCount != -1) > limit; // strictly greater (we want limit + 1)
 
 
-            if (!HasEnoughPrefetchedResults()) 
+            if (!HasEnoughPrefetchedResults())
             {
                 while (true)
                 {
@@ -845,7 +845,7 @@ namespace AppViewLite
             }
             var posts = WithRelationshipsLock(rels =>
             {
-                
+
                 return rels
                     .SearchPosts(coreSearchTerms.ToArray(), options.Since != null ? (ApproximateDateTime32)options.Since : default, until != null ? ((ApproximateDateTime32)until).AddTicks(1) : null, author, options.Language)
                     .DistinctAssumingOrderedInput(skipCheck: true)
@@ -868,7 +868,7 @@ namespace AppViewLite
                                 return true;
                             });
                         // TODO: dedupe them
-                        
+
                         if (options.MinLikes > 0)
                         {
                             postsCore = postsCore.Where(x => rels.Likes.HasAtLeastActorCount(x.Key, options.MinLikes));
@@ -879,7 +879,7 @@ namespace AppViewLite
                         }
 
                         var posts = postsCore
-                            .Where(x => 
+                            .Where(x =>
                             {
                                 if (alreadyProcessedPosts != null)
                                 {
@@ -903,7 +903,7 @@ namespace AppViewLite
                             .Where(x => x.Data!.Text != null && IsMatch(x.Data.Text));
                         return posts;
                     })
-                    .Select(x => 
+                    .Select(x =>
                     {
                         x.InReplyToUser = x.InReplyToPostId != null ? rels.GetProfile(x.InReplyToPostId.Value.Author) : null;
                         return x;
@@ -926,7 +926,7 @@ namespace AppViewLite
             int minReposts = options.MinReposts;
             int minLikes = options.MinLikes;
 
-            StringUtils.ParseQueryModifiers(ref q, (k, v) => 
+            StringUtils.ParseQueryModifiers(ref q, (k, v) =>
             {
                 if (string.IsNullOrEmpty(v)) return false;
                 if (k == "from")
@@ -952,7 +952,7 @@ namespace AppViewLite
                 author = author.Substring(1);
 
             author = !string.IsNullOrEmpty(author) ? await this.ResolveHandleAsync(author, ctx) : null;
-            return options with 
+            return options with
             {
                 Query = q,
                 Author = author,
@@ -994,7 +994,7 @@ namespace AppViewLite
             EnsureLimit(ref limit);
 
             var defaultContinuation = new ProfilePostsContinuation(
-                includePosts ? Tid.MaxValue : default, 
+                includePosts ? Tid.MaxValue : default,
                 includeReposts ? Tid.MaxValue : default,
                 includeLikes ? Tid.MaxValue : default,
                 includeBookmarks ? Tid.MaxValue : default,
@@ -1044,7 +1044,7 @@ namespace AppViewLite
                             return post;
                         })
                         .WhereNonNull()
-                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50), 
+                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50),
                         ctx
                         )
                         .ToArray();
@@ -1057,7 +1057,7 @@ namespace AppViewLite
                     return (recentPosts, canFetchFromServer ? (defaultContinuation with { FastReturnedPosts = recentPosts.Select(x => x.PostIdStr).ToArray() }).Serialize() : null);
                 }
 
-          
+
             }
 
             var isSelf = ctx.IsLoggedIn && ctx.Session.Did == did;
@@ -1078,7 +1078,7 @@ namespace AppViewLite
                 new MergeablePostEnumerator(parsedContinuation.MaxTidReposts, async max =>
                 {
                     var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
-                    return posts.Records.Select(x => 
+                    return posts.Records.Select(x =>
                     {
                         return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!)));
                     }).Where(x => x != default).ToArray();
@@ -1100,7 +1100,7 @@ namespace AppViewLite
                         }).ToArray(), ctx);
                         if(missing.Length != 0)
                         {
-                            
+
                             var indexer = new Indexer(this);
                             foreach(var item in missing)
                             {
@@ -1159,7 +1159,7 @@ namespace AppViewLite
 
                 var alreadyHasAllPosts = WithRelationshipsLock(rels =>
                 {
-                    return merged.All(x => 
+                    return merged.All(x =>
                     {
                         var plc = rels.TrySerializeDidMaybeReadOnly(x.PostId.Did, ctx);
                         if (plc == default) return false;
@@ -1176,7 +1176,7 @@ namespace AppViewLite
                     return merged.Select(x =>
                     {
                         var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey, ctx);
-                            
+
                         if (!alreadyHasAllPosts && x.PostRecord != null && !rels.PostData.ContainsKey(postId))
                         {
                             rels.StorePostInfo(postId, x.PostRecord, x.PostId.Did, ctx);
@@ -1200,11 +1200,11 @@ namespace AppViewLite
 
                         return post;
                     }).WhereNonNull().ToArray();
-                    
+
                 }
 
                 var posts =
-                    alreadyHasAllPosts 
+                    alreadyHasAllPosts
                         ? WithRelationshipsLock(StoreAndGetAllPosts, ctx)
                         : WithRelationshipsWriteLock(StoreAndGetAllPosts, ctx);
 
@@ -1237,7 +1237,7 @@ namespace AppViewLite
 
         public (BookmarkDateFirst Bookmark, string Did)[] GetBookmarks(int limit, Tid? maxExclusive, RequestContext ctx)
         {
-            return WithRelationshipsLock(rels => 
+            return WithRelationshipsLock(rels =>
             {
                 ManagedOrNativeArray<Tid>[]? deletedBookmarks = null;
                 return rels.RecentBookmarks.GetValuesSortedDescending(ctx.LoggedInUser, null, maxExclusive != null ? new BookmarkDateFirst(maxExclusive.Value, default) : null)
@@ -1423,12 +1423,12 @@ namespace AppViewLite
                 {
                     var suffix = $"limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
                     var skeletonUrl =
-                        customEndpoint != null ? customEndpoint.AbsoluteUri + (string.IsNullOrEmpty(customEndpoint.Query) ? "?" : "&") + suffix : 
+                        customEndpoint != null ? customEndpoint.AbsoluteUri + (string.IsNullOrEmpty(customEndpoint.Query) ? "?" : "&") + suffix :
                         $"https://{feedGenInfo!.Data!.ImplementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{did}/app.bsky.feed.generator/{rkey}?{suffix}";
 
                     postsJson = (await DefaultHttpClient.GetFromJsonAsync<AtFeedSkeletonResponse>(skeletonUrl))!;
                 }
-                
+
                 postsJsonParsed = postsJson.feed?.Select(x => new ATUri(x.post)).ToArray() ?? [];
             }
             catch (Exception ex)
@@ -1437,7 +1437,7 @@ namespace AppViewLite
             }
 
             var posts = WithRelationshipsLockWithPreamble(
-                rels => 
+                rels =>
                 {
                     var postIds = new List<PostId>();
                     foreach (var item in postsJsonParsed)
@@ -1448,7 +1448,7 @@ namespace AppViewLite
                         postIds.Add(new PostId(author, Tid.Parse(item.Rkey)));
                     }
                     return PreambleResult.Create(postIds);
-                }, 
+                },
                 (p, rels) =>
                 {
                     var posts = p.Select(x => rels.GetPost(x, ctx));
@@ -1513,7 +1513,7 @@ namespace AppViewLite
             var now = DateTime.UtcNow;
 
             if (result == null || ((now - result.RetrievalDate).TotalHours > 6 && !IsReadOnly))
-            { 
+            {
                 var recordOutput = await GetRecordAsync(did, Generator.RecordType, rkey, ctx);
                 var generator = (Generator)recordOutput!.Value!;
                 WithRelationshipsWriteLock(rels =>
@@ -1693,7 +1693,7 @@ namespace AppViewLite
                         {
                             post.RootFullPost = rels.GetPost(post.Data!.RootPostId);
                         }
-                        
+
                     }
                 }
             }, ctx);
@@ -1702,7 +1702,7 @@ namespace AppViewLite
 
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext ctx)
         {
-            var data = await GetFeedGeneratorDataAsync(did, rkey, ctx);
+            var data = await GetFeedGeneratorDataAsync("df", rkey, ctx);
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data, ctx), ctx);
         }
 
@@ -1817,7 +1817,7 @@ namespace AppViewLite
                 if (
                     isNativeAtProto &&
                     !forceProxy &&
-                    cdn == null && 
+                    cdn == null &&
                     size != ThumbnailSize.feed_video_blob &&
                     !DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did)
                     ) cdn = "https://cdn.bsky.app";
@@ -1866,7 +1866,7 @@ namespace AppViewLite
             if (cdn != null && cdn.EndsWith(".bsky.app", StringComparison.Ordinal)) return null;
 
             if (pds != null && pds.StartsWith("https://", StringComparison.Ordinal)) pds = pds.Substring(8);
-            
+
             return "?pds=" + Uri.EscapeDataString(pds ?? string.Empty) + "&name=" + Uri.EscapeDataString(fileNameForDownload ?? string.Empty);
         }
 
@@ -1901,8 +1901,8 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 50);
 
-            
-    
+
+
 
             var now = DateTime.UtcNow;
             var minDate = now - BlueskyRelationships.BalancedFeedMaximumAge;
@@ -1953,7 +1953,7 @@ namespace AppViewLite
                             .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
                             //.Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate, plcToRecentPostLikes)))
                             .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
-                            .ToArray(), 
+                            .ToArray(),
                        Reposts: reposts
                             .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes)))
                             .ToArray()
@@ -1968,7 +1968,7 @@ namespace AppViewLite
 
             var bestOriginalPostsByUser = users
                 .Select(
-                    user => 
+                    user =>
                         user.Posts
                         .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date)))
                         .OrderByDescending(x => x.PerUserScore)
@@ -1978,7 +1978,7 @@ namespace AppViewLite
                 .ToList();
             var bestRepostsByUser = users
                 .Select(
-                    user => 
+                    user =>
                         user.Reposts
                         .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date)))
                         .OrderByDescending(x => x.PerUserScore)
@@ -2048,7 +2048,7 @@ namespace AppViewLite
                         {
                             var shouldInclude = rels.ShouldIncludeLeafPostInFollowingFeed(post, ctx);
                             if (shouldInclude != null) return shouldInclude.Value;
-                          
+
                             if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
                             {
                                 if (!possibleFollows.IsStillFollowed(rootAuthor, rels) && rootAuthor != loggedInUser)
@@ -2115,7 +2115,7 @@ namespace AppViewLite
                             {
                                 if (
                                     post.RootPostId != inReplyToPostId &&
-                                    IsPostSeenOrAlreadyReturned(inReplyToPostId) && 
+                                    IsPostSeenOrAlreadyReturned(inReplyToPostId) &&
                                     IsPostSeenOrAlreadyReturned(post.RootPostId) &&
                                     (post.Date - inReplyToPostId.PostRKey.Date).TotalHours < 36
                                     )
@@ -2191,8 +2191,8 @@ namespace AppViewLite
 
                         var done = false;
                         while (
-                            enqueueEverything 
-                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0 
+                            enqueueEverything
+                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0
                                 : populateFollowedFrom.Count != 0 && (!done && finalPosts.Count < 100)
                             )
                         {
@@ -2337,7 +2337,7 @@ namespace AppViewLite
                     lastTid = default;
                 }
             }
-            else 
+            else
             {
                 var recordType = kind switch {
                     RepositoryImportKind.Posts => Post.RecordType,
@@ -2364,7 +2364,7 @@ namespace AppViewLite
                 StartDate = startDate,
                 LastRevOrTid = lastTid.TidValue,
                 Error = exception != null ? GetErrorDetails(exception) : null,
-                
+
             };
             WithRelationshipsWriteLock(rels =>
             {
@@ -2377,7 +2377,7 @@ namespace AppViewLite
         {
             while (true)
             {
-                if (exception is ATNetworkErrorException at) 
+                if (exception is ATNetworkErrorException at)
                 {
                     return at.AtError.Detail?.Error ?? at.AtError.StatusCode.ToString();
                 }
@@ -2452,7 +2452,7 @@ namespace AppViewLite
             userCtx.UpdateRefreshTokenExpireDate();
 
             SaveAppViewLiteProfile(ctx);
-            
+
             using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
             return await func(sessionProtocol2);
         }
@@ -2501,13 +2501,13 @@ namespace AppViewLite
         {
             var diddoc = await GetDidDocAsync(did, ctx);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
-            
+
             var pds = diddoc.Pds;
             if (pds == null) throw new UnexpectedFirehoseDataException("No PDS is specified in the DID doc of this user.");
             var builder = new ATProtocolBuilder()
                 .WithInstanceUrl(new Uri(pds))
-                .WithLogger(new LogWrapper() 
-                { 
+                .WithLogger(new LogWrapper()
+                {
                     IsLowImportanceException = x => x.AnyInnerException(x => x is HttpRequestException),
                     IsLowImportanceMessage = x => x.StartsWith("ATError:", StringComparison.Ordinal)
                 });
@@ -2620,7 +2620,7 @@ namespace AppViewLite
         {
             var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey, ctx);
             return (new StrongRef(info.Uri, info.Cid!), (Post)info.Value);
-            
+
         }
 
         internal Task<string> GetCidAsync(string did, string collection, Tid rkey, RequestContext ctx)
@@ -2652,7 +2652,7 @@ namespace AppViewLite
             {
                 return rels.ListMemberships.GetValuesSorted(plc, parsedContinuation)
                     .Where(x => !rels.ListItemDeletions.ContainsKey(new(x.ListAuthor, x.ListItemRKey)))
-                    .Select(x => 
+                    .Select(x =>
                     {
                         var list = rels.GetList(new(x.ListAuthor, x.ListRKey));
                         list.MembershipRkey = x.ListItemRKey;
@@ -2745,7 +2745,7 @@ namespace AppViewLite
             EnsureLimit(ref limit);
             var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)), ctx);
             var list = WithRelationshipsLock(rels => rels.GetList(listId), ctx);
-            
+
             await EnrichAsync([list], ctx);
 #if false
             ListEntry? parsedContinuation = continuation != null ? ListEntry.Deserialize(continuation) : null;
@@ -2780,7 +2780,7 @@ namespace AppViewLite
             {
                 throw CreateExceptionMessageForExternalServerError($"The PDS of this user", ex);
             }
-            
+
         }
 
         public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
@@ -2794,7 +2794,7 @@ namespace AppViewLite
             {
                 throw CreateExceptionMessageForExternalServerError($"The PDS of this user", ex);
             }
-            
+
         }
 
 
@@ -2837,9 +2837,9 @@ namespace AppViewLite
                     }
                 }
                 return list;
-                
+
             }, ctx);
-            
+
             return (await EnrichAsync(feeds.ToArray(), ctx), null);
         }
 
@@ -2854,7 +2854,7 @@ namespace AppViewLite
             {
                 return rels.SearchFeeds(queryWords, parsedContinuation ?? RelationshipHashedRKey.MaxValue)
                 .Select(x => rels.TryGetFeedGenerator(x, ctx)!)
-                .Where(x => 
+                .Where(x =>
                 {
                     var words = StringUtils.GetAllWords(x.Data?.DisplayName).Concat(StringUtils.GetAllWords(x.Data?.Description)).Distinct().ToArray();
                     return queryWords.All(x => words.Contains(x));
@@ -2867,7 +2867,7 @@ namespace AppViewLite
             return GetPageAndNextPaginationFromLimitPlus1(feeds, limit, x => x.FeedId.Serialize());
         }
 
-        
+
 
         public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null)
         {
@@ -2892,7 +2892,7 @@ namespace AppViewLite
                     .Select(x => rels.GetProfile(x))
                     .Where(x => rels.ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix))
                     .Where(x => alreadyReturned.Add(x.Plc))
-                    .Select(x => 
+                    .Select(x =>
                     {
                         followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);
                         return x;
@@ -2922,7 +2922,7 @@ namespace AppViewLite
                 {
                     // we might not have display names for every user. retry by guessing handle.
                     var concatenated = string.Join(null, queryWords) + wordPrefix;
-                    var (updatedSearchTerms, updatedWordPrefix) = wordPrefix != null ? 
+                    var (updatedSearchTerms, updatedWordPrefix) = wordPrefix != null ?
                         (Array.Empty<string>(), concatenated) :
                         ([concatenated], null);
                     alreadyReturned = result.Items.Select(x => x.Plc).ToHashSet();
@@ -2934,7 +2934,7 @@ namespace AppViewLite
                             .Select(x => rels.GetProfile(x))
                             .Where(x => x.DisplayName == null) // otherwise should've matched earlier
                             .Where(x => rels.ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
-                            .Select(x => 
+                            .Select(x =>
                             {
                                 followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);
                                 return x;
@@ -2948,7 +2948,7 @@ namespace AppViewLite
             }
 
             await EnrichAsync(result.Items, ctx, onLateDataAvailable: onLateDataAvailable);
-            
+
 
             return (result.Items.OrderByDescending(x => followerCount[x.Plc]).ToArray(), result.NextContinuation);
         }
@@ -2966,7 +2966,7 @@ namespace AppViewLite
                 return (itemsPlusOne, null);
             }
         }
-        
+
 
         public async Task<(BlueskyList[] Lists, string? NextContinuation)> GetProfileListsAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
@@ -3018,7 +3018,7 @@ namespace AppViewLite
         public async Task<string> ResolveHandleOrUrlAsync(string handleOrUrl, Uri baseUrl, RequestContext ctx)
         {
             if (handleOrUrl.StartsWith("http://", StringComparison.Ordinal) || handleOrUrl.StartsWith("https://", StringComparison.Ordinal))
-            { 
+            {
                 var urlOrDid = await TryResolveUrlToDidAsync(new Uri(handleOrUrl), baseUrl, ctx);
                 if (urlOrDid == null) throw new Exception("Could not resolve to DID.");
                 return urlOrDid;
@@ -3080,7 +3080,7 @@ namespace AppViewLite
                             forceRefresh = true;
                             break;
                         }
-                        
+
                     }
                 }
 
@@ -3184,7 +3184,7 @@ namespace AppViewLite
             {
                 // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
                 //LogInfo("ResolveHandleCoreAsync: " + handle);
-                
+
                 if (!handle.EndsWith(".bsky.social", StringComparison.Ordinal)) // avoid wasting time, bsky.social uses .well-known
                 {
                     string? record;
@@ -3541,7 +3541,7 @@ namespace AppViewLite
             var dom = StringUtils.ParseHtml(await DefaultHttpClient.GetStringAsync(pageUrl));
             if (pageUrl.HasHostSuffix("tumblr.com"))
             {
-                var img = dom.QuerySelectorAll("img[alt=Avatar]").FirstOrDefault(x => 
+                var img = dom.QuerySelectorAll("img[alt=Avatar]").FirstOrDefault(x =>
                 {
                     return Uri.TryCreate(pageUrl, x.Closest("a")?.GetAttribute("href"), out var url) && url.GetSegments().FirstOrDefault() == pageUrl.Host.Replace(".tumblr.com", null);
                 });
@@ -3963,6 +3963,3 @@ namespace AppViewLite
         }
     }
 }
-
-
- 

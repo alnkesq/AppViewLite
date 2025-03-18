@@ -1702,7 +1702,7 @@ namespace AppViewLite
 
         public async Task<BlueskyFeedGenerator> GetFeedGeneratorAsync(string did, string rkey, RequestContext ctx)
         {
-            var data = await GetFeedGeneratorDataAsync("df", rkey, ctx);
+            var data = await GetFeedGeneratorDataAsync(did, rkey, ctx);
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data, ctx), ctx);
         }
 

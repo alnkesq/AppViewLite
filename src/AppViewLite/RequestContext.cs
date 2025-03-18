@@ -34,7 +34,8 @@ namespace AppViewLite
 
         public long StopwatchTicksSpentInsideSecondaryLock;
         public long StopwatchTicksSpentInsidePrimaryLock;
-        public bool GarbageCollectionsOccurredInsideLock;
+        public int MaxOccurredGarbageCollectionGenerationInsideLock = -1;
+
         public AccentColor AccentColor => IsLoggedIn ? PrivateProfile.AccentColor : AccentColor.Blue;
 
         public static Func<string, string, object[], Task>? SendSignalrImpl;

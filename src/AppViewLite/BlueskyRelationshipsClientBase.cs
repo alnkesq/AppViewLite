@@ -185,8 +185,7 @@ namespace AppViewLite
                     var replica = this.readOnlyReplicaRelationshipsUnlocked;
                     replica.Lock.EnterReadLock();
                     Interlocked.Increment(ref ctx.ReadsFromSecondary);
-                    var sw2 = Stopwatch.StartNew();
-                    var gc2 = GC.CollectionCount(0);
+                    var begin2 = PerformanceSnapshot.Capture();
                     try
                     {
                         replica.EnsureNotDisposed();
@@ -195,7 +194,7 @@ namespace AppViewLite
                     finally
                     {
                         replica.Lock.ExitReadLock();
-                        MaybeLogLongLockUsage(sw2, gc2, LockKind.SecondaryRead, ctx);
+                        MaybeLogLongLockUsage(begin2, LockKind.SecondaryRead, ctx);
                     }
                 }
             }
@@ -216,15 +215,14 @@ namespace AppViewLite
                     if (invoker == currentInvoker) Interlocked.Increment(ref ctx.ReadsFromPrimaryLate);
                     else Interlocked.Increment(ref ctx.ReadsFromPrimaryStolen);
 
-                    var sw = Stopwatch.StartNew();
-                    var gc = GC.CollectionCount(0);
+                    var begin = PerformanceSnapshot.Capture();
                     try
                     {
                         return func(relationshipsUnlocked);
                     }
                     finally
                     {
-                        MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryReadUrgent, ctx);
+                        MaybeLogLongLockUsage(begin, LockKind.PrimaryReadUrgent, ctx);
                     }
                 }, tcs);
 
@@ -244,22 +242,19 @@ namespace AppViewLite
             var rels = relationshipsUnlocked;
 
 
-            Stopwatch? sw = null;
-            int gc = 0;
-
             rels.EnsureLockNotAlreadyHeld();
             ctx.TimeSpentWaitingForLocks.Start();
             rels.Lock.EnterReadLock();
             var restore = MaybeSetThreadName("Lock_Read");
+            PerformanceSnapshot begin = default;
             try
             {
                 ctx.TimeSpentWaitingForLocks.Stop();
                 Interlocked.Increment(ref ctx.ReadsFromPrimaryNonUrgent);
                 rels.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
-                sw = Stopwatch.StartNew();
-                gc = GC.CollectionCount(0);
 
+                begin = PerformanceSnapshot.Capture();
                 var result = func(rels);
                 return result;
             }
@@ -268,7 +263,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 rels.Lock.ExitReadLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryRead, ctx);
+                MaybeLogLongLockUsage(begin, LockKind.PrimaryRead, ctx);
             }
 
         }
@@ -367,6 +362,7 @@ namespace AppViewLite
 
             relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
             var restore = MaybeSetThreadName("**** LOCK_WRITE ****");
+            PerformanceSnapshot begin = default;
             try
             {
                 relationshipsUnlocked.Version++;
@@ -374,9 +370,8 @@ namespace AppViewLite
                 ctx.TimeSpentWaitingForLocks.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
-                sw = Stopwatch.StartNew();
-                gc = GC.CollectionCount(0);
 
+                begin = PerformanceSnapshot.Capture();
                 var result = func(relationshipsUnlocked);
                 relationshipsUnlocked.MaybeGlobalFlush();
                 MaybeUpdateReadOnlyReplica(0, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock: true);
@@ -388,7 +383,7 @@ namespace AppViewLite
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
 
-                MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryWrite, ctx);
+                MaybeLogLongLockUsage(begin, LockKind.PrimaryWrite, ctx);
             }
         }
 
@@ -396,9 +391,6 @@ namespace AppViewLite
         {
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
-
-            Stopwatch? sw = null;
-            int gc = 0;
 
 
             Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);            
@@ -408,14 +400,14 @@ namespace AppViewLite
             ctx.TimeSpentWaitingForLocks.Start();
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
             var restore = MaybeSetThreadName("**** LOCK_UPGRADEABLE ****");
+            PerformanceSnapshot begin = default;
             try
             {
                 ctx.TimeSpentWaitingForLocks.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
-                sw = Stopwatch.StartNew();
-                gc = GC.CollectionCount(0);
 
+                begin = PerformanceSnapshot.Capture();
                 var result = func(relationshipsUnlocked);
                 return result;
             }
@@ -423,7 +415,7 @@ namespace AppViewLite
             {
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
-                MaybeLogLongLockUsage(sw, gc, LockKind.PrimaryUpgradeable, ctx);
+                MaybeLogLongLockUsage(begin, LockKind.PrimaryUpgradeable, ctx);
             }
 
         }
@@ -476,28 +468,37 @@ namespace AppViewLite
         private static readonly double StopwatchTickConversionFactor = TimeSpan.TicksPerSecond / (double)Stopwatch.Frequency;
         public static TimeSpan StopwatchTicksToTimespan(long stopwatchTicks) => new TimeSpan((long)(stopwatchTicks * StopwatchTickConversionFactor));
 
-        private static void MaybeLogLongLockUsage(Stopwatch? sw, int prevGcCount, LockKind lockKind, RequestContext ctx)
+        private static void MaybeLogLongLockUsage(PerformanceSnapshot begin, LockKind lockKind, RequestContext ctx)
         {
-            if (sw == null) return;
-            sw.Stop();
-            var hadGcs = GC.CollectionCount(0) - prevGcCount;
+            if (begin == default) return;
+            
+            var end = PerformanceSnapshot.Capture();
 
-            if (hadGcs != 0)
-                ctx.GarbageCollectionsOccurredInsideLock = true;
+            var maxGcGeneration =
+                begin.Gc2Count != end.Gc2Count ? 2 :
+                begin.Gc1Count != end.Gc1Count ? 1 :
+                begin.Gc0Count != end.Gc0Count ? 0 :
+                -1;
+
+            var elapsedStopwatchTicks = end.StopwatchTicks - begin.StopwatchTicks;
+
+            // not thread safe, but not important
+            ctx.MaxOccurredGarbageCollectionGenerationInsideLock = Math.Max(ctx.MaxOccurredGarbageCollectionGenerationInsideLock, maxGcGeneration);
 
             var isSecondary = lockKind == LockKind.SecondaryRead;
 
+            
             long totalStopwatchTicks;
             if (isSecondary)
-                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsideSecondaryLock, sw.ElapsedTicks);
+                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsideSecondaryLock, elapsedStopwatchTicks);
             else
-                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsidePrimaryLock, sw.ElapsedTicks);
+                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsidePrimaryLock, elapsedStopwatchTicks);
 
             var isAboveThreshold = StopwatchTicksToTimespan(totalStopwatchTicks) >= (isSecondary ? PrintLongSecondaryLocks : PrintLongPrimaryLocks);
             if (ctx.IsUrgent || isAboveThreshold)
                 ctx.AddToMetricsTable();
 
-            if (hadGcs != 0) return;
+            if (maxGcGeneration != -1) return;
 
 
             if (isAboveThreshold && false)
@@ -519,8 +520,10 @@ namespace AppViewLite
                     else
                         break;
                 }
+
+                var elapsed = StopwatchTicksToTimespan(elapsedStopwatchTicks);
  
-                LogInfo("Time spent inside the "+ lockKind +" lock: " + sw.ElapsedMilliseconds.ToString("0.0") + " ms" + (hadGcs != 0 ? $" (includes {hadGcs} GCs)" : null) + " " + ctx.DebugText);
+                LogInfo("Time spent inside the "+ lockKind +" lock: " + elapsed.TotalMilliseconds.ToString("0.0") + " ms" + (maxGcGeneration != -1 ? $" (includes {maxGcGeneration}gen GCs)" : null) + " " + ctx.DebugText);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();

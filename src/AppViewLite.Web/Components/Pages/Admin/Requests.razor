@@ -52,8 +52,8 @@
             <td>@(readsFromPrimaryLate != 0 ? readsFromPrimaryLate : "-")</td>
             <td>@(writes != 0 ? writes : "-")</td>
             <td style="background: @GetCellBackground(w.Ticks, TimeSpan.FromMilliseconds(50).Ticks)">@(w != default ? (w.TotalMilliseconds).ToString("0.000") : "-")</td>
-            <td style="background: @GetCellBackground(primaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongPrimaryLocks.Ticks)">@(req.GarbageCollectionsOccurredInsideLock && primaryTime != default ? "[GC] " : null)@(primaryTime != default ? (primaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>
-            <td style="background: @GetCellBackground(secondaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongSecondaryLocks.Ticks)">@(req.GarbageCollectionsOccurredInsideLock && secondaryTime != default ? "[GC] " : null)@(secondaryTime != default ? (secondaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>
+            <td style="background: @GetCellBackground(primaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongPrimaryLocks.Ticks)">@(req.MaxOccurredGarbageCollectionGenerationInsideLock != -1 && primaryTime != default ? $"[GC-{req.MaxOccurredGarbageCollectionGenerationInsideLock}] " : null)@(primaryTime != default ? (primaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>
+            <td style="background: @GetCellBackground(secondaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongSecondaryLocks.Ticks)">@(req.MaxOccurredGarbageCollectionGenerationInsideLock != -1 && secondaryTime != default ? $"[GC-{req.MaxOccurredGarbageCollectionGenerationInsideLock}] " : null)@(secondaryTime != default ? (secondaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>
         </tr>
     }
 </table>

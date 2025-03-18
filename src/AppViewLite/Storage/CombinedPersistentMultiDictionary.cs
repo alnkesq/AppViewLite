@@ -109,7 +109,6 @@ namespace AppViewLite.Storage
         public int WriteBufferSize = 128 * 1024;
 
         private Stopwatch? lastFlushed;
-        private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public Func<IEnumerable<TValue>, IEnumerable<TValue>>? OnCompactation;
         public Func<PruningContext, TKey, bool>? ShouldPreserveKey;
         public Func<PruningContext, TKey, TValue, bool>? ShouldPreserveValue;
@@ -133,6 +132,9 @@ namespace AppViewLite.Storage
 
             CompactStructCheck<TKey>.Check();
             CompactStructCheck<TValue>.Check();
+
+            if (behavior == PersistentDictionaryBehavior.KeySetOnly && typeof(TValue) != typeof(byte))
+                throw new ArgumentException("When behavior is KeySetOnly, the dummy TValue must be System.Byte.");
 
             System.IO.Directory.CreateDirectory(directory);
 
@@ -459,7 +461,7 @@ namespace AppViewLite.Storage
                         input.ReaderHandle.Dispose();
                         if (DeleteOldFilesOnCompactation)
                         {
-                            for (int i = 0; i < (IsSingleValue ? 2 : 3); i++)
+                            for (int i = 0; i < input.Reader.ColumnCount; i++)
                             {
                                 File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
                             }
@@ -741,7 +743,12 @@ namespace AppViewLite.Storage
             OnBeforeWrite();
             AddToCaches(key, value);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            if (behavior == PersistentDictionaryBehavior.SingleValue)
+            if (behavior == PersistentDictionaryBehavior.KeySetOnly)
+            {
+                if (!value.Equals(default)) throw new ArgumentException();
+                queue.SetSingleton(key, default);
+            }
+            else if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
                 queue.SetSingleton(key, value);
             }
@@ -873,7 +880,7 @@ namespace AppViewLite.Storage
                     }
                     else
                     {
-                        if (output.behavior == PersistentDictionaryBehavior.SingleValue)
+                        if (output.behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly)
                         {
                             var slices = group.Values;
                             var lastSlice = slices[slices.Count - 1];
@@ -912,9 +919,14 @@ namespace AppViewLite.Storage
             }
         }
 
+        public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
+        public bool HasOffsets => !IsSingleValueOrKeySet;
+        public bool HasValues => behavior != PersistentDictionaryBehavior.KeySetOnly;
+
+
         public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {
-            if (behavior == PersistentDictionaryBehavior.SingleValue) throw new InvalidOperationException();
+            if (IsSingleValueOrKeySet) throw new InvalidOperationException();
             var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (ManagedOrNativeArray<TValue>)x.Values)));
             if (queue.GroupCount != 0)
             {

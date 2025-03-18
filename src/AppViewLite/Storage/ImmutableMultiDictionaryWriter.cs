@@ -9,18 +9,22 @@ namespace AppViewLite.Storage
     {
         private readonly SimpleColumnarWriter writer;
         internal PersistentDictionaryBehavior behavior;
-        private bool IsSingleValue => behavior == PersistentDictionaryBehavior.SingleValue;
         public ImmutableMultiDictionaryWriter(string destinationPrefix, PersistentDictionaryBehavior behavior)
         {
             this.behavior = behavior;
-            this.writer = new SimpleColumnarWriter(destinationPrefix, IsSingleValue ? 2 : 3);
+            this.writer = new SimpleColumnarWriter(destinationPrefix, 
+                behavior == PersistentDictionaryBehavior.KeySetOnly ? 1 :
+                behavior == PersistentDictionaryBehavior.SingleValue ? 2 : 
+                3);
         }
 
         private long currentValueOffset;
 
         public long KeyCount { get; private set; }
-        public long ValueCount => currentValueOffset;
 
+        public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
+        public bool HasOffsets => !IsSingleValueOrKeySet;
+        public bool HasValues => behavior != PersistentDictionaryBehavior.KeySetOnly;
 
 
         public struct AddContext
@@ -43,16 +47,20 @@ namespace AppViewLite.Storage
             if (behavior == PersistentDictionaryBehavior.SortedValues && ctx.prev != null && value.CompareTo(ctx.prev.Value) < 0) throw new ArgumentException();
             ctx.prev = value;
 
-            writer.WriteElement(1, value);
+            WriteValue(value);
+        }
 
-            currentValueOffset++;
+        private static void EnsureDefaultValue(TValue value)
+        {
+            if (!value.Equals(default))
+                throw new ArgumentException();
         }
 
         public void FinishGroup(ref AddContext ctx)
         {
             if (ctx.startOffset != currentValueOffset)
             {
-                if (behavior == PersistentDictionaryBehavior.SingleValue && (currentValueOffset - ctx.startOffset) != 1) throw new Exception();
+                if (!HasOffsets && (currentValueOffset - ctx.startOffset) != 1) throw new Exception();
                 writer.WriteElement(0, ctx.key);
                 WriteStartOffset(ctx.startOffset);
                 KeyCount++;
@@ -69,21 +77,32 @@ namespace AppViewLite.Storage
                 if (behavior == PersistentDictionaryBehavior.SortedValues && prev != null && value.CompareTo(prev.Value) < 0) throw new ArgumentException();
                 prev = value;
 
-                writer.WriteElement(1, value);
-
-                currentValueOffset++;
+                WriteValue(value);
             }
 
             
 
             if (startOffset != currentValueOffset)
             {
-                if (behavior == PersistentDictionaryBehavior.SingleValue && (currentValueOffset - startOffset) != 1) throw new Exception();
+                if (!HasOffsets && (currentValueOffset - startOffset) != 1) throw new Exception();
                 writer.WriteElement(0, key);
                 WriteStartOffset(startOffset);
                 KeyCount++;
             }
 
+        }
+
+        private void WriteValue(TValue value)
+        {
+            if (behavior == PersistentDictionaryBehavior.KeySetOnly)
+            {
+                EnsureDefaultValue(value);
+            }
+            else
+            {
+                writer.WriteElement(1, value);
+            }
+            currentValueOffset++;
         }
 
         public void AddPresorted(TKey key, ReadOnlySpan<TValue> sortedValues)
@@ -103,7 +122,7 @@ namespace AppViewLite.Storage
             }
 
 
-            if (behavior == PersistentDictionaryBehavior.SingleValue && sortedValues.Length > 1) throw new ArgumentException();
+            if (IsSingleValueOrKeySet && sortedValues.Length > 1) throw new ArgumentException();
 
             TValue? prev = default;
 
@@ -112,9 +131,7 @@ namespace AppViewLite.Storage
                 if (behavior == PersistentDictionaryBehavior.SortedValues && prev != null && value.CompareTo(prev.Value) < 0) throw new ArgumentException();
                 prev = value;
 
-
-                writer.WriteElement(1, value);
-                currentValueOffset++;
+                WriteValue(value);
             }
 
             if (startOffset != currentValueOffset)
@@ -130,7 +147,7 @@ namespace AppViewLite.Storage
 
         private void WriteStartOffset(long startOffset)
         {
-            if (!IsSingleValue)
+            if (HasOffsets)
             {
                 if ((ulong)startOffset > UInt48.MaxValueAsUInt64) throw new Exception();
                 writer.WriteElement(2, (UInt48)startOffset);

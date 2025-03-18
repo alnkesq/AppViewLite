@@ -85,7 +85,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<HashedWord, Plc> HandleToPossibleDids;
         public CombinedPersistentMultiDictionary<Pds, byte> PdsIdToString;
         public CombinedPersistentMultiDictionary<DuckDbUuid, Pds> PdsHashToPdsId;
-        public CombinedPersistentMultiDictionary<DateTime, int> LastRetrievedPlcDirectoryEntry;
+        public CombinedPersistentMultiDictionary<DateTime, byte> LastRetrievedPlcDirectoryEntry;
         public CombinedPersistentMultiDictionary<DuckDbUuid, HandleVerificationResult> HandleToDidVerifications;
         public CombinedPersistentMultiDictionary<PostId, LabelEntry> PostLabels;
         public CombinedPersistentMultiDictionary<Plc, LabelEntry> ProfileLabels;
@@ -276,7 +276,7 @@ namespace AppViewLite
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
             DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
-            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, int>("last-retrieved-plc-directory", PersistentDictionaryBehavior.SingleValue);
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory", PersistentDictionaryBehavior.KeySetOnly);
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications");
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
@@ -285,12 +285,12 @@ namespace AppViewLite
             LabelData = RegisterDictionary<LabelId, byte>("label-data", PersistentDictionaryBehavior.PreserveOrder);
 
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
-            KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.SingleValue);
+            KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.KeySetOnly);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
             SeenPosts = RegisterDictionary<Plc, PostEngagement>("seen-posts-2", onCompactation: CompactPostEngagements);
             SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
-            NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.SingleValue);
+            NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
 
             
 

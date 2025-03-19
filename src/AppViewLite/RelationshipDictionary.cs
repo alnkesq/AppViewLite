@@ -190,6 +190,7 @@ namespace AppViewLite
                 if (target != null)
                 {
                     var prevDeletionCount = GetDeletionCount(target.Value);
+                    if (prevDeletionCount < 0) BlueskyRelationships.ThrowFatalError("GetDeletionCount() < 0");
                     deletionCounts.Add(target.Value, prevDeletionCount + 1);
                 }
             }

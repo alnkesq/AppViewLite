@@ -3542,7 +3542,7 @@ namespace AppViewLite
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
-                    ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts!.TryAdd(postId);
+                    ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
                     now = now.AddTicks(1);
                 }
 

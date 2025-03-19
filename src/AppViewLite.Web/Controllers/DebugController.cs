@@ -43,6 +43,12 @@ namespace AppViewLite.Web.Controllers
             return PlcIdsToDids(ids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray());
         }
 
+        [HttpPost("global-flush")]
+        public void GlobalFlush()
+        {
+            apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), ctx);
+        }
+
         [HttpGet("table/{table}")]
         public object Lookup(string table, string key, bool reverse = false, string? start = null)
         {

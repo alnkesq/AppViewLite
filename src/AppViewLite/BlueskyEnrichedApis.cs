@@ -3425,10 +3425,10 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public ConcurrentFullEvictionCache<DuckDbUuid, CustomEmoji?> EmojiCache = new(64 * 1024);
+        public ConcurrentFullEvictionCache<DuckDbUuid, CustomEmoji?> CustomEmojiCache = new(64 * 1024);
         public CustomEmoji? TryGetCustomEmoji(DuckDbUuid hash, RequestContext ctx)
         {
-            if (EmojiCache.TryGetValue(hash, out var result))
+            if (CustomEmojiCache.TryGetValue(hash, out var result))
                 return result;
             result = WithRelationshipsLock(rels =>
             {
@@ -3436,7 +3436,7 @@ namespace AppViewLite
                     return BlueskyRelationships.DeserializeProto<CustomEmoji>(bytes.AsSmallSpan());
                 return null;
             }, ctx);
-            EmojiCache.Add(hash, result);
+            CustomEmojiCache.Add(hash, result);
             return result;
         }
 
@@ -3970,7 +3970,7 @@ namespace AppViewLite
                 SecondaryFirehoses = this.SecondaryFirehoses.Count,
                 SessionDictionary = this.SessionDictionary.Count,
                 UserContexts = this.UserContexts.Count,
-                EmojiCache = this.EmojiCache.Count,
+                CustomEmojiCache = this.CustomEmojiCache.Count,
                 Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
                 Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
             };

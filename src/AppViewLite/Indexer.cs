@@ -50,10 +50,7 @@ namespace AppViewLite
             var collection = path.Substring(0, slash);
             var rkey = path.Substring(slash + 1);
             var deletionDate = DateTime.UtcNow;
-            if (ctx == null)
-            {
-                ctx = RequestContext.CreateForFirehose("Delete:" + collection, allowStale: true /* only temporarily, will be disabled in a moment*/); 
-            }
+            ctx ??= RequestContext.CreateForFirehose("Delete:" + collection, allowStale: true /* only temporarily, will be disabled in a moment*/); 
 
             var rkeyAsTid = Tid.TryParse(rkey, out var parsedTid) ? parsedTid : default;
 
@@ -175,11 +172,24 @@ namespace AppViewLite
             using var priorityScope = CreateIngestionThreadPriorityScope();
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
-            
+
             var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
-            ctx ??= RequestContext.CreateForFirehose("Create:" + record.Type);
+            ctx ??= RequestContext.CreateForFirehose("Create:" + record.Type, allowStale: true);
+
+
+            var preresolved = WithRelationshipsLock(rels =>
+            {
+                if (ignoreIfDisposing && rels.IsDisposed) return default;
+
+                var commitPlc = rels.TrySerializeDidMaybeReadOnly(commitAuthor, ctx);
+                if (commitPlc == default) return default;
+                return commitPlc;
+            }, ctx);
+
+
+            ctx.AllowStale = false;
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
@@ -188,7 +198,7 @@ namespace AppViewLite
                     if (!generateNotifications) relationships.SuppressNotificationGeneration++;
                     relationships.EnsureNotDisposed();
 
-                    var commitPlc = relationships.SerializeDid(commitAuthor, ctx);
+                    var commitPlc = preresolved != default ? preresolved : relationships.SerializeDid(commitAuthor, ctx);
 
                     if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
                     {

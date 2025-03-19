@@ -150,7 +150,7 @@ namespace AppViewLite
             }), ctx);
         }
 
-        record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
+        
 
 
 
@@ -1044,5 +1044,6 @@ namespace AppViewLite
             }
         }
     }
+    internal record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
 }
 

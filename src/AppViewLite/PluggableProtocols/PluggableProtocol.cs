@@ -151,13 +151,17 @@ namespace AppViewLite.PluggableProtocols
             if (inReplyTo != null) EnsureValidDid(inReplyTo.Value.Did);
             if (rootPostId != null) EnsureValidDid(rootPostId.Value.Did);
 
-            return Apis.WithRelationshipsWriteLock(rels =>
+
+            ContinueOutsideLock continueOutsideLock = default;
+            PostId simplePostId = default;
+
+            Apis.WithRelationshipsWriteLock(rels =>
             {
                 var authorPlc = rels.SerializeDid(postId.Did, ctx);
 
 
                 if (!StoreTidIfNotReversible(rels, ref postId))
-                    return null;
+                    return;
 
 
 
@@ -209,7 +213,7 @@ namespace AppViewLite.PluggableProtocols
                 if (data.Media != null)
                     rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
 
-                var simplePostId = new PostId(authorPlc, postId.PostId.Tid);
+                simplePostId = new PostId(authorPlc, postId.PostId.Tid);
 
 
                 var likeCountForScoring = (data.PluggableLikeCountForScoring ?? data.PluggableLikeCount).GetValueOrDefault();
@@ -226,11 +230,21 @@ namespace AppViewLite.PluggableProtocols
                         rels.IncrementRecentPopularPostLikeCount(simplePostId, likeCountForScoring - prevLikeCount);
                     }
                 }
-                rels.PostData.AddRange(simplePostId, BlueskyRelationships.SerializePostData(data, postId.Did));
 
 
-                return (PostId?)simplePostId;
+                byte[]? postBytes = null;
+                continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(data, postId.Did), relationships =>
+                {
+                    relationships.PostData.AddRange(simplePostId, postBytes); // double insertions are fine, the second one wins.
+                });
+                
             }, ctx);
+            if (continueOutsideLock != default)
+            {
+                continueOutsideLock.OutsideLock();
+                Apis.WithRelationshipsWriteLock(rels => continueOutsideLock.Complete(rels), ctx);
+            }
+            return simplePostId != default ? simplePostId : null;
         }
 
         private static void MaybeTrimLongText(ref string? text)

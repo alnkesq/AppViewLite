@@ -514,14 +514,6 @@ namespace AppViewLite
                 // Lock.Dispose(); // non-trivial to synchronize correctly
             }
 
-
-            lock (recordTypeDurations)
-            {
-                foreach (var item in recordTypeDurations.OrderByDescending(x => x.Value.TotalTime))
-                {
-                    Log(item.Value + " " + item.Key + " (" + item.Value.Count + ", avg. " + (long)(item.Value.TotalTime / item.Value.Count).TotalMicroseconds  + ")");
-                }
-            }
         }
 
         private void CaptureCheckpoint()
@@ -2004,21 +1996,6 @@ namespace AppViewLite
             return "%" + name + "-" + minPopularity;
         }
         
-        public void LogPerformance(Stopwatch sw, string operationAndPath)
-        {
-            
-            var slash = operationAndPath.IndexOf('/');
-            if (slash != -1)
-                operationAndPath = operationAndPath.Substring(0, slash);
-            sw.Stop();
-            lock (recordTypeDurations)
-            {
-                recordTypeDurations.TryGetValue(operationAndPath, out var total);
-                total.TotalTime += sw.Elapsed;
-                total.Count++;
-                recordTypeDurations[operationAndPath] = total;
-            }
-        }
 
         internal static ListData ListToProto(FishyFlip.Lexicon.App.Bsky.Graph.List list)
         {
@@ -2556,7 +2533,6 @@ namespace AppViewLite
 
 
 
-        private Dictionary<string, (TimeSpan TotalTime, long Count)> recordTypeDurations = new();
 
 
         public BlueskyList GetList(Relationship listId, ListData? listData = null)
@@ -3641,7 +3617,6 @@ namespace AppViewLite
                 PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.Count,
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
                 PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
-                recordTypeDurations = this.recordTypeDurations.Count,
                 registerForNotificationsCache = this.registerForNotificationsCache.Count,
                 this.ReplicaAge?.Elapsed,
                 ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,

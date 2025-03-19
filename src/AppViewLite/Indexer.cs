@@ -91,7 +91,6 @@ namespace AppViewLite
             WithRelationshipsWriteLock((Action<BlueskyRelationships>)(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
-                var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
                 var commitPlc = preresolved.commitPlc != default ? preresolved.commitPlc : relationships.SerializeDid(commitAuthor, ctx);
 
@@ -150,7 +149,6 @@ namespace AppViewLite
                     //else LogInfo("Deletion of unknown object type: " + collection);
                 }
 
-                relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();
             }), ctx);
         }
@@ -188,7 +186,6 @@ namespace AppViewLite
                 try
                 {
                     if (!generateNotifications) relationships.SuppressNotificationGeneration++;
-                    var sw = Stopwatch.StartNew();
                     relationships.EnsureNotDisposed();
 
                     var commitPlc = relationships.SerializeDid(commitAuthor, ctx);
@@ -344,7 +341,6 @@ namespace AppViewLite
                         relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
                     }
                     //else LogInfo("Creation of unknown object type: " + path);
-                    relationships.LogPerformance(sw, "Create-" + path);
                     relationships.MaybeGlobalFlush();
                 }
                 finally
@@ -359,9 +355,7 @@ namespace AppViewLite
                 continueOutsideLock.Value.OutsideLock();
                 WithRelationshipsWriteLock(relationships =>
                 {
-                    var sw = Stopwatch.StartNew();
                     continueOutsideLock.Value.Complete(relationships);
-                    relationships.LogPerformance(sw, "WritePost");
                 }, ctx);
                 
             }

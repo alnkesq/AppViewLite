@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using System.Collections;
 
 namespace AppViewLite.Storage
 {
@@ -42,6 +43,8 @@ namespace AppViewLite.Storage
         public long CompactationWriteBytes;
         public abstract string[] GetPotentiallyCorruptFiles();
 
+        public abstract System.Collections.IEnumerable GetValuesSortedUntyped(object key, object? minExclusive);
+        public abstract System.Collections.IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive);
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
             this.DirectoryPath = directory;
@@ -1305,6 +1308,15 @@ namespace AppViewLite.Storage
         public override string[] GetPotentiallyCorruptFiles()
         {
             return slices.SelectMany(x => x.Reader.GetPotentiallyCorruptFiles()).ToArray();
+        }
+
+        public override IEnumerable GetValuesSortedUntyped(object key, object? minExclusive)
+        {
+            return GetValuesSorted((TKey)key, (TValue?)minExclusive);
+        }
+        public override IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive)
+        {
+            return GetValuesSortedDescending((TKey)key, null, (TValue?)maxExclusive);
         }
 
         public abstract class CachedView

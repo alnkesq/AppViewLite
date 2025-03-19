@@ -775,6 +775,37 @@ namespace AppViewLite
             return Base64Url.EncodeToString(bytes);
         }
 
+        public static object ParseRecord(Type type, string str)
+        {
+            var consumed = 0;
+            var parts = str.Split(',', StringSplitOptions.TrimEntries);
+
+
+            object ParseRecordCore(Type type)
+            {
+                if(consumed == parts.Length)
+                    throw new ArgumentException($"Too few key components in the string '{str}' for type {type}.");
+                var parseMethod = type.GetMethod("Parse", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string)]);
+                if (parseMethod != null)
+                {
+                    var r = parseMethod.Invoke(null, [(object?)parts[consumed++]])!;
+                    return r;
+                }
+                var ctor = type.GetConstructors().Single(x => x.GetParameters().Length != 0);
+                var ctorParams = ctor.GetParameters();
+                var ctorArgs = new object[ctorParams.Length];
+                for (int i = 0; i < ctorArgs.Length; i++)
+                {
+                    ctorArgs[i] = ParseRecordCore(ctorParams[i].ParameterType);
+                }
+                return ctor.Invoke(ctorArgs);
+            }
+            var result = ParseRecordCore(type);
+            if (consumed != parts.Length)
+                throw new ArgumentException($"Too many key components in the string '{str}' for type {type}.");
+            return result;
+        }
+
         private readonly static FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> KnownFileExtensions = new[]
         {
             "7z",

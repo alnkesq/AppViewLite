@@ -50,13 +50,50 @@ namespace AppViewLite
             var collection = path.Substring(0, slash);
             var rkey = path.Substring(slash + 1);
             var deletionDate = DateTime.UtcNow;
-            ctx ??= RequestContext.CreateForFirehose("Delete:" + collection);
-            WithRelationshipsWriteLock(relationships =>
+            if (ctx == null)
+            {
+                ctx = RequestContext.CreateForFirehose("Delete:" + collection, allowStale: true /* only temporarily, will be disabled in a moment*/); 
+            }
+
+            var rkeyAsTid = Tid.TryParse(rkey, out var parsedTid) ? parsedTid : default;
+
+
+            var preresolved = WithRelationshipsLock(rels =>
+            {
+                if (ignoreIfDisposing && rels.IsDisposed) return default;
+
+                var commitPlc = rels.TrySerializeDidMaybeReadOnly(commitAuthor, ctx);
+                if (commitPlc == default) return default;
+
+
+                PostIdTimeFirst postLikeOrRepostTarget = default;
+                Plc followTarget = default;
+                if (rkeyAsTid != default)
+                {
+                    if (collection == Like.RecordType)
+                    {
+                        postLikeOrRepostTarget = rels.Likes.GetTarget(new Relationship(commitPlc, rkeyAsTid));
+                    }
+                    if (collection == Repost.RecordType)
+                    {
+                        postLikeOrRepostTarget = rels.Reposts.GetTarget(new Relationship(commitPlc, rkeyAsTid));
+                    }
+                    if (collection == Follow.RecordType)
+                    {
+                        followTarget = rels.Follows.GetTarget(new Relationship(commitPlc, rkeyAsTid));
+                    }
+                }
+                return (commitPlc, postLikeOrRepostTarget, followTarget);
+            }, ctx);
+
+            ctx.AllowStale = false;
+
+            WithRelationshipsWriteLock((Action<BlueskyRelationships>)(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
                 var sw = Stopwatch.StartNew();
                 relationships.EnsureNotDisposed();
-                var commitPlc = relationships.SerializeDid(commitAuthor, ctx);
+                var commitPlc = preresolved.commitPlc != default ? preresolved.commitPlc : relationships.SerializeDid(commitAuthor, ctx);
 
                 if (collection == Generator.RecordType)
                 {
@@ -65,17 +102,17 @@ namespace AppViewLite
                 else
                 {
 
-                    if (!Tid.TryParse(rkey, out var tid)) return;
+                    if (rkeyAsTid == default) return;
 
-                    var rel = new Relationship(commitPlc, tid);
+                    var rel = new Relationship(commitPlc, rkeyAsTid);
                     if (collection == Like.RecordType)
                     {
-                        var target = relationships.Likes.Delete(rel, deletionDate);
+                        var target = relationships.Likes.Delete(rel, deletionDate, (PostIdTimeFirst?)(preresolved.postLikeOrRepostTarget != default ? preresolved.postLikeOrRepostTarget : null));
                         if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
                     }
                     else if (collection == Follow.RecordType)
                     {
-                        relationships.Follows.Delete(rel, deletionDate);
+                        relationships.Follows.Delete(rel, deletionDate, preresolved.followTarget != default ? preresolved.followTarget : null);
                     }
                     else if (collection == Block.RecordType)
                     {
@@ -83,7 +120,7 @@ namespace AppViewLite
                     }
                     else if (collection == Repost.RecordType)
                     {
-                        var target = relationships.Reposts.Delete(rel, deletionDate);
+                        var target = relationships.Reposts.Delete(rel, deletionDate, preresolved.postLikeOrRepostTarget != default ? preresolved.postLikeOrRepostTarget : null);
                         if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
                     }
                     else if (collection == Post.RecordType)
@@ -115,7 +152,7 @@ namespace AppViewLite
 
                 relationships.LogPerformance(sw, "Delete-" + path);
                 relationships.MaybeGlobalFlush();
-            }, ctx);
+            }), ctx);
         }
 
         record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
@@ -129,6 +166,10 @@ namespace AppViewLite
             var rkey = path.Split('/')[1];
             return long.TryParse(rkey, out _) || rkey.StartsWith("follow_", StringComparison.Ordinal);
         }
+
+
+
+
 
 
         public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false, RequestContext? ctx = null)

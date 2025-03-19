@@ -140,7 +140,7 @@ namespace AppViewLite
 
 
 
-        public static RequestContext CreateForFirehose(string reason)
+        public static RequestContext CreateForFirehose(string reason, bool allowStale = false)
         {
             return new RequestContext()
             {
@@ -148,6 +148,7 @@ namespace AppViewLite
                 StartDate = DateTime.UtcNow,
                 LabelSubscriptions = [],
                 FirehoseReason = reason,
+                AllowStale = allowStale,
             };
         }
 

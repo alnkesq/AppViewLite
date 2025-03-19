@@ -1,16 +1,13 @@
 using Microsoft.Win32.SafeHandles;
 using System;
-using System.Buffers.Binary;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace AppViewLite.Storage
 {
@@ -23,11 +20,73 @@ namespace AppViewLite.Storage
         { 
         
         }
+
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint FILE_SHARE_READ = 0x00000001;
+        private const uint OPEN_EXISTING = 3;
+        private const uint FILE_FLAG_NO_BUFFERING = 0x20000000;
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern SafeFileHandle CreateFile(
+            string lpFileName,
+            uint dwDesiredAccess,
+            FileShare dwShareMode,
+            IntPtr lpSecurityAttributes,
+            uint dwCreationDisposition,
+            uint dwFlagsAndAttributes,
+            IntPtr hTemplateFile
+        );
+
+        [DllImport("libc", SetLastError = true)]
+        private static extern int open(string pathname, OpenFlags flags);
+
+        [Flags]
+        internal enum OpenFlags
+        {
+            // Access modes (mutually exclusive)
+            O_RDONLY = 0x0000,
+            O_WRONLY = 0x0001,
+            O_RDWR = 0x0002,
+
+            // Flags (combinable)
+            O_CLOEXEC = 0x0010,
+            O_CREAT = 0x0020,
+            O_EXCL = 0x0040,
+            O_TRUNC = 0x0080,
+            O_SYNC = 0x0100,
+            O_NOFOLLOW = 0x0200,
+
+            O_DIRECT = 16384,
+        }
+
         public MemoryMappedFileSlim(string path, bool writable, FileShare fileShare = FileShare.None, bool randomAccess = false)
         {
             var access = writable ? MemoryMappedFileAccess.ReadWrite : MemoryMappedFileAccess.Read;
 
-            using var fileStream = new FileStream(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare, 4096, randomAccess ? FileOptions.RandomAccess : FileOptions.None);
+            SafeFileHandle safeFileHandle;
+            if (false)
+            {
+
+                safeFileHandle = File.OpenHandle(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare, randomAccess ? FileOptions.RandomAccess : FileOptions.None);
+            }
+            else
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, IntPtr.Zero);
+                }
+                else
+                {
+                    var result = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
+                    if (result < 0)
+                    {
+                        throw new Win32Exception();
+                    }
+                    safeFileHandle = new SafeFileHandle(result, ownsHandle: true);
+                }
+                
+            }
+            var fileStream = new FileStream(safeFileHandle, FileAccess.Read, 4096, false);
             _length = fileStream.Length;
             mmap = MemoryMappedFile.CreateFromFile(fileStream, null, 0, access, HandleInheritability.None, false);
             var stream = mmap.CreateViewStream(0, 0, access);

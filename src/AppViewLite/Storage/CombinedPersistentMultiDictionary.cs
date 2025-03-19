@@ -41,10 +41,14 @@ namespace AppViewLite.Storage
         public DateTime LastFlushed;
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
+        public PersistentDictionaryBehavior Behavior => behavior;
         public abstract string[] GetPotentiallyCorruptFiles();
 
-        public abstract System.Collections.IEnumerable GetValuesSortedUntyped(object key, object? minExclusive);
-        public abstract System.Collections.IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive);
+        public abstract IEnumerable GetValuesSortedUntyped(object key, object? minExclusive);
+        public abstract IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive);
+        public abstract IEnumerable GetValuesPreserveOrderUntyped(object key);
+        public abstract IEnumerable EnumerateSortedDescendingUntyped(object? maxExclusive);
+
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
             this.DirectoryPath = directory;
@@ -1314,9 +1318,17 @@ namespace AppViewLite.Storage
         {
             return GetValuesSorted((TKey)key, (TValue?)minExclusive);
         }
+        public override IEnumerable GetValuesPreserveOrderUntyped(object key)
+        {
+            return TryGetPreserveOrderSpanLatest((TKey)key, out var vals) ? vals.ToArray() : [];
+        }
         public override IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive)
         {
             return GetValuesSortedDescending((TKey)key, null, (TValue?)maxExclusive);
+        }
+        public override IEnumerable EnumerateSortedDescendingUntyped(object? maxExclusive)
+        {
+            return EnumerateKeysSortedDescending((TKey?)maxExclusive);
         }
 
         public abstract class CachedView

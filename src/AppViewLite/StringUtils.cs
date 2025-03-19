@@ -785,10 +785,15 @@ namespace AppViewLite
             {
                 if(consumed == parts.Length)
                     throw new ArgumentException($"Too few key components in the string '{str}' for type {type}.");
+                if (type == typeof(DateTime))
+                {
+                    return DateTime.Parse(parts[consumed++], CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+                }
                 var parseMethod = type.GetMethod("Parse", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string)]);
                 if (parseMethod != null)
                 {
                     var r = parseMethod.Invoke(null, [(object?)parts[consumed++]])!;
+
                     return r;
                 }
                 var ctor = type.GetConstructors().Single(x => x.GetParameters().Length != 0);

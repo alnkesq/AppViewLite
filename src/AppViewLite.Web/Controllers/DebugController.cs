@@ -1,6 +1,8 @@
 using AppViewLite.Models;
-using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AppViewLite.Web.Controllers
 {
@@ -49,21 +51,81 @@ namespace AppViewLite.Web.Controllers
             apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), ctx);
         }
 
+        
+
         [HttpGet("table/{table}")]
-        public object Lookup(string table, string key, bool reverse = false, string? start = null)
+        public object? Lookup(string table, string? key, bool reverse = false, string? start = null, int limit = 1000, string? proto = null)
         {
             var combinedTable = apis.DangerousUnlockedRelationships.AllMultidictionaries.First(x => Path.GetFileName(x.DirectoryPath) == table);
             var genericArgs = combinedTable.GetType().GetGenericArguments();
             var keyType = genericArgs[0];
             var valueType = genericArgs[1];
 
-            return apis.WithRelationshipsLock(rels =>
+            var protoType = proto != null ? typeof(Plc).Assembly.GetType(proto, throwOnError: true) : null;
+            if (key != null)
             {
-                object keyParsed = StringUtils.ParseRecord(keyType, key);
-                object? startParsed = start != null ? StringUtils.ParseRecord(valueType, start) : null;
-                var results = reverse ? combinedTable.GetValuesSortedDescendingUntyped(keyParsed, startParsed) : combinedTable.GetValuesSortedUntyped(keyParsed, startParsed);
-                return results.Cast<object>().Take(1000).ToArray();
-            }, ctx);
+                return apis.WithRelationshipsLock<object?>(rels =>
+                {
+                    object keyParsed = StringUtils.ParseRecord(keyType, key);
+                    object? startParsed = start != null ? StringUtils.ParseRecord(valueType, start) : null;
+                    if (start == null && combinedTable.Behavior == AppViewLite.Storage.PersistentDictionaryBehavior.PreserveOrder)
+                    {
+                        var bytes = combinedTable.GetValuesPreserveOrderUntyped(keyParsed);
+                        if (protoType != null)
+                        {
+                            var obj = ProtoBuf.Serializer.Deserialize(protoType, new MemoryStream((byte[])bytes));
+
+                            var settings = new JsonSerializerOptions { Converters = { (JsonConverter)Activator.CreateInstance(typeof(PrivateFieldSerializer<>).MakeGenericType(protoType))! } };
+                            var j = System.Text.Json.JsonSerializer.Serialize(obj, settings);
+                            var doc = JsonDocument.Parse(j);
+                            JsonElement root = doc.RootElement;
+                            return root;
+                        }
+                        return bytes;
+                    }
+
+                    if (proto != null) throw new ArgumentException("proto is only supported with PreserveOrder tables.");
+
+                    var results = reverse ? combinedTable.GetValuesSortedDescendingUntyped(keyParsed, startParsed) : combinedTable.GetValuesSortedUntyped(keyParsed, startParsed);
+                    return results.Cast<object>().Take(limit).ToArray();
+                }, ctx);
+            }
+            else
+            {
+                if (proto != null)
+                    throw new ArgumentException("Proto deserialization requires a key lookup.");
+
+                return apis.WithRelationshipsLock(rels =>
+                {
+                    object? startParsed = start != null ? StringUtils.ParseRecord(keyType, start) : null;
+
+                    var results = combinedTable.EnumerateSortedDescendingUntyped(startParsed);
+                    return results.Cast<object>().Take(limit).ToArray();
+                }, ctx);
+            }
+        }
+
+        internal class PrivateFieldSerializer<T> : JsonConverter<T>
+        {
+            public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+            {
+                writer.WriteStartObject();
+                Type type = typeof(T);
+
+                foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+                {
+                    var fieldValue = field.GetValue(value);
+                    writer.WritePropertyName(field.Name);
+                    JsonSerializer.Serialize(writer, fieldValue, field.FieldType, options);
+                }
+
+                writer.WriteEndObject();
+            }
         }
     }
 }

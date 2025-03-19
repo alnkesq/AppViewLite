@@ -97,11 +97,15 @@ namespace AppViewLite.Storage
                     {
                         throw new Win32Exception();
                     }
-                    var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
-                    if (errno != 0)
-                        throw new Win32Exception(errno);
 
                     safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
+                    var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
+                    if (errno != 0)
+                    {
+                        safeFileHandle.Dispose();
+                        throw new Win32Exception(errno);
+                    }
+
 
                 }
                 

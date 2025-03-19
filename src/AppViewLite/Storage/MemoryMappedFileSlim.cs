@@ -37,7 +37,7 @@ namespace AppViewLite.Storage
             IntPtr hTemplateFile
         );
 
-        [DllImport("libc", SetLastError = true)]
+        [DllImport("libc.so.6", SetLastError = true)]
         private static extern int open(string pathname, OpenFlags flags);
 
         [Flags]
@@ -59,6 +59,21 @@ namespace AppViewLite.Storage
             O_DIRECT = 16384,
         }
 
+
+        internal enum FileAdvice : int
+        {
+            POSIX_FADV_NORMAL = 0,    /* no special advice, the default value */
+            POSIX_FADV_RANDOM = 1,    /* random I/O access */
+            POSIX_FADV_SEQUENTIAL = 2,    /* sequential I/O access */
+            POSIX_FADV_WILLNEED = 3,    /* will need specified pages */
+            POSIX_FADV_DONTNEED = 4,    /* don't need the specified pages */
+            POSIX_FADV_NOREUSE = 5,    /* data will only be accessed once */
+        }
+
+        [DllImport("libc.so.6", SetLastError = true)]
+        private static extern int posix_fadvise(int fd, long offset, long length, FileAdvice advice);
+
+
         public MemoryMappedFileSlim(string path, bool writable, FileShare fileShare = FileShare.None, bool randomAccess = false)
         {
             var access = writable ? MemoryMappedFileAccess.ReadWrite : MemoryMappedFileAccess.Read;
@@ -77,12 +92,17 @@ namespace AppViewLite.Storage
                 }
                 else
                 {
-                    var result = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
-                    if (result < 0)
+                    var fd = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
+                    if (fd < 0)
                     {
                         throw new Win32Exception();
                     }
-                    safeFileHandle = new SafeFileHandle(result, ownsHandle: true);
+                    var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
+                    if (errno != 0)
+                        throw new Win32Exception(errno);
+
+                    safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
+
                 }
                 
             }

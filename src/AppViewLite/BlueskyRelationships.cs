@@ -116,6 +116,7 @@ namespace AppViewLite
 
         public IReadOnlyList<CombinedPersistentMultiDictionary> AllMultidictionaries => disposables.OfType<CombinedPersistentMultiDictionary>().Concat(disposables.OfType<RelationshipDictionary>().SelectMany(x => x.Multidictionaries)).ToArray();
 
+        internal UserPairEngagementCache UserPairEngagementCache = new UserPairEngagementCache();
 
         public static int TableWriteBufferSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE) ?? (10 * 1024 * 1024);
         public int AvoidFlushes;
@@ -143,12 +144,13 @@ namespace AppViewLite
             disposables.Add(r);
             return r;
         }
-        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null, Func<PruningContext, TKey, TValue, bool>? shouldPreserveValue = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null, Func<PruningContext, TKey, TValue, bool>? shouldPreserveValue = null, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
             return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(
                 BaseDirectory + "/" + name,
                 checkpointToLoad!.TryGetValue(name, out var slices) ? slices : [],
-                behavior
+                behavior,
+                caches
             ) {
                 WriteBufferSize = TableWriteBufferSize,
                 OnCompactation = onCompactation,
@@ -274,7 +276,7 @@ namespace AppViewLite
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.KeySetOnly);
             ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue);
-            SeenPosts = RegisterDictionary<Plc, PostEngagement>("seen-posts-2", onCompactation: CompactPostEngagements);
+            SeenPosts = RegisterDictionary<Plc, PostEngagement>("seen-posts-2", onCompactation: CompactPostEngagements, caches: [UserPairEngagementCache]);
             SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
@@ -591,7 +593,7 @@ namespace AppViewLite
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
-                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.SliceBaseName).Distinct().ToArray()));
+                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()));
             foreach (var table in keep)
             {
                 foreach (var file in new DirectoryInfo(Path.Combine(BaseDirectory, table.TableName)).EnumerateFiles())
@@ -3626,6 +3628,62 @@ namespace AppViewLite
                 this.Version,
             };
         }
+
+        public static void Assert(bool ensure, string text)
+        {
+            if (!ensure)
+                ThrowFatalError(text);
+        }
+        public static void Assert(bool ensure)
+        {
+            if (!ensure)
+                ThrowFatalError("Failed assertion.");
+        }
+
+        public IEnumerable<UserEngagementStats> GetUserEngagementScoresForUser(Plc loggedInUser)
+        {
+            BlueskyRelationships.Assert(SeenPosts.slices.Count == UserPairEngagementCache.cacheSlices.Count, "Slice count mismatch between SeenPosts and UserPairEngagementCache.");
+            var newdict = new Dictionary<Plc, float>();
+
+            var concatenated = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(UserPairEngagementCache.cacheSlices.Select(x => x.Cache.GetValues(loggedInUser).AsEnumerable()).ToArray(), x => x.Target);
+            foreach (var user in SimpleJoin.GroupAssumingOrderedInput(concatenated, x => x.Target))
+            {
+
+                UserEngagementStats cumulative = default;
+                cumulative.Target = user.Key;
+                foreach (var slice in user.Values)
+                {
+                    cumulative.EngagedPosts += slice.EngagedPosts;
+                    cumulative.FollowingEngagedPosts += slice.FollowingEngagedPosts;
+                    cumulative.FollowingSeenPosts += slice.FollowingSeenPosts;
+                }
+                yield return cumulative;
+
+            }
+        }
+        public static float GetUserEngagementScore(UserEngagementStats stats, double averageEngagementRatio)
+        {
+
+            double otherEngagements = stats.EngagedPosts - stats.FollowingEngagedPosts;
+            BlueskyRelationships.Assert(otherEngagements >= 0);
+            otherEngagements = Math.Pow(otherEngagements, 0.3);
+
+            var otherTotalEstimation = otherEngagements / averageEngagementRatio;
+            
+            const double nonFeedWeight = 0.1;
+
+            var positive = stats.FollowingEngagedPosts + otherEngagements * nonFeedWeight;
+            var total = stats.FollowingSeenPosts + otherTotalEstimation * nonFeedWeight;
+
+            return (float)WeightedMeanWithPrior(positive, total, averageEngagementRatio, 50);
+
+        }
+
+        public static double WeightedMeanWithPrior(double positive, double total, double prior, int priorWeight)
+        {
+            return (priorWeight * prior + positive) / (priorWeight + total);
+        }
+
     }
 
 

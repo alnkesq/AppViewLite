@@ -8,7 +8,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using System.Collections;
 
 namespace AppViewLite.Storage
@@ -31,6 +30,14 @@ namespace AppViewLite.Storage
     {
         public string BaseName => StartTime.Ticks + "-" + EndTime.Ticks + (PruneId != 0 ? "-" + PruneId : null);
         public bool IsPruned => (PruneId % 2) != 0;
+
+        public static SliceName ParseBaseName(string name)
+        {
+            var parts = name.Split('-');
+            if (parts.Length == 2) return new SliceName(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), 0);
+            else if (parts.Length == 3) return new SliceName(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), long.Parse(parts[2]));
+            else throw new ArgumentException();
+        }
     }
 
     public abstract class CombinedPersistentMultiDictionary
@@ -72,9 +79,7 @@ namespace AppViewLite.Storage
         {
             var dot = fileName.IndexOf('.');
             var baseName = fileName.Substring(0, dot);
-            var parts = baseName.Split('-');
-            
-            return new SliceName(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), parts.Length == 2 ? 0 : long.Parse(parts[2]));
+            return SliceName.ParseBaseName(baseName);
 
         }
         public virtual long InMemorySize { get; }
@@ -165,7 +170,7 @@ namespace AppViewLite.Storage
                         else
                         {
                             var s = OpenSlice(directory, sliceName, behavior, mandatory: true);
-                            AddToCaches(s);
+                            AddToCaches(s, this.slices.Count);
                             this.slices.Add(s);
                         }
                     }
@@ -180,7 +185,7 @@ namespace AppViewLite.Storage
                         {
                             var s = OpenSlice(directory, sliceName, behavior, mandatory: false);
                             if (s == default) continue;
-                            AddToCaches(s);
+                            AddToCaches(s, this.slices.Count);
                             this.slices.Add(s);
                         }
                     }
@@ -210,7 +215,7 @@ namespace AppViewLite.Storage
             }
         }
 
-        private unsafe void AddToCaches(SliceInfo slice)
+        private unsafe void AddToCaches(SliceInfo slice, int sliceIndex)
         {
             if (Caches == null) return;
             foreach (var cache in Caches)
@@ -219,14 +224,14 @@ namespace AppViewLite.Storage
                 {
 
                     var cachePath = cache.GetCachePathForSlice(slice);
-                    if (!File.Exists(cachePath))
+                    if (!cache.IsAlreadyMaterialized(cachePath))
                     {
                         Console.Error.WriteLine("Materializing cache: " + cachePath);
                         cache.MaterializeCacheFile(slice, cachePath);
                     }
 
                     Console.Error.WriteLine("Reading cache: " + cachePath);
-                    cache.LoadCacheFile(cachePath);
+                    cache.LoadCacheFile(slice, cachePath, sliceIndex);
                 }
                 else
                 {
@@ -281,11 +286,21 @@ namespace AppViewLite.Storage
            
             }
             public ImmutableMultiDictionaryReader<TKey, TValue> Reader => ReaderHandle.Value;
+
+            public SliceName SliceName => new SliceName(this.StartTime, this.EndTime, this.PruneId);
         }
 
         public void DisposeNoFlush()
         {
             if (pendingCompactation != null) throw new Exception();
+
+            if (Caches != null)
+            {
+                foreach (var cache in Caches)
+                {
+                    cache.Dispose();
+                }
+            }
 
             foreach (var slice in slices)
             {
@@ -359,6 +374,9 @@ namespace AppViewLite.Storage
                 slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {ToHumanBytes(size)}");
 
+                if(!disposing)
+                    NotifyCachesSliceAdded(slices.Count - 1);
+
                 if (!disposing)
                     MaybeStartCompactation();
 
@@ -367,6 +385,27 @@ namespace AppViewLite.Storage
             }
         }
 
+        private void NotifyCachesSliceAdded(int insertedAt)
+        {
+            if (Caches != null)
+            {
+                foreach (var cache in Caches)
+                {
+                    cache.OnSliceAdded(insertedAt, this.slices[insertedAt]);
+                }
+            }
+        }
+
+        private void NotifyCachesSliceRemoved(int removedAt)
+        {
+            if (Caches != null)
+            {
+                foreach (var cache in Caches)
+                {
+                    cache.OnSliceRemoved(removedAt);
+                }
+            }
+        }
 
         private DateTime prevSliceDate;
 
@@ -473,11 +512,13 @@ namespace AppViewLite.Storage
                                 File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
                             }
                         }
+                        NotifyCachesSliceRemoved(groupStart);
                     }
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
                     slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior))));
+                    NotifyCachesSliceAdded(groupStart);
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
@@ -1331,7 +1372,7 @@ namespace AppViewLite.Storage
             return EnumerateKeysSortedDescending((TKey?)maxExclusive);
         }
 
-        public abstract class CachedView
+        public abstract class CachedView : IDisposable
         {
             public abstract string Identifier { get; }
 
@@ -1343,9 +1384,18 @@ namespace AppViewLite.Storage
 
             public abstract void MaterializeCacheFile(SliceInfo slice, string destination);
 
-            public abstract void LoadCacheFile(string cachePath);
+            public abstract void LoadCacheFile(SliceInfo slice, string cachePath, int sliceIndex);
 
             public abstract void LoadFromOriginalSlice(SliceInfo slice);
+
+            public virtual bool IsAlreadyMaterialized(string cachePath)
+            {
+                return File.Exists(cachePath);
+            }
+
+            public virtual void OnSliceAdded(int insertedAt, SliceInfo slice) { }
+            public virtual void OnSliceRemoved(int removedAt) { }
+            public virtual void Dispose() { }
         }
     }
 

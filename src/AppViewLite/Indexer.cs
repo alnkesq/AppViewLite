@@ -228,6 +228,9 @@ namespace AppViewLite
 
                             if (added)
                                 relationships.IncrementRecentPopularPostLikeCount(postId, 1);
+
+                            if (relationships.IsRegisteredForNotifications(commitPlc))
+                                relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
                         }
                         else if (l.Subject.Uri.Collection == Generator.RecordType)
                         {
@@ -271,6 +274,9 @@ namespace AppViewLite
                         relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
                         relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
                         relationships.NotifyPostStatsChange(postId, commitPlc);
+                        
+                        if (relationships.IsRegisteredForNotifications(commitPlc))
+                            relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
                     }
                     else if (record is Block b)
                     {

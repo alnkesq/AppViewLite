@@ -58,7 +58,7 @@ namespace AppViewLite
             FetchAndStoreProfileDict = new(FetchAndStoreProfileCoreAsync);
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
-
+            CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, extraArgs.Ctx));
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
                 var config = DidDocOverridesConfiguration.ReadFromFile(path);
@@ -112,6 +112,8 @@ namespace AppViewLite
 
             relationships.NotificationGenerated += Relationships_NotificationGenerated;
         }
+
+        
 
         private void Relationships_NotificationGenerated(Plc destination, Notification notification, RequestContext ctx)
         {
@@ -1900,7 +1902,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 50);
 
-            
+            var userEngagementStats = GetUserEngagementScores(ctx);
     
 
             var now = DateTime.UtcNow;
@@ -2246,7 +2248,81 @@ namespace AppViewLite
             return new PostsAndContinuation(posts, null);
         }
 
-        
+        private Dictionary<Plc, float> GetUserEngagementScores(RequestContext ctx)
+        {
+            var userCtx = ctx.UserContext;
+            var globalUserEngagementCache = DangerousUnlockedRelationships.UserPairEngagementCache;
+            if (userCtx.UserEngagementCacheVersion < globalUserEngagementCache.Version)
+            {
+                lock (userCtx)
+                {
+                    if (userCtx.UserEngagementCacheVersion < globalUserEngagementCache.Version) 
+                    {
+                        var subCtx = RequestContext.CreateForRequest(ctx.Session, urgent: ctx.IsUrgent);
+                        subCtx.AllowStale = false; // cache only exists in primary
+                        WithRelationshipsLock(rels =>
+                        {
+                            var newdict = new Dictionary<Plc, float>();
+                            var totalFeedEngagement = 0;
+                            var totalFeedSeenPosts = 0;
+                            var scores = rels.GetUserEngagementScoresForUser(userCtx.LoggedInUser!.Value).ToArray();
+                            foreach (var user in scores)
+                            {
+                                totalFeedEngagement += user.FollowingEngagedPosts;
+                                totalFeedSeenPosts += user.FollowingSeenPosts;
+                            }
+                            userCtx.AverageEngagementRatio = BlueskyRelationships.WeightedMeanWithPrior(totalFeedEngagement, totalFeedSeenPosts, 0.03, 50);
+
+                            foreach (var item in scores)
+                            {
+                                newdict.Add(item.Target, BlueskyRelationships.GetUserEngagementScore(item, userCtx.AverageEngagementRatio));
+                            }
+
+                            userCtx.UserEngagementCache = newdict;
+                            userCtx.DefaultEngagementScore = BlueskyRelationships.GetUserEngagementScore(default, userCtx.AverageEngagementRatio);
+                            userCtx.UserEngagementCacheVersion = globalUserEngagementCache.Version;
+                        }, subCtx);
+                    }
+                }
+            }
+            return userCtx.UserEngagementCache;
+        }
+
+        public UserEngagementStats[] GetUserEngagementRawScores(RequestContext ctx)
+        {
+            ctx.AllowStale = false;
+            GetUserEngagementScores(ctx); // Populates AverageEngagementRatio
+            return WithRelationshipsWriteLock(rels => rels.GetUserEngagementScoresForUser(ctx.LoggedInUser).ToArray(), ctx);
+        }
+        public async Task<ProfilesAndContinuation> GetUserEngagementScoresAsync(RequestContext ctx, string? continuation, int limit = default, string? onlyDid = null)
+        {
+            EnsureLimit(ref limit, 100);
+            var onlyPlc = onlyDid != null ? SerializeSingleDid(onlyDid, ctx) : default;
+            var offset = continuation != null ? int.Parse(continuation) : 0;
+            var pageScores = GetUserEngagementRawScores(ctx)
+                .Where(x => onlyPlc == default || onlyPlc == x.Target)
+                .Select(x => (Raw: x, Score: BlueskyRelationships.GetUserEngagementScore(x, ctx.UserContext.AverageEngagementRatio)))
+                .OrderByDescending(x => x.Score)
+                .Skip(offset)
+                .Take(limit + 1)
+                .ToArray();
+            var dict = pageScores.ToDictionary(x => x.Raw.Target, x => x);
+
+            void SetBadge(BlueskyProfile profile)
+            {
+                var s = dict[profile.Plc];
+                profile.Labels = [new AdditionalDataBadge(s.Score.ToString("0.00") + ": " + s.Raw.FollowingEngagedPosts + " (+" + s.Raw.EngagedPosts + ")" + " / " + s.Raw.FollowingSeenPosts), .. profile.Labels];
+            }
+            var page = WithRelationshipsLock(rels => pageScores.Select(x => rels.GetProfile(x.Raw.Target)).ToArray(), ctx);
+            await EnrichAsync(page, ctx, SetBadge);
+            foreach (var item in page)
+            {
+                SetBadge(item);
+            }
+            return GetPageAndNextPaginationFromLimitPlus1(page, limit, _ => (offset + limit).ToString());
+        }
+
+
 
         //private static Dictionary<PostId, DateTime> GetMostRecentRepostDates(ScoredBlueskyPost[] candidates)
         //{
@@ -2284,10 +2360,10 @@ namespace AppViewLite
             return (float)score;
         }
 
-        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, bool startIfNotRunning = true, TimeSpan ignoreIfRecentlyRan = default, CancellationToken ct = default)
-        {
+        public ConcurrentSet<RepositoryImportEntry> RunningCarImports = new();
 
-            var ctx = RequestContext.CreateForFirehose("CarImport");
+        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, RequestContext ctx, TimeSpan ignoreIfRecentlyRan = default, bool incremental = true, CancellationToken ct = default)
+        {
             Plc plc = default;
             RepositoryImportEntry? previousImport = null;
             WithRelationshipsLockForDid(did, (plc_, rels) =>
@@ -2295,89 +2371,84 @@ namespace AppViewLite
                 plc = plc_;
                 previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
             }, ctx);
-            if (!startIfNotRunning)
-            {
-                Task<RepositoryImportEntry>? running;
-                lock (carImports)
-                {
-                    carImports.TryGetValue((plc, kind), out running);
-                }
-                if (running != null) return await running;
-                return previousImport;
-            }
 
             if (previousImport != null && (ignoreIfRecentlyRan != default && (DateTime.UtcNow - previousImport.StartDate) < ignoreIfRecentlyRan))
                 return previousImport;
 
-            Task<RepositoryImportEntry>? r;
-            lock (carImports)
-            {
-                var key = (plc, kind);
-                if (!carImports.TryGetValue(key, out r))
-                {
-                    if (!startIfNotRunning) return null;
-                    r = ImportCarIncrementalCoreAsync(did, kind, plc, previousImport != null && previousImport.LastRevOrTid != 0 ? new Tid(previousImport.LastRevOrTid) : default, ct, ctx);
-                    carImports[key] = r;
-                }
-            }
-            return await r;
+            return await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did, RequestContext.CreateForTaskDictionary(ctx)));
         }
 
         private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx)
         {
-            await Task.Yield();
             var startDate = DateTime.UtcNow;
-            var sw = Stopwatch.StartNew();
-            var indexer = new Indexer(this);
-            Tid lastTid;
-            Exception? exception = null;
-
-            if (kind == RepositoryImportKind.Full)
-            {
-                try
-                {
-                    lastTid = await indexer.ImportCarAsync(did, ctx, since, ct);
-                }
-                catch (Exception ex)
-                {
-                    exception = ex;
-                    lastTid = default;
-                }
-            }
-            else 
-            {
-                var recordType = kind switch {
-                    RepositoryImportKind.Posts => Post.RecordType,
-                    RepositoryImportKind.Likes => Like.RecordType,
-                    RepositoryImportKind.Reposts => Repost.RecordType,
-                    RepositoryImportKind.Follows => Follow.RecordType,
-                    RepositoryImportKind.Blocks => Block.RecordType,
-                    RepositoryImportKind.ListMetadata => List.RecordType,
-                    RepositoryImportKind.ListEntries => Listitem.RecordType,
-                    RepositoryImportKind.BlocklistSubscriptions => Listblock.RecordType,
-                    RepositoryImportKind.Threadgates => Threadgate.RecordType,
-                    RepositoryImportKind.Postgates => Postgate.RecordType,
-                    RepositoryImportKind.FeedGenerators => Generator.RecordType,
-                    _ => throw new Exception("Unknown collection kind.")
-                };
-                (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ctx, ct);
-            }
-
             var summary = new RepositoryImportEntry
             {
-                DurationMillis = (long)sw.Elapsed.TotalMilliseconds,
                 Kind = kind,
                 Plc = plc,
                 StartDate = startDate,
-                LastRevOrTid = lastTid.TidValue,
-                Error = exception != null ? GetErrorDetails(exception) : null,
-                
+                StartRevOrTid = since.TidValue,
+                StillRunning = true,
             };
-            WithRelationshipsWriteLock(rels =>
+            RunningCarImports.TryAdd(summary);
+            try
             {
-                rels.CarImports.AddRange(new RepositoryImportKey(plc, startDate), BlueskyRelationships.SerializeProto(summary));
-            }, ctx);
-            return summary;
+                var sw = Stopwatch.StartNew();
+                var indexer = new Indexer(this);
+                Tid lastTid;
+                Exception? exception = null;
+
+                if (kind == RepositoryImportKind.CAR)
+                {
+                    try
+                    {
+                        lastTid = await indexer.ImportCarAsync(did, ctx, since, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        exception = ex;
+                        lastTid = default;
+                    }
+                }
+                else
+                {
+                    var recordType = kind switch
+                    {
+                        RepositoryImportKind.Posts => Post.RecordType,
+                        RepositoryImportKind.Likes => Like.RecordType,
+                        RepositoryImportKind.Reposts => Repost.RecordType,
+                        RepositoryImportKind.Follows => Follow.RecordType,
+                        RepositoryImportKind.Blocks => Block.RecordType,
+                        RepositoryImportKind.ListMetadata => List.RecordType,
+                        RepositoryImportKind.ListEntries => Listitem.RecordType,
+                        RepositoryImportKind.BlocklistSubscriptions => Listblock.RecordType,
+                        RepositoryImportKind.Threadgates => Threadgate.RecordType,
+                        RepositoryImportKind.Postgates => Postgate.RecordType,
+                        RepositoryImportKind.FeedGenerators => Generator.RecordType,
+                        _ => throw new Exception("Unknown collection kind.")
+                    };
+                    (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ctx, ct);
+                }
+                summary.DurationMillis = (long)sw.Elapsed.TotalMilliseconds;
+                summary.LastRevOrTid = lastTid.TidValue;
+                summary.Error = exception != null ? GetErrorDetails(exception) : null;
+                summary.StillRunning = false;
+
+                WithRelationshipsWriteLock(rels =>
+                {
+                    rels.CarImports.AddRange(new RepositoryImportKey(plc, startDate), BlueskyRelationships.SerializeProto(summary));
+                }, ctx);
+
+                RunningCarImports.Remove(summary);
+
+                return summary;
+            }
+            catch (Exception ex)
+            {
+                summary.StillRunning = false;
+                summary.Error = ex.Message;
+                Task.Delay(TimeSpan.FromMinutes(1)).ContinueWith(_ => RunningCarImports.Remove(summary)).FireAndForget();
+                throw;
+            }
         }
 
         private static string GetErrorDetails(Exception exception)
@@ -2399,22 +2470,7 @@ namespace AppViewLite
             }
         }
 
-        public string GetCarImportStatus(string did, RepositoryImportKind kind)
-        {
-            var task = ImportCarIncrementalAsync(did, kind, startIfNotRunning: false);
-            if (task.IsCompletedSuccessfully)
-            {
-                var r = task.Result;
-                if (r == null) return "Not running.";
-                var durationSeconds = (r.DurationMillis / 1000.0).ToString("0.0");
-                if (r.Error != null) return $"Error: {r.Error}, Duration: {durationSeconds} seconds.";
-                return $"Completed. Start date: {r.StartDate}, Duration: {durationSeconds} seconds.";
-            }
-            else if (task.IsFaulted)
-                return $"Failed: {task.Exception.Message}";
-            else
-                return "Running...";
-        }
+
 
         public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx)
         {
@@ -3440,7 +3496,7 @@ namespace AppViewLite
             return result;
         }
 
-        private readonly Dictionary<(Plc, RepositoryImportKind), Task<RepositoryImportEntry>> carImports = new();
+        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
 
@@ -3641,11 +3697,12 @@ namespace AppViewLite
             if (haveFollowees < 100)
             {
                 var deadline = Task.Delay(5000);
-                var loadFollows = ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
-                ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
-                ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
+                var loadFollows = ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ctx, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
+                ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ctx, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
+                ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ctx, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
                 // TODO: fetch entries of subscribed blocklists
                 await Task.WhenAny(deadline, loadFollows);
+                ctx.BumpMinimumVersion(long.MaxValue); // so that we see the latest follow imports
             }
         }
 
@@ -3955,11 +4012,11 @@ namespace AppViewLite
             SaveAppViewLiteProfile(ctx);
         }
 
-        public object GetCountersThreadSafe()
+        public object GetCountersThreadSafe(RequestContext ctx)
         {
             return new
             {
-                CarImportCount = this.carImports.Count,
+                CarImportCount = this.CarImportDict.Count,
                 FetchAndStoreDidDocNoOverrideDict = this.FetchAndStoreDidDocNoOverrideDict.Count,
                 FetchAndStoreLabelerServiceMetadataDict = this.FetchAndStoreLabelerServiceMetadataDict.Count,
                 FetchAndStoreListMetadataDict = this.FetchAndStoreListMetadataDict.Count,
@@ -3973,6 +4030,7 @@ namespace AppViewLite
                 CustomEmojiCache = this.CustomEmojiCache.Count,
                 Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
                 Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
+                UserContext = ctx.IsLoggedIn ? ctx.UserContext.GetCountersThreadSafe() : null,
             };
         }
     }

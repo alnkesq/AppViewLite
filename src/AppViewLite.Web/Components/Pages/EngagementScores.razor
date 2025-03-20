@@ -1,0 +1,22 @@
+@page "/debug/following-feed-weights"
+@inject RequestContext RequestContext
+@inject BlueskyEnrichedApis Apis
+@inject NavigationManager Navigation
+
+@code {
+    
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Did { get; set; }
+    private ProfilesAndContinuation Profiles = new();
+    protected override async Task OnParametersSetAsync()
+    {
+        Navigation.RedirectIfNotLoggedIn(RequestContext);
+        Profiles = await Apis.GetUserEngagementScoresAsync(RequestContext, Continuation, default, Did != null ? await Apis.ResolveHandleAsync(Did, RequestContext) : null);
+    }
+}
+
+<PageTitle>Following feed weights</PageTitle>
+
+<h1>Following feed weights</h1>
+
+<ProfileList Profiles="@Profiles.Profiles" NextContinuation="@Profiles.NextContinuation" />

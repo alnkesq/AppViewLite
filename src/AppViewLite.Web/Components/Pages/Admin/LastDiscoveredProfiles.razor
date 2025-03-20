@@ -1,6 +1,7 @@
 @page "/debug/recent-profiles"
-@inherits ProfileComponentBase
 @inject NavigationManager Navigation
+@inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
 
 @code {
     private BlueskyProfile[] Users = [];

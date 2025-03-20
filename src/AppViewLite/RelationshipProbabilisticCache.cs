@@ -23,7 +23,7 @@ namespace AppViewLite
         public override string Identifier => "relset-" + probabilisticSet.BitsPerFunction + "-" + hashFunctions;
 
 
-        public override void LoadCacheFile(string cachePath)
+        public override void LoadCacheFile(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, string cachePath, int sliceIndex)
         {
             probabilisticSet.UnionWith(ProbabilisticSetCache.ReadCompressedProbabilisticSetFromFile(cachePath));
         }

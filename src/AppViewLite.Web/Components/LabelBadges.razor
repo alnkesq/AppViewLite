@@ -8,7 +8,7 @@
     <div class="label-badge-list @ExtraClass">
         @foreach (var label in Labels)
         {
-            <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + "\n\n" + label.Moderator.DisplayNameOrFallback)">
+            <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + (label.Moderator != null ? "\n\n" + label.Moderator.DisplayNameOrFallback : null))">
                 @label.DisplayNameOrFallback
             </a>
         }

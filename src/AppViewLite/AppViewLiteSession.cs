@@ -76,9 +76,36 @@ namespace AppViewLite
             RefreshTokenExpireDate = jwtToken.ValidTo;
         }
 
+
         public ConcurrentSet<PostId>? RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts;
         public DateTime RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset;
 
+        public Dictionary<Plc, float> UserEngagementCache;
+        public long UserEngagementCacheVersion;
+        public double AverageEngagementRatio;
+        public double DefaultEngagementScore;
+
+
+        public Plc Plc => Profile!.Plc;
+        internal object GetCountersThreadSafe()
+        {
+            return new
+            {
+                Plc = this.Plc.PlcValue,
+                this.Did,
+                InitializeAsync = this.InitializeAsync?.Status.ToString(),
+                this.MinVersion,
+                HasPdsSession = this.PdsSession != null,
+                PrivateFollows = PrivateFollows.Count,
+                HasProfile = this.Profile != null,
+                RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts = this.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.Count,
+                this.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset,
+                this.RefreshTokenExpireDate,
+                UserEngagementCache = this.UserEngagementCache?.Count,
+                this.UserEngagementCacheVersion,
+                PrivateProfile = this.PrivateProfile?.GetCountersThreadSafe(),
+            };
+        }
     }
 
 }

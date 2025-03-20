@@ -472,6 +472,8 @@ async function recordPostEngagement(postElement, kind) {
 
 var intersectionObserver;
 
+var refreshRepositoryImportPageTimeout = null;
+
 function applyPageElements() { 
     
 
@@ -581,6 +583,17 @@ function applyPageElements() {
     var focalPost = document.querySelector('.post-focal');
     if (focalPost && !isTheater) {
         recordPostEngagement(focalPost, 'OpenedThread');
+    }
+
+    if (refreshRepositoryImportPageTimeout !== null) {
+        clearInterval(refreshRepositoryImportPageTimeout);
+        refreshRepositoryImportPageTimeout = null;
+    }
+    if (location.pathname == "/repository-import" && document.querySelector('.repository-import-row[data-pending="1"]')) { 
+        refreshRepositoryImportPageTimeout = setTimeout(() => { 
+            refreshRepositoryImportPageTimeout = null;
+            fastNavigateTo(location.href, true);
+        }, 2000);
     }
 }
 

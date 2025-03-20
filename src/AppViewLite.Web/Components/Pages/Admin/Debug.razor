@@ -1,15 +1,18 @@
 @page "/debug"
+@inject RequestContext RequestContext
+
 <PageTitle>Debug</PageTitle>
 <h1>Debug</h1>
 <ul class="main-padding">
     <li><a class="blue-link" href="/admin/appviewlite-users">AppViewLite users</a></li>
+    <li><a class="blue-link" href="/debug/following-feed-weights">Balanced feed weights</a></li>
     <li><a class="blue-link" href="/debug/counters">Counters</a></li>
     <li><a class="blue-link" href="/debug/locks">Locks</a></li>
     <li><a class="blue-link" href="/debug/memory-instrumentation">Memory instrumentation</a></li>
     <li><a class="blue-link" href="/debug/recent-profiles">Recent profiles</a></li>
     <li><a class="blue-link" href="/debug/requests">Requests</a></li>
     <li><a class="blue-link" href="/debug/tables">Table stats</a></li>
-    <li><a class="blue-link" href="/api/debug/table/plc-to-did-plc?key=1">Table lookup</a></li>
-    <li><a class="blue-link" href="/api/debug/dids-to-plc-ids?dids=did:plc:yrzav4kckt5na2uzgx3j3s2r">DID to internal ID</a></li>
-    <li><a class="blue-link" href="/api/debug/plc-ids-to-dids?ids=1">Internal ID to DID</a></li>
+    <li><a class="blue-link" href="/api/debug/table/user-to-recent-posts-2?key=@(RequestContext.IsLoggedIn ? RequestContext.UserContext.Plc.PlcValue : 1)&reverse=1&limit=50">Table lookup</a></li>
+    <li><a class="blue-link" href="/api/debug/dids-to-plc-ids?dids=@(RequestContext.IsLoggedIn ? RequestContext.UserContext.Did : "did:plc:yrzav4kckt5na2uzgx3j3s2r")">DID to internal ID</a></li>
+    <li><a class="blue-link" href="/api/debug/plc-ids-to-dids?ids=@(RequestContext.IsLoggedIn ? RequestContext.UserContext.Plc.PlcValue : 1)">Internal ID to DID</a></li>
 </ul>

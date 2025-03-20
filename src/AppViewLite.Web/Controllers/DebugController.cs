@@ -64,7 +64,7 @@ namespace AppViewLite.Web.Controllers
         
 
         [HttpGet("table/{table}")]
-        public object? Lookup(string table, string? key, bool reverse = false, string? start = null, int limit = 1000, string? proto = null)
+        public object? Lookup(string table, string? key, int reverse = 0, string? start = null, int limit = 1000, string? proto = null)
         {
             ctx.EnsureAdministrator();
 
@@ -98,7 +98,7 @@ namespace AppViewLite.Web.Controllers
 
                     if (proto != null) throw new ArgumentException("proto is only supported with PreserveOrder tables.");
 
-                    var results = reverse ? combinedTable.GetValuesSortedDescendingUntyped(keyParsed, startParsed) : combinedTable.GetValuesSortedUntyped(keyParsed, startParsed);
+                    var results = reverse != 0 ? combinedTable.GetValuesSortedDescendingUntyped(keyParsed, startParsed) : combinedTable.GetValuesSortedUntyped(keyParsed, startParsed);
                     return results.Cast<object>().Take(limit).ToArray();
                 }, ctx);
             }

@@ -1,10 +1,6 @@
 using AppViewLite;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace AppViewLite
@@ -38,6 +34,17 @@ namespace AppViewLite
         public void StartAsync(TKey key, TExtraArgs extraArgs, Action<Task>? onCompleted = null)
         {
             inner.StartAsync(key, extraArgs, onCompleted);
+        }
+
+        public bool TryGetTask(TKey key, out Task? task)
+        {
+            task = null;
+            if (inner.TryGetTask(key, out var r))
+            {
+                task = r;
+                return true;
+            }
+            return false;
         }
 
         public int Count => inner.Count;
@@ -101,6 +108,17 @@ namespace AppViewLite
             {
                 task.ContinueWith(onCompleted).FireAndForget();
             }
+        }
+
+        public bool TryGetTask(TKey key, out Task<TValue>? result)
+        {
+            result = null;
+            if (dict.TryGetValue(key, out var r))
+            {
+                result = r.Value;
+                return true;
+            }
+            return false;
         }
     }
 }

@@ -661,7 +661,7 @@ namespace AppViewLite
             }
             
             importer.Log("Done.");
-            return importer.LargestSeenRev;
+            return importer.LargestSeenRev != default ? importer.LargestSeenRev : since;
         }
 
 

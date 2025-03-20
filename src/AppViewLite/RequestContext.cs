@@ -205,6 +205,7 @@ namespace AppViewLite
         {
             return _administratorDids.Contains("*") || (IsLoggedIn && _administratorDids.Contains(this.UserContext.Did!));
         }
+
     }
 
 }

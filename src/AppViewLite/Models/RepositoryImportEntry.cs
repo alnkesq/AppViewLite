@@ -14,9 +14,11 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public long DurationMillis;
         [ProtoMember(3)] public long LastRevOrTid;
         [ProtoMember(4)] public string? Error;
+        [ProtoMember(5)] public long StartRevOrTid;
 
         public DateTime StartDate;
         public Plc Plc;
+        public bool StillRunning;
 
     }
 
@@ -24,7 +26,7 @@ namespace AppViewLite.Models
     public enum RepositoryImportKind
     { 
         None,
-        Full,
+        CAR,
         Posts,
         Likes,
         Follows,

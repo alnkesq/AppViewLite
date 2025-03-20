@@ -2473,7 +2473,7 @@ namespace AppViewLite
             }
         }
 
-        internal RepositoryImportEntry[] GetRepositoryImports(Plc plc)
+        public RepositoryImportEntry[] GetRepositoryImports(Plc plc)
         {
             return
                 CarImports.GetInRangeUnsorted(new RepositoryImportKey(plc, default), new RepositoryImportKey(plc.GetNext(), default))

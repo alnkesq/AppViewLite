@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public class ConcurrentSet<T> where T : notnull
+    public class ConcurrentSet<T> : IEnumerable<T> where T : notnull
     {
         private ConcurrentDictionary<T, bool> dict = new();
         public int Count => dict.Count;
@@ -26,6 +27,16 @@ namespace AppViewLite
         public void Clear()
         {
             dict.Clear();
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return dict.Keys.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

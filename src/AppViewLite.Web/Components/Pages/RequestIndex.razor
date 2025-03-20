@@ -1,20 +1,84 @@
-@page "/request-index"
+@page "/repository-import"
+@using AppViewLite.Numerics
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
 @inject BlueskyEnrichedApis Apis
 @inject RequestContext RequestContext
 
-<PageTitle>Request repository reindexing</PageTitle>
-<h1>Request repository reindexing</h1>
+@code {
+    [Parameter][SupplyParameterFromQuery] public required string Did { get; set; }
+    public BlueskyProfile? Profile;
+    private RepositoryImportEntry[] Imports = [];
+
+    [SupplyParameterFromForm]
+    private RequestIndexData? Model { get; set; }
+
+    protected override void OnInitialized() => Model ??= new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        RequestContext.AllowStale = false;
+        Did = await Apis.ResolveHandleAsync(Did, RequestContext);
+        Profile = Apis.GetSingleProfile(Did, RequestContext);
+        await Apis.EnrichAsync([Profile], RequestContext);
+        Imports = Apis.WithRelationshipsLockForDid(Did, (plc, rels) =>
+        {
+            var imports = rels.GetRepositoryImports(plc).OrderBy(x => x.StartDate);
+            return imports.Concat(Apis.RunningCarImports.Where(x => x.Plc == plc)).ToArray();
+        }, RequestContext);
+    }
+    private void Submit()
+    {
+        Apis.ImportCarIncrementalAsync(Did, Model.Kind, RequestContext, incremental: Model.Incremental).FireAndForget();
+        Navigation.NavigateTo("/repository-import?did=" + Uri.EscapeDataString(Did), true);
+
+    }
+
+    public class RequestIndexData
+    {
+        public RepositoryImportKind Kind { get; set; } = RepositoryImportKind.CAR;
+        public bool Incremental { get; set; } = true;
+    }
+}
+
+<PageTitle>Repository import for @Profile?.DisplayNameOrFallback</PageTitle>
+
+<h1><a href="@Profile?.BaseUrl">@Profile?.DisplayNameOrFallback</a></h1>
+<div class="main-padding">
+
+    <h2>Repository import history</h2>
+
+    @if (Imports.Length == 0)
+    {
+        <text>This repository has never been imported before.</text>
+    }
+
+
+    @foreach (var import in Imports)
+    {
+        <div class="repository-import-row" data-pending="@(import.StillRunning ? 1 : 0)">
+            <time title="@StringUtils.ToFullHumanDate(import.StartDate)">@StringUtils.ToHumanDate(import.StartDate)</time>
+            ·
+            @import.Kind.ToString()
+            <div class="repository-import-row-details">
+                @(
+                ("Range: " + (new Tid(import.StartRevOrTid).ToString() ?? "[beginning]") + " to " + (import.StillRunning ? "..." : (new Tid(import.LastRevOrTid).ToString() ?? "(none)"))) +
+                ((import.StillRunning ? ", still running" : ", duration: " + (import.DurationMillis / 1000).ToString("0.0") + " seconds")) +
+                (import.Error != null ? ", error: " + import.Error : null)
+                )
+            </div>
+
+        </div>
+
+
+    }
+
+</div>
+
 <form method="post" @onsubmit="Submit" @formname="requestIndexForm" class="main-padding">
+    <h2>Re-index this repository</h2>
+
     <AntiforgeryToken />
-    <div>
-        <label>
-            Handle:
-            <InputText @bind-Value="Model!.Handle" />
-        </label>
-        <br>
-    </div>
     <div>
         <InputRadioGroup @bind-Value="@Model.Kind">
             Type:
@@ -24,40 +88,24 @@
                 <label>
                     <InputRadio Value="@kind" />
                     @kind
-                    @(kind == RepositoryImportKind.Full ? " (faster)" : null)
+                    @(kind == RepositoryImportKind.CAR ? " (all types, faster)" : null)
                 </label>
                 <br>
             }
         </InputRadioGroup>
     </div>
     <div>
-        <button type="submit">Request index</button>
+        <br>
+        <label>
+            <InputCheckbox @bind-Value="@Model.Incremental" />
+            Incremental
+        </label>
+        <br>
+    </div>
+    <div>
+        <br>
+        <button type="submit">Start indexing</button>
     </div>
 </form>
-
-@code {
-    [SupplyParameterFromForm]
-    private RequestIndexData? Model { get; set; }
-
-    protected override void OnInitialized() => Model ??= new();
-
-    private async Task Submit()
-    {
-        if (!string.IsNullOrEmpty(Model!.Handle))
-        {
-            var did = await Apis.ResolveHandleOrUrlAsync(Model.Handle, new Uri(Navigation.BaseUri), RequestContext);
-
-            var task = Apis.ImportCarIncrementalAsync(did, Model.Kind, ignoreIfRecentlyRan: TimeSpan.FromHours(3));
-            await Task.WhenAny(task, Task.Delay(1500));
-            Navigation.NavigateTo("/index-progress/" + Uri.EscapeDataString(did) + "/" + Model.Kind, true);
-        }
-    }
-
-    public class RequestIndexData
-    {
-        public string? Handle { get; set; }
-        public RepositoryImportKind Kind { get; set; } = RepositoryImportKind.Full;
-    }
-}
 
 

@@ -2008,3 +2008,12 @@ input[type=radio]{
 .list-metadata-row-modes{
     text-align: right;
 }
+
+.repository-import-row {
+    font-size: 9.5pt;
+}
+.repository-import-row-details {
+    color: var(--light-text);
+    padding-left: 20px;
+
+}

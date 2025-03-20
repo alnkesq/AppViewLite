@@ -561,10 +561,22 @@ namespace AppViewLite
                     // - on a whole volume, but it requires administrative privileges.
                 }
 
+                var now = DateTime.UtcNow;
+                while (true)
+                {
 
-                var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".pb");
-                File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
-                File.Move(checkpointFile + ".tmp", checkpointFile);
+                    var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", now.ToString("yyyyMMdd-HHmmss") + ".pb");
+                    if (File.Exists(checkpointFile))
+                    {
+                        now = now.AddSeconds(1);
+                        continue;
+                    }
+                    File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
+                    File.Move(checkpointFile + ".tmp", checkpointFile);
+                    break;
+                }
+                
+                
 
                 GarbageCollectOldSlices();
             }

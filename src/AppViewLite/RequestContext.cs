@@ -198,7 +198,7 @@ namespace AppViewLite
         public void EnsureAdministrator()
         {
             if (!IsAdministrator())
-                throw new UnauthorizedAccessException("This action require administrative privileges.");
+                throw new UnauthorizedAccessException("This action requires administrative privileges.");
         }
 
         private bool IsAdministrator()

@@ -281,6 +281,8 @@ namespace AppViewLite
                 if (!alreadyHoldsLock) relationshipsUnlocked.Lock.EnterReadLock();
                 try
                 {
+                    relationshipsUnlocked.EnsureNotDisposed();
+
                     lock (buildNewReadOnlyReplicaLock)
                     {
                         oldReplica = readOnlyReplicaRelationshipsUnlocked!;

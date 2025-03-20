@@ -2288,18 +2288,28 @@ namespace AppViewLite
             return userCtx.UserEngagementCache;
         }
 
-        public UserEngagementStats[] GetUserEngagementRawScores(RequestContext ctx)
+        public UserEngagementStats[] GetUserEngagementRawScores(RequestContext ctx, bool followeesOnly)
         {
             ctx.AllowStale = false;
             GetUserEngagementScores(ctx); // Populates AverageEngagementRatio
-            return WithRelationshipsWriteLock(rels => rels.GetUserEngagementScoresForUser(ctx.LoggedInUser).ToArray(), ctx);
+            return WithRelationshipsWriteLock(rels =>
+            {
+                var result = rels.GetUserEngagementScoresForUser(ctx.LoggedInUser);
+                if (followeesOnly)
+                {
+                    var followees = rels.GetFollowingFast(ctx);
+                    result = result.Where(x => followees.IsStillFollowed(x.Target, rels));
+                }
+                return result.ToArray();
+            }, ctx);
         }
-        public async Task<ProfilesAndContinuation> GetUserEngagementScoresAsync(RequestContext ctx, string? continuation, int limit = default, string? onlyDid = null)
+        public async Task<ProfilesAndContinuation> GetUserEngagementScoresAsync(RequestContext ctx, string? continuation, int limit = default, string? onlyDid = null, bool followeesOnly = false)
         {
             EnsureLimit(ref limit, 100);
             var onlyPlc = onlyDid != null ? SerializeSingleDid(onlyDid, ctx) : default;
             var offset = continuation != null ? int.Parse(continuation) : 0;
-            var pageScores = GetUserEngagementRawScores(ctx)
+            
+            var pageScores = GetUserEngagementRawScores(ctx, followeesOnly)
                 .Where(x => onlyPlc == default || onlyPlc == x.Target)
                 .Select(x => (Raw: x, Score: BlueskyRelationships.GetUserEngagementScore(x, ctx.UserContext.AverageEngagementRatio)))
                 .OrderByDescending(x => x.Score)

@@ -5,7 +5,10 @@
 <h1>Debug</h1>
 <ul class="main-padding">
     <li><a class="blue-link" href="/admin/appviewlite-users">AppViewLite users</a></li>
-    <li><a class="blue-link" href="/debug/following-feed-weights">Balanced feed weights</a></li>
+    @if (RequestContext.IsLoggedIn)
+    {
+        <li><a class="blue-link" href="/debug/following-feed-weights?follows=1">Balanced feed weights</a></li>
+    }
     <li><a class="blue-link" href="/debug/counters">Counters</a></li>
     <li><a class="blue-link" href="/debug/locks">Locks</a></li>
     <li><a class="blue-link" href="/debug/memory-instrumentation">Memory instrumentation</a></li>

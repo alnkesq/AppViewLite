@@ -64,8 +64,11 @@ namespace AppViewLite.Storage
             else
             {
 
-                this.MinimumKey = Keys[0];
-                this.MaximumKey = Keys[Keys.Length - 1];
+                if (Keys.Length != 0)
+                {
+                    this.MinimumKey = Keys[0];
+                    this.MaximumKey = Keys[Keys.Length - 1];
+                }
             }
             this.SizeInBytes = 
                 Keys.Length * Unsafe.SizeOf<TKey>() +

@@ -112,7 +112,16 @@ namespace AppViewLite.Storage
             }
             var fileStream = new FileStream(safeFileHandle, FileAccess.Read, 4096, false);
             _length = fileStream.Length;
-            mmap = MemoryMappedFile.CreateFromFile(fileStream, null, 0, access, HandleInheritability.None, false);
+            if (_length != 0)
+            {
+                mmap = MemoryMappedFile.CreateFromFile(fileStream, null, 0, access, HandleInheritability.None, false);
+            }
+            else
+            {
+                fileStream.Dispose();
+                mmap = MemoryMappedFile.CreateNew(null, 8); // Empty mmaps are not allowed.
+            }
+
             var stream = mmap.CreateViewStream(0, 0, access);
             this.handle = stream.SafeMemoryMappedViewHandle;
             handle.AcquirePointer(ref ptr);

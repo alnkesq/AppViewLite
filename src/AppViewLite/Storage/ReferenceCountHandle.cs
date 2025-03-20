@@ -17,15 +17,26 @@ namespace AppViewLite.Storage
     public class ReferenceCountHandle<T> : IDisposable where T: IDisposable
     {
         public ReferenceCountHandle(T value)
-            :this(new ReferenceCountManager<T>(value), value)
         {
+            this._manager = new ReferenceCountManager<T>(value) { _refCount = 1 };
+            this._value = value;
         }
         internal ReferenceCountHandle(ReferenceCountManager<T> manager, T value)
         {
-            ArgumentNullException.ThrowIfNull(manager);
+            if (manager == null) throw new ObjectDisposedException(null);
+
+            while (true)
+            {
+                var prevRefCount = manager._refCount;
+                if (prevRefCount == 0) throw new ObjectDisposedException(null);
+                var updatedRefCount = prevRefCount + 1;
+                if (prevRefCount == Interlocked.CompareExchange(ref manager._refCount, updatedRefCount, prevRefCount))
+                    break;
+                
+            }
+            
             this._manager = manager;
             this._value = value;
-            Interlocked.Increment(ref _manager._refCount);
         }
         private ReferenceCountManager<T> _manager;
         private T _value;
@@ -42,7 +53,11 @@ namespace AppViewLite.Storage
         {
             if (Interlocked.Increment(ref _disposed) == 1)
             {
-                if (Interlocked.Decrement(ref _manager._refCount) == 0)
+                var updatedRefCount = Interlocked.Decrement(ref _manager._refCount);
+                if (updatedRefCount < 0)
+                    Environment.FailFast("Negative updatedRefCount");
+
+                if (updatedRefCount == 0)
                 {
                     _manager._value.Dispose();
                 }

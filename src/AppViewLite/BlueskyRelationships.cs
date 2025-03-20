@@ -619,10 +619,19 @@ namespace AppViewLite
 
                     var dot = name.IndexOf('.');
                     if (dot != -1) name = name.Substring(0, dot);
-                    
-                    if (!table.SlicesToKeep.Any(k => k.Contains(name)))
+
+                    var sliceName = SliceName.ParseBaseName(name);
+                    if (!table.SlicesToKeep.Contains(sliceName))
                     {
-                        file.Delete();
+                        LogInfo("Deleting obsolete slice: " + file.FullName);
+                        try
+                        {
+                            file.Delete();
+                        }
+                        catch (Exception ex)
+                        {
+                            LogNonCriticalException($"Deletion of old slice {file.FullName} failed", ex);
+                        }
                     }
                 }
             }

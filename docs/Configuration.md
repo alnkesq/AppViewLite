@@ -13,12 +13,13 @@ You can set the following environment variables:
 * `APPVIEWLITE_READONLY`: Forbids database writes (useful for debugging data issues without the firehose interfering).
 * `APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS`: External previews to these domains will be always displayed in compact format (not just when quoted or the post was already seen by the user).
 * `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exits during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
+* `APPVIEWLITE_ADMINISTRATIVE_DIDS`: List of DIDs that, when logged in, can perform privileged operations. Defaults to none. You can use `*` for local development.
 
 ## Storage (low level configuration)
 * `APPVIEWLITE_USE_READONLY_REPLICA`: If enabled, most requests will be served from a readonly snapshot of the database (so that we don't have to wait for any current write lock to complete). Defaults to `1`.
 * `APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC`: How many milliseconds can the readonly replica lag behind the primary, ideally. Default: `2000`.
 * `APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ`: How many milliseconds can the readonly replica lag behind the primary, at most. Default: `4000`.
-* `APPVIEWLITE_PRINT_LONG_READ_LOCKS_MS`, `APPVIEWLITE_PRINT_LONG_WRITE_LOCKS_MS`, `APPVIEWLITE_PRINT_LONG_UPGRADEABLE_LOCKS_MS`: Print a stacktrace when we spend more than this amount of time while holding a lock.
+* `APPVIEWLITE_LONG_LOCK_PRIMARY_MS`, `APPVIEWLITE_LONG_LOCK_SECONDARY_MS`: Log in `/debug/requests` when a lock is taken for more than this amount of time. Defaults to `30` and `50` ms respectively.
 * `APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE`: If the buffer of a table grows larger than this amount of bytes, it will be flushed to disk even before the next `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`. Defaults to `10485760` (10 MB).
 * `APPVIEWLITE_DISABLE_SLICE_GC`: If enabled, old slices won't be garbage collected, even after compactation (they will be however ignored and not loaded).
 * `APPVIEWLITE_RECENT_CHECKPOINTS_TO_KEEP`: How many old checkpoints to keep before garbage collecting old slices. Defaults to `3`.
@@ -27,7 +28,7 @@ You can set the following environment variables:
 * `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD`: Errors out if the backlog of pending records to process is above this threshold. Defaults to `10000`.
 * `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_DROP_EVENTS`: Drops firehose events instead of terminating the process if the error threshold is reached. Defaults to `0` (fatal exit).
 * `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS`: How often to print lag behind warning messages, at most. Defaults to `500` ms.
-
+* `APPVIEWLITE_CHECK_NUL_FILES`: On startup, verifies that none of the slice files start or end with long sequences of `NUL` bytes, which could indicate corruption. Defaults to `1`.
 
 ## Handle and DID doc resolution
 * `APPVIEWLITE_DNS_SERVER`: DNS server for TXT resolutions. Defaults to `1.1.1.1`

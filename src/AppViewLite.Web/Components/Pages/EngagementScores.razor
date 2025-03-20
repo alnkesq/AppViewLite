@@ -4,14 +4,15 @@
 @inject NavigationManager Navigation
 
 @code {
-    
+
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Did { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Follows { get; set; }
     private ProfilesAndContinuation Profiles = new();
     protected override async Task OnParametersSetAsync()
     {
         Navigation.RedirectIfNotLoggedIn(RequestContext);
-        Profiles = await Apis.GetUserEngagementScoresAsync(RequestContext, Continuation, default, Did != null ? await Apis.ResolveHandleAsync(Did, RequestContext) : null);
+        Profiles = await Apis.GetUserEngagementScoresAsync(RequestContext, Continuation, default, Did != null ? await Apis.ResolveHandleAsync(Did, RequestContext) : null, followeesOnly: Follows == 1);
     }
 }
 

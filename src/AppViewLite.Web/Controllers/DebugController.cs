@@ -22,17 +22,23 @@ namespace AppViewLite.Web.Controllers
         [HttpPost("dids-to-plc-ids")]
         public object DidsToPlcIds([FromBody] string[] dids)
         {
+            ctx.EnsureAdministrator();
+
             return apis.WithRelationshipsLockForDids(dids, (plcs, rels) => dids.Select((x, i) => new { did = x, plcId = plcs[i].PlcValue }).ToArray(), ctx);
         }
         [HttpGet("dids-to-plc-ids")]
         public object DidsToPlcIds(string dids)
         {
+            ctx.EnsureAdministrator();
+
             return DidsToPlcIds(dids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
         }
 
         [HttpPost("plc-ids-to-dids")]
         public object PlcIdsToDids([FromBody] long[] ids)
         {
+            ctx.EnsureAdministrator();
+
             return apis.WithRelationshipsLock(rels => ids.Select(x =>
             {
                 var did = rels.TryGetDid(new Plc(checked((int)x)));
@@ -42,12 +48,16 @@ namespace AppViewLite.Web.Controllers
         [HttpGet("plc-ids-to-dids")]
         public object PlcIdsToDids(string ids)
         {
+            ctx.EnsureAdministrator();
+
             return PlcIdsToDids(ids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray());
         }
 
         [HttpPost("global-flush")]
         public void GlobalFlush()
         {
+            ctx.EnsureAdministrator();
+
             apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), ctx);
         }
 
@@ -56,6 +66,8 @@ namespace AppViewLite.Web.Controllers
         [HttpGet("table/{table}")]
         public object? Lookup(string table, string? key, bool reverse = false, string? start = null, int limit = 1000, string? proto = null)
         {
+            ctx.EnsureAdministrator();
+
             var combinedTable = apis.DangerousUnlockedRelationships.AllMultidictionaries.First(x => Path.GetFileName(x.DirectoryPath) == table);
             var genericArgs = combinedTable.GetType().GetGenericArguments();
             var keyType = genericArgs[0];

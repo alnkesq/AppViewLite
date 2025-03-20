@@ -1,6 +1,7 @@
 using AppViewLite.Models;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -191,6 +192,19 @@ namespace AppViewLite
         private HashSet<LabelId>? _needsLabels;
 
         public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash))).ToHashSet();
+
+
+        private readonly static FrozenSet<string> _administratorDids = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ADMINISTRATIVE_DIDS) ?? []).ToFrozenSet();
+        public void EnsureAdministrator()
+        {
+            if (!IsAdministrator())
+                throw new UnauthorizedAccessException("This action require administrative privileges.");
+        }
+
+        private bool IsAdministrator()
+        {
+            return _administratorDids.Contains("*") || (IsLoggedIn && _administratorDids.Contains(this.UserContext.Did!));
+        }
     }
 
 }

@@ -9,7 +9,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        Navigation.RedirectIfNotLoggedIn(RequestContext);
+        RequestContext.EnsureAdministrator();
 
         (Users, NextContinuation) = await Apis.GetAppViewLiteUsers(Continuation, default, RequestContext);
     }

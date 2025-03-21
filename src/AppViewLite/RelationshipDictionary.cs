@@ -149,7 +149,22 @@ namespace AppViewLite
                 }
             }
 
-            var chunks = creations.GetValuesChunkedLatestFirst(target);
+            if (creations.QueuedItems.TryGetValues(target, out var queuedGroup))
+            {
+                var latestRel = queuedGroup.ValuesSorted.LastOrDefault(x => x.Actor == actor);
+                if (latestRel.Actor != default)
+                {
+                    if (cannotPossiblyExist)
+                        BlueskyRelationships.ThrowFatalError("Probabilistic filter returned false, but relationship was actually found.");
+                    if (IsDeleted(latestRel)) return false;
+                    relationship = latestRel;
+
+                    return true;
+                }
+            }
+
+
+            var chunks = creations.GetValuesChunkedLatestFirst(target, omitQueue: true);
             foreach (var chunk in chunks)
             {
                 var span = chunk.AsSpan();

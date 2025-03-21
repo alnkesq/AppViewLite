@@ -608,10 +608,10 @@ namespace AppViewLite.Storage
                 z = z.Append(extraArr);
             return z;
         }
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key)
+        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            if (queue.TryGetValues(key, out var extra))
+            if (!omitQueue && queue.TryGetValues(key, out var extra))
             {
                 yield return extra.ValuesUnsortedArray; // this will actually be sorted
             }

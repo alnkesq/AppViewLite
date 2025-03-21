@@ -83,7 +83,7 @@ namespace AppViewLite
         public Dictionary<Plc, float> UserEngagementCache;
         public long UserEngagementCacheVersion;
         public double AverageEngagementRatio;
-        public double DefaultEngagementScore;
+        public float DefaultEngagementScore;
 
 
         public Dictionary<Plc, float>? FeedCredits;

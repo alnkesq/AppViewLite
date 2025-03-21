@@ -1901,12 +1901,7 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-            lock (ctx.UserContext)
-            {
-                UpdateFollowingFeedMustHoldLock(ctx);
-            }
-            var userEngagementStats = GetUserEngagementScores(ctx);
-    
+            var scoredSampler = GetScorer(ctx);
 
             var now = DateTime.UtcNow;
             var minDate = now - BlueskyRelationships.BalancedFeedMaximumAge;
@@ -1918,7 +1913,7 @@ namespace AppViewLite
             {
 
                 var possibleFollows = rels.GetFollowingFast(ctx);
-                
+
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
 
                 var plcToRecentPostLikes = new Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>();
@@ -1957,7 +1952,7 @@ namespace AppViewLite
                             .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
                             //.Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate, plcToRecentPostLikes)))
                             .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
-                            .ToArray(), 
+                            .ToArray(),
                        Reposts: reposts
                             .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes)))
                             .ToArray()
@@ -1966,27 +1961,34 @@ namespace AppViewLite
                 return (possibleFollows, userPosts);
             }, ctx);
 
+
             var alreadySampledPost = new HashSet<PostId>();
             var alreadyReturnedPosts = new HashSet<PostId>();
             var finalPosts = new List<BlueskyPost>();
+            bool ProducedEnoughPosts() => finalPosts.Count >= limit;
 
             var bestOriginalPostsByUser = users
                 .Select(
-                    user => 
-                        user.Posts
-                        .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date)))
-                        .OrderByDescending(x => x.PerUserScore)
-                        .ToQueue()
-                )
+                    user =>
+                    {
+                        var userScore = scoredSampler(user.Plc);
+                        return user.Posts
+                            .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date, userScore)))
+                            .OrderByDescending(x => x.PerUserScore)
+                            .ToQueue();
+                    })
                 .Where(x => x.Count != 0)
                 .ToList();
             var bestRepostsByUser = users
                 .Select(
-                    user => 
-                        user.Reposts
-                        .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date)))
-                        .OrderByDescending(x => x.PerUserScore)
-                        .ToQueue())
+                    user =>
+                    {
+                        var userScore = scoredSampler(user.Plc);
+                        return user.Reposts
+                                .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date, userScore)))
+                                .OrderByDescending(x => x.PerUserScore)
+                                .ToQueue();
+                    })
                 .Where(x => x.Count != 0)
                 .ToList();
 
@@ -2035,9 +2037,11 @@ namespace AppViewLite
                 var populateNonFollowedPostsFrom = mergedNonFollowedPosts;
 
                 var enqueueEverything = false;
+
+                var extraIterations = 0;
                 while (true)
                 {
-
+                    extraIterations++;
 
                     var usersDeservingFollowedPostResampling = new List<Queue<ScoredBlueskyPost>>();
                     var usersDeservingNonFollowedPostResampling = new List<Queue<ScoredBlueskyPost>>();
@@ -2058,7 +2062,7 @@ namespace AppViewLite
                         {
                             var shouldInclude = rels.ShouldIncludeLeafPostInFollowingFeed(post, ctx);
                             if (shouldInclude != null) return shouldInclude.Value;
-                          
+
                             if (post.RootPostId is { Author: var rootAuthor } && rootAuthor != post.AuthorId)
                             {
                                 if (!possibleFollows.IsStillFollowed(rootAuthor, rels) && rootAuthor != loggedInUser)
@@ -2125,7 +2129,7 @@ namespace AppViewLite
                             {
                                 if (
                                     post.RootPostId != inReplyToPostId &&
-                                    IsPostSeenOrAlreadyReturned(inReplyToPostId) && 
+                                    IsPostSeenOrAlreadyReturned(inReplyToPostId) &&
                                     IsPostSeenOrAlreadyReturned(post.RootPostId) &&
                                     (post.Date - inReplyToPostId.PostRKey.Date).TotalHours < 36
                                     )
@@ -2201,8 +2205,9 @@ namespace AppViewLite
 
                         var done = false;
                         while (
-                            enqueueEverything 
-                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0 
+                            !ProducedEnoughPosts() &&
+                            enqueueEverything
+                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0
                                 : populateFollowedFrom.Count != 0 && (!done && finalPosts.Count < 100)
                             )
                         {
@@ -2212,12 +2217,14 @@ namespace AppViewLite
                                 {
                                     if (!MaybeAddToFinalPostList(followed.Post))
                                         usersDeservingFollowedPostResampling.Add(followed.Source);
+                                    if (ProducedEnoughPosts()) { done = true; break; }
                                 }
                                 else
                                 {
                                     done = true;
                                     break;
                                 }
+                                
                             }
                             if (!done || enqueueEverything)
                             {
@@ -2225,12 +2232,29 @@ namespace AppViewLite
                                 {
                                     if (!MaybeAddToFinalPostList(nonFollowed.Post))
                                         usersDeservingNonFollowedPostResampling.Add(nonFollowed.Source);
+                                    if (ProducedEnoughPosts()) { done = true; break; }
                                 }
                             }
                         }
                     }, ctx);
 
+                    if (ProducedEnoughPosts()) break;
                     if (usersDeservingFollowedPostResampling.Count == 0 && usersDeservingNonFollowedPostResampling.Count == 0) break;
+                    if (extraIterations >= 2)
+                    {
+                        lock (ctx.UserContext)
+                        {
+                            foreach (var queue in usersDeservingFollowedPostResampling)
+                            {
+                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().Repost.Actor, addCredits: true);
+                            }
+                            foreach (var queue in usersDeservingFollowedPostResampling)
+                            {
+                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().Repost.Actor, addCredits: true);
+                            }
+                        }
+                        break;
+                    }
 
 
                     followedPostsToEnqueue.Clear();
@@ -2244,11 +2268,50 @@ namespace AppViewLite
 
                     enqueueEverything = true;
                 }
+
             }
 
             var posts = finalPosts.ToArray();
             await EnrichAsync(posts, ctx);
-            return new PostsAndContinuation(posts, null);
+            return new PostsAndContinuation(posts, ProducedEnoughPosts() ? StringUtils.SerializeToString(Guid.NewGuid()) : null);
+        }
+
+        private Func<Plc, float> GetScorer(RequestContext ctx)
+        {
+            var userCtx = ctx.UserContext;
+
+            Dictionary<Plc, float> feedCreditsSoftmaxed;
+            lock (ctx.UserContext)
+            {
+                feedCreditsSoftmaxed = GetFeedCreditsSoftMaxMustHoldLock(ctx).ToDictionary(x => x.Plc, x => x.SoftmaxedCredits);
+            }
+            var userEngagementScores = GetUserEngagementScores(ctx);
+            return (plc) =>
+            {
+                if (!feedCreditsSoftmaxed.TryGetValue(plc, out var softmaxedCredits))
+                    softmaxedCredits = feedCreditsSoftmaxed[default];
+
+                if (!userEngagementScores.TryGetValue(plc, out var engagementScore))
+                    engagementScore = ctx.UserContext.DefaultEngagementScore;
+
+                return softmaxedCredits * engagementScore;
+            };
+        }
+
+        private IEnumerable<(Plc Plc, float SoftmaxedCredits)> GetFeedCreditsSoftMaxMustHoldLock(RequestContext ctx)
+        {
+            UpdateFollowingFeedMustHoldLock(ctx);
+
+            // Plc(default) is used for authors with 0 credits.
+            var keys = ctx.UserContext.FeedCredits!.Keys.Prepend(default);
+            var values = ctx.UserContext.FeedCredits!.Values.Prepend(0);
+
+            double max = values.Max();
+            double[] expValues = values.Select(v => Math.Exp(v - max)).ToArray();
+            double sumExp = expValues.Sum();
+
+            return keys.Select((x, i) => (x, (float)(expValues[i] / sumExp)));
+            
         }
 
         private Dictionary<Plc, float> GetUserEngagementScores(RequestContext ctx)
@@ -2360,8 +2423,8 @@ namespace AppViewLite
             }
         }
 
-        private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.3);
-        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age) => GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8);
+        private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.3) ;
+        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age, float userScore) => GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8) * userScore;
 
         private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity, double baseHours = 2)
         {
@@ -3603,7 +3666,7 @@ namespace AppViewLite
         public void MarkAsRead(PostEngagementStr[] postEngagementsStr, Plc loggedInUser, RequestContext ctx)
         {
             if (postEngagementsStr.Length == 0) return;
-            var creditsToConsume = new List<(Plc Plc, float Amount)>();
+            var creditsToConsume = new List<Plc>();
             WithRelationshipsWriteLock(rels =>
             {
                 var now = DateTime.UtcNow;
@@ -3615,7 +3678,7 @@ namespace AppViewLite
                     ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
                     now = now.AddTicks(1);
                     if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0)
-                        creditsToConsume.Add((postId.Author, GetFollowingFeedInitialCreditAmountForPost(postId)));
+                        creditsToConsume.Add(postId.Author);
                 }
 
             }, ctx);
@@ -3626,7 +3689,7 @@ namespace AppViewLite
                 {
                     foreach (var consume in creditsToConsume)
                     {
-                        ConsumeFollowingFeedCreditsMustHoldLock(ctx, consume.Plc, consume.Amount);
+                        ConsumeFollowingFeedCreditsMustHoldLock(ctx, consume);
                     }
                 }
             }
@@ -3973,7 +4036,6 @@ namespace AppViewLite
         private readonly static TimeSpan FeedCreditRefreshInterval = TimeSpan.FromMinutes(30);
         private readonly static double FeedCreditDecayPerHour = 0.9;
 
-        private static float GetFollowingFeedInitialCreditAmountForPost(PostId postId) => 1; // TODO
 
         public void UpdateFollowingFeedMustHoldLock(RequestContext ctx)
         {
@@ -3996,7 +4058,7 @@ namespace AppViewLite
                         if (ctx.UserContext.LastFeedCreditsTimeDecayAdjustment == default)
                             ctx.UserContext.LastFeedCreditsTimeDecayAdjustment = seenPost.Date;
 
-                        ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, seenPost.PostId.Author, GetFollowingFeedInitialCreditAmountForPost(seenPost.PostId));
+                        ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, seenPost.PostId.Author);
                         MaybeDecayFollowingFeedCreditsMustHoldCtxLock(ctx.UserContext, seenPost.Date);
                         accountedPosts.Add(seenPost.PostId);
                     }
@@ -4038,17 +4100,19 @@ namespace AppViewLite
             userCtx.LastFeedCreditsTimeDecayAdjustment = now;
         }
 
-        public void ConsumeFollowingFeedCreditsMustHoldLock(RequestContext ctx, Plc plc, float amount)
+        public void ConsumeFollowingFeedCreditsMustHoldLock(RequestContext ctx, Plc plc, bool addCredits = false)
         {
             // Must hold userCtx lock
 
             UpdateFollowingFeedMustHoldLock(ctx);
-            ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, plc, amount);
+
+            ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, plc, addCredits: addCredits);
         }
-        private static void ConsumeFollowingFeedCreditsMustHoldLockCore(RequestContext ctx, Plc plc, float amount)
+        private static void ConsumeFollowingFeedCreditsMustHoldLockCore(RequestContext ctx, Plc plc, bool addCredits = false)
         {
             // Must hold userCtx lock
-            CollectionsMarshal.GetValueRefOrAddDefault(ctx.UserContext.FeedCredits!, plc, out _) -= amount;
+            var amount = addCredits ? 1 : -1;
+            CollectionsMarshal.GetValueRefOrAddDefault(ctx.UserContext.FeedCredits!, plc, out _) += amount;
         }
 
         public async Task<string> ResolveUrlToDidOrRedirectAsync(Uri url, Uri? baseUrl, RequestContext ctx)

@@ -3026,29 +3026,9 @@ namespace AppViewLite
                 if (seenPostsInMemory.Contains(postId)) return true;
                 if (postId.PostRKey.Date > seenPostsInMemoryThreshold) return false;
 
-                bool Core()
-                {
-                    foreach (var slice in seenPosts)
-                    {
-                        var span = slice.AsSpan();
-                        var index = span.BinarySearch(new PostEngagement(postId, default));
-                        if (index >= 0)
-                        {
-                            return true;
-                        }
-                        else
-                        {
-                            index = ~index;
-                            if (index != span.Length && span[index].PostId == postId)
-                                return true;
-                        }
-                    }
-                    return false;
-                }
-
                 if (!cache.TryGetValue(postId, out var result))
                 {
-                    result = Core();
+                    result = IsPostSeen(postId, seenPosts);
                     cache[postId] = result;
 
                     if (result)
@@ -3056,6 +3036,26 @@ namespace AppViewLite
                 }
                 return result;
             };
+        }
+
+        internal static bool IsPostSeen(PostIdTimeFirst postId, ManagedOrNativeArray<PostEngagement>[] seenPostsSlices)
+        {
+            foreach (var slice in seenPostsSlices)
+            {
+                var span = slice.AsSpan();
+                var index = span.BinarySearch(new PostEngagement(postId, default));
+                if (index >= 0)
+                {
+                    return true;
+                }
+                else
+                {
+                    index = ~index;
+                    if (index != span.Length && span[index].PostId == postId)
+                        return true;
+                }
+            }
+            return false;
         }
 
         private void MaybeUpdateRecentlyAlreadySeenOrDiscardedPosts(RequestContext ctx)

@@ -114,6 +114,7 @@ namespace AppViewLite
                 RequestUrl = originalCtx.RequestUrl,
                 MinVersion = originalCtx.MinVersion,
                 StartDate = DateTime.UtcNow,
+                FirehoseReason = originalCtx.FirehoseReason,
                 LabelSubscriptions = [],
             };
         }

@@ -89,12 +89,18 @@ namespace AppViewLite.Storage
                 if (OperatingSystem.IsWindows())
                 {
                     safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, IntPtr.Zero);
+                    if (safeFileHandle.IsInvalid)
+                    {
+                        if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
+                        throw new Win32Exception();
+                    }
                 }
                 else
                 {
                     var fd = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
                     if (fd < 0)
                     {
+                        if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
                         throw new Win32Exception();
                     }
 

@@ -1906,7 +1906,6 @@ namespace AppViewLite
             var now = DateTime.UtcNow;
             var minDate = now - BlueskyRelationships.BalancedFeedMaximumAge;
 
-
             var loggedInUser = ctx.LoggedInUser;
 
             var (possibleFollows, users) = WithRelationshipsLock(rels =>
@@ -1963,7 +1962,10 @@ namespace AppViewLite
 
 
             var alreadySampledPost = new HashSet<PostId>();
-            var alreadyReturnedPosts = new HashSet<PostId>();
+            // last few posts from the previous page that aren't marked as read yet
+            var alreadyReturnedPosts = continuation != null ? (continuation.Split(",").Skip(1).Select(x => StringUtils.DeserializeFromString<PostId>(x)!.Value)).ToHashSet() : new();
+            
+
             var finalPosts = new List<BlueskyPost>();
             bool ProducedEnoughPosts() => finalPosts.Count >= limit;
 
@@ -2273,7 +2275,7 @@ namespace AppViewLite
 
             var posts = finalPosts.ToArray();
             await EnrichAsync(posts, ctx);
-            return new PostsAndContinuation(posts, ProducedEnoughPosts() ? StringUtils.SerializeToString(Guid.NewGuid()) : null);
+            return new PostsAndContinuation(posts, ProducedEnoughPosts() ? string.Join(",", finalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
         }
 
         private Func<Plc, float> GetScorer(RequestContext ctx)

@@ -23,8 +23,9 @@ namespace AppViewLite.Web
             LoggableBase.Initialize();
             Relationships = new();
             Relationships.MaybeEnterWriteLockAndPrune();
+            var primarySecondaryPair = new PrimarySecondaryPair(Relationships);
+            var apis = new BlueskyEnrichedApis(primarySecondaryPair);
             
-            using var apis = new BlueskyEnrichedApis(Relationships, useReadOnlyReplica: true);
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));

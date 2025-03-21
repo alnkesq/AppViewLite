@@ -35,7 +35,7 @@ namespace AppViewLite
         public Uri FirehoseUrl = new("https://bsky.network/");
         public BlueskyEnrichedApis Apis;
         public Indexer(BlueskyEnrichedApis apis)
-            : base(apis.DangerousUnlockedRelationships)
+            : base(apis.primarySecondaryPair)
         {
             this.Apis = apis;
         }

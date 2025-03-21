@@ -10,29 +10,17 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public abstract class BlueskyRelationshipsClientBase : LoggableBase, IDisposable
+    public abstract class BlueskyRelationshipsClientBase : LoggableBase
     {
 
         protected readonly BlueskyRelationships relationshipsUnlocked;
-        protected BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked;
-        private Lock buildNewReadOnlyReplicaLock = new Lock();
-        public BlueskyRelationshipsClientBase(BlueskyRelationships relationshipsUnlocked, bool useReadOnlyReplica = false)
+        public readonly PrimarySecondaryPair primarySecondaryPair;
+        protected BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked => primarySecondaryPair.readOnlyReplicaRelationshipsUnlocked;
+        private readonly bool canUseSecondary;
+        public BlueskyRelationshipsClientBase(PrimarySecondaryPair primarySecondaryPair)
         {
-            this.relationshipsUnlocked = relationshipsUnlocked;
-            if (useReadOnlyReplica && (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_READONLY_REPLICA) ?? true))
-            {
-                this.relationshipsUnlocked.BeforeExitingLockUpgrade += (_, _) => MaybeUpdateReadOnlyReplica(0, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock: true);
-                relationshipsUnlocked.Lock.EnterReadLock();
-                try
-                {
-                    this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
-                }
-                finally
-                {
-                    relationshipsUnlocked.Lock.ExitReadLock();
-                }
-                
-            }
+            this.relationshipsUnlocked = primarySecondaryPair.relationshipsUnlocked;
+            this.primarySecondaryPair = primarySecondaryPair;
         }
 
 
@@ -156,9 +144,7 @@ namespace AppViewLite
 
 
 
-        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = false && Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC) ?? 2000);
-        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = false && Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ) ?? 4000);
-
+        
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool urgent)
         {
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
@@ -169,7 +155,7 @@ namespace AppViewLite
 
             // We capture a new replica only due to age (very rare, since ReadOnlyReplicaMaxStalenessOnExplicitRead >> ReadOnlyReplicaMaxStalenessOpportunistic),
             // not due to version. If version is not sufficient, it's probably cheaper to use the primary than copying the whole queue.
-            MaybeUpdateReadOnlyReplica(minVersion: 0, ReadOnlyReplicaMaxStalenessOnExplicitRead, alreadyHoldsLock: false);
+            primarySecondaryPair.MaybeUpdateReadOnlyReplicaOnExplicitRead(minVersion: 0, alreadyHoldsLock: false);
 
             if (ctx.AllowStale && readOnlyReplicaRelationshipsUnlocked != null)
             {
@@ -268,66 +254,6 @@ namespace AppViewLite
 
         }
 
-        private void MaybeUpdateReadOnlyReplica(long minVersion, TimeSpan maxStaleness, bool alreadyHoldsLock)
-        {
-            var oldReplica = readOnlyReplicaRelationshipsUnlocked;
-            if (oldReplica == null) return;
-
-            var latestKnownVersion = relationshipsUnlocked.Version;
-
-            if (!oldReplica!.IsAtLeastVersion(minVersion, maxStaleness, latestKnownVersion))
-            {
-
-                if (!alreadyHoldsLock) relationshipsUnlocked.Lock.EnterReadLock();
-                try
-                {
-                    relationshipsUnlocked.EnsureNotDisposed();
-
-                    lock (buildNewReadOnlyReplicaLock)
-                    {
-                        oldReplica = readOnlyReplicaRelationshipsUnlocked!;
-                        if (!oldReplica!.IsAtLeastVersion(minVersion, maxStaleness, latestKnownVersion))
-                        {
-                            this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
-                            Task.Run(() => DisposeWhenNotInUse(oldReplica));
-                        }
-                    }
-                }
-                finally
-                {
-                    if (!alreadyHoldsLock) relationshipsUnlocked.Lock.ExitReadLock();
-                }
-            }
-        }
-
-        private static void DisposeWhenNotInUse(BlueskyRelationships oldReplica)
-        {
-            var l = oldReplica.Lock;
-            while (true)
-            {
-                Thread.Sleep(1000);
-                var hasWaitingThreads = l.WaitingReadCount != 0 || l.WaitingUpgradeCount != 0 || l.WaitingWriteCount != 0;
-                if (hasWaitingThreads)
-                {
-                    continue;
-                }
-                
-                Thread.Sleep(1000);
-                // any late readers past this point will throw. too late for them.
-                oldReplica.Dispose(); // takes its own write lock
-                try
-                {
-                    oldReplica.Lock.Dispose();
-                }
-                catch (SynchronizationLockException)
-                {
-                    // let the finalizer get rid of it
-                }
-                return;
-                
-            }
-        }
-
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {
             while (urgentReadTasks.TryDequeue(out var urgentReadTask))
@@ -376,7 +302,7 @@ namespace AppViewLite
                 begin = PerformanceSnapshot.Capture();
                 var result = func(relationshipsUnlocked);
                 relationshipsUnlocked.MaybeGlobalFlush();
-                MaybeUpdateReadOnlyReplica(0, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock: true);
+                primarySecondaryPair.MaybeUpdateReadOnlyReplicaOpportunistic(0, alreadyHoldsLock: true);
                 return result;
             }
             finally
@@ -581,10 +507,6 @@ namespace AppViewLite
             return false;
         }
 
-        public void Dispose()
-        {
-            readOnlyReplicaRelationshipsUnlocked?.Dispose();
-        }
 
 
         public static ThreadPriorityScope CreateIngestionThreadPriorityScope() => new ThreadPriorityScope(ThreadPriority.Lowest);

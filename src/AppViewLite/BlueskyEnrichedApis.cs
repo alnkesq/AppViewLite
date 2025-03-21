@@ -43,8 +43,8 @@ namespace AppViewLite
         public BlueskyRelationships DangerousUnlockedRelationships => relationshipsUnlocked;
         public BlueskyRelationships? DangerousReadOnlyReplicaUnlockedRelationships => readOnlyReplicaRelationshipsUnlocked;
 
-        public BlueskyEnrichedApis(BlueskyRelationships relationships, bool useReadOnlyReplica = false)
-            : base(relationships, useReadOnlyReplica)
+        public BlueskyEnrichedApis(PrimarySecondaryPair primarySecondaryPair)
+            : base(primarySecondaryPair)
         {
             RunHandleVerificationDict = new(async (handle, ctx) =>
             {
@@ -110,7 +110,7 @@ namespace AppViewLite
             }))();
             
 
-            relationships.NotificationGenerated += Relationships_NotificationGenerated;
+            primarySecondaryPair.relationshipsUnlocked.NotificationGenerated += Relationships_NotificationGenerated;
         }
 
         

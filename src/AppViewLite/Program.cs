@@ -18,7 +18,8 @@ namespace AppViewLite
         {
             LoggableBase.Initialize();
             using var relationships = new BlueskyRelationships();
-            using var apis = new BlueskyEnrichedApis(relationships);
+            using var primarySecondaryPair = new PrimarySecondaryPair(relationships);
+            var apis = new BlueskyEnrichedApis(primarySecondaryPair);
             Console.CancelKeyPress += (s, e) =>
             {
 
@@ -26,7 +27,7 @@ namespace AppViewLite
                 Environment.Exit(0);
             };
 
-            using var indexer = new Indexer(apis);
+            var indexer = new Indexer(apis);
             LoggableBase.Log("Indexing the firehose to " + relationships.BaseDirectory + "...");
             LoggableBase.Log("NOTE: If you want to use the Web UI, run AppViewLite.Web instead.");
             LoggableBase.Log("Press CTRL+C to stop indexing...");

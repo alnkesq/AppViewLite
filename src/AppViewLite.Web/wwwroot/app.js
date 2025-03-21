@@ -636,7 +636,7 @@ async function fetchOrReusePageAsync(href, token) {
         recentPages.push(p);
         return p;
     } else { 
-        var response = await fetch(href, { signal: AbortSignal.timeout(20000), headers: { 'X-AppViewLiteOmitLayout': 1 } });
+        var response = await fetchCore(href, { signal: AbortSignal.timeout(20000), headers: { 'X-AppViewLiteOmitLayout': 1 } });
         if (response.status != 200) { 
             throw ('HTTP ' + response.status);
         }
@@ -740,7 +740,7 @@ async function checkUpdatesForCurrentFeed() {
     var url = new URL(location.href);
     url.searchParams.delete('limit');
     url.searchParams.append('limit', 1);
-    var response = await fetch(url.href, { headers: { 'X-AppViewLiteUrgent': 0, 'X-AppViewLiteOmitLayout': 1 } });
+    var response = await fetchCore(url.href, { headers: { 'X-AppViewLiteUrgent': 0, 'X-AppViewLiteOmitLayout': 1 } });
     var html = await response.text();
     if (response.status != 200) return;
     if (token != applyPageId) return;
@@ -849,7 +849,7 @@ async function loadNextPage(allowRetry) {
     paginationButton.insertAdjacentHTML('beforeend', SPINNER_HTML)
 
     try {
-        var nextPage = await fetch(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(20000), headers: { 'X-AppViewLiteOmitLayout': 1 } });
+        var nextPage = await fetchCore(paginationButton.querySelector('a').href, { signal: AbortSignal.timeout(20000), headers: { 'X-AppViewLiteOmitLayout': 1 } });
         if (nextPage.status != 200) throw ('HTTP ' + nextPage.status);
         var temp = parseHtmlAsWrapper(await nextPage.text());
         var pageError = temp.querySelector('.page-error')?.textContent;
@@ -1305,10 +1305,19 @@ class ActionStateToggler {
     }
 }
 
+async function fetchCore(input, init) { 
+    try {
+        return await fetch(input, init);
+    } catch (e) {
+        if (init?.signal?.aborted)
+            throw 'AppViewLite did not respond in a timely fashion.';
+        throw e;
+    }
+}
 
 
 async function httpPost(method, args) { 
-    var response = await fetch('/api/' + method, {
+    var response = await fetchCore('/api/' + method, {
         body: JSON.stringify(args),
         headers: {
             'Content-Type': 'application/json',
@@ -1324,7 +1333,7 @@ async function httpPost(method, args) {
 }
 
 async function httpGet(method, args) { 
-    var response = await fetch('/api/' + method + '?' + new URLSearchParams(args).toString(), {
+    var response = await fetchCore('/api/' + method + '?' + new URLSearchParams(args).toString(), {
         method: 'GET',
         headers: {
             'X-AppViewLiteSignalrId': liveUpdatesConnection?.connectionId

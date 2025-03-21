@@ -3671,16 +3671,19 @@ namespace AppViewLite
             var creditsToConsume = new List<Plc>();
             WithRelationshipsWriteLock(rels =>
             {
+                var seenPostsSlices = rels.SeenPosts.GetValuesChunked(loggedInUser).ToArray();
                 var now = DateTime.UtcNow;
                 foreach (var engagementStr in postEngagementsStr)
                 {
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
+                    if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0 && !BlueskyRelationships.IsPostSeen(postId, seenPostsSlices))
+                        creditsToConsume.Add(postId.Author);
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
                     ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
                     now = now.AddTicks(1);
-                    if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0)
-                        creditsToConsume.Add(postId.Author);
+
+                    
                 }
 
             }, ctx);

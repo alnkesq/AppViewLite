@@ -1901,7 +1901,10 @@ namespace AppViewLite
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
-
+            lock (ctx.UserContext)
+            {
+                UpdateFollowingFeedMustHoldLock(ctx);
+            }
             var userEngagementStats = GetUserEngagementScores(ctx);
     
 
@@ -2360,13 +2363,13 @@ namespace AppViewLite
         private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.3);
         private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age) => GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8);
 
-        private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity)
+        private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity, double baseHours = 2)
         {
             // https://medium.com/hacking-and-gonzo/how-hacker-news-ranking-algorithm-works-1d9b0cf2c08d
             // HackerNews uses gravity=1.8
             if (age < TimeSpan.Zero) age = TimeSpan.Zero;
             var ageHours = age.TotalHours;
-            var score = (likeCount + 1) / Math.Pow(ageHours + 2, gravity);
+            var score = (likeCount + 1) / Math.Pow(ageHours + baseHours, gravity);
             return (float)score;
         }
 
@@ -3600,6 +3603,7 @@ namespace AppViewLite
         public void MarkAsRead(PostEngagementStr[] postEngagementsStr, Plc loggedInUser, RequestContext ctx)
         {
             if (postEngagementsStr.Length == 0) return;
+            var creditsToConsume = new List<(Plc Plc, float Amount)>();
             WithRelationshipsWriteLock(rels =>
             {
                 var now = DateTime.UtcNow;
@@ -3610,9 +3614,22 @@ namespace AppViewLite
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
                     ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
                     now = now.AddTicks(1);
+                    if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0)
+                        creditsToConsume.Add((postId.Author, GetFollowingFeedInitialCreditAmountForPost(postId)));
                 }
 
             }, ctx);
+
+            if (creditsToConsume.Count != 0) 
+            {
+                lock (ctx.UserContext)
+                {
+                    foreach (var consume in creditsToConsume)
+                    {
+                        ConsumeFollowingFeedCreditsMustHoldLock(ctx, consume.Plc, consume.Amount);
+                    }
+                }
+            }
         }
 
         public static async Task<Uri> GetFaviconUrlAsync(Uri pageUrl)
@@ -3950,6 +3967,88 @@ namespace AppViewLite
             }
 
             return null;
+        }
+
+        
+        private readonly static TimeSpan FeedCreditRefreshInterval = TimeSpan.FromMinutes(30);
+        private readonly static double FeedCreditDecayPerHour = 0.9;
+
+        private static float GetFollowingFeedInitialCreditAmountForPost(PostId postId) => 1; // TODO
+
+        public void UpdateFollowingFeedMustHoldLock(RequestContext ctx)
+        {
+            // Must hold userCtx lock
+
+            var userCtx = ctx.UserContext;
+            var now = DateTime.UtcNow;
+            if (userCtx.FeedCredits == null)
+            {
+                userCtx.FeedCredits = new();
+                var accountedPosts = new HashSet<PostId>();
+                WithRelationshipsLock(rels =>
+                {
+                    // Replay recent history
+                    foreach (var seenPost in rels.SeenPostsByDate.GetValuesSorted(ctx.LoggedInUser, new TimePostSeen(now.AddDays(-2), default)))
+                    {
+                        if (accountedPosts.Contains(seenPost.PostId)) continue;
+                        // let's avoid a binary lookup for every single post, pretend that everything comes from following feed
+
+                        if (ctx.UserContext.LastFeedCreditsTimeDecayAdjustment == default)
+                            ctx.UserContext.LastFeedCreditsTimeDecayAdjustment = seenPost.Date;
+
+                        ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, seenPost.PostId.Author, GetFollowingFeedInitialCreditAmountForPost(seenPost.PostId));
+                        MaybeDecayFollowingFeedCreditsMustHoldCtxLock(ctx.UserContext, seenPost.Date);
+                        accountedPosts.Add(seenPost.PostId);
+                    }
+                }, ctx);
+                
+                if (userCtx.LastFeedCreditsTimeDecayAdjustment == default)
+                    userCtx.LastFeedCreditsTimeDecayAdjustment = now;
+            }
+
+
+            
+            MaybeDecayFollowingFeedCreditsMustHoldCtxLock(ctx.UserContext, now);
+
+
+
+
+
+        }
+
+        private static void MaybeDecayFollowingFeedCreditsMustHoldCtxLock(AppViewLiteUserContext userCtx, DateTime now)
+        {
+            var elapsed = now - userCtx.LastFeedCreditsTimeDecayAdjustment;
+
+            var elapsedRefreshIntervals = (double)elapsed.Ticks / FeedCreditRefreshInterval.Ticks;
+            if (elapsedRefreshIntervals < 1) return;
+            
+            userCtx.LastFeedCreditsTimeDecayAdjustment = now;
+
+            var multiplier = Math.Pow(FeedCreditDecayPerHour, elapsed.TotalHours);
+            var creditsDict = userCtx.FeedCredits!;
+            foreach (var entry in creditsDict.ToArray())
+            {
+                var updatedCredits = (float)(entry.Value * multiplier);
+                if (Math.Abs(updatedCredits) < 0.01)
+                    creditsDict.Remove(entry.Key);
+                else
+                    creditsDict[entry.Key] = updatedCredits;
+            }
+            userCtx.LastFeedCreditsTimeDecayAdjustment = now;
+        }
+
+        public void ConsumeFollowingFeedCreditsMustHoldLock(RequestContext ctx, Plc plc, float amount)
+        {
+            // Must hold userCtx lock
+
+            UpdateFollowingFeedMustHoldLock(ctx);
+            ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, plc, amount);
+        }
+        private static void ConsumeFollowingFeedCreditsMustHoldLockCore(RequestContext ctx, Plc plc, float amount)
+        {
+            // Must hold userCtx lock
+            CollectionsMarshal.GetValueRefOrAddDefault(ctx.UserContext.FeedCredits!, plc, out _) -= amount;
         }
 
         public async Task<string> ResolveUrlToDidOrRedirectAsync(Uri url, Uri? baseUrl, RequestContext ctx)

@@ -86,6 +86,9 @@ namespace AppViewLite
         public double DefaultEngagementScore;
 
 
+        public Dictionary<Plc, float>? FeedCredits;
+        public DateTime LastFeedCreditsTimeDecayAdjustment;
+
         public Plc Plc => Profile!.Plc;
         internal object GetCountersThreadSafe()
         {

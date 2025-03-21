@@ -217,17 +217,17 @@ namespace AppViewLite
                             BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                             var likeRkey = GetMessageTid(path, Like.RecordType + "/");
-                            var added = relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey));
-                            relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
-
-                            // TODO: here we perform the binary search twice: 1 for HasActor, 2 for GetApproximateActorCount.
-                            var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
-                            relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
-                            relationships.NotifyPostStatsChange(postId, commitPlc);
-                            
-
-                            if (added)
+                            if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey)))
                             {
+                                relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
+
+                                // TODO: here we perform the binary search twice: 1 for HasActor, 2 for GetApproximateActorCount.
+                                var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
+                                relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
+                                relationships.NotifyPostStatsChange(postId, commitPlc);
+                                
+
+                    
                                 relationships.IncrementRecentPopularPostLikeCount(postId, 1);
                                 
                                 if (relationships.IsRegisteredForNotifications(commitPlc))
@@ -240,13 +240,15 @@ namespace AppViewLite
                             var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did!.Handler, ctx), l.Subject.Uri.Rkey);
 
                             var likeRkey = GetMessageTid(path, Like.RecordType + "/");
-                            relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey));
-                            var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
-                            relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
-                            relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/, ctx, likeRkey.Date);
-                            if (!relationships.FeedGenerators.ContainsKey(feedId))
+                            if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
                             {
-                                ScheduleRecordIndexing(l.Subject.Uri, ctx);
+                                var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
+                                relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
+                                relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/, ctx, likeRkey.Date);
+                                if (!relationships.FeedGenerators.ContainsKey(feedId))
+                                {
+                                    ScheduleRecordIndexing(l.Subject.Uri, ctx);
+                                }
                             }
                         }
                     }
@@ -256,14 +258,16 @@ namespace AppViewLite
                         var followed = relationships.SerializeDid(f.Subject!.Handler, ctx);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
 
-                        if (relationships.IsRegisteredForNotifications(followed))
-                            relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx, rkey.Date);
-                        relationships.Follows.Add(followed, new Relationship(commitPlc, rkey));
-                        if (relationships.IsRegisteredForNotifications(commitPlc))
+                        if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey)))
                         {
-                            relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
-                        }
+                            if (relationships.IsRegisteredForNotifications(followed))
+                                relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx, rkey.Date);
 
+                            if (relationships.IsRegisteredForNotifications(commitPlc))
+                            {
+                                relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
+                            }
+                        }
                     }
                     else if (record is Repost r)
                     {
@@ -271,14 +275,17 @@ namespace AppViewLite
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
-                        relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx, repostRKey.Date);
-                        var added = relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey));
-                        relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
-                        relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
-                        relationships.NotifyPostStatsChange(postId, commitPlc);
-                        
-                        if (added && relationships.IsRegisteredForNotifications(commitPlc))
-                            relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
+                        if (relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey)))
+                        {
+                            relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx, repostRKey.Date);
+
+                            relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
+                            relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
+                            relationships.NotifyPostStatsChange(postId, commitPlc);
+
+                            if (relationships.IsRegisteredForNotifications(commitPlc))
+                                relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
+                        }
                     }
                     else if (record is Block b)
                     {

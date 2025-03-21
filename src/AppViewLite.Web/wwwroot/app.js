@@ -1096,11 +1096,28 @@ function onInitialLoad() {
     document.addEventListener('mousedown', e => { 
         userSelectedTextSinceLastMouseDown = false;
         if (e.button == 1) { 
-            if (e.target?.classList?.contains('post-body')) { 
-                var href = getPostPreferredUrl(e.target.parentElement);
-                if (href) {
-                    window.open(href);
-                    e.preventDefault();
+            var postElement = e.target.closest('.post');
+            if (postElement) {
+                if (e.target?.classList?.contains('post-body')) {
+                    var href = getPostPreferredUrl(e.target.parentElement);
+                    if (href) {
+                        recordPostEngagement(postElement, 'OpenedThread');
+                        window.open(href);
+                        e.preventDefault();
+                    }
+                } else {
+                    var a = e.target?.closest('a');
+                    if (a) {
+                        if (a.classList.contains('blue-link') && a.closest('.post-body')) {
+                            recordPostEngagement(postElement, 'OpenedExternalLink');
+                        }
+                        if (a.classList.contains('post-external-preview')) {
+                            recordPostEngagement(postElement, 'OpenedExternalLink');
+                        }
+                        if (a.classList.contains('post-background-link')) { 
+                            recordPostEngagement(postElement, 'OpenedThread');
+                        }
+                    }
                 }
             }
         }

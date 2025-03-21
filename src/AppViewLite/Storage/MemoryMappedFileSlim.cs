@@ -100,7 +100,7 @@ namespace AppViewLite.Storage
                     var fd = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
                     if (fd < 0)
                     {
-                        if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
+                        if (Marshal.GetLastSystemError() == 2) throw new FileNotFoundException("File not found: " + path, path);
                         throw new Win32Exception();
                     }
 

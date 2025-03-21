@@ -332,7 +332,7 @@ function fastNavigateIfLink(event) {
         return false;
 
     if (canFastNavigateTo(url)) {
-        fastNavigateTo(url.href, null, a.dataset.alwaysfocuspage == '1' ? true : null);
+        fastNavigateTo(url.href, url.pathname == '/notifications' ? true : null, a.dataset.alwaysfocuspage == '1' ? true : null);
         event.preventDefault();
         return true;
     }
@@ -671,6 +671,8 @@ function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
 
         if (href == historyStack[historyStack.length - 1]) { 
             applyFocusOnNextPopstate = scrollToTop == true;
+            if (preferRefresh)
+                recentPages = recentPages.filter(x => x.href != href);
             history.back();
             return;
         }

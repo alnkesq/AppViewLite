@@ -1095,6 +1095,13 @@ function onInitialLoad() {
         }
     });
 
+    document.addEventListener('pointerdown', e => {
+        var menuItem = e.target?.closest('.menu-item');
+        if (menuItem) { 
+            menuItem.focus(); // for visual feedback
+        }
+    });
+
     document.addEventListener('mousedown', e => { 
         userSelectedTextSinceLastMouseDown = false;
         if (e.button == 1) { 

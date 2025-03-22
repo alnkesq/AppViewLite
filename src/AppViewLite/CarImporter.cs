@@ -165,6 +165,6 @@ namespace AppViewLite
         }
 
     }
-    public record struct CarImportProgress(long DownloadedBytes, long EstimatedTotalBytes, long InsertedRecords, long TotalRecords, Tid LastSeenRev);
+    public record struct CarImportProgress(long DownloadedBytes, long EstimatedTotalBytes, long InsertedRecords, long TotalRecords, Tid LastRecordRkey);
 }
 

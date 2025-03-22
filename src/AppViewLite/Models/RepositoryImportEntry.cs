@@ -36,27 +36,33 @@ namespace AppViewLite.Models
                 }
                 else if (StillRunning)
                 {
-                    if (InsertedRecordCount != 0)
+                    if (Kind == RepositoryImportKind.CAR)
                     {
-                        if (TotalRecords != 0)
+                        if (InsertedRecordCount != 0)
                         {
                             return $"Downloaded: 100% ({StringUtils.ToHumanBytes(EstimatedTotalBytes)}), Inserting: {StringUtils.FormatPercent(InsertedRecordCount, TotalRecords)} ({InsertedRecordCount} records){suffix}";
                         }
                         else
                         {
-
-                            return $"Inserting: {InsertedRecordCount} records{suffix}";
+                            if (EstimatedTotalBytes == 0)
+                            {
+                                return $"Downloading: 0% of (unknown){suffix}";
+                            }
+                            else
+                            {
+                                return $"Downloading: ~{StringUtils.FormatPercent(DownloadedBytes, EstimatedTotalBytes)} of ~{StringUtils.ToHumanBytes(EstimatedTotalBytes)}{suffix}";
+                            }
                         }
                     }
                     else
                     {
-                        if (EstimatedTotalBytes == 0)
+                        if (TotalRecords == 0)
                         {
-                            return $"Downloading: {StringUtils.FormatPercent(DownloadedBytes, EstimatedTotalBytes)} of (unknown){suffix}";
+                            return $"Downloading and inserting: 0%{suffix}";
                         }
                         else
                         {
-                            return $"Downloading: {StringUtils.FormatPercent(DownloadedBytes, EstimatedTotalBytes)} of ~{StringUtils.ToHumanBytes(EstimatedTotalBytes)}{suffix}";
+                            return $"Downloading and inserting: {StringUtils.FormatPercent(InsertedRecordCount, TotalRecords)} ({InsertedRecordCount} records){suffix}";
                         }
                     }
 

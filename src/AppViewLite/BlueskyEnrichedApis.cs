@@ -2478,10 +2478,11 @@ namespace AppViewLite
                 var progress = new Action<CarImportProgress>(x =>
                 {
                     summary.DownloadedBytes = x.DownloadedBytes;
-                    summary.LastRevOrTid = x.LastSeenRev.TidValue;
                     summary.InsertedRecordCount = x.InsertedRecords;
                     summary.EstimatedTotalBytes = x.EstimatedTotalBytes;
                     summary.TotalRecords = x.TotalRecords;
+                    if (kind != RepositoryImportKind.CAR)
+                        summary.LastRevOrTid = x.LastRecordRkey.TidValue;
                 });
                 if (kind == RepositoryImportKind.CAR)
                 {

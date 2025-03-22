@@ -734,6 +734,7 @@ namespace AppViewLite
             string? cursor = since != default ? since.ToString() : null;
             Tid lastTid = since;
             long recordCount = 0;
+            DateTime oldestRecord = default;
             try
             {
                 while (true)
@@ -756,13 +757,25 @@ namespace AppViewLite
 
                         if (Tid.TryParse(item.Uri.Rkey, out var tid))
                         {
-                            progress?.Invoke(new CarImportProgress(0, 0, recordCount, default, tid));
+                            if (oldestRecord == default)
+                                oldestRecord = tid.Date;
+                            var timespan = DateTime.UtcNow - oldestRecord;
+                            if (timespan.Ticks >= 0 && recordCount >= 10)
+                            {
+                                var positionWithinTimespan = tid.Date - oldestRecord;
+                                var positionRatioWithinTimespan = (double)positionWithinTimespan.Ticks / timespan.Ticks;
+                                var totalRecordsEstimation = (double)recordCount / positionRatioWithinTimespan;
+                                progress?.Invoke(new CarImportProgress(0, 0, recordCount, Math.Max(recordCount + 10, (long)Math.Ceiling(totalRecordsEstimation)), tid));
+
+                            }
+
                             lastTid = tid;
                         }
                     }
 
                     if (cursor == null) break;
                 }
+                progress?.Invoke(new CarImportProgress(0, 0, recordCount, recordCount, lastTid));
                 return (lastTid, null);
             }
             catch (Exception ex)

@@ -3712,6 +3712,8 @@ namespace AppViewLite
             return (priorWeight * prior + positive) / (priorWeight + total);
         }
 
+        public SemaphoreSlim CarImportSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_IMPORT_SEMAPHORE_SIZE) ?? 2);
+
     }
 
 

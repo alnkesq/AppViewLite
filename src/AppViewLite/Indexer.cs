@@ -722,7 +722,7 @@ namespace AppViewLite
         {
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
             var pds = (await at.ResolveATDidHostAsync(new ATDid(did), ct)).HandleResult()!;
-            var url = new Uri(new Uri(pds), FishyFlip.Lexicon.Com.Atproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "since=" + since : null));
+            var url = new Uri(new Uri(pds), FishyFlip.Lexicon.Com.Atproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "&since=" + since : null));
             return await at.Client.GetStreamAsync(url, ct); 
 
         }

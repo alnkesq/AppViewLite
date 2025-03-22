@@ -434,6 +434,8 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
        document.scrollingElement.scrollTop = p.scrollTop;
     }
     prevScrollTop = 0;
+    onPageScrollPositionFinalized();
+    
     updateSidebarButtonScrollVisibility();
 }
 
@@ -524,7 +526,6 @@ function applyPageElements() {
     } else { 
         document.querySelector('.theater-image').postElement = null;
     }
-    visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
 
     var postsInViewport = [];
     intersectionObserver = new IntersectionObserver(
@@ -696,7 +697,7 @@ function closeCurrentMenu() {
     enableMenuFocus();
 }
 
-var scrollTopWhenMenuOpened = 0;
+var scrollTopWhenMenuOrTheaterOpened = 0;
 
 function ensureMenuFullyVisible() { 
     var menu = currentlyOpenMenu;
@@ -706,7 +707,7 @@ function ensureMenuFullyVisible() {
     var buttonRect = currentlyOpenMenuButton.getBoundingClientRect();
     var menuRect = menu.getBoundingClientRect(); 
 
-    scrollTopWhenMenuOpened = document.scrollingElement.scrollTop;
+    scrollTopWhenMenuOrTheaterOpened = document.scrollingElement.scrollTop;
     const MIN_MARGIN = 5;
 
     var vw = window.innerWidth - MIN_MARGIN - 10;
@@ -944,9 +945,12 @@ function onInitialLoad() {
             pageLoadedTimeBeforeInitialScroll = null;
         }
         updateSidebarButtonScrollVisibility();
-        if (Math.abs(scrollTopWhenMenuOpened - document.scrollingElement.scrollTop) > 10 && window.visualViewport.scale == 1 && !visualViewportWasResizedSinceLastTheaterOrMenuOpen) {
-            closeCurrentMenu();
-            closeTheater();
+        
+        if (window.visualViewport.scale == 1 && !visualViewportWasResizedSinceLastTheaterOrMenuOpen) {
+            if (Math.abs(scrollTopWhenMenuOrTheaterOpened - document.scrollingElement.scrollTop) > 10) {
+                closeCurrentMenu();
+                closeTheater();
+            }
         }
         maybeLoadNextPage();
     }, { passive: true });
@@ -1260,8 +1264,15 @@ function onInitialLoad() {
     applyPageElements();
     applyPageFocus();
     
+    onPageScrollPositionFinalized();
+
     prevScrollTop = 0;
     updateSidebarButtonScrollVisibility();
+}
+
+function onPageScrollPositionFinalized() { 
+    visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
+    scrollTopWhenMenuOrTheaterOpened = document.scrollingElement.scrollTop;
 }
 
 function getAncestorData(target, name) { 

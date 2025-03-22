@@ -173,7 +173,7 @@ function applyPageFocus() {
     var autofocus = document.querySelector('[autofocus]');
     var focalPost = document.querySelector('.post-focal');
 
-    if (autofocus) { 
+    if (autofocus) {
         var prev = document.scrollingElement.scrollTop;
         
         if (autofocus.classList.contains('compose-textarea'))
@@ -186,11 +186,15 @@ function applyPageFocus() {
                 pageLoadedTimeBeforeInitialScroll = null;
         }
     }
-    else if (focalPost && document.querySelector('.post') != focalPost) {
+    else if (focalPost && document.querySelector('.post') != focalPost || tryTrimMediaSegments(location.href)) {
+        // HACK: with theater, scroll to first post instead of (0,0) so that scroll up closes the theater (otherwise there would be no event)
         pageLoadedTimeBeforeInitialScroll = null;
         focalPost.scrollIntoView();
     }
-    else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    else {
+        
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
 
     for (const video of document.querySelectorAll('video[autoplay]')) {
         if (!video.didAutoPlay) {
@@ -435,7 +439,7 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
     }
     prevScrollTop = 0;
     onPageScrollPositionFinalized();
-    
+
     updateSidebarButtonScrollVisibility();
 }
 

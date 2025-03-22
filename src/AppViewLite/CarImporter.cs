@@ -69,7 +69,9 @@ namespace AppViewLite
                 var rev = blockObj["rev"].AsString();
                 var parsedRev = Tid.Parse(rev);
                 if (parsedRev.TidValue > LargestSeenRev.TidValue)
+                {
                     LargestSeenRev = parsedRev;
+                }
             }
             else
             {
@@ -104,13 +106,15 @@ namespace AppViewLite
 
         public IEnumerable<(string Did, string Path, ATObject Record)> EnumerateRecords()
         {
-            foreach (var item in pathToCid.DistinctBy(x => (x.Cid, x.RKey, x.Collection)))
+            foreach (var item in pathToCid.DistinctBy(x => (x.Cid, x.RKey, x.Collection)).OrderBy(x => x.RKey))
             {
                 if (!recordsByCid.TryGetValue(item.Cid, out var record)) continue;
 
                 yield return (Did, item.Collection + "/" + item.RKey, record);
             };
         }
+
     }
+    public record struct CarImportProgress(long DownloadedBytes, long RecordCount, Tid LastSeenRev);
 }
 

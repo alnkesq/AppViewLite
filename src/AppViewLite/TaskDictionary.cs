@@ -70,8 +70,7 @@ namespace AppViewLite
         {
             var lazy = new Lazy<Task<TValue>>(() =>
             {
-                var p = CreateTaskAsync(key, extraArgs);
-                return p;
+                return CreateTaskAsync(key, extraArgs);
             }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
             return dict.GetOrAdd(key, lazy).Value;
@@ -80,9 +79,10 @@ namespace AppViewLite
 
         public int Count => dict.Count;
 
+        private static async Task YieldAsTask() => await Task.Yield();
         private async Task<TValue> CreateTaskAsync(TKey key, TExtraArgs extraArgs)
         {
-            await Task.Yield(); // gets out of the lock, and allows us to store early exceptions
+            await YieldAsTask().ConfigureAwait(false); // gets out of the lock, and allows us to store early exceptions
             try
             {
                 return await compute(key, extraArgs);

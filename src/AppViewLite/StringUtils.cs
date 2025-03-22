@@ -638,11 +638,12 @@ namespace AppViewLite
         {
             return date.ToString("MMM d, yyyy HH:mm");
         }
-        public static string ToHumanDate(DateTime date)
+        public static string ToHumanDate(DateTime date, bool showAgo = false)
         {
+            var agoSuffix = showAgo ? " ago" : null;
             var ago = DateTime.UtcNow - date;
-            if (ago.TotalHours < 1) return (int)Math.Max(ago.TotalMinutes, 1) + "m";
-            if (ago.TotalDays < 1) return (int)ago.TotalHours + "h";
+            if (ago.TotalHours < 1) return (int)Math.Max(ago.TotalMinutes, 1) + "m" + agoSuffix;
+            if (ago.TotalDays < 1) return (int)ago.TotalHours + "h" + agoSuffix;
             if (date.Year == DateTime.UtcNow.Year) return date.ToString("MMM d");
             return date.ToString("MMM d, yyyy");
         }

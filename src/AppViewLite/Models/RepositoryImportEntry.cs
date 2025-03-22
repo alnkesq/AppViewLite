@@ -15,10 +15,13 @@ namespace AppViewLite.Models
         [ProtoMember(3)] public long LastRevOrTid;
         [ProtoMember(4)] public string? Error;
         [ProtoMember(5)] public long StartRevOrTid;
+        [ProtoMember(6)] public long DownloadedBytes;
+        [ProtoMember(7)] public long RecordCount;
 
         public DateTime StartDate;
         public Plc Plc;
         public bool StillRunning;
+        
 
     }
 

@@ -615,22 +615,37 @@ namespace AppViewLite
 
         public Action<string>? VerifyValidForCurrentRelay;
         
-        public async Task<Tid> ImportCarAsync(string did, string carPath)
+        public async Task<Tid> ImportCarAsync(string did, string carPath, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
             using var stream = File.Open(carPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            return await ImportCarAsync(did, stream);
+            return await ImportCarAsync(did, stream, progress, ct).ConfigureAwait(false);
         }
 
         
-        public async Task<Tid> ImportCarAsync(string did, Stream stream)
+        public async Task<Tid> ImportCarAsync(string did, Stream stream, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
+#pragma warning disable CA2000 // Must be disposed by caller
+            if (!stream.CanSeek) stream = new PositionAwareStream(stream);
+#pragma warning restore CA2000
             var importer = new CarImporter(did);
             importer.Log("Reading stream");
 
-            await CarDecoder.DecodeCarAsync(stream, importer.OnCarDecoded);
+            await foreach (var item in CarDecoder.DecodeCarAsync(stream).ConfigureAwait(false))
+            {
+                ct.ThrowIfCancellationRequested();
+                progress?.Invoke(new CarImportProgress(stream.Position, default, default));
+                importer.OnCarDecoded(new CarProgressStatusEvent(item.Cid, item.Bytes));
+            }
             importer.LogStats();
+            long recordCount = 0;
             foreach (var record in importer.EnumerateRecords())
             {
+                ct.ThrowIfCancellationRequested();
+                recordCount++;
+
+                var parts = record.Path.Split('/');
+                if (parts.Length == 2 && Tid.TryParse(parts[1], out var tid))
+                    progress?.Invoke(new CarImportProgress(stream.Position, recordCount, tid));
                 TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), record.Did);
             }
             importer.Log("Done.");
@@ -660,32 +675,32 @@ namespace AppViewLite
             }
         }
 
-        public async Task<Tid> ImportCarAsync(string did, RequestContext ctx, Tid since = default, CancellationToken ct = default)
+        public async Task<Tid> ImportCarAsync(string did, RequestContext ctx, Tid since = default, Action<CarImportProgress>? progress = null, CancellationToken ct = default)
         {
-            using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
+            using var at = await Apis.CreateProtocolForDidAsync(did, ctx).ConfigureAwait(false);
             var importer = new CarImporter(did);
-            importer.Log("Reading stream");
-
-            var result = (await at.Sync.GetRepoAsync(new ATDid(did), onDecoded: importer.OnCarDecoded, since: since != default ? since.ToString() : null, cancellationToken: ct)).HandleResult();
-            importer.LogStats();
-            
-            foreach (var record in importer.EnumerateRecords())
-            {
-                TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), did);
-                await Task.Delay(10, ct);
-            }
-            
-            importer.Log("Done.");
-            return importer.LargestSeenRev != default ? importer.LargestSeenRev : since;
+            using var stream = await GetCarStreamAsync(did, ctx, since, ct).ConfigureAwait(false);
+            var tid = await ImportCarAsync(did, stream, progress, ct).ConfigureAwait(false);
+            return tid != default ? tid : since;
         }
 
 
-        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, RequestContext ctx, CancellationToken ct = default)
+        private async Task<Stream> GetCarStreamAsync(string did, RequestContext ctx, Tid since = default, CancellationToken ct = default)
+        {
+            using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
+            var pds = (await at.ResolveATDidHostAsync(new ATDid(did), ct)).HandleResult()!;
+            var url = new Uri(new Uri(pds), FishyFlip.Lexicon.Com.Atproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "since=" + since : null));
+            return await at.Client.GetStreamAsync(url, ct); 
+
+        }
+
+        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, RequestContext ctx, CancellationToken ct = default, Action<CarImportProgress>? progress = null)
         {
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
 
             string? cursor = since != default ? since.ToString() : null;
             Tid lastTid = since;
+            long recordCount = 0;
             try
             {
                 while (true)
@@ -694,9 +709,13 @@ namespace AppViewLite
                     cursor = page!.Cursor;
                     foreach (var item in page.Records)
                     {
+                        recordCount++;
                         OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
                         if (Tid.TryParse(item.Uri.Rkey, out var tid))
+                        {
+                            progress?.Invoke(new CarImportProgress(0, recordCount, tid));
                             lastTid = tid;
+                        }
                     }
 
                     if (cursor == null) break;

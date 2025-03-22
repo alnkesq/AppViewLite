@@ -29,7 +29,7 @@
     }
     private void Submit()
     {
-        Apis.ImportCarIncrementalAsync(Did, Model.Kind, RequestContext, incremental: Model.Incremental).FireAndForget();
+        Apis.ImportCarIncrementalAsync(Did, Model!.Kind, RequestContext, incremental: Model.Incremental).FireAndForget();
         Navigation.NavigateTo("/repository-import?did=" + Uri.EscapeDataString(Did), true);
 
     }
@@ -57,14 +57,16 @@
     @foreach (var import in Imports)
     {
         <div class="repository-import-row" data-pending="@(import.StillRunning ? 1 : 0)">
-            <time title="@StringUtils.ToFullHumanDate(import.StartDate)">@StringUtils.ToHumanDate(import.StartDate)</time>
+            <time title="@StringUtils.ToFullHumanDate(import.StartDate)">@StringUtils.ToHumanDate(import.StartDate, true)</time>
             ·
             @import.Kind.ToString()
             <div class="repository-import-row-details">
                 @(
-                ("Range: " + (new Tid(import.StartRevOrTid).ToString() ?? "[beginning]") + " to " + (import.StillRunning ? "..." : (new Tid(import.LastRevOrTid).ToString() ?? "(none)"))) +
-                ((import.StillRunning ? ", still running" : ", duration: " + (import.DurationMillis / 1000).ToString("0.0") + " seconds")) +
-                (import.Error != null ? ", error: " + import.Error : null)
+                    ("Range: " + (import.StartRevOrTid == default ? "[beginning]" : StringUtils.ToHumanDate(new Tid(import.StartRevOrTid).Date, true)) + " to " + (import.LastRevOrTid == default ? (import.StillRunning ? "..." : "(none)") : (StringUtils.ToHumanDate(new Tid(import.LastRevOrTid).Date, true)))) +
+                    (import.RecordCount != 0 ? $" ({import.RecordCount} records)" : null) +
+                    (import.DownloadedBytes != 0 ? ", " + StringUtils.ToHumanBytes(import.DownloadedBytes) : null) +
+                    ((import.StillRunning ? ", still running" : ", completed in " + (import.DurationMillis / 1000).ToString("0.0") + " seconds")) +
+                    (import.Error != null ? ", error: " + import.Error : null)
                 )
             </div>
 
@@ -81,14 +83,14 @@
     <AntiforgeryToken />
     <div>
         <InputRadioGroup @bind-Value="@Model.Kind">
-            Type:
+            Collection:
             <br />
             @foreach (var kind in Enum.GetValues<RepositoryImportKind>().Where(x => x != RepositoryImportKind.None))
             {
                 <label>
                     <InputRadio Value="@kind" />
                     @kind
-                    @(kind == RepositoryImportKind.CAR ? " (all types, faster)" : null)
+                    @(kind == RepositoryImportKind.CAR ? " (all collections, faster)" : null)
                 </label>
                 <br>
             }

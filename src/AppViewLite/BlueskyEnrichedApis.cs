@@ -1457,7 +1457,7 @@ namespace AppViewLite
                     return posts.ToArray();
                 }, ctx);
             if (continuation == null && posts.Length == 0)
-                throw new Exception("The feed provider didn't return any results.");
+                throw new UnexpectedFirehoseDataException("The feed provider didn't return any results.");
 
             if (forGrid)
                 ctx.IncreaseTimeout(TimeSpan.FromSeconds(3)); // the grid doesn't support automatic refresh
@@ -2475,11 +2475,17 @@ namespace AppViewLite
                 Tid lastTid;
                 Exception? exception = null;
 
+                var progress = new Action<CarImportProgress>(x =>
+                {
+                    summary.DownloadedBytes = Math.Max(summary.DownloadedBytes, x.DownloadedBytes);
+                    summary.LastRevOrTid = Math.Max(x.LastSeenRev.TidValue, summary.LastRevOrTid);
+                    summary.RecordCount = Math.Max(x.RecordCount, summary.RecordCount);
+                });
                 if (kind == RepositoryImportKind.CAR)
                 {
                     try
                     {
-                        lastTid = await indexer.ImportCarAsync(did, ctx, since, ct);
+                        lastTid = await indexer.ImportCarAsync(did, ctx, since, progress, ct).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -2504,7 +2510,7 @@ namespace AppViewLite
                         RepositoryImportKind.FeedGenerators => Generator.RecordType,
                         _ => throw new Exception("Unknown collection kind.")
                     };
-                    (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ctx, ct);
+                    (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ctx, ct, progress).ConfigureAwait(false);
                 }
                 summary.DurationMillis = (long)sw.Elapsed.TotalMilliseconds;
                 summary.LastRevOrTid = lastTid.TidValue;

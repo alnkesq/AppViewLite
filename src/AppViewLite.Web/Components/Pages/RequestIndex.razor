@@ -61,13 +61,7 @@
             ·
             @import.Kind.ToString()
             <div class="repository-import-row-details">
-                @(
-                    ("Range: " + (import.StartRevOrTid == default ? "[beginning]" : StringUtils.ToHumanDate(new Tid(import.StartRevOrTid).Date, true)) + " to " + (import.LastRevOrTid == default ? (import.StillRunning ? "..." : "(none)") : (StringUtils.ToHumanDate(new Tid(import.LastRevOrTid).Date, true)))) +
-                    (import.RecordCount != 0 ? $" ({import.RecordCount} records)" : null) +
-                    (import.DownloadedBytes != 0 ? ", " + StringUtils.ToHumanBytes(import.DownloadedBytes) : null) +
-                    ((import.StillRunning ? ", still running" : ", completed in " + (import.DurationMillis / 1000).ToString("0.0") + " seconds")) +
-                    (import.Error != null ? ", error: " + import.Error : null)
-                )
+                @import.DisplayText
             </div>
 
         </div>

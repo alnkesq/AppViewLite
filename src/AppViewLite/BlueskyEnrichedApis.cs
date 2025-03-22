@@ -2477,15 +2477,17 @@ namespace AppViewLite
 
                 var progress = new Action<CarImportProgress>(x =>
                 {
-                    summary.DownloadedBytes = Math.Max(summary.DownloadedBytes, x.DownloadedBytes);
-                    summary.LastRevOrTid = Math.Max(x.LastSeenRev.TidValue, summary.LastRevOrTid);
-                    summary.RecordCount = Math.Max(x.RecordCount, summary.RecordCount);
+                    summary.DownloadedBytes = x.DownloadedBytes;
+                    summary.LastRevOrTid = x.LastSeenRev.TidValue;
+                    summary.InsertedRecordCount = x.InsertedRecords;
+                    summary.EstimatedTotalBytes = x.EstimatedTotalBytes;
+                    summary.TotalRecords = x.TotalRecords;
                 });
                 if (kind == RepositoryImportKind.CAR)
                 {
                     try
                     {
-                        lastTid = await indexer.ImportCarAsync(did, ctx, since, progress, ct).ConfigureAwait(false);
+                        lastTid = await indexer.ImportCarAsync(did, since, ctx, progress, ct).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -3517,7 +3519,7 @@ namespace AppViewLite
             }
         }
 
-        private async Task<DidDocProto> GetDidDocAsync(string did, RequestContext ctx)
+        public async Task<DidDocProto> GetDidDocAsync(string did, RequestContext ctx)
         {
             var didDocOverride = DidDocOverrides.GetValue().TryGetOverride(did);
             if (didDocOverride != null) return didDocOverride;

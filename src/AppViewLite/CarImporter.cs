@@ -20,13 +20,14 @@ namespace AppViewLite
         private readonly List<(string Collection, string RKey, Cid Cid)> pathToCid;
         private readonly string logPrefix;
 
-        public CarImporter(string did)
+        public CarImporter(string did, DateTime probableDateOfEarliestRecord)
         {
             if (!did.StartsWith("did:", StringComparison.Ordinal)) throw new ArgumentException();
             Did = did;
             recordsByCid = new Dictionary<Cid, ATObject>();
             pathToCid = new List<(string Collection, string RKey, Cid Cid)>();
             logPrefix = "ImportCar: " + did + ": ";
+            ProbableDateOfEarliestRecord = probableDateOfEarliestRecord;
         }
 
         public void Log(string v)
@@ -35,6 +36,26 @@ namespace AppViewLite
         }
 
         public Tid LargestSeenRev;
+
+        public DateTime ProbableDateOfEarliestRecord;
+        public DateTime? LargestSeenRecordDate;
+        public DateTime? SmallestSeenRecordDate;
+        public int TotalRecords => pathToCid.Count;
+
+        public double EstimatedRetrievalProgress
+        {
+            get
+            {
+                var largestSeenRecordDate = (LargestSeenRecordDate ?? DateTime.UtcNow);
+                var smallestSeenRecordDate = SmallestSeenRecordDate ?? largestSeenRecordDate;
+
+                var lifespan = largestSeenRecordDate - ProbableDateOfEarliestRecord;
+
+                var positionSinceProbableCreation = smallestSeenRecordDate - ProbableDateOfEarliestRecord;
+                var ratioSinceProbableCreation = (double)positionSinceProbableCreation.Ticks / lifespan.Ticks;
+                return Math.Clamp(1 - ratioSinceProbableCreation, 0.01, 0.99);
+            }
+        }
 
         public void OnCarDecoded(CarProgressStatusEvent p)
         {
@@ -53,6 +74,7 @@ namespace AppViewLite
             }
             if (blockObj["$type"] is not null)
             {
+                //Console.Error.WriteLine("Record: " + blockObj["$type"] + " cid: " + p.Cid);
                 try
                 {
                     recordsByCid[p.Cid] = blockObj.ToATObject();
@@ -93,6 +115,34 @@ namespace AppViewLite
                     var slash = path.IndexOf('/');
                     var collection = path.Substring(0, slash);
                     var rkey = path.Substring(slash + 1);
+
+                    //Console.Error.WriteLine((Tid.TryParse(rkey, out var t) ? t.Date : default) + "Path:   " + collection + " cid: " + valCid);
+
+                    if (Tid.TryParse(rkey, out var tid) && collection is
+                        FishyFlip.Lexicon.App.Bsky.Graph.Follow.RecordType or
+                        FishyFlip.Lexicon.App.Bsky.Graph.Block.RecordType or
+                        FishyFlip.Lexicon.App.Bsky.Feed.Like.RecordType or
+                        FishyFlip.Lexicon.App.Bsky.Feed.Repost.RecordType or
+                        FishyFlip.Lexicon.App.Bsky.Feed.Post.RecordType)
+                    {
+                        var date = tid.Date;
+                        //if (SmallestSeenRecordDate == null ||date < SmallestSeenRecordDate)
+                        //{
+                        
+                        SmallestSeenRecordDate = date; // mostly descending order
+
+                        //}
+                        if (LargestSeenRecordDate == null || date > LargestSeenRecordDate)
+                        {
+                            LargestSeenRecordDate = date;
+                        }
+                        //if (date < ProbableDateOfEarliestRecord)
+                        //{
+                        //    ProbableDateOfEarliestRecord = date;
+                        //}
+
+
+                    }
                     pathToCid.Add((collection, rkey, valCid));
                 }
 
@@ -115,6 +165,6 @@ namespace AppViewLite
         }
 
     }
-    public record struct CarImportProgress(long DownloadedBytes, long RecordCount, Tid LastSeenRev);
+    public record struct CarImportProgress(long DownloadedBytes, long EstimatedTotalBytes, long InsertedRecords, long TotalRecords, Tid LastSeenRev);
 }
 

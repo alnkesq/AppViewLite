@@ -615,27 +615,33 @@ namespace AppViewLite
 
         public Action<string>? VerifyValidForCurrentRelay;
         
-        public async Task<Tid> ImportCarAsync(string did, string carPath, Action<CarImportProgress>? progress, CancellationToken ct = default)
+        public async Task<Tid> ImportCarAsync(string did, string carPath, RequestContext ctx, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
             using var stream = File.Open(carPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            return await ImportCarAsync(did, stream, progress, ct).ConfigureAwait(false);
+            return await ImportCarAsync(did, stream, ctx, null, progress, ct).ConfigureAwait(false);
         }
 
         
-        public async Task<Tid> ImportCarAsync(string did, Stream stream, Action<CarImportProgress>? progress, CancellationToken ct = default)
+        public async Task<Tid> ImportCarAsync(string did, Stream stream, RequestContext ctx, DateTime? probableDateOfEarliestRecord, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
 #pragma warning disable CA2000 // Must be disposed by caller
             if (!stream.CanSeek) stream = new PositionAwareStream(stream);
 #pragma warning restore CA2000
-            var importer = new CarImporter(did);
+            var importer = new CarImporter(did, probableDateOfEarliestRecord ?? await GetProbableDateOfEarliestRecordAsync(did, ctx));
             importer.Log("Reading stream");
 
             await foreach (var item in CarDecoder.DecodeCarAsync(stream).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
-                progress?.Invoke(new CarImportProgress(stream.Position, default, default));
+                //Console.Error.WriteLine(item.Cid + " = " + Convert.ToHexString(item.Cid.ToArray()));
+                
                 importer.OnCarDecoded(new CarProgressStatusEvent(item.Cid, item.Bytes));
+                var estimatedProgress = importer.EstimatedRetrievalProgress;
+                var estimatedTotalSize = stream.Position / estimatedProgress;
+                progress?.Invoke(new CarImportProgress(stream.Position, (long)estimatedTotalSize, default, default, default));
+
             }
+            var totalSize = stream.Position;
             importer.LogStats();
             long recordCount = 0;
             foreach (var record in importer.EnumerateRecords())
@@ -645,11 +651,37 @@ namespace AppViewLite
 
                 var parts = record.Path.Split('/');
                 if (parts.Length == 2 && Tid.TryParse(parts[1], out var tid))
-                    progress?.Invoke(new CarImportProgress(stream.Position, recordCount, tid));
-                TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), record.Did);
+                    progress?.Invoke(new CarImportProgress(totalSize, totalSize, recordCount, importer.TotalRecords, tid));
+
+                await Apis.DangerousUnlockedRelationships.CarImportSemaphore.WaitAsync(ct);
+                try
+                {
+
+                    TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), record.Did);
+                }
+                finally
+                {
+                    Apis.DangerousUnlockedRelationships.CarImportSemaphore.Release();
+                }
+                
             }
             importer.Log("Done.");
             return importer.LargestSeenRev;
+        }
+
+        private async Task<DateTime> GetProbableDateOfEarliestRecordAsync(string did, RequestContext ctx)
+        {
+            try
+            {
+                using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
+                var earliestLike = Tid.Parse(((await Apis.ListRecordsAsync(did, Like.RecordType, 1, null, ctx, descending: false)).Records.First()).Uri.Rkey).Date;
+                return earliestLike;
+            }
+            catch (Exception ex)
+            {
+                LogNonCriticalException("Could not determine date of earliest like.", ex);
+            }
+            return new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc);
         }
 
         private static void TryProcessRecord(Action action, string? authorForDebugging, LagBehindAccounting? accounting = null)
@@ -675,12 +707,13 @@ namespace AppViewLite
             }
         }
 
-        public async Task<Tid> ImportCarAsync(string did, RequestContext ctx, Tid since = default, Action<CarImportProgress>? progress = null, CancellationToken ct = default)
+
+        public async Task<Tid> ImportCarAsync(string did, Tid since, RequestContext ctx, Action<CarImportProgress>? progress = null, CancellationToken ct = default)
         {
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx).ConfigureAwait(false);
-            var importer = new CarImporter(did);
+            var importer = new CarImporter(did, since == default ? await GetProbableDateOfEarliestRecordAsync(did, ctx) : since.Date);
             using var stream = await GetCarStreamAsync(did, ctx, since, ct).ConfigureAwait(false);
-            var tid = await ImportCarAsync(did, stream, progress, ct).ConfigureAwait(false);
+            var tid = await ImportCarAsync(did, stream, ctx, since != default ? since.Date : null, progress, ct).ConfigureAwait(false);
             return tid != default ? tid : since;
         }
 
@@ -710,10 +743,20 @@ namespace AppViewLite
                     foreach (var item in page.Records)
                     {
                         recordCount++;
-                        OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
+
+                        await Apis.DangerousUnlockedRelationships.CarImportSemaphore.WaitAsync(ct);
+                        try
+                        {
+                            OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
+                        }
+                        finally
+                        {
+                            Apis.DangerousUnlockedRelationships.CarImportSemaphore.Release();
+                        }
+
                         if (Tid.TryParse(item.Uri.Rkey, out var tid))
                         {
-                            progress?.Invoke(new CarImportProgress(0, recordCount, tid));
+                            progress?.Invoke(new CarImportProgress(0, 0, recordCount, default, tid));
                             lastTid = tid;
                         }
                     }

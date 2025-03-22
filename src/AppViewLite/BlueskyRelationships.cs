@@ -490,6 +490,7 @@ namespace AppViewLite
                         if (IsReadOnly) d.DisposeNoFlush();
                         else d.Dispose();
                     }
+                    CarImportSemaphore?.Dispose();
                     if (IsReadOnly)
                     {
                         foreach (var d in AllMultidictionaries)

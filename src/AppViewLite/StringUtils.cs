@@ -812,6 +812,14 @@ namespace AppViewLite
             return result;
         }
 
+        public static string FormatPercent(long done, long total)
+        {
+            if (total == 0) return "0%";
+            if (done == total) return "100%";
+            
+            return (Math.Min(100.0 * done / total, 99.9)).ToString("0.0") + "%";
+        }
+
         private readonly static FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> KnownFileExtensions = new[]
         {
             "7z",

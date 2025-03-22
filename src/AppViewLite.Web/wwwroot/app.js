@@ -332,7 +332,7 @@ function fastNavigateIfLink(event) {
         return false;
 
     if (canFastNavigateTo(url)) {
-        fastNavigateTo(url.href, url.pathname == '/notifications' ? true : null, a.dataset.alwaysfocuspage == '1' ? true : null);
+        fastNavigateTo(url.href, url.pathname == '/notifications' || url.pathname == '/history' ? true : null, a.dataset.alwaysfocuspage == '1' ? true : null);
         event.preventDefault();
         return true;
     }

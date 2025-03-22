@@ -208,6 +208,8 @@ namespace AppViewLite.Models
         }
 
         public bool ShouldUseCompactView;
+
+        public int ReplyChainLength;
     }
 }
 

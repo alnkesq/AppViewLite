@@ -3199,6 +3199,12 @@ namespace AppViewLite
             ancestors.Reverse();
             ancestors[0].RepostedBy = post.RepostedBy;
             ancestors[0].RepostDate = post.RepostDate;
+            var count = ancestors.Count + 1;
+            post.ReplyChainLength = count;
+            foreach (var item in ancestors)
+            {
+                item.ReplyChainLength = count;
+            }
             post.RepostedBy = null;
             post.RepostDate = null;
             return ancestors;

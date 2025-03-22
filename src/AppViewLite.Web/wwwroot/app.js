@@ -1588,7 +1588,7 @@ var userActions = {
                 }
                 var followPrivately = profileElement.querySelector('.menu-item[actionkind="toggleFollow"][data-followkind="private"]');
                 if (followPrivately) { 
-                    followPrivately.textContent = have ? 'Following (private)' : 'Follow privately'
+                    followPrivately.textContent = have ? 'Unfollow (private)' : 'Follow privately'
                     followPrivately.classList.toggle('display-none', have && !profileElement.followPrivately);
                 }
         });

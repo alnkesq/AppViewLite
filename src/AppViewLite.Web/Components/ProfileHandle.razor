@@ -2,4 +2,4 @@
     [Parameter] public required BlueskyProfile Profile { get; set; }
 }
 
-<a data-handledid="@Profile.Did" class="handle-generic @(Profile.HandleIsUncertain ? "handle-uncertain" : Profile.PossibleHandle == null ? "handle-invalid" : null)" href="@Profile.BaseUrl" tabindex="-1">@(Profile.PossibleHandle ?? "handle.invalid")</a>
+<a data-handledid="@Profile.Did" class="handle-generic @(Profile.HandleIsUncertain ? "handle-uncertain" : Profile.PossibleHandle == null ? "handle-invalid" : null)" href="@Profile.HomeUrl" tabindex="-1">@(Profile.PossibleHandle ?? "handle.invalid")</a>

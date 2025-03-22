@@ -9,7 +9,7 @@
         <img src="@List.GetAvatarUrl(RequestContext)" />
     </a>
     <div class="list-metadata-row-name list-indented"><a class="underline-on-hover" href="@List.BaseUrl">@List.DisplayNameOrFallback</a></div>
-    <div class="list-metadata-row-author list-indented">@(List is BlueskyList ? "List" : "Label") by <a class="underline-on-hover" href="@List.Moderator.BaseUrl">@List.Moderator.DisplayNameOrFallback</a></div>
+    <div class="list-metadata-row-author list-indented">@(List is BlueskyList ? "List" : "Label") by <a class="underline-on-hover" href="@List.Moderator!.HomeUrl">@List.Moderator.DisplayNameOrFallback</a></div>
     <div class="list-metadata-row-description">
         <TextWithFacets Text="@List.Description" Facets="@List.DescriptionFacets" />
     </div>

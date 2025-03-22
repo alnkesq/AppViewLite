@@ -17,9 +17,9 @@
 }
 
 <PageTitle>List memberships for @Member?.DisplayNameOrFallback</PageTitle>
-<h1>List memberships for <a href="@Member?.BaseUrl">@Member?.DisplayNameOrFallback</a></h1>
+<h1>List memberships for <a href="@Member?.HomeUrl">@Member?.DisplayNameOrFallback</a></h1>
 <div class="main-padding">
-    <a href="@Member?.BaseUrl" class="blue-link">Back to profile</a>
+    <a href="@Member?.HomeUrl" class="blue-link">Back to profile</a>
 </div>
 <ListList Lists="MemberOf" NextContinuation="@NextContinuation" />
 

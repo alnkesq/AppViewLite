@@ -10,7 +10,7 @@
     var embedFullPost = Notification.Kind is NotificationKind.MentionedYou or NotificationKind.QuotedYourPost or NotificationKind.RepliedToYourThread or NotificationKind.RepliedToYourPost;
 }
 <div class="notification @(Notification.IsNew ? "notification-new" : null)" @key="@(Notification.LatestDate.Ticks + Notification.Kind.ToString())">
-    <a class="notification-background-link" href="@(Notification.Post?.BaseUrl ?? Notification.Feed?.BaseUrl ?? Notification.Profiles?.FirstOrDefault()?.BaseUrl)"></a>
+    <a class="notification-background-link" href="@(Notification.Post?.BaseUrl ?? Notification.Feed?.BaseUrl ?? Notification.Profiles?.FirstOrDefault()?.HomeUrl)"></a>
     @if (!embedFullPost)
     {
         <div class="notification-kind-icon">
@@ -45,7 +45,7 @@
                     {
                         if (i == MaxProfilePictures) break;
                         var profile = Notification.Profiles![i];
-                        <a href="@profile.BaseUrl" class="notification-profile-summary" title="@profile.DisplayNameOrFallback">
+                        <a href="@profile.HomeUrl" class="notification-profile-summary" title="@profile.DisplayNameOrFallback">
                             <img src="@profile.AvatarUrl" class="profile-image-small" />
                         </a>
                     }
@@ -69,7 +69,7 @@
                     <div>
                         @foreach (var profile in Notification.Profiles!)
                         {
-                            <a class="notification-profile-entry" href="@profile.BaseUrl">
+                            <a class="notification-profile-entry" href="@profile.HomeUrl">
                                 <img src="@profile.AvatarUrl" class="profile-image-small" />
                                 @profile.DisplayNameOrFallback
                             </a>
@@ -114,7 +114,7 @@
         var profile = Notification.Profiles!.Single();
         <div class="notification-meta notification-indented notification-single-profile">
             <div class="notification-profile-summaries">
-                <a href="@profile.BaseUrl" class="notification-profile-summary" title="@profile.DisplayNameOrFallback">
+                <a href="@profile.HomeUrl" class="notification-profile-summary" title="@profile.DisplayNameOrFallback">
                     <img src="@profile.AvatarUrl" class="profile-image-small" />
                 </a>
             </div>

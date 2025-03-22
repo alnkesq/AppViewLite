@@ -18,9 +18,9 @@
 }
 
 <PageTitle>Feeds by @Member?.DisplayNameOrFallback</PageTitle>
-<h1>Feeds by <a href="@Member?.BaseUrl">@Member?.DisplayNameOrFallback</a></h1>
+<h1>Feeds by <a href="@Member?.HomeUrl">@Member?.DisplayNameOrFallback</a></h1>
 <div class="main-padding">
-    <a href="@Member?.BaseUrl" class="blue-link">Back to profile</a>
+    <a href="@Member?.HomeUrl" class="blue-link">Back to profile</a>
 </div>
 <FeedList Feeds="Feeds" NextContinuation="@NextContinuation" />
 

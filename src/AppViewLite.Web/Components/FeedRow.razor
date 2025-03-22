@@ -12,7 +12,7 @@
     <div class="feed-metadata-row-name feed-indented"><a class="underline-on-hover" href="@Feed.BaseUrl">@Feed.DisplayNameOrFallback</a></div>
     @if(!Compact)
     {
-        <div class="feed-metadata-row-author feed-indented">Feed by <a class="underline-on-hover" href="@Feed.Author.BaseUrl">@Feed.Author.DisplayNameOrFallback</a> <span class="feed-metadata-row-implementation">(@Feed.ImplementationDisplayName)</span></div>
+        <div class="feed-metadata-row-author feed-indented">Feed by <a class="underline-on-hover" href="@Feed.Author.HomeUrl">@Feed.Author.DisplayNameOrFallback</a> <span class="feed-metadata-row-implementation">(@Feed.ImplementationDisplayName)</span></div>
         <div class="feed-metadata-row-description">
             <TextWithFacets Text="@Feed.Data?.Description" Facets="@Feed.Data?.DescriptionFacets" />
         </div>

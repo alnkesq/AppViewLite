@@ -33,6 +33,7 @@ namespace AppViewLite.Models
         public IReadOnlyList<BlueskyModerationBase> Labels = [];
 
         public string BaseUrl => "/@" + (HandleIsUncertain || PossibleHandle == null ? Did : PossibleHandle);
+        public string HomeUrl => BaseUrl + (DidDoc?.AtProtoLabeler != null ? "?labeler=1" : null);
 
         public string? FollowingUrl => PluggableProtocol != null ? PluggableProtocol.GetFollowingUrl(Did) : BaseUrl + "/following";
         public string? FollowersUrl => PluggableProtocol != null ? PluggableProtocol.GetFollowersUrl(Did) : BaseUrl + "/followers";

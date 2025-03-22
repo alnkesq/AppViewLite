@@ -29,7 +29,7 @@
     }
     @if (Session.IsLoggedIn)
     {
-        <a href="@Session.Profile!.BaseUrl">
+        <a href="@Session.Profile!.HomeUrl">
             <img src="@Session.Profile!.AvatarUrl" class="post-author-image">
         </a>
 
@@ -76,7 +76,7 @@
     @if (Session.IsLoggedIn)
     {
         <div>
-            <NavLink href="@Session.Profile!.BaseUrl">
+            <NavLink href="@Session.Profile!.HomeUrl">
                 Profile
             </NavLink>
         </div>

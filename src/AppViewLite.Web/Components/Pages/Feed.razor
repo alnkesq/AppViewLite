@@ -51,7 +51,7 @@
                     <button class="menu-item" actionkind="toggleFeedPin">@(Info.IsPinned ? "Unpin feed" : "Pin feed")</button>
                 }
                 <a class="menu-item" href="@Info.Author.BaseUrl/feeds">More feeds from @(Info.Author.DisplayNameOrFallback)</a>
-                <a class="menu-item" href="@Info.Author.BaseUrl">Go to @(Info.Author.DisplayNameOrFallback)'s profile</a>
+                <a class="menu-item" href="@Info.Author.HomeUrl">Go to @(Info.Author.DisplayNameOrFallback)'s profile</a>
             </div>
             <button class="post-action-bar-button">
                 <svg fill="none" viewBox="0 0 24 24" width="20" height="20" style="pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm16 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm-6-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path></svg>

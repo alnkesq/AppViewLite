@@ -119,7 +119,7 @@ namespace AppViewLite
         }
 
 
-        private ConcurrentQueue<UrgentReadTask> urgentReadTasks = new();
+        
 
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
@@ -212,7 +212,7 @@ namespace AppViewLite
                     }
                 }, tcs);
 
-                urgentReadTasks.Enqueue(task);
+                primarySecondaryPair.urgentReadTasks.Enqueue(task);
 
                 Task.Run(() =>
                 {
@@ -256,7 +256,7 @@ namespace AppViewLite
 
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {
-            while (urgentReadTasks.TryDequeue(out var urgentReadTask))
+            while (primarySecondaryPair.urgentReadTasks.TryDequeue(out var urgentReadTask))
             {
                 try
                 {

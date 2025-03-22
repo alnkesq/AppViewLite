@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -13,6 +14,8 @@ namespace AppViewLite
         public readonly BlueskyRelationships relationshipsUnlocked;
         public BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked;
         public Lock buildNewReadOnlyReplicaLock = new Lock();
+
+        internal ConcurrentQueue<UrgentReadTask> urgentReadTasks = new();
         public PrimarySecondaryPair(BlueskyRelationships primary)
         {
             this.relationshipsUnlocked = primary;

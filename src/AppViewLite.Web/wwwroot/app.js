@@ -1678,7 +1678,7 @@ function formatEngagementCount(value)
     else if (value < 1_000_000)
     {
         // 1.0K..9.9K
-        // 19K..999K
+        // 10K..999K
         return formatTwoSignificantDigits(value / 1_000.0) + "K";
     }
     else

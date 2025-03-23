@@ -262,11 +262,12 @@ namespace AppViewLite
                         {
                             if (relationships.IsRegisteredForNotifications(followed))
                                 relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx, rkey.Date);
+                        }
 
-                            if (relationships.IsRegisteredForNotifications(commitPlc))
-                            {
-                                relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
-                            }
+
+                        if (relationships.IsRegisteredForNotifications(commitPlc)) // must stay outside of if(Follow.Add) since IsRegisteredForNotifications can change over time
+                        {
+                            relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
                         }
                     }
                     else if (record is Repost r)

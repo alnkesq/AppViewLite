@@ -3649,6 +3649,7 @@ namespace AppViewLite
                 {
                     var disposition = response.Content.Headers.ContentDisposition;
                     fileName = disposition?.FileNameStar != null ? Uri.UnescapeDataString(disposition.FileNameStar) : disposition?.FileName;
+                    fileName = fileName?.Replace("\"", null);
                     if (string.IsNullOrEmpty(fileName))
                         fileName = url.GetFileName();
                 }

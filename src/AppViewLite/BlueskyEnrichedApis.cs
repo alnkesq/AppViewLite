@@ -3950,9 +3950,8 @@ namespace AppViewLite
             var session = WithRelationshipsWriteLock(rels =>
             {
 
-                if (userContext.PrivateProfile.FirstLogin == null)
+                if (!rels.LastSeenNotifications.ContainsKey(plc))
                 {
-                    userContext.PrivateProfile.FirstLogin = DateTime.UtcNow;
                     userContext.PrivateProfile.LabelerSubscriptions = relationshipsUnlocked.DefaultLabelSubscriptions.ToArray();
                     rels.RegisterForNotifications(plc);
                 }

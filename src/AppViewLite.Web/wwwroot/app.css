@@ -1950,7 +1950,7 @@ body:has(.debug-table){
     cursor: pointer;
 }
 
-input[type=radio]{
+input[type=radio], input[type=checkbox]{
     accent-color: var(--accent);
 }
 

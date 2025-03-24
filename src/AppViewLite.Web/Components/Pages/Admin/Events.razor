@@ -1,6 +1,7 @@
 @page "/debug/event-charts"
 @inject BlueskyEnrichedApis Apis
 @inject RequestContext RequestContext
+@inject NavigationManager Navigation
 
 @code {
     [SupplyParameterFromQuery][Parameter] public int? Scope { get; set; }
@@ -29,8 +30,8 @@
 <h1>Event charts</h1>
 
 <div class="main-padding">
-    <a class="blue-link" disabled="@(zoomInScope == Scope)" href="/debug/events-chart?scope=@zoomInScope">Zoom in</a> |
-    <a class="blue-link" disabled="@(zoomOutScope == Scope)" href="/debug/events-chart?scope=@zoomOutScope">Zoom out</a> |
+    <a class="blue-link" disabled="@(zoomInScope == Scope)" href="@Navigation.WithQueryParameter("scope", zoomInScope.ToString())">Zoom in</a> |
+    <a class="blue-link" disabled="@(zoomOutScope == Scope)" href="@Navigation.WithQueryParameter("scope", zoomOutScope.ToString())">Zoom out</a> |
     @(StringUtils.ToHumanTimeSpan(scope, showSeconds: true, twoSignificantDigits: true))
 </div>
 <h2 class="main-padding time-series-title">Received firehose events</h2>

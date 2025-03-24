@@ -638,14 +638,23 @@ namespace AppViewLite
         {
             return date.ToString("MMM d, yyyy HH:mm");
         }
-        public static string ToHumanDate(DateTime date, bool showAgo = false)
+        public static string ToHumanDate(DateTime date, bool showAgo = false, bool showSeconds = false)
         {
             var agoSuffix = showAgo ? " ago" : null;
             var ago = DateTime.UtcNow - date;
-            if (ago.TotalHours < 1) return (int)Math.Max(ago.TotalMinutes, 1) + "m" + agoSuffix;
-            if (ago.TotalDays < 1) return (int)ago.TotalHours + "h" + agoSuffix;
+            if (ago.TotalDays < 1) return ToHumanTimeSpan(ago, showSeconds: showSeconds, twoSignificantDigits: false) + agoSuffix;
             if (date.Year == DateTime.UtcNow.Year) return date.ToString("MMM d");
             return date.ToString("MMM d, yyyy");
+        }
+        public static string ToHumanTimeSpan(TimeSpan ts, bool showSeconds = false, bool twoSignificantDigits = true)
+        {
+            string Format(double value) => twoSignificantDigits ? FormatTwoSignificantDigits(value) : ((int)value).ToString();
+            if (showSeconds && ts.TotalMinutes < 1) return Format(Math.Max(ts.TotalSeconds, 1)) + "s";
+            if (ts.TotalHours < 1) return Format(Math.Max(ts.TotalMinutes, 1)) + "m";
+            if (ts.TotalDays < 1) return Format(ts.TotalHours) + "h";
+            if (ts.TotalDays < 31) return Format(ts.TotalDays) + " days";
+            if (ts.TotalDays < (365 * 2)) return Format(ts.TotalDays / 30.41) + " months";
+            return Format(ts.TotalDays / 365.25) + " years";
         }
 
         public static string ToHumanBytes(long bytes)

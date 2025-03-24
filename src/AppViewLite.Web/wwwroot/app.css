@@ -1322,6 +1322,11 @@ button[disabled], input[type=submit][disabled] {
     background-color: gray;
     cursor: default;
 }
+a[disabled]{
+    color: gray;
+    cursor: default;
+    pointer-events: none;
+}
 
 
 .sidebar-item-small {
@@ -2016,4 +2021,35 @@ input[type=radio], input[type=checkbox]{
     color: var(--light-text);
     padding-left: 20px;
 
+}
+
+
+
+.time-series {
+    background: black;
+    width: 100%;
+    height: 200px;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+}
+
+.time-series-column-wrapper {
+    position: absolute;
+    height: 100%;
+}
+.time-series-column {
+    background: green;
+    bottom: 0px;
+    position: absolute;
+    width: 100%;
+}
+.time-series-current{
+    text-align: right;
+    margin-right: 10px;
+}
+
+.time-series-title {
+    margin-top: 20px;
+    margin-bottom: 0px;
 }

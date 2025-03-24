@@ -178,7 +178,6 @@ namespace AppViewLite
             ContinueOutsideLock? continueOutsideLock = null;
             ctx ??= RequestContext.CreateForFirehose("Create:" + record.Type, allowStale: true);
 
-
             var preresolved = WithRelationshipsLock(rels =>
             {
                 if (ignoreIfDisposing && rels.IsDisposed) return default;
@@ -1056,11 +1055,10 @@ namespace AppViewLite
             private bool disposed;
 
 
-
-
             public void OnRecordReceived()
             {
-                
+
+                BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
                 var received = Interlocked.Increment(ref RecordsReceived);
                 
                 if (disposed) return;
@@ -1068,6 +1066,7 @@ namespace AppViewLite
                 var processed = Interlocked.Read(in RecordsProcessed);
 
                 var lagBehind = received - processed;
+                BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries.Set((int)lagBehind);
                 if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
                 {
                     
@@ -1116,6 +1115,7 @@ namespace AppViewLite
 
             public void OnRecordProcessed()
             {
+                BlueskyRelationships.FirehoseEventProcessedTimeSeries.Increment();
                 Interlocked.Increment(ref RecordsProcessed);
             }
 

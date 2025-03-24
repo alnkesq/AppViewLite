@@ -18,6 +18,8 @@ namespace AppViewLite
         {
             LoggableBase.Initialize();
             using var relationships = new BlueskyRelationships();
+            LoggableBase.Initialize();
+            BlueskyRelationships.CreateTimeSeries();
             using var primarySecondaryPair = new PrimarySecondaryPair(relationships);
             var apis = new BlueskyEnrichedApis(primarySecondaryPair);
             Console.CancelKeyPress += (s, e) =>

@@ -283,6 +283,11 @@ function fastNavigateIfLink(event) {
 
     if (!url) return false;
 
+    if (pageAutoRefreshTimeout !== null) { 
+        clearTimeout(pageAutoRefreshTimeout);
+        pageAutoRefreshTimeout = null;
+    }
+
     if (a.parentElement?.classList?.contains('pagination-button')) { 
         event.preventDefault();
         loadNextPage(true);
@@ -336,13 +341,14 @@ function fastNavigateIfLink(event) {
         return false;
 
     if (canFastNavigateTo(url)) {
-        fastNavigateTo(url.href, url.pathname == '/notifications' || url.pathname == '/history' ? true : null, a.dataset.alwaysfocuspage == '1' ? true : null);
+        fastNavigateTo(url.href, NO_FETCH_REUSE_PATHS.includes(url.pathname) ? true : null, a.dataset.alwaysfocuspage == '1' ? true : null);
         event.preventDefault();
         return true;
     }
     return false;
 }
 
+var NO_FETCH_REUSE_PATHS = ['/notifications', '/history', '/debug/events-charts'];
 var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/settings/mute', '/debug/locks', '/debug/requests'];
 
 function canFastNavigateTo(url) { 
@@ -372,6 +378,8 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
 
     var oldMain = document.querySelector('main');
 
+
+    let restoreSamePageScroll = null;
 
     previousTabbedListHeaderScrollX = document.querySelector('.tabbed-lists-header-inner')?.scrollLeft ?? 0;
     var theaterForPostInfo = tryTrimMediaSegments(location.href);
@@ -412,6 +420,9 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
             history.replaceState(null, null, href);
         }
 
+        if (appliedPageObj.href == href)
+            restoreSamePageScroll = document.scrollingElement.scrollTop;
+
         p.dom.classList.remove('display-none');
         var page = oldMain.parentElement;
     
@@ -435,7 +446,7 @@ async function applyPage(href, preferRefresh = null, scrollToTop = null) {
     if (scrollToTop) {
         applyPageFocus();
     } else if(p) { 
-       document.scrollingElement.scrollTop = p.scrollTop;
+       document.scrollingElement.scrollTop = restoreSamePageScroll ?? p.scrollTop;
     }
     prevScrollTop = 0;
     onPageScrollPositionFinalized();
@@ -481,7 +492,7 @@ async function recordPostEngagement(postElement, kind) {
 
 var intersectionObserver;
 
-var refreshRepositoryImportPageTimeout = null;
+var pageAutoRefreshTimeout = null;
 
 function applyPageElements() { 
     
@@ -593,15 +604,21 @@ function applyPageElements() {
         recordPostEngagement(focalPost, 'OpenedThread');
     }
 
-    if (refreshRepositoryImportPageTimeout !== null) {
-        clearInterval(refreshRepositoryImportPageTimeout);
-        refreshRepositoryImportPageTimeout = null;
+    if (pageAutoRefreshTimeout !== null) {
+        clearInterval(pageAutoRefreshTimeout);
+        pageAutoRefreshTimeout = null;
     }
-    if (location.pathname == "/repository-import" && document.querySelector('.repository-import-row[data-pending="1"]')) { 
-        refreshRepositoryImportPageTimeout = setTimeout(() => { 
-            refreshRepositoryImportPageTimeout = null;
-            fastNavigateTo(location.href, true);
+    if (location.pathname.endsWith("/indexing") && document.querySelector('.repository-import-row[data-pending="1"]')) { 
+        pageAutoRefreshTimeout = setTimeout(() => { 
+            pageAutoRefreshTimeout = null;
+            fastNavigateTo(location.href, true, false);
         }, 2000);
+    }
+    if (location.pathname == '/debug/events-chart') { 
+        pageAutoRefreshTimeout = setTimeout(() => { 
+            pageAutoRefreshTimeout = null;
+            fastNavigateTo(location.href, true, false);
+        }, 1000);
     }
 }
 
@@ -671,7 +688,8 @@ function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
     }
 
     if (window.location.href == href) {
-        window.scrollTo(0, 0);
+        if(scrollToTop !== false)
+            window.scrollTo(0, 0);
     } else {
 
         if (href == historyStack[historyStack.length - 1]) { 

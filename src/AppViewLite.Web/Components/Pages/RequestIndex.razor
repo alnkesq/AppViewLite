@@ -1,12 +1,11 @@
-@page "/repository-import"
+@page "/@{did}/indexing"
+@page "/@{did}@{activityPubInstance}/indexing"
 @using AppViewLite.Numerics
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
-@inject BlueskyEnrichedApis Apis
-@inject RequestContext RequestContext
+@inherits ProfileComponentBase
 
 @code {
-    [Parameter][SupplyParameterFromQuery] public required string Did { get; set; }
     public BlueskyProfile? Profile;
     private RepositoryImportEntry[] Imports = [];
 
@@ -18,7 +17,7 @@
     protected override async Task OnParametersSetAsync()
     {
         RequestContext.AllowStale = false;
-        Did = await Apis.ResolveHandleAsync(Did, RequestContext);
+        await this.ResolveDidAsync();
         Profile = Apis.GetSingleProfile(Did, RequestContext);
         await Apis.EnrichAsync([Profile], RequestContext);
         Imports = Apis.WithRelationshipsLockForDid(Did, (plc, rels) =>
@@ -30,7 +29,7 @@
     private void Submit()
     {
         Apis.ImportCarIncrementalAsync(Apis.SerializeSingleDid(Did, RequestContext), Model!.Kind, RequestContext, incremental: Model.Incremental).FireAndForget();
-        Navigation.NavigateTo("/repository-import?did=" + Uri.EscapeDataString(Did), true);
+        Navigation.NavigateTo(Navigation.Uri, true);
 
     }
 
@@ -41,16 +40,19 @@
     }
 }
 
-<PageTitle>Repository import for @Profile?.DisplayNameOrFallback</PageTitle>
+<PageTitle>Repository indexing for @Profile?.DisplayNameOrFallback</PageTitle>
 
+<div class="main-padding">
+    <a href="@Profile?.HomeUrl" class="blue-link">Back to profile</a>
+</div>
 <h1><a href="@Profile?.HomeUrl">@Profile?.DisplayNameOrFallback</a></h1>
 <div class="main-padding">
 
-    <h2>Repository import history</h2>
+    <h2>Repository indexing history</h2>
 
     @if (Imports.Length == 0)
     {
-        <text>This repository has never been imported before.</text>
+        <text>This repository has never been indexed before.</text>
     }
 
 

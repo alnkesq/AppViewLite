@@ -1,0 +1,48 @@
+@code {
+    [Parameter] public required TimeSeries TimeSeries { get; set; }
+    [Parameter] public required TimeSpan Scope { get; set; }
+    [Parameter] public required long? MaxEventsPerSecond { get; set; }
+    [Parameter] public required int BucketCount { get; set; }
+    [Parameter] public required bool ShowPerSecondSuffix { get; set; } = true;
+
+    private float[]? buckets;
+    private double secondsPerBucket;
+    private TimeSpan bucketDuration;
+    private double maxValue;
+
+
+
+    protected override void OnParametersSet()
+    {
+
+        (buckets, bucketDuration) = TimeSeries.GetChart(BucketCount, Scope);
+        secondsPerBucket = bucketDuration.TotalSeconds;
+        if (MaxEventsPerSecond != null)
+        {
+            maxValue = MaxEventsPerSecond.Value * bucketDuration.TotalSeconds;
+        }
+        else
+        {
+            maxValue = Math.Max(buckets.Max(), 1);
+        }
+        
+    }
+}
+<div class="time-series-current">
+    @(Math.Round(buckets![^1] / secondsPerBucket) + (ShowPerSecondSuffix ? " / sec" : null))
+</div>
+<div class="time-series">
+    @for (int i = 0; i < buckets!.Length; i++)
+    {
+
+
+        var heightPercent = 100.0 * buckets[i] / maxValue;
+        var widthPercent = 100.0 / buckets.Length + 0.01 /*avoid small rounding gaps*/;
+        var leftPercent = 100.0 * i / buckets.Length;
+        var eventsPerSecond = buckets![i] / secondsPerBucket;
+        var date = StringUtils.ToHumanDate(DateTime.UtcNow - (buckets.Length - i) * bucketDuration, showAgo: true, showSeconds: true);
+        <div class="time-series-column-wrapper" style="width: @widthPercent%; left: @leftPercent%" data-text="@eventsPerSecond / sec · @date">
+            <div class="time-series-column" style="height: @heightPercent%; "></div>
+        </div>
+    }
+</div>

@@ -1929,7 +1929,7 @@ namespace AppViewLite
                         .ToArray();
 #else
                     var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/);
-
+                    
                     var posts = postsFast
                         .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
                         .Where(x => x.RKey.Date >= minDate)

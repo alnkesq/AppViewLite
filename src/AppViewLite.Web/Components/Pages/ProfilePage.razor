@@ -155,7 +155,7 @@
                     <a href="/search?q=from:@(SimpleProfile.HandleIsUncertain || SimpleProfile.PossibleHandle == null ? SimpleProfile.Did : SimpleProfile.PossibleHandle)%20" class="menu-item">Search posts…</a>
                     @if(SimpleProfile.PluggableProtocol == null)
                     {
-                       <a href="/repository-import?did=@(Uri.EscapeDataString(SimpleProfile.Did))" class="menu-item">Index this profile…</a>
+                       <a href="@SimpleProfile.BaseUrl/indexing" class="menu-item">Index this profile…</a>
                     }
                     @if (RequestContext.IsLoggedIn && SimpleProfile.Plc != RequestContext.LoggedInUser)
                     {

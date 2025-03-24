@@ -127,6 +127,7 @@ namespace AppViewLite
             return this.Version >= minVersion && (this.Version == latestKnownVersion || ReplicaAge!.Elapsed <= maxStaleness);
         }
 
+
         public BlueskyRelationships()
             : this(
                   AppViewLiteConfiguration.GetDataDirectory(), 
@@ -165,6 +166,28 @@ namespace AppViewLite
 
         public bool IsReadOnly { get; private set; }
 
+
+
+        public static TimeSeries FirehoseProcessingLagBehindTimeSeries = null!;
+        public static TimeSeries FirehoseEventReceivedTimeSeries = null!;
+        public static TimeSeries FirehoseEventProcessedTimeSeries = null!;
+        public readonly static TimeSpan TimeSeriesTotalTime = TimeSpan.FromDays(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_EVENT_CHART_HISTORY_DAYS) ?? 2);
+        public static void CreateTimeSeries()
+        {
+
+            var timeSeriesTotalTime = TimeSeriesTotalTime;
+            var timeSeriesInterval = TimeSpan.FromSeconds(1);
+            var timeSeriesExtraTime = TimeSpan.FromSeconds(30);
+            var clearTimeSkipFuture = TimeSpan.FromSeconds(10);
+            var clearTimeLength = TimeSpan.FromSeconds(10);
+
+            FirehoseEventReceivedTimeSeries = new(timeSeriesTotalTime, timeSeriesInterval, timeSeriesExtraTime);
+            FirehoseEventProcessedTimeSeries = new(timeSeriesTotalTime, timeSeriesInterval, timeSeriesExtraTime);
+            FirehoseProcessingLagBehindTimeSeries = new(timeSeriesTotalTime, timeSeriesInterval, timeSeriesExtraTime);
+            TimeSeries.StartClearThread(timeSeriesInterval, clearTimeSkipFuture, clearTimeLength, [FirehoseEventReceivedTimeSeries, FirehoseEventProcessedTimeSeries, FirehoseProcessingLagBehindTimeSeries]).FireAndForget();
+
+        }
+
 #nullable disable
         private BlueskyRelationships(bool isReadOnly)
         { 
@@ -187,7 +210,6 @@ namespace AppViewLite
             this.BaseDirectory = basedir;
             this.IsReadOnly = isReadOnly;
             Directory.CreateDirectory(basedir);
-
 
             lockFile = isReadOnly ? null : new FileStream(basedir + "/.lock", FileMode.Create, FileAccess.Write, FileShare.None, 1024, FileOptions.DeleteOnClose);
 
@@ -548,7 +570,6 @@ namespace AppViewLite
                         }).ToArray();
                     }
                 }
-
                 if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
                     var handle = lockFile!.SafeFileHandle.DangerousGetHandle();

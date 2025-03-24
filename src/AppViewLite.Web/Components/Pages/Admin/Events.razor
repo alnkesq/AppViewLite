@@ -1,0 +1,45 @@
+@page "/debug/events-chart"
+@inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
+
+@code {
+    [SupplyParameterFromQuery][Parameter] public int? Scope { get; set; }
+    [SupplyParameterFromQuery][Parameter] public int? Height { get; set; }
+
+    private TimeSpan scope;
+    private int zoomInScope;
+    private int zoomOutScope;
+    public int BucketCount = 120;
+    protected override void OnParametersSet()
+    {
+        Scope ??= 120;
+
+        var widestScope = (int)(BlueskyRelationships.TimeSeriesTotalTime.TotalSeconds);
+        var narrowestScope = BucketCount;
+        Scope = Math.Clamp(Scope.Value, narrowestScope, widestScope);
+        scope = TimeSpan.FromSeconds(Scope.Value);
+        zoomInScope = Math.Clamp(Scope.Value / 2, narrowestScope, widestScope);
+        zoomOutScope = Math.Clamp(Scope.Value * 2, narrowestScope, widestScope);
+    }
+
+    private long MaxEventsPerSecond => Height ?? 5000;
+}
+
+<PageTitle>Events chart</PageTitle>
+<h1>Events chart</h1>
+
+<div class="main-padding">
+    <a class="blue-link" disabled="@(zoomInScope == Scope)" href="/debug/events-chart?scope=@zoomInScope">Zoom in</a> |
+    <a class="blue-link" disabled="@(zoomOutScope == Scope)" href="/debug/events-chart?scope=@zoomOutScope">Zoom out</a> |
+    @(StringUtils.ToHumanTimeSpan(scope, showSeconds: true, twoSignificantDigits: true))
+</div>
+<h2 class="main-padding time-series-title">Received firehose events</h2>
+<TimeSeriesChart TimeSeries="BlueskyRelationships.FirehoseEventReceivedTimeSeries" Scope="@scope" MaxEventsPerSecond="@MaxEventsPerSecond" BucketCount="@BucketCount" />
+
+<h2 class="main-padding time-series-title">Processed firehose events</h2>
+<TimeSeriesChart TimeSeries="BlueskyRelationships.FirehoseEventProcessedTimeSeries" Scope="@scope" MaxEventsPerSecond="@MaxEventsPerSecond" BucketCount="@BucketCount" />
+
+<h2 class="main-padding time-series-title">Firehose processing lag behind</h2>
+<TimeSeriesChart TimeSeries="BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries" Scope="@scope" MaxEventsPerSecond="@Indexer.LagBehindAccounting.LagBehindErrorThreshold" BucketCount="@BucketCount" ShowPerSecondSuffix="false" />
+
+

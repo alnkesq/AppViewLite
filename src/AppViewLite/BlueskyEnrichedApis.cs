@@ -2248,9 +2248,9 @@ namespace AppViewLite
                         {
                             foreach (var queue in usersDeservingFollowedPostResampling)
                             {
-                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().Repost.Actor, addCredits: true);
+                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().PostId.Author, addCredits: true);
                             }
-                            foreach (var queue in usersDeservingFollowedPostResampling)
+                            foreach (var queue in usersDeservingNonFollowedPostResampling)
                             {
                                 ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().Repost.Actor, addCredits: true);
                             }
@@ -4172,6 +4172,7 @@ namespace AppViewLite
         }
         private static void ConsumeFollowingFeedCreditsMustHoldLockCore(RequestContext ctx, Plc plc, bool addCredits = false)
         {
+            BlueskyRelationships.Assert(plc != default);
             // Must hold userCtx lock
             var amount = addCredits ? 1 : -1;
             CollectionsMarshal.GetValueRefOrAddDefault(ctx.UserContext.FeedCredits!, plc, out _) += amount;

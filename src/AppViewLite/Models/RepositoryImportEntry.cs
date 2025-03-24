@@ -70,7 +70,7 @@ namespace AppViewLite.Models
                 }
                 else
                 {
-                    return $"Completed in {(DurationMillis / 1000).ToString("0.0")} seconds ({InsertedRecordCount} records{(DownloadedBytes != 0 ? ", " + StringUtils.ToHumanBytes(DownloadedBytes) : null)}){suffix}";
+                    return $"Completed in {((double)DurationMillis / 1000).ToString("0.0")} seconds ({InsertedRecordCount} records{(DownloadedBytes != 0 ? ", " + StringUtils.ToHumanBytes(DownloadedBytes) : null)}){suffix}";
                 }
 
             }

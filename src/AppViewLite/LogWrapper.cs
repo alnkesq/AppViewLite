@@ -7,17 +7,20 @@ namespace AppViewLite
     {
         private readonly LogLevel exceptionMinLogLevel;
         private readonly LogLevel messageMinLogLevel;
+        private readonly LogLevel messageStdErrMinLogLevel;
         public Func<Exception, bool>? IsLowImportanceException;
         public new Func<string, bool>? IsLowImportanceMessage;
         public LogWrapper()
-            : this(LogLevel.Warning, LogLevel.Warning)
+            : this(LogLevel.Warning, LogLevel.Warning, LogLevel.Debug)
         {
 
         }
-        public LogWrapper(LogLevel exceptionMinLogLevel, LogLevel messageMinLogLevel)
+        public LogWrapper(LogLevel exceptionMinLogLevel, LogLevel messageMinLogLevel, LogLevel messageStdErrMinLogLevel)
         {
+            if (messageStdErrMinLogLevel > messageMinLogLevel) throw new ArgumentException();
             this.exceptionMinLogLevel = exceptionMinLogLevel;
             this.messageMinLogLevel = messageMinLogLevel;
+            this.messageStdErrMinLogLevel = messageStdErrMinLogLevel;
         }
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull
         {
@@ -31,6 +34,7 @@ namespace AppViewLite
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
+            if (exception == null && logLevel < messageStdErrMinLogLevel) return;
             var text = logLevel + ": " + formatter(state, exception);
             if (exception != null)
             {

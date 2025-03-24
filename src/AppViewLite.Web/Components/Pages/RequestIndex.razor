@@ -29,7 +29,7 @@
     }
     private void Submit()
     {
-        Apis.ImportCarIncrementalAsync(Did, Model!.Kind, RequestContext, incremental: Model.Incremental).FireAndForget();
+        Apis.ImportCarIncrementalAsync(Apis.SerializeSingleDid(Did, RequestContext), Model!.Kind, RequestContext, incremental: Model.Incremental).FireAndForget();
         Navigation.NavigateTo("/repository-import?did=" + Uri.EscapeDataString(Did), true);
 
     }

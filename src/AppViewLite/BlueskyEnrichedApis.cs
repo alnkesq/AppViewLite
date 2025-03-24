@@ -2440,14 +2440,14 @@ namespace AppViewLite
 
         public ConcurrentSet<RepositoryImportEntry> RunningCarImports = new();
 
-        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default)
+        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default)
         {
-            Plc plc = default;
             RepositoryImportEntry? previousImport = null;
             bool isRegisteredUser = false;
-            WithRelationshipsLockForDid(did, (plc_, rels) =>
+            string? did = null;
+            WithRelationshipsLock(rels =>
             {
-                plc = plc_;
+                did = rels.GetDid(plc);
                 isRegisteredUser = rels.IsRegisteredForNotifications(plc);
                 previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
             }, ctx);
@@ -2455,7 +2455,7 @@ namespace AppViewLite
             if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
                 return previousImport;
 
-            var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did, isRegisteredUser, RequestContext.CreateForTaskDictionary(ctx)));
+            var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, RequestContext.CreateForTaskDictionary(ctx)));
             ctx.BumpMinimumVersion(result.MinVersion);
             return result;
         }
@@ -3825,7 +3825,7 @@ namespace AppViewLite
                 CarImportDict.Remove(dictKey);
             }
 
-            var loadFollows = await ImportCarIncrementalAsync(userContext.Did!, Models.RepositoryImportKind.Follows, ctx, ignoreIfPrevious: x => false, incremental: false);
+            var loadFollows = await ImportCarIncrementalAsync(userContext.Plc, Models.RepositoryImportKind.Follows, ctx, ignoreIfPrevious: x => false, incremental: false);
             if (loadFollows!.Error == null)
             {
                 userContext.PrivateProfile!.ImportedFollows = true;
@@ -3836,21 +3836,20 @@ namespace AppViewLite
 
         private async Task ImportLowPriorityCollectionsForRegisteredUserAsync(AppViewLiteUserContext userContext, RequestContext ctx)
         {
-            var did = userContext.Did!;
             
-            ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ctx, ignoreIfPrevious: x => true).FireAndForget();
+            ImportCarIncrementalAsync(userContext.Plc, Models.RepositoryImportKind.Blocks, ctx, ignoreIfPrevious: x => true).FireAndForget();
 
-            await ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ctx, ignoreIfPrevious: x => true);
+            await ImportCarIncrementalAsync(userContext.Plc, Models.RepositoryImportKind.BlocklistSubscriptions, ctx, ignoreIfPrevious: x => true);
             var blocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(userContext.Plc), ctx)
-                .GroupBy(x => x.Actor);
+                .Select(x => x.Actor)
+                .Distinct();
             
             foreach (var blocklistAuthor in blocklistAuthors)
             {
-                var authorDid = WithRelationshipsLock(rels => rels.GetDid(blocklistAuthor.Key), ctx);
                 try
                 {
-                    await ImportCarIncrementalAsync(authorDid, RepositoryImportKind.ListMetadata, ctx, x => true);
-                    await ImportCarIncrementalAsync(authorDid, RepositoryImportKind.ListEntries, ctx, x => true);
+                    await ImportCarIncrementalAsync(blocklistAuthor, RepositoryImportKind.ListMetadata, ctx, x => true);
+                    await ImportCarIncrementalAsync(blocklistAuthor, RepositoryImportKind.ListEntries, ctx, x => true);
                 }
                 catch (Exception ex)
                 {

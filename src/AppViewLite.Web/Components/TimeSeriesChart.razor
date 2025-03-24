@@ -15,31 +15,31 @@
     protected override void OnParametersSet()
     {
 
-        (buckets, bucketDuration) = TimeSeries.GetChart(BucketCount, Scope);
+        (buckets, bucketDuration) = TimeSeries.GetChart(BucketCount, Scope, maximum: !ShowPerSecondSuffix);
         secondsPerBucket = bucketDuration.TotalSeconds;
         if (MaxEventsPerSecond != null)
         {
-            maxValue = MaxEventsPerSecond.Value * bucketDuration.TotalSeconds;
+            maxValue = MaxEventsPerSecond.Value;
         }
         else
         {
             maxValue = Math.Max(buckets.Max(), 1);
         }
-        
+
     }
 }
 <div class="time-series-current">
-    @(Math.Round(buckets![^1] / secondsPerBucket) + (ShowPerSecondSuffix ? " / sec" : null))
+    @(Math.Round(buckets![^1]) + (ShowPerSecondSuffix ? " / sec" : null))
 </div>
 <div class="time-series">
     @for (int i = 0; i < buckets!.Length; i++)
     {
 
 
-        var heightPercent = 100.0 * buckets[i] / maxValue;
+        var heightPercent = Math.Min(100, 100.0 * buckets[i] / maxValue);
         var widthPercent = 100.0 / buckets.Length + 0.01 /*avoid small rounding gaps*/;
         var leftPercent = 100.0 * i / buckets.Length;
-        var eventsPerSecond = buckets![i] / secondsPerBucket;
+        double eventsPerSecond = buckets![i];
         var date = StringUtils.ToHumanDate(DateTime.UtcNow - (buckets.Length - i) * bucketDuration, showAgo: true, showSeconds: true);
         <div class="time-series-column-wrapper" style="width: @widthPercent%; left: @leftPercent%" data-text="@eventsPerSecond / sec · @date">
             <div class="time-series-column" style="height: @heightPercent%; "></div>

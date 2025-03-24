@@ -62,7 +62,7 @@ namespace AppViewLite
         {
             this.slots[CurrentSlotIndex] = value;
         }
-        public (float[] Buckets, TimeSpan ActualBucketDuration) GetChart(int bucketCount, TimeSpan scope)
+        public (float[] Buckets, TimeSpan ActualBucketDuration) GetChart(int bucketCount, TimeSpan scope, bool maximum = false)
         {
             var bucketDuration = new TimeSpan(scope.Ticks / bucketCount);
             var slotsPerBucket = (int)Math.Max(1, Math.Round((double)bucketDuration.Ticks / Interval.Ticks));
@@ -77,7 +77,10 @@ namespace AppViewLite
             while (true)
             {
 
-                buckets[currentBucketIndex] += slots[currentSlotIndex];
+                if(maximum)
+                    buckets[currentBucketIndex] = Math.Max(slots[currentSlotIndex], buckets[currentBucketIndex]);
+                else
+                    buckets[currentBucketIndex] += slots[currentSlotIndex];
                 currentBucketSize++;
                 processedSlots++;
                 if (processedSlots == properSlotCount) break;
@@ -93,25 +96,34 @@ namespace AppViewLite
                 currentSlotIndex--;
             }
 
-            var smoothed = new float[buckets.Length];
-            //var weights = new float[] { 1, 2, 3, 4 };
-            var weights = new float[] { 1, 1, 1, 1 };
-            var weightSum = weights.Sum();
-            for (int i = 0; i < weights.Length; i++)
+            float[] smoothed;
+            if (maximum)
             {
-                weights[i] /= weightSum;
+                smoothed = buckets.Select(x => (float)x).ToArray();
             }
-            for (int i = 0; i < buckets.Length; i++)
+            else
             {
-                var curr = buckets[i];
-                var prev = i >= 1 ? buckets[i - 1] : curr;
-                var prev2 = i >= 2 ? buckets[i - 2] : prev;
-                var prev3 = i >= 3 ? buckets[i - 3] : prev2;
-                smoothed[i] =
-                    prev3 * weights[0] +
-                    prev2 * weights[1] +
-                    prev * weights[2] +
-                    curr * weights[3];
+                smoothed = new float[buckets.Length];
+                //var weights = new float[] { 1, 2, 3, 4 };
+                var weights = new float[] { 1, 1, 1, 1 };
+                var weightSum = weights.Sum();
+                for (int i = 0; i < weights.Length; i++)
+                {
+                    weights[i] /= weightSum;
+                }
+                for (int i = 0; i < buckets.Length; i++)
+                {
+                    var curr = buckets[i];
+                    var prev = i >= 1 ? buckets[i - 1] : curr;
+                    var prev2 = i >= 2 ? buckets[i - 2] : prev;
+                    var prev3 = i >= 3 ? buckets[i - 3] : prev2;
+                    var smoothedTotalValue = prev3 * weights[0] +
+                        prev2 * weights[1] +
+                        prev * weights[2] +
+                        curr * weights[3];
+                    smoothed[i] = smoothedTotalValue / (float)bucketDuration.TotalSeconds;
+                        
+                }
             }
             return (smoothed, bucketDuration);
 

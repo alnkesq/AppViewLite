@@ -2000,7 +2000,7 @@ namespace AppViewLite
             var mergedFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
             var mergedNonFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
 
-            while (bestOriginalPostsByUser.Count != 0 && bestRepostsByUser.Count != 0)
+            while (bestOriginalPostsByUser.Count != 0 || bestRepostsByUser.Count != 0)
             {
 
                 var followedPostsToEnqueue = new List<ScoredBlueskyPostWithSource>();

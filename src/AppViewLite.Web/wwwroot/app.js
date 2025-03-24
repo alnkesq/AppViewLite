@@ -348,7 +348,7 @@ function fastNavigateIfLink(event) {
     return false;
 }
 
-var NO_FETCH_REUSE_PATHS = ['/notifications', '/history', '/debug/events-charts'];
+var NO_FETCH_REUSE_PATHS = ['/notifications', '/history', '/debug/event-charts'];
 var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/settings/mute', '/debug/locks', '/debug/requests'];
 
 function canFastNavigateTo(url) { 
@@ -614,7 +614,7 @@ function applyPageElements() {
             fastNavigateTo(location.href, true, false);
         }, 2000);
     }
-    if (location.pathname == '/debug/events-chart') { 
+    if (location.pathname == '/debug/event-charts') { 
         pageAutoRefreshTimeout = setTimeout(() => { 
             pageAutoRefreshTimeout = null;
             fastNavigateTo(location.href, true, false);

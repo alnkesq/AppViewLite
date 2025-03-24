@@ -19,6 +19,7 @@ namespace AppViewLite.Models
         [ProtoMember(8)] public AccentColor AccentColor;
         [ProtoMember(9)] public FeedSubscription[] FeedSubscriptions = null!;
         [ProtoMember(10)] public LabelerSubscription[] LabelerSubscriptions = null!;
+        [ProtoMember(11)] public bool ImportedFollows;
 
         internal object GetCountersThreadSafe()
         {

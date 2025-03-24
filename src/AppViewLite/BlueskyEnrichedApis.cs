@@ -3589,7 +3589,7 @@ namespace AppViewLite
             return result;
         }
 
-        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
+        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
 
@@ -3794,7 +3794,6 @@ namespace AppViewLite
             // synchronous part
             var did = userContext.Did!;
             var plc = userContext.Profile!.Plc;
-            var haveFollowees = WithRelationshipsLock(rels => rels.RegisteredUserToFollowees.GetValueCount(userContext.LoggedInUser!.Value), ctx);
             lock (userContext)
             {
                 userContext.PrivateFollows = (userContext.PrivateProfile!.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
@@ -3803,17 +3802,60 @@ namespace AppViewLite
 
 
             // asynchronous part
-
             await EnrichAsync([userContext.Profile], ctx);
-            if (haveFollowees < 100)
+
+            if (!userContext.PrivateProfile.ImportedFollows)
             {
                 var deadline = Task.Delay(5000);
-                var loadFollows = ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Follows, ctx, ignoreIfRecentlyRan: TimeSpan.FromDays(90));
-                ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ctx, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
-                ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ctx, ignoreIfRecentlyRan: TimeSpan.FromDays(90)).FireAndForget();
-                // TODO: fetch entries of subscribed blocklists
-                await Task.WhenAny(deadline, loadFollows);
+                var importFollows = ImportFollowsForRegisteredUserAsync(userContext, ctx);
+                await Task.WhenAny(deadline, importFollows);
                 ctx.BumpMinimumVersion(long.MaxValue); // so that we see the latest follow imports
+            }
+
+            ImportLowPriorityCollectionsForRegisteredUserAsync(userContext, RequestContext.ToNonUrgent(ctx)).FireAndForget();
+        }
+
+        private async Task<RepositoryImportEntry> ImportFollowsForRegisteredUserAsync(AppViewLiteUserContext userContext, RequestContext ctx)
+        {
+
+            var dictKey = (userContext.Plc, RepositoryImportKind.Follows, false);
+            if (CarImportDict.TryGetExtraArgs(dictKey, out var previousExtraArgs) && !previousExtraArgs.IsRegisteredUser)
+            {
+                // Unlikely case that a cached task is lingering (< 30s ago) that started before the first login
+                CarImportDict.Remove(dictKey);
+            }
+
+            var loadFollows = await ImportCarIncrementalAsync(userContext.Did!, Models.RepositoryImportKind.Follows, ctx, ignoreIfPrevious: x => false, incremental: false);
+            if (loadFollows!.Error == null)
+            {
+                userContext.PrivateProfile!.ImportedFollows = true;
+                SaveAppViewLiteProfile(ctx);
+            }
+            return loadFollows;
+        }
+
+        private async Task ImportLowPriorityCollectionsForRegisteredUserAsync(AppViewLiteUserContext userContext, RequestContext ctx)
+        {
+            var did = userContext.Did!;
+            
+            ImportCarIncrementalAsync(did, Models.RepositoryImportKind.Blocks, ctx, ignoreIfPrevious: x => true).FireAndForget();
+
+            await ImportCarIncrementalAsync(did, Models.RepositoryImportKind.BlocklistSubscriptions, ctx, ignoreIfPrevious: x => true);
+            var blocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(userContext.Plc), ctx)
+                .GroupBy(x => x.Actor);
+            
+            foreach (var blocklistAuthor in blocklistAuthors)
+            {
+                var authorDid = WithRelationshipsLock(rels => rels.GetDid(blocklistAuthor.Key), ctx);
+                try
+                {
+                    await ImportCarIncrementalAsync(authorDid, RepositoryImportKind.ListMetadata, ctx, x => true);
+                    await ImportCarIncrementalAsync(authorDid, RepositoryImportKind.ListEntries, ctx, x => true);
+                }
+                catch (Exception ex)
+                {
+                    LogNonCriticalException("Could not import blocklist used by registed user.", ex);
+                }
             }
         }
 
@@ -3991,6 +4033,7 @@ namespace AppViewLite
                 };
             }, ctx);
 
+            ctx.Session = session;
             await OnSessionCreatedOrRestoredAsync(session.UserContext, ctx);
 
             SessionDictionary[id] = session;

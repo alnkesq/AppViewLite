@@ -25,6 +25,7 @@ namespace AppViewLite.Models
         public long EstimatedTotalBytes;
         public long TotalRecords;
 
+        public long MinVersion;
         public string DisplayText
         {
             get

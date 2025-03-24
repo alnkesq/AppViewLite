@@ -2440,20 +2440,24 @@ namespace AppViewLite
 
         public ConcurrentSet<RepositoryImportEntry> RunningCarImports = new();
 
-        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, RequestContext ctx, TimeSpan ignoreIfRecentlyRan = default, bool incremental = true, CancellationToken ct = default)
+        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(string did, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default)
         {
             Plc plc = default;
             RepositoryImportEntry? previousImport = null;
+            bool isRegisteredUser = false;
             WithRelationshipsLockForDid(did, (plc_, rels) =>
             {
                 plc = plc_;
+                isRegisteredUser = rels.IsRegisteredForNotifications(plc);
                 previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
             }, ctx);
 
-            if (previousImport != null && (ignoreIfRecentlyRan != default && (DateTime.UtcNow - previousImport.StartDate) < ignoreIfRecentlyRan))
+            if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
                 return previousImport;
 
-            return await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did, RequestContext.CreateForTaskDictionary(ctx)));
+            var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did, isRegisteredUser, RequestContext.CreateForTaskDictionary(ctx)));
+            ctx.BumpMinimumVersion(result.MinVersion);
+            return result;
         }
 
         private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx)
@@ -2527,10 +2531,12 @@ namespace AppViewLite
 
                 RunningCarImports.Remove(summary);
 
+                summary.MinVersion = ctx.MinVersion;
                 return summary;
             }
             catch (Exception ex)
             {
+                summary.MinVersion = ctx.MinVersion;
                 summary.StillRunning = false;
                 summary.Error = ex.Message;
                 Task.Delay(TimeSpan.FromMinutes(1)).ContinueWith(_ => RunningCarImports.Remove(summary)).FireAndForget();

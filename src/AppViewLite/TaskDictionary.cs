@@ -46,15 +46,21 @@ namespace AppViewLite
             }
             return false;
         }
+        public bool TryGetExtraArgs(TKey key, out TExtraArgs? extraArgs)
+        {
+            return inner.TryGetExtraArgs(key, out extraArgs);
+        }
 
         public int Count => inner.Count;
+
+        public bool Remove(TKey key) => inner.Remove(key);
 
     }
     public class TaskDictionary<TKey, TExtraArgs, TValue> where TKey: notnull
     {
         private readonly Func<TKey, TExtraArgs, Task<TValue>> compute;
         private readonly TimeSpan EvictTime;
-        private readonly ConcurrentDictionary<TKey, Lazy<Task<TValue>>> dict = new();
+        private readonly ConcurrentDictionary<TKey, (TExtraArgs ExtraArgs, Lazy<Task<TValue>> LazyTask)> dict = new();
         public TaskDictionary(Func<TKey, TExtraArgs, Task<TValue>> compute)
             : this(compute, TimeSpan.FromSeconds(30))
         { 
@@ -73,11 +79,13 @@ namespace AppViewLite
                 return CreateTaskAsync(key, extraArgs);
             }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
-            return dict.GetOrAdd(key, lazy).Value;
+            return dict.GetOrAdd(key, (extraArgs, lazy)).LazyTask.Value;
             
         }
 
         public int Count => dict.Count;
+
+        public bool Remove(TKey key) => dict.TryRemove(key, out _);
 
         private static async Task YieldAsTask() => await Task.Yield();
         private async Task<TValue> CreateTaskAsync(TKey key, TExtraArgs extraArgs)
@@ -115,7 +123,17 @@ namespace AppViewLite
             result = null;
             if (dict.TryGetValue(key, out var r))
             {
-                result = r.Value;
+                result = r.LazyTask.Value;
+                return true;
+            }
+            return false;
+        }
+        public bool TryGetExtraArgs(TKey key, out TExtraArgs? result)
+        {
+            result = default;
+            if (dict.TryGetValue(key, out var r))
+            {
+                result = r.ExtraArgs;
                 return true;
             }
             return false;

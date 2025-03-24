@@ -21,6 +21,7 @@ namespace AppViewLite.Web
         public static async Task Main(string[] args)
         {
             LoggableBase.Initialize();
+            BlueskyRelationships.CreateTimeSeries();
             Relationships = new();
             Relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(Relationships);

@@ -23,7 +23,7 @@ namespace AppViewLite.Models
 
     [Flags]
     public enum PostEngagementKind : byte
-    { 
+    {
         None = 0,
         SeenInFollowingFeed = 1,
         OpenedThread = 2,

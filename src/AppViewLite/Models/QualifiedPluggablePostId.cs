@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    public struct QualifiedPluggablePostId 
+    public struct QualifiedPluggablePostId
     {
         public readonly string Did { get; }
         public readonly NonQualifiedPluggablePostId PostId { get; }

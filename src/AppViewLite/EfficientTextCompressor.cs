@@ -14,8 +14,8 @@ namespace AppViewLite
         {
             public readonly TiktokenTokenizer Tokenizer;
             public TiktokenWrapper()
-            { 
-                this.Tokenizer = TiktokenTokenizer.CreateForModel("gpt-4o"); 
+            {
+                this.Tokenizer = TiktokenTokenizer.CreateForModel("gpt-4o");
             }
         }
 
@@ -99,7 +99,7 @@ namespace AppViewLite
                 if (bitstream.ReadBit() == 0)
                 {
                     remaining--;
-                    if(remaining < Step1)
+                    if (remaining < Step1)
                     {
                         if (remaining == 0) break;
                         var rest = bitstream.Read32(remaining);
@@ -164,64 +164,64 @@ namespace AppViewLite
                 //        }
                 //        break;
                 //    case 2:
-                        if (token < (1 << Step1))
-                        {
-                            bitstream.WriteBit(0);
-                            WriteChecked(t, Step1);
-                        }
-                        else
-                        {
-                            if (token < (1 << Step2))
-                            {
-                                bitstream.WriteBit(1);
-                                bitstream.WriteBit(0);
-                                WriteChecked(t, Step2);
-                            }
-                            else
-                            {
-                                bitstream.WriteBit(1);
-                                bitstream.WriteBit(1);
-                                WriteChecked(t, MaxBitSize);
-                            }
-                        }
-                    //    break;
-                  
-                    //case 3:
-                    //    if (token < (1 << Step1))
-                    //    {
-                    //        bitstream.WriteBit(0);
-                    //        WriteChecked(t, Step1);
-                    //    }
-                    //    else
-                    //    {
-                    //        if (token < (1 << Step2))
-                    //        {
-                    //            bitstream.WriteBit(1);
-                    //            bitstream.WriteBit(0);
-                    //            WriteChecked(t, Step2);
-                    //        }
-                    //        else
-                    //        {
+                if (token < (1 << Step1))
+                {
+                    bitstream.WriteBit(0);
+                    WriteChecked(t, Step1);
+                }
+                else
+                {
+                    if (token < (1 << Step2))
+                    {
+                        bitstream.WriteBit(1);
+                        bitstream.WriteBit(0);
+                        WriteChecked(t, Step2);
+                    }
+                    else
+                    {
+                        bitstream.WriteBit(1);
+                        bitstream.WriteBit(1);
+                        WriteChecked(t, MaxBitSize);
+                    }
+                }
+                //    break;
 
-                    //            if (token < (1 << Step3))
-                    //            {
-                    //                bitstream.WriteBit(1);
-                    //                bitstream.WriteBit(1);
-                    //                bitstream.WriteBit(0);
-                    //                WriteChecked(t, Step3);
-                    //            }
-                    //            else
-                    //            {
+                //case 3:
+                //    if (token < (1 << Step1))
+                //    {
+                //        bitstream.WriteBit(0);
+                //        WriteChecked(t, Step1);
+                //    }
+                //    else
+                //    {
+                //        if (token < (1 << Step2))
+                //        {
+                //            bitstream.WriteBit(1);
+                //            bitstream.WriteBit(0);
+                //            WriteChecked(t, Step2);
+                //        }
+                //        else
+                //        {
 
-                    //                bitstream.WriteBit(1);
-                    //                bitstream.WriteBit(1);
-                    //                bitstream.WriteBit(1);
-                    //                WriteChecked(t, MaxBitSize);
-                    //            }
-                    //        }
-                    //    }
+                //            if (token < (1 << Step3))
+                //            {
+                //                bitstream.WriteBit(1);
+                //                bitstream.WriteBit(1);
+                //                bitstream.WriteBit(0);
+                //                WriteChecked(t, Step3);
+                //            }
+                //            else
+                //            {
 
-                    //    break;
+                //                bitstream.WriteBit(1);
+                //                bitstream.WriteBit(1);
+                //                bitstream.WriteBit(1);
+                //                WriteChecked(t, MaxBitSize);
+                //            }
+                //        }
+                //    }
+
+                //    break;
                 //}
 
             }

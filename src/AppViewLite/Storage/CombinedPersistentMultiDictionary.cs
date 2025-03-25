@@ -22,7 +22,7 @@ namespace AppViewLite.Storage
     }
 
     public interface ICheckpointable : IFlushable
-    { 
+    {
         public (string TableName, SliceName[] ActiveSlices)[] GetActiveSlices();
     }
 
@@ -116,7 +116,7 @@ namespace AppViewLite.Storage
 
     }
 
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
+    public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
         public int WriteBufferSize = 128 * 1024;
 
@@ -238,7 +238,7 @@ namespace AppViewLite.Storage
                     Console.Error.WriteLine("Reading into cache (omit cache materialization): " + slice.Reader.PathPrefix + " [" + cache.Identifier + "]");
                     cache.LoadFromOriginalSlice(slice);
                 }
-            }                
+            }
 
 
 
@@ -281,9 +281,9 @@ namespace AppViewLite.Storage
         public record struct SliceInfo(DateTime StartTime, DateTime EndTime, long PruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, long SizeInBytes)
         {
             public SliceInfo(DateTime startTime, DateTime endTime, long pruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> readerHandle)
-                 :this(startTime, endTime, pruneId, readerHandle, readerHandle.Value.SizeInBytes)
-            { 
-           
+                 : this(startTime, endTime, pruneId, readerHandle, readerHandle.Value.SizeInBytes)
+            {
+
             }
             public ImmutableMultiDictionaryReader<TKey, TValue> Reader => ReaderHandle.Value;
 
@@ -307,7 +307,7 @@ namespace AppViewLite.Storage
                 slice.ReaderHandle.Dispose();
             }
         }
-        
+
         public void Dispose() // Dispose() must also be called while holding the lock.
         {
             Flush(disposing: true);
@@ -374,7 +374,7 @@ namespace AppViewLite.Storage
                 slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
                 Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {ToHumanBytes(size)}");
 
-                if(!disposing)
+                if (!disposing)
                     NotifyCachesSliceAdded(slices.Count - 1);
 
                 if (!disposing)
@@ -476,7 +476,7 @@ namespace AppViewLite.Storage
             var mergedPrefix = this.DirectoryPath + "/" + mergedStartTime.Ticks + "-" + mergedEndTime.Ticks;
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
-            
+
 
             var inputSlices = inputs.Select(x => x.Reader).ToArray();
             var sw = Stopwatch.StartNew();
@@ -495,7 +495,7 @@ namespace AppViewLite.Storage
                 }
                 sw.Stop();
 
-                return new Action(() => 
+                return new Action(() =>
                 {
                     // Here we are again inside the lock.
                     var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
@@ -657,7 +657,7 @@ namespace AppViewLite.Storage
             for (int i = slices.Count - 1; i >= 0; i--)
             {
                 var v = slices[i].Reader.GetValues(key);
-                if (v.Length != 0) 
+                if (v.Length != 0)
                 {
                     val = v;
                     return true;
@@ -807,7 +807,7 @@ namespace AppViewLite.Storage
             MaybeFlush();
         }
 
-  
+
 
         private void OnBeforeWrite()
         {
@@ -860,7 +860,7 @@ namespace AppViewLite.Storage
         {
             MaybeCommitPendingCompactation();
             if (pendingCompactation != null) return;
-            
+
             if (InMemorySize >= WriteBufferSize || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
                 var shouldFlushArgs = new CancelEventArgs();
@@ -1034,7 +1034,7 @@ namespace AppViewLite.Storage
             if (maxExclusive != null)
             {
                 keyChunks = keyChunks
-                    .Select(x => 
+                    .Select(x =>
                     {
                         var index = x.AsSpan().BinarySearch(maxExclusive.Value);
                         if (index >= 0)
@@ -1077,7 +1077,7 @@ namespace AppViewLite.Storage
                     if (!IsInRange(key, min, maxExclusive)) break;
                     yield return (key, slice.Reader.GetValues(i));
                 }
-                
+
 
                 for (long i = centerIndex + 1; i < keys.Length; i++)
                 {
@@ -1133,7 +1133,7 @@ namespace AppViewLite.Storage
                 {
                     copy.queue = q;
                     var alreadyExistingSlices = checked((int)(q.LastVirtualSliceIdExclusive - q.FirstVirtualSliceId));
-                    
+
 
                     var virtualSliceCount = this.queue.virtualSlices.Count;
                     var lastSliceIsEmpty = this.queue.currentVirtualSlice!.DirtyKeys.Count == 0;
@@ -1173,7 +1173,7 @@ namespace AppViewLite.Storage
                     //Console.Error.WriteLine("Queue copied incrementally.");
                 }
 
-                
+
             }
 
             if (copy.queue == null)
@@ -1270,7 +1270,7 @@ namespace AppViewLite.Storage
 
                 Console.Error.WriteLine("  Pruning: " + slice.Reader.PathPrefix + ".col*.dat (" + ToHumanBytes(slice.SizeInBytes) + ")");
                 var basePath = this.DirectoryPath + "/" + slice.StartTime.Ticks + "-" + slice.EndTime.Ticks + "-";
-                
+
                 var preservePruneId = pruneId++; // preservePruneId is EVEN
                 var prunePruneId = pruneId++; // prunePruneId is ODD
 
@@ -1335,7 +1335,7 @@ namespace AppViewLite.Storage
 
                 if (preservedWriter.KeyCount != 0)
                 {
-                    var preservedBytes = preservedWriter.CommitAndGetSize(); 
+                    var preservedBytes = preservedWriter.CommitAndGetSize();
                     Console.Error.WriteLine($"    Pruned: {ToHumanBytes(slice.SizeInBytes)} -> {ToHumanBytes(prunedBytes)} (old) + {ToHumanBytes(preservedBytes)} (preserve)");
                     slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior))));
                 }
@@ -1345,7 +1345,7 @@ namespace AppViewLite.Storage
                     preservedWriter.Dispose();
                     sliceIdx--;
                 }
-                
+
             }
             return prunedAnything;
         }

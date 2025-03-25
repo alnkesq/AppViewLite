@@ -57,7 +57,7 @@ namespace AppViewLite
     }
 
     public enum AppViewLiteParameter
-    { 
+    {
         None,
         APPVIEWLITE_DIRECTORY,
         APPVIEWLITE_WIKIDATA_VERIFICATION,

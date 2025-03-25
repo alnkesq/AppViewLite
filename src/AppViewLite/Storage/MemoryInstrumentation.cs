@@ -41,7 +41,7 @@ namespace AppViewLite
         public static void OnAccess(void* ptr)
         {
             var page = ((nuint)ptr) & ~(nuint)(PageSize - 1);
-            
+
             lock (LruCache)
             {
                 if (LruCache.TryGetValue(page, out var _)) return;
@@ -62,11 +62,11 @@ namespace AppViewLite
             //LastPageAccesses[page] = now;
         }
 
-        public static LruCache<nuint, long> LruCache = new((512 * 1024 * 1024)/ PageSize);
+        public static LruCache<nuint, long> LruCache = new((512 * 1024 * 1024) / PageSize);
         //public static ConcurrentDictionary<nuint, long> LastPageAccesses = new();
         //public static ConcurrentDictionary<nuint, long> CacheMisses = new();
         public static Dictionary<nuint, long> CacheMisses = new();
-        
+
         public static IReadOnlyList<(string TableName, long CacheMisses)> GetStats(Func<nuint, string> pageToSection)
         {
             lock (LruCache)
@@ -80,7 +80,7 @@ namespace AppViewLite
                         {
                             section = "UNKNOWN";
                         }
-                        else 
+                        else
                         {
                             section = Path.GetFileName(Path.GetDirectoryName(section))
                                 + (section switch
@@ -92,7 +92,7 @@ namespace AppViewLite
                                     _ => "_UNKNOWN",
                                 });
                         }
-                        
+
 
                         return (Table: section, CacheMisses: x.Value);
                     })

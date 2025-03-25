@@ -26,7 +26,7 @@ namespace AppViewLite
 
         public bool AllowStale { get; set; }
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
-        
+
         public int WriteOrUpgradeLockEnterCount;
         public int ReadsFromPrimaryStolen;
         public int ReadsFromPrimaryLate;

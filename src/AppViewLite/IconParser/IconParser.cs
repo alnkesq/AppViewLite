@@ -17,16 +17,16 @@ namespace AppViewLite.IconParser
             var iconDir = br.ReadUnmanaged<IconDir>();
             if (iconDir.Type != IconFileType.ICO) throw new NotSupportedException();
             var entries = new List<IconDirEntry>();
-            return Enumerable.Range(0, iconDir.Count).Select(x => 
+            return Enumerable.Range(0, iconDir.Count).Select(x =>
             {
                 var entry = br.ReadUnmanaged<IconDirEntry>();
                 return (new Size(
                     entry.Width == 0 ? 256 : entry.Width,
-                    entry.Height == 0 ? 256 : entry.Height), 
+                    entry.Height == 0 ? 256 : entry.Height),
                     entry,
                     ico.AsSpan((int)entry.ImageOffset, (int)entry.BytesInRes).ToArray());
             }).ToArray();
-                   
+
         }
         private static ReadOnlySpan<byte> Magic_PNG => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 

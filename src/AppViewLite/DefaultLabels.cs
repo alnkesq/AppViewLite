@@ -18,7 +18,7 @@ namespace AppViewLite
             { "!warn", new BlueskyLabelData("Content Warning", "This content has received a general warning from moderators.", BlueskyLabelSeverity.Alert) },
             { "!no-unauthenticated", new BlueskyLabelData("Sign-in Required", "This user has requested that their content only be shown to signed-in users.", BlueskyLabelSeverity.Inform) },
             { "!takedown", new BlueskyLabelData("Taken Down", "This content was taken down by the moderators", BlueskyLabelSeverity.Alert) },
-            
+
             { "porn", new BlueskyLabelData("Adult Content", "Explicit sexual images.") },
             { "sexual", new BlueskyLabelData("Sexually Suggestive", "Does not include nudity.") },
             { "nudity", new BlueskyLabelData("Non-sexual Nudity", "E.g. artistic nudes.") },

@@ -13,7 +13,7 @@ namespace AppViewLite.Models
     public class CustomEmoji
     {
         private CustomEmoji()
-        { 
+        {
         }
 
         [SetsRequiredMembers]

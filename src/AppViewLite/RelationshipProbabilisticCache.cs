@@ -8,7 +8,7 @@ using System.ServiceModel.Security;
 
 namespace AppViewLite
 {
-    public class RelationshipProbabilisticCache<TTarget> : CombinedPersistentMultiDictionary<TTarget, Relationship>.CachedView where TTarget: unmanaged, IComparable<TTarget>
+    public class RelationshipProbabilisticCache<TTarget> : CombinedPersistentMultiDictionary<TTarget, Relationship>.CachedView where TTarget : unmanaged, IComparable<TTarget>
     {
         private readonly long sizeInBytes;
         private readonly int hashFunctions;

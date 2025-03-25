@@ -13,7 +13,7 @@ namespace AppViewLite.Models
     {
         public RelationshipHashedRKey(Plc plc, ReadOnlySpan<char> rkey)
             : this(plc, System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(rkey)))
-        { 
+        {
         }
         public int CompareTo(RelationshipHashedRKey other)
         {

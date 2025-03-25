@@ -80,7 +80,7 @@ namespace AppViewLite.Models
 
 
     public enum RepositoryImportKind
-    { 
+    {
         None,
         CAR,
         Posts,

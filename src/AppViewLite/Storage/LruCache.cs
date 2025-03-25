@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public class LruCache<TKey, TValue> where TKey: notnull
+    public class LruCache<TKey, TValue> where TKey : notnull
     {
         private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> dict = new();
         private readonly LinkedList<KeyValuePair<TKey, TValue>> lru = new();

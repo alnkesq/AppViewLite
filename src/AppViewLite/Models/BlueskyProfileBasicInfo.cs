@@ -32,7 +32,7 @@ namespace AppViewLite.Models
         public FacetData[]? GetOrGuessFacets()
         {
             if (HasExplicitFacets == true) return DescriptionFacets;
-            
+
             var guessed = StringUtils.GuessFacets(Description);
 
             if (guessed != null && DescriptionFacets != null)
@@ -41,14 +41,14 @@ namespace AppViewLite.Models
             return guessed ?? DescriptionFacets;
 
         }
-        
+
     }
 
     [ProtoContract]
     public class CustomFieldProto
     {
         private CustomFieldProto()
-        { 
+        {
         }
         public CustomFieldProto(string? name, string? value)
         {

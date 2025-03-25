@@ -130,7 +130,7 @@ namespace AppViewLite
 
         public BlueskyRelationships()
             : this(
-                  AppViewLiteConfiguration.GetDataDirectory(), 
+                  AppViewLiteConfiguration.GetDataDirectory(),
                   AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
         {
         }
@@ -152,7 +152,8 @@ namespace AppViewLite
                 checkpointToLoad!.TryGetValue(name, out var slices) ? slices : [],
                 behavior,
                 caches
-            ) {
+            )
+            {
                 WriteBufferSize = TableWriteBufferSize,
                 OnCompactation = onCompactation,
                 ShouldPreserveKey = shouldPreserveKey,
@@ -190,7 +191,7 @@ namespace AppViewLite
 
 #nullable disable
         private BlueskyRelationships(bool isReadOnly)
-        { 
+        {
             // set via reflection
         }
 #nullable restore
@@ -235,8 +236,8 @@ namespace AppViewLite
             Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");
             RecentBookmarks = RegisterDictionary<Plc, BookmarkDateFirst>("bookmark-recent");
             BookmarkDeletions = RegisterDictionary<Plc, Tid>("bookmark-deletion");
-            DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct") ;
-            Quotes = RegisterDictionary<PostId, PostId>("post-quote") ;
+            DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct");
+            Quotes = RegisterDictionary<PostId, PostId>("post-quote");
             PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
             Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
             ProfileSearchLong = RegisterDictionary<HashedWord, Plc>("profile-search-long");
@@ -251,34 +252,34 @@ namespace AppViewLite
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
             FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");
 
-            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item") ;
+            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item");
             ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
             ListMemberships = RegisterDictionary<Plc, ListMembership>("list-membership-2");
 
-            Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder) ;
+            Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder);
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder) ;
+            Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder);
             ThreadgateDeletions = RegisterDictionary<PostId, DateTime>("threadgate-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Postgates = RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder) ;
+            Postgates = RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder);
             PostgateDeletions = RegisterDictionary<PostId, DateTime>("postgate-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue) ;
+            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
 
-            Notifications = RegisterDictionary<Plc, Notification>("notification-2") ;
+            Notifications = RegisterDictionary<Plc, Notification>("notification-2");
 
             RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees");
             RssFeedToFollowers = RegisterDictionary<Plc, Plc>("registered-user-to-rss-feeds");
 
-            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2") ;
+            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2");
             UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2", onCompactation: x => { var threshold = DateTime.UtcNow.AddDays(-7); return x.Where((x, i) => i == 0 || x.RepostRKey.Date > threshold); });
             UserToRecentMediaPosts = RegisterDictionary<Plc, Tid>("user-to-recent-media-posts");
 
-            CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder) ;
+            CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder);
 
-            LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-3", PersistentDictionaryBehavior.SingleValue) ;
+            LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-3", PersistentDictionaryBehavior.SingleValue);
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
@@ -303,7 +304,7 @@ namespace AppViewLite
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
 
-            
+
 
             PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
             LastAssignedPlc = new Plc(Math.Max((PlcToDidOther.MaximumKey ?? default).PlcValue, (PlcToDidPlc.MaximumKey ?? default).PlcValue));
@@ -350,7 +351,7 @@ namespace AppViewLite
             }
             checkpointToLoad = null;
 
-            try 
+            try
             {
                 Lock.EnterUpgradeableReadLock();
 
@@ -389,7 +390,7 @@ namespace AppViewLite
                 .Where(x => x.Behavior != ModerationBehavior.None)
                 .ToArray();
             }
-            finally 
+            finally
             {
                 Lock.ExitUpgradeableReadLock();
             }
@@ -534,7 +535,7 @@ namespace AppViewLite
             }
             finally
             {
-                
+
                 Lock.ExitWriteLock();
                 // Lock.Dispose(); // non-trivial to synchronize correctly
             }
@@ -597,8 +598,8 @@ namespace AppViewLite
                     File.Move(checkpointFile + ".tmp", checkpointFile);
                     break;
                 }
-                
-                
+
+
 
                 GarbageCollectOldSlices();
             }
@@ -824,7 +825,7 @@ namespace AppViewLite
                 EfficientTextCompressor.DecompressInPlace(ref proto.DisplayName, ref proto.DisplayNameBpe);
                 if (!canOmitDescription)
                     EfficientTextCompressor.DecompressInPlace(ref proto.Description, ref proto.DescriptionBpe);
-                
+
                 return proto;
 
             }
@@ -1106,7 +1107,7 @@ namespace AppViewLite
                 var maxExclusive = prefix.GetMaxExclusiveForPrefixRange();
                 return ConsolidatePrefixSearch(ProfileSearchPrefix8.GetInRangeUnsorted(prefix, maxExclusive).Select(x => x.Values));
             }
-            
+
         }
 
         private static List<ManagedOrNativeArray<Plc>> ConsolidatePrefixSearch(IEnumerable<ManagedOrNativeArray<Plc>> slices)
@@ -1188,7 +1189,7 @@ namespace AppViewLite
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
             if (author != default)
-                searchTermsArray = [..searchTermsArray, HashPlcForTextSearch(author)];
+                searchTermsArray = [.. searchTermsArray, HashPlcForTextSearch(author)];
             if (language != LanguageEnum.Unknown /* && language != LanguageEnum.en*/)
                 searchTermsArray = [.. searchTermsArray, HashWord("%lang-" + language)];
             if (searchTermsArray.Length == 0) yield break;
@@ -1213,7 +1214,7 @@ namespace AppViewLite
 
         }
 
-        private static bool RemoveEmptySearchSlices<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, T approxDate) where  T : unmanaged, IEquatable<T>
+        private static bool RemoveEmptySearchSlices<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, T approxDate) where T : unmanaged, IEquatable<T>
         {
             var firstWord = words[0].Slices;
             var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1].Equals(approxDate));
@@ -1335,7 +1336,7 @@ namespace AppViewLite
         internal void IndexProfileWord(string word, Plc plc)
         {
             var hash = HashWord(word);
-            
+
             ProfileSearchPrefix8.Add(SizeLimitedWord8.Create(word, out var truncated), plc);
             if (truncated)
             {
@@ -1372,8 +1373,8 @@ namespace AppViewLite
 
             ProtoBuf.Serializer.Serialize(protoMs, proto);
             protoMs.Seek(0, SeekOrigin.Begin);
-            return protoMs.ToArray(); 
-            
+            return protoMs.ToArray();
+
 
             // Brotli rarely improves things now that opengraph and alt-text are also TikToken-compressed.
 #if false
@@ -1409,7 +1410,7 @@ namespace AppViewLite
             bw.Write((byte)0); // reserve space
 
             var encoding = PostDataEncoding.BpeOnly;
-            
+
 
             if (proto.Language != null)
             {
@@ -1492,7 +1493,7 @@ namespace AppViewLite
                     EfficientTextCompressor.CompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
                 }
             }
-            
+
 
             PostId postId = proto.PostId;
             PostId rootPostId = proto.RootPostId;
@@ -1545,9 +1546,9 @@ namespace AppViewLite
                         EfficientTextCompressor.DecompressInPlace(ref facet.InlineImageAlt, ref facet.InlineImageAltBpe);
                     }
                 }
-                
+
             }
-            
+
 
             proto.PostId = postId;
 
@@ -1660,7 +1661,7 @@ namespace AppViewLite
             MaybePropagateAdministrativeBlockToPost(post);
             return post;
         }
-        
+
 
         private static void DecompressPluggablePostData(Tid tid, BlueskyPostData? data, string did)
         {
@@ -1676,7 +1677,7 @@ namespace AppViewLite
             }
 
             pluggable.DecompressPluggablePostId(ref data.PluggableRootPostId, data.RootPostId.PostRKey, data.PluggableInReplyToPostId ?? data.PluggablePostId);
-            
+
         }
 
         public BlueskyPost GetPostWithoutData(PostId id, RequestContext? ctx = null)
@@ -1706,10 +1707,10 @@ namespace AppViewLite
         public BlueskyPostData? TryGetPostData(PostId id, bool skipBpeDecompression = false)
         {
             var isDeleted = PostDeletions.ContainsKey(id);
-            
+
             BlueskyPostData? proto = null;
             ManagedOrNativeArray<byte> postDataCompressed;
-            
+
             // latest instead of any (pluggable posts include their own like count)
             if (PostData.TryGetPreserveOrderSpanLatest(id, out postDataCompressed))
             {
@@ -1722,10 +1723,10 @@ namespace AppViewLite
 
             if (isDeleted)
             {
-                return new BlueskyPostData 
-                { 
-                    Deleted = true, 
-                    Error = "This post was deleted.", 
+                return new BlueskyPostData
+                {
+                    Deleted = true,
+                    Error = "This post was deleted.",
                     RootPostPlc = proto?.RootPostPlc,
                     RootPostRKey = proto?.RootPostRKey,
                     InReplyToPlc = proto?.InReplyToPlc,
@@ -1881,7 +1882,7 @@ namespace AppViewLite
                 PluggableProtocol = pluggable,
                 DidOmitDescription = canOmitDescription,
             };
-            if(ctx?.ProfileCache is { } dict)
+            if (ctx?.ProfileCache is { } dict)
                 dict[plc] = result;
             return result;
         }
@@ -1944,7 +1945,7 @@ namespace AppViewLite
             {
                 Profile = GetProfile(plc, ctx),
                 Followers = Follows.GetActorCount(plc),
-                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx, canOmitDescription: true) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! } ).ToList() : null,
+                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx, canOmitDescription: true) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! }).ToList() : null,
                 HasFeeds = FeedGenerators.GetInRangeUnsorted(new RelationshipHashedRKey(plc, 0), new RelationshipHashedRKey(plc.GetNext(), 0)).Any(),
                 HasLists = Lists.GetInRangeUnsorted(new Relationship(plc, default), new Relationship(plc.GetNext(), default)).Any(),
             };
@@ -2040,7 +2041,7 @@ namespace AppViewLite
                 minPopularity = (int)BitOperations.RoundUpToPowerOf2((uint)minPopularity) / 2;
             return "%" + name + "-" + minPopularity;
         }
-        
+
 
         internal static ListData ListToProto(FishyFlip.Lexicon.App.Bsky.Graph.List list)
         {
@@ -2048,8 +2049,8 @@ namespace AppViewLite
             {
                 Description = !string.IsNullOrEmpty(list.Description) ? list.Description : null,
                 DisplayName = list.Name,
-                Purpose = list.Purpose switch 
-                { 
+                Purpose = list.Purpose switch
+                {
                     FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Curatelist => ListPurposeEnum.Curation,
                     FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Modlist => ListPurposeEnum.Moderation,
                     FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Referencelist => ListPurposeEnum.Reference,
@@ -2059,7 +2060,7 @@ namespace AppViewLite
                 DescriptionFacets = GetFacetsAsProtos(list.DescriptionFacets),
             };
 
-            
+
         }
 
 
@@ -2073,7 +2074,8 @@ namespace AppViewLite
                 AllowFollowing = threadGate.Allow?.Any(x => x is FollowingRule) ?? false,
                 AllowFollowers = threadGate.Allow?.Any(x => x is FollowerRule) ?? false,
                 AllowMentioned = threadGate.Allow?.Any(x => x is MentionRule) ?? false,
-                AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x => {
+                AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x =>
+                {
                     return new RelationshipProto { Plc = SerializeDid(x.List.Did!.Handler, ctx).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
                 }).ToArray()
             };
@@ -2083,8 +2085,8 @@ namespace AppViewLite
         {
             var proto = new BlueskyPostgate
             {
-                 DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
-                 DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false
+                DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
+                DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false
             };
             return SerializeProto(proto, x => x.Dummy = true);
         }
@@ -2251,19 +2253,20 @@ namespace AppViewLite
 
             if (post == default && actor == default && feed == null) return null;
 
-            
-            return new BlueskyNotification 
-            { 
+
+            return new BlueskyNotification
+            {
                 EventDate = notification.EventDate,
-                Kind = notification.Kind, 
-                Post = post != default ? GetPost(post, ctx) : null, Profile = actor != default ? GetProfile(actor, ctx) : default,
+                Kind = notification.Kind,
+                Post = post != default ? GetPost(post, ctx) : null,
+                Profile = actor != default ? GetProfile(actor, ctx) : default,
                 Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
                 Feed = feed,
             };
 
-            
-            
+
+
         }
 
         public long GetNotificationCount(Plc user)
@@ -2285,7 +2288,7 @@ namespace AppViewLite
 
             Notification? newestNotification = newNotificationsCore.Length != 0 ? newNotificationsCore[0] : null;
 
-            var newNotifications = 
+            var newNotifications =
                 newNotificationsCore
                 .Select(x => RehydrateNotification(x, user, ctx))
                 .WhereNonNull()
@@ -2303,7 +2306,7 @@ namespace AppViewLite
                     return RehydrateNotification(x, user, ctx);
                 })
                 .WhereNonNull()
-                .TakeWhile(x => 
+                .TakeWhile(x =>
                 {
                     distinctOldCoalesceKeys.Add(x.CoalesceKey);
                     if (distinctOldCoalesceKeys.Count > 10) return false;
@@ -2406,7 +2409,7 @@ namespace AppViewLite
                             return post;
                         });
                 });
-            var result = 
+            var result =
                 SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value) : x.PostId.PostRKey, new ReverseComparer<Tid>())
                 .Where(x =>
                 {
@@ -2458,7 +2461,7 @@ namespace AppViewLite
                 if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                 {
                     var chain = MakeFullReplyChainExcludingLeaf(post, ctx);
-                    if (omitIfMuted) 
+                    if (omitIfMuted)
                     {
                         foreach (var item in chain)
                         {
@@ -2485,7 +2488,7 @@ namespace AppViewLite
                             {
                                 if (!alreadyReturned.Contains(rootId))
                                 {
-                                    
+
                                     rootPost = GetPost(rootId, ctx);
                                     if (omitIfMuted)
                                     {
@@ -2667,12 +2670,12 @@ namespace AppViewLite
             data ??= TryGetFeedGeneratorData(new RelationshipHashedRKey(plc, rkey));
             return new BlueskyFeedGenerator
             {
-                 Data = data,
-                 Did = GetDid(plc),
-                 RKey = rkey,
-                 Author = GetProfile(plc, ctx),
-                 LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey)),
-                 IsPinned = ctx.IsLoggedIn && ctx.PrivateProfile.FeedSubscriptions.Any(x => new Plc(x.FeedPlc) == plc && x.FeedRKey == rkey),
+                Data = data,
+                Did = GetDid(plc),
+                RKey = rkey,
+                Author = GetProfile(plc, ctx),
+                LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey)),
+                IsPinned = ctx.IsLoggedIn && ctx.PrivateProfile.FeedSubscriptions.Any(x => new Plc(x.FeedPlc) == plc && x.FeedRKey == rkey),
             };
         }
 
@@ -2819,7 +2822,7 @@ namespace AppViewLite
             var plc = SerializeDid(did, ctx);
             IndexHandleCore(handle, plc);
 
-            if (did.StartsWith("did:web:", StringComparison.Ordinal)) 
+            if (did.StartsWith("did:web:", StringComparison.Ordinal))
             {
                 var domain = did.Substring(8);
                 if (domain != handle)
@@ -2841,7 +2844,7 @@ namespace AppViewLite
         internal static UInt128 SerializeDidPlcToUInt128(string did)
         {
             if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) throw new ArgumentException();
-            if(did.Length != 32) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
+            if (did.Length != 32) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             var result = AtProtoS32.TryDecode128(did.Substring(8))!.Value;
             if (DeserializeDidPlcFromUInt128(result) != did) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             return result;
@@ -2931,7 +2934,7 @@ namespace AppViewLite
             if (bpe == null || bpe.Length == 0) return null;
 
             return EfficientTextCompressor.Decompress(bpe);
-            
+
         }
 
 
@@ -2976,7 +2979,7 @@ namespace AppViewLite
             }
             foreach (var item in ctx.UserContext.PrivateFollows)
             {
-                if((item.Value.Flags & PrivateFollowFlags.PrivateFollow) != default)
+                if ((item.Value.Flags & PrivateFollowFlags.PrivateFollow) != default)
                     possibleFollows[item.Key] = default;
             }
 
@@ -2996,7 +2999,7 @@ namespace AppViewLite
                 }
                 return result;
             },
-            plc => 
+            plc =>
             {
                 if (plc == default) return true;
 
@@ -3005,7 +3008,7 @@ namespace AppViewLite
 
                 if (stillFollowedResult.TryGetValue(plc, out var result))
                     return result;
-                
+
                 return true; // we don't know, assume yes
             }
             );
@@ -3142,7 +3145,7 @@ namespace AppViewLite
             profile.Labels = GetProfileLabels(profile.Plc, ctx.NeedsLabels).Select(x => (BlueskyModerationBase)GetLabel(x)).Concat(ctx.LabelSubscriptions.Where(x => x.ListRKey != 0).Select(x =>
             {
                 var listId = new Models.Relationship(new Plc(x.LabelerPlc), new Tid(x.ListRKey));
-                if (IsMemberOfList(listId, profile.Plc)) 
+                if (IsMemberOfList(listId, profile.Plc))
                 {
                     return GetList(listId);
                 }
@@ -3283,7 +3286,7 @@ namespace AppViewLite
                 var span = chunk.AsSpan();
                 var index = span.BinarySearch(new BookmarkPostFirst(postId, default));
                 index = ~index;
-                
+
                 BookmarkPostFirst bookmark = default;
                 if (index == span.Length) continue;
 
@@ -3383,7 +3386,7 @@ namespace AppViewLite
                 // If this user posted just a few seconds ago and we're in replica, we might not have complete data. Return without caching the result.
                 // It's ok to miss some likes for stats, but not ok to miss posts.
                 if (IsReplica && PostAuthorsSinceLastReplicaSnapshot.Contains(plc))
-                    return results; 
+                    return results;
 
 
                 if (UserToRecentPopularPosts.TryAdd(plc, results))
@@ -3573,7 +3576,7 @@ namespace AppViewLite
             {
                 processedLikes++;
                 PrintProgress(processedLikes, totalLikes);
-                
+
                 var from = like.Actor;
                 var to = postId.Author;
 
@@ -3718,7 +3721,7 @@ namespace AppViewLite
             otherEngagements = Math.Pow(otherEngagements, 0.3);
 
             var otherTotalEstimation = otherEngagements / averageEngagementRatio;
-            
+
             const double nonFeedWeight = 0.1;
 
             var positive = stats.FollowingEngagedPosts + otherEngagements * nonFeedWeight;

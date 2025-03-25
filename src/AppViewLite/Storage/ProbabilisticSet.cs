@@ -25,7 +25,7 @@ namespace AppViewLite
         public int HashFunctions => _hashFunctions;
         public ProbabilisticSet(long sizeInBytes, int hashFunctions)
             : this(new ulong[checked((int)(sizeInBytes / BYTES_PER_WORD))], hashFunctions)
-        { 
+        {
         }
         public ProbabilisticSet(ulong[] array, int hashFunctions)
         {
@@ -63,7 +63,7 @@ namespace AppViewLite
             for (int i = 0; i < _hashFunctions; i++)
             {
                 ulong bitIndex = GetNextIndex(ref enumerator);
-                
+
                 ulong wordIndex = bitIndex >> BIT_SHIFT;
                 ulong bitIndexWithinWord = bitIndex & MASK;
                 ulong wordOr = 1ul << ((int)bitIndexWithinWord);
@@ -77,14 +77,14 @@ namespace AppViewLite
             {
                 RefillHashEnumerator(ref enumerator);
             }
-            
-            
+
+
             var result = enumerator.NextBits & _getFunctionBitsMask;
 
             enumerator.RemainingBits -= _bitsPerFunction;
             enumerator.NextBits >>= _bitsPerFunction;
             return (ulong)result;
-            
+
         }
 
         private static void RefillHashEnumerator(ref HashBitEnumerator enumerator)
@@ -103,7 +103,7 @@ namespace AppViewLite
                 NextBits = initialHash,
                 RemainingBits = 128,
             };
-        
+
         }
         private struct HashBitEnumerator
         {

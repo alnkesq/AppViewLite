@@ -36,7 +36,7 @@ namespace AppViewLite.Models
         internal DidDocProto? TryGetOverride(string did)
         {
             if (!CustomDidDocs.TryGetValue(did, out var overrideDoc)) return null;
-            
+
             return new DidDocProto
             {
                 CustomDomain = overrideDoc.Handles.Length == 1 ? overrideDoc.Handles[0] : null,

@@ -77,7 +77,7 @@ namespace AppViewLite
             while (true)
             {
 
-                if(maximum)
+                if (maximum)
                     buckets[currentBucketIndex] = Math.Max(slots[currentSlotIndex], buckets[currentBucketIndex]);
                 else
                     buckets[currentBucketIndex] += slots[currentSlotIndex];
@@ -122,7 +122,7 @@ namespace AppViewLite
                         prev * weights[2] +
                         curr * weights[3];
                     smoothed[i] = smoothedTotalValue / (float)bucketDuration.TotalSeconds;
-                        
+
                 }
             }
             return (smoothed, bucketDuration);

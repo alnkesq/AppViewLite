@@ -11,8 +11,8 @@ namespace AppViewLite.Models
     public class BlueskyLabelData
     {
         public BlueskyLabelData()
-        { 
-        
+        {
+
         }
         public BlueskyLabelData(string displayName, string description, BlueskyLabelSeverity severity = BlueskyLabelSeverity.None)
         {

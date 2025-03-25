@@ -54,7 +54,7 @@ namespace AppViewLite
                 for (int i = 0; i < dids.Length; i++)
                 {
                     var plc = rels.TrySerializeDidMaybeReadOnly(dids[i], ctx);
-                    if(plc == default) return PreambleResult<Plc[]>.NeedsWrite;
+                    if (plc == default) return PreambleResult<Plc[]>.NeedsWrite;
                     result[i] = plc;
                 }
                 return result;
@@ -70,7 +70,7 @@ namespace AppViewLite
             }, (_, rels) => func(rels), ctx);
         }
 
- 
+
         public T WithRelationshipsLockWithPreamble<TPreamble, T>(Func<BlueskyRelationships, PreambleResult<TPreamble>> preamble, Func<TPreamble, BlueskyRelationships, T> func, RequestContext ctx)
         {
             // Preamble might be executed twice, if the first attempt in readonly mode fails.
@@ -119,7 +119,7 @@ namespace AppViewLite
         }
 
 
-        
+
 
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
@@ -144,7 +144,7 @@ namespace AppViewLite
 
 
 
-        
+
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool urgent)
         {
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
@@ -188,13 +188,13 @@ namespace AppViewLite
 
             BeforeLockEnter?.Invoke(ctx);
 
-            if (urgent) 
+            if (urgent)
             {
                 var invoker = new object();
 
                 var tcs = new TaskCompletionSource<object?>();
                 ctx.TimeSpentWaitingForLocks.Start();
-                var task = new UrgentReadTask((currentInvoker) => 
+                var task = new UrgentReadTask((currentInvoker) =>
                 {
                     ctx.TimeSpentWaitingForLocks.Stop();
 
@@ -273,13 +273,13 @@ namespace AppViewLite
 
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
-            if(ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
+            if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
             Stopwatch? sw = null;
             int gc = 0;
 
-            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);           
+            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             relationshipsUnlocked.OnBeforeWriteLockEnter();
@@ -321,7 +321,7 @@ namespace AppViewLite
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
 
-            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);            
+            Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
 
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             BeforeLockEnter?.Invoke(ctx);
@@ -399,7 +399,7 @@ namespace AppViewLite
         private static void MaybeLogLongLockUsage(PerformanceSnapshot begin, LockKind lockKind, RequestContext ctx)
         {
             if (begin == default) return;
-            
+
             var end = PerformanceSnapshot.Capture();
 
             var maxGcGeneration =
@@ -415,7 +415,7 @@ namespace AppViewLite
 
             var isSecondary = lockKind == LockKind.SecondaryRead;
 
-            
+
             long totalStopwatchTicks;
             if (isSecondary)
                 totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsideSecondaryLock, elapsedStopwatchTicks);
@@ -450,8 +450,8 @@ namespace AppViewLite
                 }
 
                 var elapsed = StopwatchTicksToTimespan(elapsedStopwatchTicks);
- 
-                LogInfo("Time spent inside the "+ lockKind +" lock: " + elapsed.TotalMilliseconds.ToString("0.0") + " ms" + (maxGcGeneration != -1 ? $" (includes {maxGcGeneration}gen GCs)" : null) + " " + ctx.DebugText);
+
+                LogInfo("Time spent inside the " + lockKind + " lock: " + elapsed.TotalMilliseconds.ToString("0.0") + " ms" + (maxGcGeneration != -1 ? $" (includes {maxGcGeneration}gen GCs)" : null) + " " + ctx.DebugText);
                 foreach (var frame in frames)
                 {
                     var method = frame.GetMethod();
@@ -459,7 +459,7 @@ namespace AppViewLite
                     {
                         if (method.DeclaringType == typeof(BlueskyRelationshipsClientBase))
                         {
-                            if (method.Name is 
+                            if (method.Name is
                                 nameof(MaybeLogLongLockUsage) or
                                 nameof(WithRelationshipsLock) or
                                 nameof(WithRelationshipsWriteLock) or
@@ -514,7 +514,7 @@ namespace AppViewLite
     }
 
     public enum LockKind
-    { 
+    {
         None,
         PrimaryRead,
         PrimaryWrite,

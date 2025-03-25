@@ -353,7 +353,7 @@ namespace AppViewLite.Web
             }
             if (modified)
             {
-               return new Uri(QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query) + url.Fragment);
+                return new Uri(QueryHelpers.AddQueryString(url.GetLeftPart(UriPartial.Path), query) + url.Fragment);
             }
             return url;
         }
@@ -362,7 +362,7 @@ namespace AppViewLite.Web
             return RenderComponentAsync<T>(ParameterView.FromDictionary(parameters));
 
         }
-        internal static async Task<string> RenderComponentAsync<T>(ParameterView parameters) where T: ComponentBase
+        internal static async Task<string> RenderComponentAsync<T>(ParameterView parameters) where T : ComponentBase
         {
             using var scope = Program.StaticServiceProvider.CreateScope();
             using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());

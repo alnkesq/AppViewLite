@@ -60,7 +60,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                     }
                 }
             };
-            await client.CreateSubscription("main", [new NostrSubscriptionFilter {  }], ct);
+            await client.CreateSubscription("main", [new NostrSubscriptionFilter { }], ct);
             await client.ListenForMessages();
             await tcs.Task;
         }
@@ -73,7 +73,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             var kind = (NostrEventKind)e.Kind;
             var ctx = RequestContext.CreateForFirehose("Nostr:" + kind + ":" + relay);
             if (content?.Length >= 4 * 1024) return;
-            if (e.Kind == (int)NostrEventKind.Short_Text_Note && content != null) 
+            if (e.Kind == (int)NostrEventKind.Short_Text_Note && content != null)
             {
                 var trimmed = content.AsSpan().Trim();
                 if (trimmed.Length >= 30 && !trimmed.Contains(' ') && !trimmed.StartsWith("http", StringComparison.Ordinal))
@@ -89,7 +89,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
             var did = GetDidFromPubKey(e.PublicKey);
             var didHash = StringUtils.HashUnicodeToUuid(did);
-            
+
             if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
                 return;
             if (RecentlyAddedPosts.Count >= 10_000)
@@ -161,8 +161,8 @@ namespace AppViewLite.PluggableProtocols.Nostr
                                 var alt = GetSingleVariadicTag(kvs, "alt");
                                 var mime = GetSingleVariadicTag(kvs, "m");
 
-                                media.Add(new BlueskyMediaData 
-                                { 
+                                media.Add(new BlueskyMediaData
+                                {
                                     AltText = alt,
                                     Cid = BlueskyRelationships.CompressBpe(url)!,
                                     IsVideo = mime?.StartsWith("video", StringComparison.Ordinal) == true
@@ -175,8 +175,8 @@ namespace AppViewLite.PluggableProtocols.Nostr
                                 urlPath.EndsWith(".png", StringComparison.Ordinal)
                                 )
                             {
-                                media.Add(new BlueskyMediaData 
-                                { 
+                                media.Add(new BlueskyMediaData
+                                {
                                     Cid = BlueskyRelationships.CompressBpe(url)!,
                                 });
                             }
@@ -186,7 +186,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 data.Media = media.ToArray();
                 StringUtils.GuessCustomEmojiFacets(data.Text, ref data.Facets, emojis);
 
-                
+
 
                 OnPostDiscovered(postId, null, null, data, ctx);
             }
@@ -327,7 +327,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         }
 
 
-        private readonly static MethodInfo EncodeMethod  = typeof(NIP19).Assembly.GetType("LNURL.Bech32Engine", true)!.GetMethod("Encode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string), typeof(byte[])])!;
+        private readonly static MethodInfo EncodeMethod = typeof(NIP19).Assembly.GetType("LNURL.Bech32Engine", true)!.GetMethod("Encode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, [typeof(string), typeof(byte[])])!;
         private static string GetNoteId(NonQualifiedPluggablePostId postId)
         {
             return Nip19Encode("note", postId.Bytes!);
@@ -365,11 +365,11 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         public override string? GetDisplayNameFromDid(string did)
         {
-             return string.Concat(GetNip19FromDid(did).AsSpan(0, 9), "…");
+            return string.Concat(GetNip19FromDid(did).AsSpan(0, 9), "…");
         }
 
         public override bool ShouldDisplayExternalLinkInBio => false;
-        
+
         public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
         {
             if (url.Host == "primal.net")

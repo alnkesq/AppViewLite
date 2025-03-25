@@ -98,7 +98,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         public YotsubaCatalogThreadJson[] Threads;
     }
 
-  
+
 
     public class YotsubaBoardMetadataResponseJson
     {

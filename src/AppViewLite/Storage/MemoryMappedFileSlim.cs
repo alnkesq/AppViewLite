@@ -17,8 +17,8 @@ namespace AppViewLite.Storage
         public string Path { get; private set; }
         public MemoryMappedFileSlim(string path, bool randomAccess = false)
             : this(path, writable: false, FileShare.Read, randomAccess: randomAccess)
-        { 
-        
+        {
+
         }
 
         private const uint GENERIC_READ = 0x80000000;
@@ -182,7 +182,7 @@ namespace AppViewLite.Storage
         public long Length => _length;
         public void Dispose()
         {
-            if (Interlocked.Increment(ref disposed) == 1) 
+            if (Interlocked.Increment(ref disposed) == 1)
             {
                 Sections.TryRemove(this, out _);
                 handle.ReleasePointer();

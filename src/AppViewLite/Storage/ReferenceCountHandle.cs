@@ -14,7 +14,7 @@ namespace AppViewLite.Storage
         }
     }
 
-    public class ReferenceCountHandle<T> : IDisposable where T: IDisposable
+    public class ReferenceCountHandle<T> : IDisposable where T : IDisposable
     {
         public ReferenceCountHandle(T value)
         {
@@ -32,9 +32,9 @@ namespace AppViewLite.Storage
                 var updatedRefCount = prevRefCount + 1;
                 if (prevRefCount == Interlocked.CompareExchange(ref manager._refCount, updatedRefCount, prevRefCount))
                     break;
-                
+
             }
-            
+
             this._manager = manager;
             this._value = value;
         }

@@ -108,7 +108,7 @@ namespace AppViewLite
 
         public void Dispose()
         {
-            
+
             lock (buildNewReadOnlyReplicaLock)
             {
                 readOnlyReplicaRelationshipsUnlocked?.Dispose();

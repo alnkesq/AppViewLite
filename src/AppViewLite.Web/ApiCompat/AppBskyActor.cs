@@ -30,8 +30,8 @@ namespace AppViewLite.Web
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]
         public Task<SearchActorsTypeaheadOutput> SearchActorsTypeahead(string q, int limit)
         {
-            return Task.FromResult(new SearchActorsTypeaheadOutput 
-            { 
+            return Task.FromResult(new SearchActorsTypeaheadOutput
+            {
                 Actors = []
             });
         }

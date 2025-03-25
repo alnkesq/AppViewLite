@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public class SubscriptionDictionary<TKey, TDelegate> where TDelegate: Delegate where TKey: notnull
+    public class SubscriptionDictionary<TKey, TDelegate> where TDelegate : Delegate where TKey : notnull
     {
         private readonly ConcurrentDictionary<TKey, TDelegate> subscriptions = new();
         public int Count => subscriptions.Count;

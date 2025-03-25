@@ -61,7 +61,7 @@ namespace AppViewLite
 
                     continue;
                 }
-                
+
                 if (line.StartsWith("did:", StringComparison.Ordinal))
                 {
                     try
@@ -137,7 +137,7 @@ namespace AppViewLite
                 "nostrplebs.com",
             ];
 
-        public static ReloadableFile<AdministrativeBlocklist> Instance = new ReloadableFile<AdministrativeBlocklist>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_BLOCKLIST_PATH), path => 
+        public static ReloadableFile<AdministrativeBlocklist> Instance = new ReloadableFile<AdministrativeBlocklist>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_BLOCKLIST_PATH), path =>
         {
             return new AdministrativeBlocklist(DefaultBlocklist.Concat(StringUtils.ReadTextFile(path)));
         });

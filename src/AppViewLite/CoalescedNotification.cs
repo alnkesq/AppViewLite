@@ -20,7 +20,7 @@ namespace AppViewLite
 
         public NotificationCoalesceKey CoalesceKey => new(PostId, Kind, FeedRKeyHash);
 
-        public string KindDisplayText 
+        public string KindDisplayText
         {
             get
             {

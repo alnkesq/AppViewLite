@@ -32,7 +32,7 @@ namespace AppViewLite.Web
             var prevState = (HaveRelationship, rkey, ActorCount);
             try
             {
-                
+
 
                 HaveRelationship = !HaveRelationship;
 
@@ -45,7 +45,7 @@ namespace AppViewLite.Web
                 }
                 else
                 {
-                    if(ActorCount > 0)
+                    if (ActorCount > 0)
                         ActorCount--;
                     notifyChange();
                     await deleteRelationship(rkey!.Value);
@@ -55,7 +55,7 @@ namespace AppViewLite.Web
                 notifyChange();
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 (HaveRelationship, rkey, ActorCount) = prevState;
                 notifyChange();
@@ -65,7 +65,7 @@ namespace AppViewLite.Web
             {
                 busy = false;
             }
-            
+
         }
 
 

@@ -61,7 +61,7 @@ namespace AppViewLite.Web.Controllers
             apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), ctx);
         }
 
-        
+
 
         [HttpGet("table/{table}")]
         public object? Lookup(string table, string? key, int reverse = 0, string? start = null, int limit = 1000, string? proto = null)

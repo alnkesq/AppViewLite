@@ -43,7 +43,7 @@ namespace AppViewLite.Storage
                 return value;
             }
 
-            lock(this)
+            lock (this)
             {
                 if (value == null || (now - lastChecked) >= CheckInterval)
                 {

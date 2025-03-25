@@ -28,8 +28,8 @@ namespace AppViewLite.Storage
             if (typeof(T).Assembly != typeof(int).Assembly)
             {
 
-                
-                
+
+
                 var fields = typeof(T).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 var computedSum = 0;
                 foreach (var field in fields)
@@ -42,7 +42,7 @@ namespace AppViewLite.Storage
                     computedSum *= inlineArray.Length;
                 if (computedSum != size && typeof(T).GetCustomAttribute<StructLayoutAttribute>() == null)
                     throw new Exception($"Missing [StructLayout(LayoutKind.Sequential, Pack = 1)] attribute for {typeof(T).FullName}. This can lead to wasted storage space.");
-                
+
             }
             return size;
         }

@@ -28,7 +28,7 @@ namespace AppViewLite.Models
         public DuckDbUuid? CustomEmojiHash
         {
             get => CustomEmojiHashHi != null ? DuckDbUuid.FromUpperLowerFlat(CustomEmojiHashHi.Value, CustomEmojiHashLo!.Value) : null;
-            set 
+            set
             {
                 if (value != null)
                 {

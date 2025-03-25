@@ -26,7 +26,8 @@ namespace AppViewLite
             if (string.IsNullOrEmpty(handleOrDid) || string.IsNullOrEmpty(kind))
                 throw new Exception("Invalid badge override data: missing DID/handle or badge kind.");
             var isHandleBased = !handleOrDid.StartsWith("did:", StringComparison.Ordinal);
-            var badge = new ProfileBadge {
+            var badge = new ProfileBadge
+            {
                 Kind = kind,
                 IsHandleBased = isHandleBased,
                 Handle = isHandleBased ? handleOrDid : null,
@@ -40,11 +41,11 @@ namespace AppViewLite
         private static string? WikidataPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_WIKIDATA_VERIFICATION);
 
         public static ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>? Wikidata =
-            WikidataPath != null ? 
-            new ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>(WikidataPath, path => 
+            WikidataPath != null ?
+            new ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>(WikidataPath, path =>
             {
                 return DuckDbUtils.QueryParquet<ProfileBadgeWikidataParquet>(path!)
-                    .ToLookup(x => StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(x.Handle!)), x => 
+                    .ToLookup(x => StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(x.Handle!)), x =>
                     {
                         x.Handle = null;
                         return x;
@@ -88,7 +89,7 @@ namespace AppViewLite
                     badge = new ProfileBadge
                     {
                         Kind = isGov ? KindGovernment : isOrg ? KindOrganization : KindGeneric,
-                        Description = 
+                        Description =
                             isGov ? $"Official government {typeString} (according to Wikidata)" :
                             isOrg ? $"Official organization {typeString} (according to Wikidata)" :
                             $"Official {typeString} (according to Wikidata)",
@@ -123,7 +124,7 @@ namespace AppViewLite
                 }
                 handle = handle.Substring(dot + 1);
             }
-            
+
         }
 
         // https://en.wikipedia.org/wiki/.gov#International_equivalents

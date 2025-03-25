@@ -13,7 +13,7 @@ namespace AppViewLite.Models
         [ProtoMember(1)] public RelationshipProto[]? DetachedEmbeddings;
         [ProtoMember(2)] public bool DisallowQuotes;
         [ProtoMember(3)] public bool Dummy;
-        
+
     }
 }
 

@@ -35,14 +35,14 @@ namespace AppViewLite
 
 #nullable disable
         internal RelationshipDictionary()
-        { 
+        {
         }
 #nullable restore
         public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null)
         {
             if (!UseProbabilisticSets)
                 relationshipCache = null;
-            
+
             CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
                 return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior, caches) { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
@@ -73,7 +73,7 @@ namespace AppViewLite
             }
             _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();
         }
-        
+
         private void SetUpEventHandlers(IFlushable inner)
         {
             inner.BeforeFlush += OnBeforeFlush;
@@ -125,7 +125,7 @@ namespace AppViewLite
                     continue;
                 yield return r;
             }
-            
+
         }
 
         public bool IsDeleted(Relationship relationship) => deletions.ContainsKey(relationship);
@@ -195,7 +195,7 @@ namespace AppViewLite
             return false;
         }
 
-    
+
 
         public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
         {
@@ -338,7 +338,7 @@ namespace AppViewLite
             return false;
         }
 
-        private readonly struct LambdaComparable<T, TApprox> : IComparable<T> where TApprox: struct, IComparable<TApprox> where T:struct
+        private readonly struct LambdaComparable<T, TApprox> : IComparable<T> where TApprox : struct, IComparable<TApprox> where T : struct
         {
             private readonly TApprox Approx;
             private readonly Func<T, TApprox?> TargetToApproxTarget;

@@ -62,13 +62,13 @@ namespace AppViewLite
                 return FormatTwoSignificantDigits(value / 1_000_000.0) + "M";
             }
 
-            
+
         }
 
         private static string FormatTwoSignificantDigits(double displayValue)
         {
             var r = (Math.Floor(displayValue * 10) / 10).ToString("0.0");
-            if(r.Length > 3)
+            if (r.Length > 3)
                 r = Math.Floor(displayValue).ToString("0");
             return r;
         }
@@ -125,7 +125,7 @@ namespace AppViewLite
 
             foreach (var rune in text.EnumerateRunes())
             {
-                
+
                 var isVariationSelector = rune >= VariationSelectorMin && rune <= VariationSelectorMax;
                 if (isVariationSelector) continue; // color vs black and white emoji
 
@@ -306,7 +306,7 @@ namespace AppViewLite
                 {
                     AddFacetIfNoOverlap(item);
                 }
-                
+
             }
             return facets.OrderBy(x => x.Start).ToArray();
 
@@ -315,14 +315,14 @@ namespace AppViewLite
         private static bool IsValidUrl(string value)
         {
             if (!Uri.TryCreate(value, UriKind.Absolute, out var url)) return false;
-            
+
             if (!string.IsNullOrEmpty(url.Host))
             {
                 var tld = url.Host.Split('.')[^1];
                 if (tld.Length < 2) return false;
                 if (tld.AsSpan().ContainsAnyInRange('0', '9')) // raw IPs are ok, but numeric TLDs are not.
-                { 
-                    if(!IPAddress.TryParse(url.Host, out _))
+                {
+                    if (!IPAddress.TryParse(url.Host, out _))
                         return false;
                 }
             }
@@ -395,7 +395,7 @@ namespace AppViewLite
             var implicitFacets = new List<FacetData>();
             foreach (Match m in Regex.Matches(text!, @"#\w+"))
             {
-                if (IsValidHashtagFacet(text!, m)) 
+                if (IsValidHashtagFacet(text!, m))
                     implicitFacets.Add(CreateFacetFromUnicodeIndexes(text!, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null, verifyLink: false)!);
             }
 
@@ -404,7 +404,7 @@ namespace AppViewLite
                 implicitFacets.Add(CreateFacetFromUnicodeIndexes(text!, m.Index, m.Length, quote: true)!);
             }
 
-            
+
             return implicitFacets;
         }
 
@@ -537,8 +537,8 @@ namespace AppViewLite
                         facet.Length = utf8length - startIndex;
                         facets.Add(facet);
                     }
-                    
-                    
+
+
 
                     if (isBlockElement) AppendNewLineIfNecessary();
                     if (tagName is "BR") AppendText("\n");
@@ -776,7 +776,7 @@ namespace AppViewLite
             var bytes = Base64Url.DecodeFromChars(continuation);
             if (bytes.Length != Unsafe.SizeOf<T>())
                 throw new ArgumentException();
-            return MemoryMarshal.Cast<byte, T>(bytes)[0];   
+            return MemoryMarshal.Cast<byte, T>(bytes)[0];
         }
 
         public static string SerializeToString<T>(T value) where T : unmanaged
@@ -793,7 +793,7 @@ namespace AppViewLite
 
             object ParseRecordCore(Type type)
             {
-                if(consumed == parts.Length)
+                if (consumed == parts.Length)
                     throw new ArgumentException($"Too few key components in the string '{str}' for type {type}.");
                 if (type == typeof(DateTime))
                 {
@@ -825,7 +825,7 @@ namespace AppViewLite
         {
             if (total == 0) return "0%";
             if (done == total) return "100%";
-            
+
             return (Math.Min(100.0 * done / total, 99.9)).ToString("0.0") + "%";
         }
 

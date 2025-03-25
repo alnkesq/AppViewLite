@@ -16,7 +16,7 @@ namespace AppViewLite
             if (LogFile != null) return;
             LogDirectory = Path.Combine(AppViewLiteConfiguration.GetDataDirectory(), "logs");
             Directory.CreateDirectory(LogDirectory);
-            
+
             LogFile = new StreamWriter(Path.Combine(LogDirectory, DateTime.UtcNow.ToString("yyyy-MM-dd-HH-mm-ss") + ".log"), new FileStreamOptions
             {
                 Mode = FileMode.Append,

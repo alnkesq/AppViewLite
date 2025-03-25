@@ -128,7 +128,7 @@ namespace AppViewLite
                         var date = tid.Date;
                         //if (SmallestSeenRecordDate == null ||date < SmallestSeenRecordDate)
                         //{
-                        
+
                         SmallestSeenRecordDate = date; // mostly descending order
 
                         //}

@@ -145,9 +145,9 @@ namespace AppViewLite.Web
             var profile = ctx.UserContext.PrivateProfile!;
             var now = DateTime.UtcNow;
             var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).ToArray();
-            var obj = apis.WithRelationshipsLock(rels => 
+            var obj = apis.WithRelationshipsLock(rels =>
             {
-                var seenPosts =  BlueskyRelationships.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
+                var seenPosts = BlueskyRelationships.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
                 foreach (var item in rels.SeenPostsByDate.GetValuesUnsorted(ctx.LoggedInUser))
                 {
                     ref var p = ref CollectionsMarshal.GetValueRefOrAddDefault(seenPosts, item.PostId, out var _);
@@ -158,8 +158,8 @@ namespace AppViewLite.Web
                     did = ctx.UserContext.Did,
                     firstLogin = profile.FirstLogin,
                     sessions = profile.Sessions.Select(x => new { loginDate = x.LogInDate }).ToArray(),
-                    moderationSettings = profile.LabelerSubscriptions.Select(x => new 
-                    { 
+                    moderationSettings = profile.LabelerSubscriptions.Select(x => new
+                    {
                         labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
                         listRkey = x.ListRKey != 0 ? new Tid(x.ListRKey).ToString() : null,
                         labelName = x.ListRKey == 0 ? rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash)).Name : null,
@@ -221,7 +221,7 @@ namespace AppViewLite.Web
             responseAlreadySent = true;
             return new
             {
-                Html = await Program.RenderComponentAsync<ProfileSearchAutocomplete>(new Dictionary<string, object?> 
+                Html = await Program.RenderComponentAsync<ProfileSearchAutocomplete>(new Dictionary<string, object?>
                 {
                     { "Profiles", profiles.Profiles },
                     { "SearchQuery", q },

@@ -26,7 +26,7 @@ namespace AppViewLite.Web.Controllers
         public AdministrativeBlocklist AdministrativeBlocklist => apis.AdministrativeBlocklist;
 
         private readonly static SearchValues<char> CidChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz");
-        private readonly static bool Enabled = 
+        private readonly static bool Enabled =
             AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SERVE_IMAGES) ??
             AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_CDN) == null;
         private readonly static bool CacheAvatars = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_CACHE_AVATARS) ?? true;
@@ -60,7 +60,7 @@ namespace AppViewLite.Web.Controllers
             {
                 name ??= fallback ?? (cid + (IsVideo(sizeEnum) ? ".mp4" : ".jpg"));
             }
-            
+
 
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
 
@@ -99,7 +99,7 @@ namespace AppViewLite.Web.Controllers
             var storeToDisk =
                 sizeEnum is ThumbnailSize.emoji or ThumbnailSize.emoji_profile_name ? true :
                 sizeEnum is ThumbnailSize.avatar_thumbnail ? CacheAvatars :
-                sizeEnum is ThumbnailSize.feed_thumbnail or ThumbnailSize.banner or ThumbnailSize.video_thumbnail ? CacheFeedThumbs : 
+                sizeEnum is ThumbnailSize.feed_thumbnail or ThumbnailSize.banner or ThumbnailSize.video_thumbnail ? CacheFeedThumbs :
                 false;
 
 
@@ -152,7 +152,7 @@ namespace AppViewLite.Web.Controllers
 
                     var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, ct);
                     using var image = imageResult.Image;
-                    
+
                     // TODO: if caching is enabled, we lose we don't serve the original content-disposition file name
 
                     Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
@@ -164,15 +164,15 @@ namespace AppViewLite.Web.Controllers
                         }
                         System.IO.File.Move(cachePath + ".tmp", cachePath);
                     }
-                    catch when (System.IO.File.Exists(cachePath)) 
-                    { 
+                    catch when (System.IO.File.Exists(cachePath))
+                    {
                         // concurrent request already saved this file, this is ok.
                     }
                 }
 
 
-                using var stream = new FileStream(cachePath, new FileStreamOptions 
-                { 
+                using var stream = new FileStream(cachePath, new FileStreamOptions
+                {
                     Mode = FileMode.Open,
                     Share = FileShare.Read | FileShare.Delete,
                     Access = FileAccess.Read,
@@ -208,11 +208,11 @@ namespace AppViewLite.Web.Controllers
                         {
                             await blob.Stream!.CopyToAsync(Response.Body, ct);
                         }
-                        
+
                     }
-                    
+
                 }
-                else if(sizeEnum == ThumbnailSize.feed_video_playlist)
+                else if (sizeEnum == ThumbnailSize.feed_video_playlist)
                 {
                     throw new NotSupportedException("Proxying of HLS streams is not currently supported.");
                 }
@@ -424,7 +424,7 @@ namespace AppViewLite.Web.Controllers
         }
         public static void EnsureNotConfusableWithVerifiedBadge(ref Image<Rgba32> image)
         {
-            using var small = image.Clone(m => m.Resize(new ResizeOptions 
+            using var small = image.Clone(m => m.Resize(new ResizeOptions
             {
                 Mode = ResizeMode.Max,
                 Size = new SixLabors.ImageSharp.Size(48, 48),
@@ -454,7 +454,7 @@ namespace AppViewLite.Web.Controllers
                         {
                             pixelsTotal++;
                             var opaque = BlendWithWhiteBackground(pixel);
-                            
+
 
                             if (AreColorsSimilar(opaque, Color.White))
                             {
@@ -497,7 +497,7 @@ namespace AppViewLite.Web.Controllers
             if (pixelsNonWhite < 10) return;
 
             // 0.087 for verified badge
-            var whitePixelsRatio = (float)pixelsWhite / pixelsTotal; 
+            var whitePixelsRatio = (float)pixelsWhite / pixelsTotal;
 
             // 0.996 for verified badge
             var verifiedGenericRatio = (float)pixelsVerifiedGeneric / pixelsNonWhite;
@@ -542,7 +542,7 @@ namespace AppViewLite.Web.Controllers
                 var contentDisposition = new ContentDispositionHeaderValue("inline")
                 {
                     FileNameStar = Uri.EscapeDataString(nameForDownload),
-                    
+
                 };
                 Response.Headers.ContentDisposition = contentDisposition.ToString();
             }
@@ -557,7 +557,7 @@ namespace AppViewLite.Web.Controllers
         private static ReadOnlySpan<byte> Magic_ICO => "\x00\x00\x01\x00"u8;
         private static bool StartsWithAllowlistedMagicNumber(ReadOnlySpan<byte> bytes)
         {
-            return 
+            return
                 bytes.StartsWith(Magic_JPG) ||
                 bytes.StartsWith(Magic_PNG) ||
                 bytes.StartsWith(Magic_WEBP) ||

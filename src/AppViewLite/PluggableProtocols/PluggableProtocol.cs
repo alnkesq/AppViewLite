@@ -62,9 +62,9 @@ namespace AppViewLite.PluggableProtocols
                     {
                         rels.IndexProfileWord(word, plc);
                     }
-                    
+
                 }
-                
+
                 rels.StoreProfileBasicInfo(plc, data);
             }, ctx);
         }
@@ -82,9 +82,9 @@ namespace AppViewLite.PluggableProtocols
 
             var result = Apis.WithRelationshipsLock(rels => rels.TryGetStoredSyntheticTidFromPluggablePostId(qualifiedPostId), ctx);
             if (result.Tid != default) return result;
-            
+
             return null;
-            
+
         }
 
         public void OnRepostDiscovered(string reposterDid, QualifiedPluggablePostId qualifiedPostId, DateTime repostDate, RequestContext ctx)
@@ -96,14 +96,14 @@ namespace AppViewLite.PluggableProtocols
             BlueskyRelationships.EnsureNotExcessivelyFutureDate(tid);
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(reposterDid)) return;
-            
+
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
                 if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(qualifiedPostId.Did)) return;
                 var reposterPlc = rels.SerializeDid(reposterDid, ctx);
                 var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did, ctx), tid);
-                
+
                 rels.UserToRecentReposts.AddIfMissing(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
             }, ctx);
         }
@@ -237,7 +237,7 @@ namespace AppViewLite.PluggableProtocols
                 {
                     relationships.PostData.AddRange(simplePostId, postBytes); // double insertions are fine, the second one wins.
                 });
-                
+
             }, ctx);
             if (continueOutsideLock != default)
             {

@@ -38,7 +38,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 tvp = thread[i].ToApiCompatThreadViewPost(rootPost, tvp);
             }
-            
+
             tvp!.Replies = thread.Skip(focalPostIndex + 1).Select(x => (ATObject)x.ToApiCompatThreadViewPost(rootPost)).ToList();
             return new GetPostThreadOutput
             {
@@ -149,13 +149,13 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Query = q,
             };
-            var results = 
+            var results =
                 sort == SearchPostsSort.top ? await apis.SearchTopPostsAsync(options, ctx, continuation: cursor, limit: limit) :
                 await apis.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, ctx: ctx);
             return new SearchPostsOutput
             {
-                 Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),
-                 Cursor = results.NextContinuation,
+                Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),
+                Cursor = results.NextContinuation,
             };
         }
 
@@ -169,7 +169,7 @@ namespace AppViewLite.Web.ApiCompat
         }
 
         public enum SearchPostsSort
-        { 
+        {
             None,
             latest,
             top,

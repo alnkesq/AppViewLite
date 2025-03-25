@@ -23,7 +23,7 @@ namespace AppViewLite.Web
                 return _ctxWithoutConnectionId;
             }
         }
-        
+
         public void LoadPendingProfiles(ProfileRenderRequest[] requests)
         {
             if (apis.IsReadOnly) return;
@@ -33,7 +33,7 @@ namespace AppViewLite.Web
             var profiles = apis.WithRelationshipsLock(rels => requests.Select(x => rels.GetProfile(rels.SerializeDid(x.did, RequestContext))).ToArray(), RequestContext);
             apis.EnrichAsync(profiles, RequestContext, async p =>
             {
-                var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object?>() 
+                var html = await Program.RenderComponentAsync<ProfileRow>(new Dictionary<string, object?>()
                 {
                         { nameof(ProfileRow.Profile), p },
                         { nameof(ProfileRow.RequestContextOverride), RequestContext }
@@ -48,7 +48,7 @@ namespace AppViewLite.Web
         {
             if (apis.IsReadOnly) return;
             var ctx = RequestContext;
-            
+
             var pairs = apis.WithRelationshipsLockForDids(dids, (plcs, rels) =>
             {
                 return plcs.Select((plc, i) => (Did: dids[i], PossibleHandle: rels.TryGetLatestDidDoc(plc)?.Handle)).ToArray();
@@ -136,7 +136,7 @@ namespace AppViewLite.Web
         }
 
         private ConnectionContext HubContext => connectionIdToCallback[Context.ConnectionId];
-        
+
         public override Task OnConnectedAsync()
         {
             var httpContext = this.Context.GetHttpContext();
@@ -155,7 +155,7 @@ namespace AppViewLite.Web
                 object? ownRelationshipChange = null;
                 if (commitPlc != default && commitPlc == userPlc)
                 {
-                    apis.WithRelationshipsLock(rels => 
+                    apis.WithRelationshipsLock(rels =>
                     {
                         rels.Likes.HasActor(notification.PostId, commitPlc, out var userLike);
                         rels.Reposts.HasActor(notification.PostId, commitPlc, out var userRepost);
@@ -177,7 +177,7 @@ namespace AppViewLite.Web
             {
                 UserPlc = userPlc,
                 LiveUpdatesCallbackThrottler = throttler,
-                LiveUpdatesCallback = (notification, commitPlc) => 
+                LiveUpdatesCallback = (notification, commitPlc) =>
                 {
                     if (commitPlc == userPlc) SubmitLivePostEngagement(notification, commitPlc); // send immediately, we don't want to lose the ownRelationshipChange
                     else
@@ -194,8 +194,8 @@ namespace AppViewLite.Web
             if (!connectionIdToCallback.TryAdd(connectionId, context)) throw new Exception();
 
 
-            if (userPlc != null) 
-            { 
+            if (userPlc != null)
+            {
                 apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.Subscribe(userPlc.Value, context.UserNotificationCallback);
 
                 context.MarkAsReadThrottler = new Throttler(TimeSpan.FromSeconds(1), () =>

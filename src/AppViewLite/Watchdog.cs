@@ -16,7 +16,7 @@ namespace AppViewLite
         public Watchdog(TimeSpan timeout, Action callback)
         {
             _timeout = timeout;
-            _timer = new Timer((_) => 
+            _timer = new Timer((_) =>
             {
                 _timer!.Dispose();
                 callback();
@@ -40,7 +40,7 @@ namespace AppViewLite
             _timer.Change(_timeout, Timeout.InfiniteTimeSpan);
         }
 
- 
+
 
     }
 

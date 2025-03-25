@@ -10,7 +10,7 @@ using System.Linq;
 
 namespace AppViewLite.Storage
 {
-    public class ImmutableMultiDictionaryReader<TKey, TValue> : IDisposable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>
+    public class ImmutableMultiDictionaryReader<TKey, TValue> : IDisposable where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
     {
         private readonly SimpleColumnarReader columnarReader;
         public string PathPrefix;
@@ -29,7 +29,7 @@ namespace AppViewLite.Storage
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
-            this.columnarReader = new SimpleColumnarReader(pathPrefix, 
+            this.columnarReader = new SimpleColumnarReader(pathPrefix,
                 behavior == PersistentDictionaryBehavior.KeySetOnly ? 1 :
                 behavior == PersistentDictionaryBehavior.SingleValue ? 2 :
                 3);
@@ -70,9 +70,9 @@ namespace AppViewLite.Storage
                     this.MaximumKey = Keys[Keys.Length - 1];
                 }
             }
-            this.SizeInBytes = 
+            this.SizeInBytes =
                 Keys.Length * Unsafe.SizeOf<TKey>() +
-                (HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0) + 
+                (HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0) +
                 (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
 
         }
@@ -228,7 +228,7 @@ namespace AppViewLite.Storage
                 }
             }
             else throw new InvalidOperationException();
-            
+
         }
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
@@ -305,7 +305,7 @@ namespace AppViewLite.Storage
                 var pageBaseIndex = pageIndex * KeyCountPerPage;
                 var page =
                     (
-                        pageIndex == keyCacheSpan.Length - 1 
+                        pageIndex == keyCacheSpan.Length - 1
                             ? keySpan.Slice(pageBaseIndex)
                             : keySpan.Slice(pageBaseIndex, KeyCountPerPage)
                     ).AsSmallSpan;
@@ -321,7 +321,7 @@ namespace AppViewLite.Storage
                 {
                     return pageBaseIndex + innerIndex;
                 }
-                
+
             }
             else
             {

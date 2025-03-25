@@ -61,7 +61,7 @@ namespace AppViewLite
                         CollectionsMarshal.GetValueRefOrAddDefault(sliceSetToCount, (table, kind), out _)++;
                     }
 
-              
+
 
                     //Console.Error.WriteLine(addr.ToString("x") + "  " + (ratio * 100).ToString("0.0") + "%" + "  " + StringUtils.ToHumanBytes((long)length) + "\t\t" + displayText);
                 }

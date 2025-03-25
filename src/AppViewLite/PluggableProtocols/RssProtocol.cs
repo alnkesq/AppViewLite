@@ -71,7 +71,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                             if (remainingTime.TotalHours < 6)
                             {
-                                var isStillFollowed = followers.Any(chunk => chunk.AsEnumerable().Any(user => 
+                                var isStillFollowed = followers.Any(chunk => chunk.AsEnumerable().Any(user =>
                                 {
                                     if (!followerToActualFeeds.TryGetValue(user, out var followees))
                                     {
@@ -79,12 +79,12 @@ namespace AppViewLite.PluggableProtocols.Rss
                                         followerToActualFeeds[user] = followees = profileProto?.PrivateFollows?.Select(x => new Plc(x.Plc)).ToHashSet() ?? [];
                                     }
                                     return followees.Contains(rssPlc);
-                                } ));
+                                }));
                                 if (!isStillFollowed) continue;
 
                                 ScheduledRefreshes.TryAdd(rssPlc);
                                 var did = rels.GetDid(rssPlc);
-                                Apis.DispatchOutsideTheLock(() => 
+                                Apis.DispatchOutsideTheLock(() =>
                                 {
                                     ScheduleRefreshAsync(rssPlc, did, remainingTime, ct).FireAndForget();
                                 });
@@ -119,7 +119,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts, TimeSpan.FromMinutes(15).TotalDays, TimeSpan.FromDays(90).TotalDays);
             return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts);
-            
+
         }
 
         private static XElement? GetChild(XElement? element, string name)
@@ -152,7 +152,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var feedUrl = DidToUrl(did);
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
-                if((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()))
+                if ((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()))
                     throw new Exception("Reddit RSS host should be normalized to www.reddit.com, and the path lowercased.");
                 var segments = feedUrl.GetSegments();
                 if (segments.Length < 2 || segments[0] != "r")
@@ -280,7 +280,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     refreshInfo.FaviconUrl = UrlToCid(imageUrlFromXml);
                 }
-                
+
                 if (refreshInfo.FaviconUrl == null && !refreshInfo.DidAttemptFaviconRetrieval && !feedUrl.HasHostSuffix("youtube.com") && !feedUrl.HasHostSuffix("reddit.com"))
                 {
                     try
@@ -445,8 +445,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                         if (prevColon != -1)
                             text = text.Substring(prevColon + 1);
                     }
-                    OnPostDiscovered(leafPostId.AsQualifiedPostId, null, null, new BlueskyPostData 
-                    { 
+                    OnPostDiscovered(leafPostId.AsQualifiedPostId, null, null, new BlueskyPostData
+                    {
                         ExternalTitle = text,
                         ExternalUrl = url!.AbsoluteUri,
                     }, ctx: ctx);
@@ -515,7 +515,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                             OnPostDiscovered(post.PostId.AsQualifiedPostId, prev, rootPostId.AsQualifiedPostId, subpostData, ctx: ctx, replyIsSemanticallyRepost: true);
                             prev = post.PostId.AsQualifiedPostId;
                         }
-                        
+
                     }
                 }
                 return (dateParsed, url);
@@ -526,7 +526,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 postId = new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, h), XxHash64.Hash(MemoryMarshal.AsBytes<char>(h)));
             }
 
-            
+
 
 
             var maxLength = hasFullContent ? 1500 : 500;
@@ -543,7 +543,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     if (summaryText.Length < 400 && !IsTrimmedText(bodyAsText, summaryText))
                     {
                         var readMore = Regex.Match(summaryText, @"(?:…|\.\.\.|\b[Rr]ead [Mm]ore|[Cc]ontinue [Rr]eading)\W*$");
-                        if (readMore.Success) 
+                        if (readMore.Success)
                         {
                             summaryText = summaryText.Substring(0, readMore.Index).TrimEnd([' ', '\n', '.', '…']) + "…";
                         }
@@ -556,7 +556,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 data.ExternalUrl = url!.AbsoluteUri;
                 data.ExternalDescription = bodyAsText;
                 data.ExternalTitle = title;
-                
+
                 var mediaThumb = GetAttribute(mediaGroup?.Element(NsMedia + "thumbnail"), "url");
                 if (mediaThumb != null)
                 {
@@ -586,14 +586,14 @@ namespace AppViewLite.PluggableProtocols.Rss
                             facet.Start += offset;
                         }
                     }
-                    data.Facets = [new FacetData { Start = 0, Length = Encoding.UTF8.GetByteCount(title), Bold = true }, ..(data.Facets ?? [])];
+                    data.Facets = [new FacetData { Start = 0, Length = Encoding.UTF8.GetByteCount(title), Bold = true }, .. (data.Facets ?? [])];
                     data.Text = prefix + bodyAsText;
                 }
                 else
                 {
                     data.Text = bodyAsText ?? title;
                 }
-                
+
                 data.Media = bodyDom?.QuerySelectorAll("img").Select(x => new BlueskyMediaData
                 {
                     Cid = UrlToCid(TryGetImageUrl(x, url ?? feedUrl)?.AbsoluteUri)!,
@@ -836,7 +836,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 if (preferredSize == ThumbnailSize.video_thumbnail) url = parts[1];
                 else url = parts[0];
             }
-            
+
             var result = await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
             //result.IsFavIcon = isFavicon;
             return result;

@@ -57,7 +57,7 @@ namespace AppViewLite.Models
 
     [Flags]
     public enum PrivateFollowFlags : ulong
-    { 
+    {
         None = 0,
         PrivateFollow = 1,
 
@@ -85,7 +85,7 @@ namespace AppViewLite.Models
         [ProtoMember(3)] public required int Id;
 
         private Func<string[], Uri[], BlueskyPost, bool>? isMatch;
-        
+
         public bool AppliesTo(string[] words, Uri[] urls, BlueskyPost post)
         {
             if (this.AppliesToPlc != null)
@@ -122,7 +122,7 @@ namespace AppViewLite.Models
 
                     var first = postWords.IndexOf(phrase[0]);
                     if (first == -1) return false;
-                    
+
                     if (postWords.Slice(first + 1).StartsWith(phrase.AsSpan(1)))
                         return true;
                     postWords = postWords.Slice(1);

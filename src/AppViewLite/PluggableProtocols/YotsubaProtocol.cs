@@ -69,13 +69,13 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                     avatarCidBytes = Encoding.UTF8.GetBytes(faviconUrl.AbsoluteUri);
                 }
 
-                OnProfileDiscovered(did, new BlueskyProfileBasicInfo 
-                { 
-                     DisplayName = "/" + boardId.BoardName + "/ - " + board.title + " (" + displayHost + ")",
-                     Description = description.Text,
-                     DescriptionFacets = description.Facets,
-                     HasExplicitFacets = true,
-                     AvatarCidBytes = avatarCidBytes
+                OnProfileDiscovered(did, new BlueskyProfileBasicInfo
+                {
+                    DisplayName = "/" + boardId.BoardName + "/ - " + board.title + " (" + displayHost + ")",
+                    Description = description.Text,
+                    DescriptionFacets = description.Facets,
+                    HasExplicitFacets = true,
+                    AvatarCidBytes = avatarCidBytes
                 }, ctx, shouldIndex: true);
                 BoardLoopAsync(boardId, ct).FireAndForget();
             }
@@ -90,7 +90,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             {
                 try
                 {
-                    
+
                     averageThreadsPerDay = await BoardIterationAsync(boardId, ct);
                 }
                 catch (Exception ex) when (!ct.IsCancellationRequested)
@@ -139,7 +139,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var threadsPerDay = (double)sample.Length / (DateTime.UtcNow - (sample?.LastOrDefault() ?? default)).TotalDays;
 
             return threadsPerDay;
-            
+
         }
 
         private string GetApiPrefix(string host) => "https://" + HostConfiguration[host].ApiHost;
@@ -182,7 +182,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var comment = thread.Com?.Trim();
             if (string.IsNullOrEmpty(subject)) subject = null;
             if (string.IsNullOrEmpty(comment)) comment = null;
-            
+
             var bodyHtml = subject != null && comment != null ? ConcatenateSubjectAndComment(subject, comment) : (subject ?? comment);
             var body = ParseHtml(bodyHtml, boardId);
 

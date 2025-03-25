@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Storage
 {
-    public unsafe class HugeMemory<T> : IDisposable where T: unmanaged
+    public unsafe class HugeMemory<T> : IDisposable where T : unmanaged
     {
         private T* ptr;
         private readonly long length;
@@ -169,7 +169,7 @@ namespace AppViewLite.Storage
     {
         public HugeSpan(void* ptr, long length)
             : this(ref Unsafe.AsRef<T>(ptr), length)
-        { 
+        {
         }
         public HugeSpan(ref T ptr, long length)
         {

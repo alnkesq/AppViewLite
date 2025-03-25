@@ -20,8 +20,8 @@ namespace AppViewLite
         {
             return new ThreadViewPost
             {
-                 Post = post.ToApiCompat(rootPost),
-                 Parent = parent,
+                Post = post.ToApiCompat(rootPost),
+                Parent = parent,
             };
         }
         public static PostView ToApiCompat(this BlueskyPost post, BlueskyPost? rootPost = null)
@@ -36,15 +36,15 @@ namespace AppViewLite
                 QuoteCount = post.QuoteCount,
                 ReplyCount = post.ReplyCount,
                 Cid = GetSyntheticCid(aturi),
-                Viewer = new FishyFlip.Lexicon.App.Bsky.Feed.ViewerState 
-                { 
+                Viewer = new FishyFlip.Lexicon.App.Bsky.Feed.ViewerState
+                {
                 },
                 Record = new Post
                 {
                     CreatedAt = post.Date,
                     Text = post.Data?.Text,
-                    Reply = post.IsReply ? new ReplyRefDef 
-                    { 
+                    Reply = post.IsReply ? new ReplyRefDef
+                    {
                         Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
                         Root = GetPostStrongRef(rootPost!.Did, rootPost.RKey)
                     } : null,
@@ -54,17 +54,17 @@ namespace AppViewLite
         }
 
 
-        public static FeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post) 
+        public static FeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post)
         {
             return new FeedViewPost
             {
-                 Post = post.ToApiCompat(null),
-                 Reply = post.InReplyToFullPost != null ? new ReplyRef
-                 {
-                       Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(),
-                       Root = post.RootFullPost!.ToApiCompatFeedViewPost(),
-                       GrandparentAuthor = post.InReplyToFullPost.Author.ToApiCompatBasic(),
-                 } : null
+                Post = post.ToApiCompat(null),
+                Reply = post.InReplyToFullPost != null ? new ReplyRef
+                {
+                    Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(),
+                    Root = post.RootFullPost!.ToApiCompatFeedViewPost(),
+                    GrandparentAuthor = post.InReplyToFullPost.Author.ToApiCompatBasic(),
+                } : null
             };
         }
         private static StrongRef GetPostStrongRef(string did, string rkey)

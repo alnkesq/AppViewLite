@@ -5,16 +5,16 @@ using System.Linq;
 
 namespace AppViewLite.Storage
 {
-    public class ImmutableMultiDictionaryWriter<TKey, TValue> : IDisposable where TKey: unmanaged, IComparable<TKey> where TValue: unmanaged, IComparable<TValue>
+    public class ImmutableMultiDictionaryWriter<TKey, TValue> : IDisposable where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
     {
         private readonly SimpleColumnarWriter writer;
         internal PersistentDictionaryBehavior behavior;
         public ImmutableMultiDictionaryWriter(string destinationPrefix, PersistentDictionaryBehavior behavior)
         {
             this.behavior = behavior;
-            this.writer = new SimpleColumnarWriter(destinationPrefix, 
+            this.writer = new SimpleColumnarWriter(destinationPrefix,
                 behavior == PersistentDictionaryBehavior.KeySetOnly ? 1 :
-                behavior == PersistentDictionaryBehavior.SingleValue ? 2 : 
+                behavior == PersistentDictionaryBehavior.SingleValue ? 2 :
                 3);
         }
 
@@ -80,7 +80,7 @@ namespace AppViewLite.Storage
                 WriteValue(value);
             }
 
-            
+
 
             if (startOffset != currentValueOffset)
             {

@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
-    public class MultiDictionary2<TKey, TValue> : IEnumerable<(TKey Key, MultiDictionary2<TKey, TValue>.ValueGroup Values)> where TValue : IComparable<TValue>, IEquatable<TValue> where TKey: notnull
+    public class MultiDictionary2<TKey, TValue> : IEnumerable<(TKey Key, MultiDictionary2<TKey, TValue>.ValueGroup Values)> where TValue : IComparable<TValue>, IEquatable<TValue> where TKey : notnull
     {
         private readonly static SortedSet<TValue> EmptyValueSet = new();
 
@@ -102,7 +102,7 @@ namespace AppViewLite
                 if (_manyValuesPreserved != null) return _manyValuesPreserved[0];
                 return _singleValue;
             }
-            
+
             public readonly ReadOnlySpan<TValue> AsUnsortedSpan()
             {
                 if (_manyValuesPreserved != null) return _manyValuesPreserved;
@@ -159,7 +159,7 @@ namespace AppViewLite
         {
             if (preserveOrder) throw new NotSupportedException();
             ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, key, out var exists);
-            if (!exists) 
+            if (!exists)
                 AddMemoryPressure(PerKeySize);
             slot = new ValueGroup { _singleValue = value };
             MarkKeyAsDirty(key);
@@ -181,7 +181,7 @@ namespace AppViewLite
                 if (slot._manyValuesSorted.Add(value))
                     AddMemoryPressure(PerValueSize);
             }
-            else 
+            else
             {
                 var prev = slot._singleValue;
                 if (prev.Equals(value)) return;
@@ -279,7 +279,7 @@ namespace AppViewLite
             if (this.currentVirtualSlice!.DirtyKeys.Count != 0)
             {
                 this.CreateVirtualSlice();
-            } 
+            }
             else
             {
                 copy.LastVirtualSliceIdExclusive--;

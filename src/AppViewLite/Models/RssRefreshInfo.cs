@@ -51,7 +51,7 @@ namespace AppViewLite.Models
                     return "RSS fetch error: " + LastHttpError;
                 if (LastHttpStatus != default && ((int)LastHttpStatus < 200 || (int)LastHttpStatus > 299))
                     return "RSS fetch error: HTTP " + ((int)LastHttpStatus) + " " + LastHttpError;
-                if(OtherException != null)
+                if (OtherException != null)
                     return "RSS fetch error: " + OtherException;
                 return null;
             }

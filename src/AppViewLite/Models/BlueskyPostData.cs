@@ -54,7 +54,7 @@ namespace AppViewLite.Models
         // UPDATE IsSlimCandidate if you add fields!
 
 
-        public bool IsSlimCandidate() 
+        public bool IsSlimCandidate()
         {
             return
                 QuotedRKey == null && // Called when the proto is in a compressed state (no need to check QuotedPlc)

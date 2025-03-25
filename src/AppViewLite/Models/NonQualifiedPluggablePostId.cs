@@ -24,7 +24,7 @@ namespace AppViewLite.Models
 
         public override string ToString()
         {
-            return Tid + " (" + (Bytes != null ? $"[binary, {Bytes.Length} bytes]" : AsString)  + ")";
+            return Tid + " (" + (Bytes != null ? $"[binary, {Bytes.Length} bytes]" : AsString) + ")";
         }
         public static NonQualifiedPluggablePostId CreatePreferInt64(Tid tid, string s)
         {

@@ -10,7 +10,7 @@ namespace AppViewLite
         private TaskDictionary<TKey, TExtraArgs, byte> inner;
         public TaskDictionary(Func<TKey, TExtraArgs, Task> compute)
         {
-            inner = new TaskDictionary<TKey, TExtraArgs, byte>(async (key, extraArgs) => 
+            inner = new TaskDictionary<TKey, TExtraArgs, byte>(async (key, extraArgs) =>
             {
                 await compute(key, extraArgs);
                 return 0;
@@ -56,22 +56,22 @@ namespace AppViewLite
         public bool Remove(TKey key) => inner.Remove(key);
 
     }
-    public class TaskDictionary<TKey, TExtraArgs, TValue> where TKey: notnull
+    public class TaskDictionary<TKey, TExtraArgs, TValue> where TKey : notnull
     {
         private readonly Func<TKey, TExtraArgs, Task<TValue>> compute;
         private readonly TimeSpan EvictTime;
         private readonly ConcurrentDictionary<TKey, (TExtraArgs ExtraArgs, Lazy<Task<TValue>> LazyTask)> dict = new();
         public TaskDictionary(Func<TKey, TExtraArgs, Task<TValue>> compute)
             : this(compute, TimeSpan.FromSeconds(30))
-        { 
-        
+        {
+
         }
         public TaskDictionary(Func<TKey, TExtraArgs, Task<TValue>> compute, TimeSpan evictTime)
         {
             this.compute = compute;
             this.EvictTime = evictTime;
         }
-        
+
         public Task<TValue> GetValueAsync(TKey key, TExtraArgs extraArgs)
         {
             var lazy = new Lazy<Task<TValue>>(() =>
@@ -80,7 +80,7 @@ namespace AppViewLite
             }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
 
             return dict.GetOrAdd(key, (extraArgs, lazy)).LazyTask.Value;
-            
+
         }
 
         public int Count => dict.Count;
@@ -95,7 +95,7 @@ namespace AppViewLite
             {
                 return await compute(key, extraArgs);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 LoggableBase.LogLowImportanceException($"TaskDictionary error for {key}", ex);
                 throw;

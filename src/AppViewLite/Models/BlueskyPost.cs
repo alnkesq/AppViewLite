@@ -84,7 +84,7 @@ namespace AppViewLite.Models
         public IEnumerable<BlueskyModerationBase> AllLabels => this.Labels.Concat(this.Author.Labels);
         public BlockReasonDisplayStringAndList? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList, RequestContext ctx)
         {
-    
+
             var r = Author.BlockReason.ToDisplayStringWithList(BlockSubjects.YouAndAuthor, ctx);
             if (r != null)
                 return r;
@@ -130,7 +130,7 @@ namespace AppViewLite.Models
             return
                 ParentAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.ParentAndAuthor, ctx) ??
                 RootAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.RootAndAuthor, ctx);
-            
+
         }
 
         public override string ToString()
@@ -166,7 +166,7 @@ namespace AppViewLite.Models
                     return true;
             }
 
-            if (Data != null && ctx.IsLoggedIn && ctx.UserContext.PrivateProfile!.MuteRules is { Length: >0 } muteRules)
+            if (Data != null && ctx.IsLoggedIn && ctx.UserContext.PrivateProfile!.MuteRules is { Length: > 0 } muteRules)
             {
                 var words = StringUtils.GetAllWords(Data.Text).ToArray();
                 var urls = Data.GetExternalUrls().Distinct().Select(x => StringUtils.TryParseUri(x)).WhereNonNull().ToArray();
@@ -181,7 +181,7 @@ namespace AppViewLite.Models
             if (Labels!.Any(x => x.Mode == ModerationBehavior.Mute)) return true;
 
             return false;
-            
+
         }
 
         private bool IsUserMuted(BlueskyProfile user, PrivateFollowFlags imageFlag, PrivateFollowFlags textFlag)

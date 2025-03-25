@@ -50,7 +50,7 @@ namespace AppViewLite
             var collection = path.Substring(0, slash);
             var rkey = path.Substring(slash + 1);
             var deletionDate = DateTime.UtcNow;
-            ctx ??= RequestContext.CreateForFirehose("Delete:" + collection, allowStale: true /* only temporarily, will be disabled in a moment*/); 
+            ctx ??= RequestContext.CreateForFirehose("Delete:" + collection, allowStale: true /* only temporarily, will be disabled in a moment*/);
 
             var rkeyAsTid = Tid.TryParse(rkey, out var parsedTid) ? parsedTid : default;
 
@@ -150,7 +150,7 @@ namespace AppViewLite
             }), ctx);
         }
 
-        
+
 
 
 
@@ -209,7 +209,7 @@ namespace AppViewLite
                         if (l.Subject!.Uri!.Collection == Post.RecordType)
                         {
                             // quick check to avoid noisy exceptions
-                            
+
                             var postId = relationships.GetPostId(l.Subject, ctx);
 
                             // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
@@ -224,11 +224,11 @@ namespace AppViewLite
                                 var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
                                 relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
                                 relationships.NotifyPostStatsChange(postId, commitPlc);
-                                
 
-                    
+
+
                                 relationships.IncrementRecentPopularPostLikeCount(postId, 1);
-                                
+
                                 if (relationships.IsRegisteredForNotifications(commitPlc))
                                     relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
                             }
@@ -300,12 +300,12 @@ namespace AppViewLite
                         // Is this check too expensive?
                         //var didDoc = relationships.TryGetLatestDidDoc(commitPlc);
                         //if (didDoc != null && Apis.AdministrativeBlocklist.ShouldBlockIngestion(null, didDoc))
-                            //return;
+                        //return;
 
                         var proto = relationships.StorePostInfoExceptData(p, postId, ctx);
                         if (proto != null)
                         {
-                            
+
 
                             byte[]? postBytes = null;
                             continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto, commitAuthor), relationships =>
@@ -376,13 +376,13 @@ namespace AppViewLite
 
             if (continueOutsideLock != null)
             {
-                
+
                 continueOutsideLock.Value.OutsideLock();
                 WithRelationshipsWriteLock(relationships =>
                 {
                     continueOutsideLock.Value.Complete(relationships);
                 }, ctx);
-                
+
             }
         }
 
@@ -394,7 +394,7 @@ namespace AppViewLite
             Task.Run(async () =>
             {
                 LogInfo("Fetching record " + uri);
-                
+
                 var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey, ctx));
 
                 OnRecordCreated(uri.Did.Handler, uri.Pathname.Substring(1), record, ignoreIfDisposing: true);
@@ -466,7 +466,7 @@ namespace AppViewLite
                 firehose.OnRecordReceived += (s, e) =>
                 {
                     // Called from a Task.Run(() => ...) by the firehose socket reader
-                    TryProcessRecord(() => 
+                    TryProcessRecord(() =>
                     {
                         OnJetStreamEvent(e);
                         watchdog.Kick();
@@ -481,9 +481,9 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog, accounting) => 
+            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog, accounting) =>
             {
-                protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() => 
+                protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnRepoFirehoseEvent(s, e);
                     watchdog.Kick();
@@ -494,7 +494,7 @@ namespace AppViewLite
         {
             return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), (protocol, watchdog, accounting) =>
             {
-                protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() => 
+                protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnLabelFirehoseEvent(s, e);
                     watchdog.Kick();
@@ -533,7 +533,7 @@ namespace AppViewLite
                 await subscribeKind(firehose);
                 await tcs.Task;
             }, ct);
-           
+
         }
 
         private Watchdog CreateFirehoseWatchdog(TaskCompletionSource tcs)
@@ -608,20 +608,20 @@ namespace AppViewLite
                 {
                     rels.ProfileLabels.Add(rels.SerializeDid(uri.Did!.Handler, ctx), entry);
                 }
-                
+
 
             }, ctx);
         }
 
         public Action<string>? VerifyValidForCurrentRelay;
-        
+
         public async Task<Tid> ImportCarAsync(string did, string carPath, RequestContext ctx, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
             using var stream = File.Open(carPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             return await ImportCarAsync(did, stream, ctx, null, progress, ct).ConfigureAwait(false);
         }
 
-        
+
         public async Task<Tid> ImportCarAsync(string did, Stream stream, RequestContext ctx, DateTime? probableDateOfEarliestRecord, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
 #pragma warning disable CA2000 // Must be disposed by caller
@@ -634,7 +634,7 @@ namespace AppViewLite
             {
                 ct.ThrowIfCancellationRequested();
                 //Console.Error.WriteLine(item.Cid + " = " + Convert.ToHexString(item.Cid.ToArray()));
-                
+
                 importer.OnCarDecoded(new CarProgressStatusEvent(item.Cid, item.Bytes));
                 var estimatedProgress = importer.EstimatedRetrievalProgress;
                 var estimatedTotalSize = stream.Position / estimatedProgress;
@@ -663,7 +663,7 @@ namespace AppViewLite
                 {
                     Apis.DangerousUnlockedRelationships.CarImportSemaphore.Release();
                 }
-                
+
             }
             importer.Log("Done.");
             return importer.LargestSeenRev;
@@ -723,7 +723,7 @@ namespace AppViewLite
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
             var pds = (await at.ResolveATDidHostAsync(new ATDid(did), ct)).HandleResult()!;
             var url = new Uri(new Uri(pds), FishyFlip.Lexicon.Com.Atproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "&since=" + since : null));
-            return await at.Client.GetStreamAsync(url, ct); 
+            return await at.Client.GetStreamAsync(url, ct);
 
         }
 
@@ -782,7 +782,7 @@ namespace AppViewLite
             {
                 return (lastTid, ex);
             }
-            
+
         }
 
 
@@ -886,7 +886,7 @@ namespace AppViewLite
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;
                 }, ctx);
-                
+
 
                 entries.Clear();
             }
@@ -917,7 +917,7 @@ namespace AppViewLite
             while (true)
             {
                 LogInfo("Fetching PLC directory: " + lastRetrievedDidDoc.ToString("o"));
-                using var stream = await  BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync(BlueskyEnrichedApis.PlcDirectoryPrefix + "/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
+                using var stream = await BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync(BlueskyEnrichedApis.PlcDirectoryPrefix + "/export?count=1000&after=" + lastRetrievedDidDoc.ToString("o"));
                 var prevLastRetrievedDidDoc = lastRetrievedDidDoc;
                 var itemsInPage = 0;
                 await foreach (var entry in JsonSerializer.DeserializeAsyncEnumerable<PlcDirectoryEntry>(stream, topLevelValues: true))
@@ -1029,7 +1029,7 @@ namespace AppViewLite
                     proto.CustomDomain = handle;
                 }
             }
-            else if(handles.Count > 1)
+            else if (handles.Count > 1)
             {
                 proto.MultipleHandles = handles.ToArray();
             }
@@ -1060,7 +1060,7 @@ namespace AppViewLite
 
                 BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
                 var received = Interlocked.Increment(ref RecordsReceived);
-                
+
                 if (disposed) return;
 
                 var processed = Interlocked.Read(in RecordsProcessed);
@@ -1069,7 +1069,7 @@ namespace AppViewLite
                 BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries.Set((int)lagBehind);
                 if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
                 {
-                    
+
                     Interlocked.Decrement(ref RecordsReceived);
                     var errorText = "Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind;
                     if (LagBehindErrorDropEvents)

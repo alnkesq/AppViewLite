@@ -14,7 +14,7 @@ namespace AppViewLite.Models
 
         public ProfilesAndContinuation()
             : this([], null)
-        { 
+        {
         }
     }
 }

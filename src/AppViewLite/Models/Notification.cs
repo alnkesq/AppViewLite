@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite.Models
 {
-    [StructLayout( LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct Notification(ApproximateDateTime32 EventDate, Plc Actor, Tid RKey, NotificationKind Kind) : IComparable<Notification>
     {
         // Semantics of RKey are kind-dependant.
@@ -34,7 +34,7 @@ namespace AppViewLite.Models
     }
 
     public enum NotificationKind : byte
-    { 
+    {
         None,
         FollowedYou,
         LikedYourPost,

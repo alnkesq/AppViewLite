@@ -13,13 +13,13 @@ namespace AppViewLite.PluggableProtocols.HackerNews
     {
         public HackerNewsProtocol()
             : base("did:hackernews:")
-        { 
+        {
         }
         public async override Task DiscoverAsync(CancellationToken ct)
         {
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                
+
 
                 OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"));
                 while (true)
@@ -27,14 +27,14 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                     await Task.Delay(TimeSpan.FromMinutes(10), ct);
 
                     // Official API would require polling scores for every individual thread: https://hacker-news.firebaseio.com/v0/newstories.json
-                    
+
                     var ctx = RequestContext.CreateForFirehose("HackerNews");
 
                     var hackerNewsHomeUrl = new Uri("https://news.ycombinator.com/");
                     var dom = StringUtils.ParseHtml(await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(hackerNewsHomeUrl, ct));
 
 
-                    
+
 
                     foreach (var post in dom.QuerySelectorAll(".submission"))
                     {
@@ -49,7 +49,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                         var titleUrl = new Uri(hackerNewsHomeUrl, titleLink!.GetAttribute("href"));
                         var hasExternalLink = threadUrl != titleUrl;
 
-                        char[] whitespace = ['\u00A0',' '];
+                        char[] whitespace = ['\u00A0', ' '];
 
                         var data = new BlueskyPostData
                         {

@@ -10,7 +10,7 @@ using System.Collections.Generic;
 
 namespace AppViewLite.Models
 {
-    [ProtoContract] 
+    [ProtoContract]
     public class DidDocProto
     {
         [ProtoMember(1)] public string? BskySocialUserName;
@@ -24,7 +24,7 @@ namespace AppViewLite.Models
         [DuckDbInclude] public DuckDbUuid PlcAsUInt128;
         [ProtoMember(9)] public string[]? OtherUrls;
         [ProtoMember(10)] public string? AtProtoLabeler;
-        public IEnumerable<string?> AllHandlesAndDomains => [GetDomainFromPds(Pds), Handle, ..MultipleHandles ?? []];
+        public IEnumerable<string?> AllHandlesAndDomains => [GetDomainFromPds(Pds), Handle, .. MultipleHandles ?? []];
 
         public static string? GetDomainFromPds(string? pds)
         {
@@ -84,9 +84,9 @@ namespace AppViewLite.Models
                 else if (BskySocialUserName != null)
                 {
                     format |= DidDocEncoding.HasBskySocialUserName;
-                    
+
                     bw.Write(BlueskyRelationships.CompressBpe(BskySocialUserName)!);
-                    
+
                 }
             }
             var result = ms.ToArray();
@@ -128,7 +128,7 @@ namespace AppViewLite.Models
 
         [Flags]
         enum DidDocEncoding : byte
-        { 
+        {
             None,
             HasBskySocialUserName = 1,
             HasCustomDomain = 2,

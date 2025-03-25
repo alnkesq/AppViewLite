@@ -165,7 +165,7 @@ namespace AppViewLite.Models
 
     [Flags]
     public enum BlockReasonKind
-    { 
+    {
         None = 0,
         BlockedBy = 1,
         Blocks = 2,
@@ -186,7 +186,7 @@ namespace AppViewLite.Models
     }
 
     public enum BlockSubjects
-    { 
+    {
         YouAndAuthor,
         ParentAndAuthor,
         RootAndAuthor,

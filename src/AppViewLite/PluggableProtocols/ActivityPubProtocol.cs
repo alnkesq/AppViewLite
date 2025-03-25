@@ -157,7 +157,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.DisplayName, ref proto.DisplayNameFacets, customEmojis);
 
             OnProfileDiscovered(did, proto, ctx, shouldIndex: shouldIndex);
-            
+
         }
 
         private static CustomFieldProto? ConvertFieldToProto(ActivityPubAccountFieldJson x, Uri baseUrl)
@@ -200,9 +200,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             return new BlueskyMediaData
             {
-                 AltText = x.description,
-                 Cid = MediaUrlsToBytes(x.remote_url, x.preview_url, x.url)!,
-                 IsVideo = x.type == "gifv" || x.type?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
+                AltText = x.description,
+                Cid = MediaUrlsToBytes(x.remote_url, x.preview_url, x.url)!,
+                IsVideo = x.type == "gifv" || x.type?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
             };
         }
 
@@ -242,7 +242,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private static FacetData? ElementToFacet(IElement element, Uri baseUrl)
         {
-            
+
 
             if (TryGetAnchorUrl(element, baseUrl) is { } url)
             {

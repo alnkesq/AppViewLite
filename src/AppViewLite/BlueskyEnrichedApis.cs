@@ -450,15 +450,15 @@ namespace AppViewLite
             EnsureLimit(ref limit, 50);
             var offset = continuation != null ? int.Parse(continuation) : 0;
             var plcs = ctx.UserContext.PrivateProfile!.PrivateFollows!
-                .Skip(offset)
                 .Where(x => (x.Flags & PrivateFollowFlags.PrivateFollow) != default)
                 .OrderByDescending(x => x.DatePrivateFollowed)
-                .Select(x => new Plc(x.Plc))
+                .Skip(offset)
                 .Take(limit + 1)
+                .Select(x => new Plc(x.Plc))
                 .ToArray();
             var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x)).ToArray(), ctx);
             await EnrichAsync(profiles, ctx);
-            return (profiles.Take(limit).ToArray(), profiles.Length == limit ? (offset + limit).ToString() : null);
+            return (profiles.Take(limit).ToArray(), profiles.Length == limit + 1 ? (offset + limit).ToString() : null);
 
         }
 

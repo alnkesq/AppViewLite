@@ -102,11 +102,10 @@ namespace AppViewLite.Models
             if (QuoteeAndAuthorBlockReason != default)
                 return QuoteeAndAuthorBlockReason.ToDisplayStringWithList(BlockSubjects.QuoteeAndAuthor, ctx);
 
-            if (PostBlockReason != PostBlockReasonKind.None)
+            if (
+                PostBlockReason != PostBlockReasonKind.None &&
+                !(isQuotee && (PostBlockReason is PostBlockReasonKind.HiddenReply or PostBlockReasonKind.NotAllowlistedReply)))
             {
-
-                if (isQuotee && !(PostBlockReason is PostBlockReasonKind.HiddenReply or PostBlockReasonKind.NotAllowlistedReply))
-                    return null;
 
                 return PostBlockReason switch
                 {

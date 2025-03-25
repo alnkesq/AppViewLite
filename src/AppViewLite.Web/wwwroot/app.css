@@ -607,14 +607,15 @@ ul {
 
 .profile-indented {
     margin-left: 60px;
+    margin-right: 120px;
 }
 
 .profile-row-description{
     white-space: pre-wrap;
     word-break: break-word;
     overflow-wrap: break-word;
-    margin-right: 100px;
     margin-top: 8px;
+    margin-right: 20px;
 }
 
 .profile-image-small {

@@ -513,7 +513,7 @@ namespace AppViewLite
                         if (IsReadOnly) d.DisposeNoFlush();
                         else d.Dispose();
                     }
-                    CarImportSemaphore?.Dispose();
+                    CarRecordInsertionSemaphore?.Dispose();
                     if (IsReadOnly)
                     {
                         foreach (var d in AllMultidictionaries)
@@ -3736,7 +3736,7 @@ namespace AppViewLite
             return (priorWeight * prior + positive) / (priorWeight + total);
         }
 
-        public SemaphoreSlim CarImportSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_IMPORT_SEMAPHORE_SIZE) ?? 2);
+        public SemaphoreSlim CarRecordInsertionSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_INSERTION_SEMAPHORE_SIZE) ?? 2);
 
         public string CarSpillDirectory => Path.Combine(BaseDirectory, "car-disk-spill");
 

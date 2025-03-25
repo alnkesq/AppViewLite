@@ -653,7 +653,7 @@ namespace AppViewLite
                 if (parts.Length == 2 && Tid.TryParse(parts[1], out var tid))
                     progress?.Invoke(new CarImportProgress(totalSize, totalSize, recordCount, importer.TotalRecords, tid));
 
-                await Apis.DangerousUnlockedRelationships.CarImportSemaphore.WaitAsync(ct);
+                await Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.WaitAsync(ct);
                 try
                 {
 
@@ -661,7 +661,7 @@ namespace AppViewLite
                 }
                 finally
                 {
-                    Apis.DangerousUnlockedRelationships.CarImportSemaphore.Release();
+                    Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.Release();
                 }
 
             }
@@ -745,14 +745,14 @@ namespace AppViewLite
                     {
                         recordCount++;
 
-                        await Apis.DangerousUnlockedRelationships.CarImportSemaphore.WaitAsync(ct);
+                        await Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.WaitAsync(ct);
                         try
                         {
                             OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
                         }
                         finally
                         {
-                            Apis.DangerousUnlockedRelationships.CarImportSemaphore.Release();
+                            Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.Release();
                         }
 
                         if (Tid.TryParse(item.Uri.Rkey, out var tid))

@@ -29,6 +29,9 @@ You can set the following environment variables:
 * `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_DROP_EVENTS`: Drops firehose events instead of terminating the process if the error threshold is reached. Defaults to `0` (fatal exit).
 * `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS`: How often to print lag behind warning messages, at most. Defaults to `500` ms.
 * `APPVIEWLITE_CHECK_NUL_FILES`: On startup, verifies that none of the slice files start or end with long sequences of `NUL` bytes, which could indicate corruption. Defaults to `1`.
+* `APPVIEWLITE_CAR_SPILL_TO_DISK_BYTES`: Once we notice that a CAR download takes more than this amount of bytes, new contents will be temporarily spilled to disk instead of being held in memory. This is necessary because reading a CAR file requires random access to previous parts of the file. Defaults to `8388608` (8MB)
+* `APPVIEWLITE_CAR_INSERTION_SEMAPHORE_SIZE`: How many running CAR imports can perform a database insertion at once. Defaults to `2`.
+* `APPVIEWLITE_EVENT_CHART_HISTORY_DAYS`: How many days of statistics (with 1 second granularity) are preserved, for `/debug/event-charts`. Defaults to `2`.
 
 ## Handle and DID doc resolution
 * `APPVIEWLITE_DNS_SERVER`: DNS server for TXT resolutions. Defaults to `1.1.1.1`

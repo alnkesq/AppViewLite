@@ -1656,12 +1656,29 @@ namespace AppViewLite
                 rssFeedInfo = await AppViewLite.PluggableProtocols.Rss.RssProtocol.Instance!.MaybeRefreshFeedAsync(did, ctx);
             }
             var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad), ctx);
+
+
+            var fetchListsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.ListMetadata, ctx, x => true);
+            var fetchFeedGeneratorsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.FeedGenerators, ctx, x => true);
+            fetchListsTask.GetAwaiter().OnCompleted(() =>
+            {
+                if (fetchListsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
+                    profile.HasLists = true;
+            });
+            fetchFeedGeneratorsTask.GetAwaiter().OnCompleted(() =>
+            {
+                if (fetchFeedGeneratorsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
+                    profile.HasFeeds = true;
+            });
+            var hasListsOrFeedsTask = Task.WhenAny(Task.WhenAll(fetchListsTask, fetchFeedGeneratorsTask), Task.Delay(700));
+
             await EnrichAsync([profile.Profile, .. profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
             if (profile.Profile.BasicData == null)
             {
                 ctx.IncreaseTimeout();
                 await EnrichAsync([profile.Profile], ctx);
             }
+            await hasListsOrFeedsTask;
             profile.RssFeedInfo = rssFeedInfo;
             return profile;
         }

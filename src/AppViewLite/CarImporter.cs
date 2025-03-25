@@ -65,7 +65,7 @@ namespace AppViewLite
         private readonly static int CarSpillToDiskBytes = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_SPILL_TO_DISK_BYTES) ?? (64 * 1024 * 1024);
 
         private long currentImportDecodedBytes;
-        private static long globalDecodedBytes;
+        internal static long GlobalDecodedBytes;
 
         private HashSet<string> internedCollectionNames = new();
         public void OnCarDecoded(CarProgressStatusEvent p)
@@ -85,11 +85,11 @@ namespace AppViewLite
             }
 
             Interlocked.Add(ref currentImportDecodedBytes, p.Bytes.Length);
-            Interlocked.Add(ref globalDecodedBytes, p.Bytes.Length);
+            Interlocked.Add(ref GlobalDecodedBytes, p.Bytes.Length);
 
             if (blockObj["$type"] is not null)
             {
-                if (globalDecodedBytes > CarSpillToDiskBytes)
+                if (GlobalDecodedBytes > CarSpillToDiskBytes)
                 {
                     if (spilledRecords == null)
                     {
@@ -230,7 +230,7 @@ namespace AppViewLite
                 if (decoded == 0) break;
                 if (Interlocked.CompareExchange(ref currentImportDecodedBytes, 0, decoded) == decoded)
                 {
-                    Interlocked.Add(ref globalDecodedBytes, -decoded);
+                    Interlocked.Add(ref GlobalDecodedBytes, -decoded);
                     break;
                 }
             }

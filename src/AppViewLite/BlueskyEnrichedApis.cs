@@ -4284,11 +4284,15 @@ namespace AppViewLite
                 SessionDictionary = this.SessionDictionary.Count,
                 UserContexts = this.UserContexts.Count,
                 CustomEmojiCache = this.CustomEmojiCache.Count,
+                CarImporter_GlobalDecodedBytes = CarImporter.GlobalDecodedBytes,
+                CarDownloadSemaphore = CarDownloadSemaphore.CurrentCount,
                 Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
                 Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
                 UserContext = ctx.IsLoggedIn ? ctx.UserContext.GetCountersThreadSafe() : null,
             };
         }
+
+        public readonly SemaphoreSlim CarDownloadSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_DOWNLOAD_SEMAPHORE) ?? 8);
     }
 }
 

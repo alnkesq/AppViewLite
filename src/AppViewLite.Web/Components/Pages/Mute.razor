@@ -111,7 +111,7 @@
                     }
 
                 </td>
-                <td><input type="submit" value="Remove" onclick="document.getElementById('rule-to-remove-id').value = '@(rule.Id)'; " /></td>
+                <td><input class="mute-form-table-button" type="submit" value="Remove" onclick="document.getElementById('rule-to-remove-id').value = '@(rule.Id)'; " /></td>
             </tr>
         }
         <tr>
@@ -127,7 +127,7 @@
             </td>
             <td class="mute-form-col-button">
                 <InputText class="display-none" id="rule-to-remove-id" @bind-value="Model!.RuleToRemove"></InputText>
-                <input type="submit" name="add" value="Add" id="mute-confirm-add-button" onclick="document.getElementById('rule-to-remove-id').value = ''; ">
+                <input type="submit" name="add" value="Add" class="mute-form-table-button" id="mute-confirm-add-button" onclick="document.getElementById('rule-to-remove-id').value = ''; ">
             </td>
         </tr>
     </table>

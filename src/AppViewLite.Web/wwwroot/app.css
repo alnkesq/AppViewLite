@@ -1896,8 +1896,12 @@ body:has(.debug-table){
     width: 40%
 }
 
-.mute-form input{
+.mute-form-word-input, .mute-form-col-user input{
     width: calc(100% - 20px);
+}
+
+.mute-form-table-button {
+    width: 100%;
 }
 
 .mute-form-make-global-button{

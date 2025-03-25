@@ -3,6 +3,7 @@
 @inject NavigationManager Navigation
 @inject BlueskyEnrichedApis Apis
 @inject RequestContext RequestContext
+@layout AppViewLite.Web.Components.Layout.NoLayout
 
 @code {
     [Parameter] [SupplyParameterFromQuery] public string? Name { get; set; }
@@ -32,7 +33,7 @@
 
 <h2 class="main-padding">Previous files</h2>
 <ul class="main-padding">
-    @foreach (var item in new System.IO.DirectoryInfo(LoggableBase.LogDirectory!).EnumerateFiles("*.log").OrderByDescending(x => x.Name).Take(10).Reverse())
+    @foreach (var item in new System.IO.DirectoryInfo(LoggableBase.LogDirectory!).EnumerateFiles("*.log").OrderByDescending(x => x.Name).Take(10))
     {
         <li><a href="@Navigation.WithQueryParameter("name", item.Name)" class="blue-link">@item.Name</a></li>       
     }

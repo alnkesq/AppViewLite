@@ -349,7 +349,7 @@ function fastNavigateIfLink(event) {
 }
 
 var NO_FETCH_REUSE_PATHS = ['/notifications', '/history', '/debug/event-charts'];
-var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/settings/mute', '/debug/locks', '/debug/requests'];
+var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/settings/mute', '/debug/locks', '/debug/requests', '/debug/log'];
 
 function canFastNavigateTo(url) { 
     if (url.host != window.location.host) return false;

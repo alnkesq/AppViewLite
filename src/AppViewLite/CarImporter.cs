@@ -1,5 +1,4 @@
 using FishyFlip.Lexicon;
-using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Tools;
 using Ipfs;
 using PeterO.Cbor;
@@ -9,24 +8,29 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using DuckDbSharp.Types;
 
 namespace AppViewLite
 {
-    public class CarImporter
+    public class CarImporter : IDisposable
     {
         private readonly string Did;
-        private readonly Dictionary<DuckDbUuid, ATObject> recordsByCid = new();
+        private readonly Dictionary<DuckDbUuid, RecordLocation> recordsByCid = new();
         private readonly List<(string Collection, string RKey, DuckDbUuid CidHash)> pathToCid = new();
         private readonly string logPrefix;
 
-        public CarImporter(string did, DateTime probableDateOfEarliestRecord)
+        private FileStream? spilledRecords;
+        private readonly string diskSpillDirectory;
+
+        private record struct RecordLocation(ATObject? InMemory, long SpilledStart, int SpilledLength);
+
+        public CarImporter(string did, DateTime probableDateOfEarliestRecord, string diskSpillDirectory)
         {
             if (!did.StartsWith("did:", StringComparison.Ordinal)) throw new ArgumentException();
             Did = did;
             logPrefix = "ImportCar: " + did + ": ";
             ProbableDateOfEarliestRecord = probableDateOfEarliestRecord;
+            this.diskSpillDirectory = diskSpillDirectory;
         }
 
         public void Log(string v)
@@ -56,6 +60,10 @@ namespace AppViewLite
             }
         }
 
+
+        private readonly static int CarSpillToDiskBytes = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_SPILL_TO_DISK_BYTES) ?? (8 * 1024 * 1024);
+
+        private long decodedCarBytes;
         public void OnCarDecoded(CarProgressStatusEvent p)
         {
 
@@ -71,18 +79,35 @@ namespace AppViewLite
                 Log("Unable to deserialize CBOR: " + ex.Message);
                 return;
             }
+
+
+            decodedCarBytes += p.Bytes.Length;
+
             if (blockObj["$type"] is not null)
             {
-                //Console.Error.WriteLine("Record: " + blockObj["$type"] + " cid: " + p.Cid);
-                try
+                if (decodedCarBytes > CarSpillToDiskBytes)
                 {
-                    recordsByCid[CidToUuid(p.Cid)] = blockObj.ToATObject();
-
+                    if (spilledRecords == null)
+                    {
+                        Directory.CreateDirectory(diskSpillDirectory);
+                        spilledRecords = new FileStream(Path.Combine(diskSpillDirectory, Guid.NewGuid() + ".tmp"), FileMode.Create, FileAccess.ReadWrite, FileShare.Delete, 4096, FileOptions.DeleteOnClose);
+                    }
+                    recordsByCid[CidToUuid(p.Cid)] = new RecordLocation(null, spilledRecords.Position, p.Bytes.Length);
+                    spilledRecords.Write(p.Bytes);
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log(blockObj["$type"] + " " + ex.Message);
-                    return;
+                    //Console.Error.WriteLine("Record: " + blockObj["$type"] + " cid: " + p.Cid);
+                    try
+                    {
+                        recordsByCid[CidToUuid(p.Cid)] = new RecordLocation(blockObj.ToATObject(), default, default);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(blockObj["$type"] + " " + ex.Message);
+                        return;
+                    }
                 }
             }
             else if (blockObj["sig"] is not null)
@@ -157,13 +182,38 @@ namespace AppViewLite
         {
             foreach (var item in pathToCid.DistinctBy(x => (x.CidHash, x.RKey, x.Collection)).OrderBy(x => x.RKey))
             {
-                if (!recordsByCid.TryGetValue(item.CidHash, out var record)) continue;
+                if (!recordsByCid.TryGetValue(item.CidHash, out var recordLocation)) continue;
 
-                yield return (Did, item.Collection + "/" + item.RKey, record);
+                var record = TryReadRecord(recordLocation);
+                if (record != null)
+                    yield return (Did, item.Collection + "/" + item.RKey, record);
             };
         }
 
+        private ATObject? TryReadRecord(RecordLocation recordLocation)
+        {
+            if (recordLocation.InMemory != null) return recordLocation.InMemory;
+            var bytes = new byte[recordLocation.SpilledLength];
+            spilledRecords!.Seek(recordLocation.SpilledStart, SeekOrigin.Begin);
+            spilledRecords.ReadExactly(bytes);
+            var cbor = CBORObject.DecodeFromBytes(bytes); // This succeeded during OnCarDecoded
+            try
+            {
+                return cbor.ToATObject();
+            }
+            catch (Exception ex)
+            {
+                Log(cbor["$type"] + " " + ex.Message);
+                return null;
+            }
+        }
+
         private static DuckDbUuid CidToUuid(Cid cid) => StringUtils.HashToUuid(cid.ToArray());
+
+        public void Dispose()
+        {
+            spilledRecords?.Dispose();
+        }
     }
     public record struct CarImportProgress(long DownloadedBytes, long EstimatedTotalBytes, long InsertedRecords, long TotalRecords, Tid LastRecordRkey);
 }

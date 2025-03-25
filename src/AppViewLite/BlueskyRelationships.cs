@@ -3738,6 +3738,8 @@ namespace AppViewLite
 
         public SemaphoreSlim CarImportSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_IMPORT_SEMAPHORE_SIZE) ?? 2);
 
+        public string CarSpillDirectory => Path.Combine(BaseDirectory, "car-disk-spill");
+
     }
 
 

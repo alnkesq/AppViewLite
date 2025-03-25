@@ -627,7 +627,7 @@ namespace AppViewLite
 #pragma warning disable CA2000 // Must be disposed by caller
             if (!stream.CanSeek) stream = new PositionAwareStream(stream);
 #pragma warning restore CA2000
-            var importer = new CarImporter(did, probableDateOfEarliestRecord ?? await GetProbableDateOfEarliestRecordAsync(did, ctx));
+            using var importer = new CarImporter(did, probableDateOfEarliestRecord ?? await GetProbableDateOfEarliestRecordAsync(did, ctx), relationshipsUnlocked.CarSpillDirectory);
             importer.Log("Reading stream");
 
             await foreach (var item in CarDecoder.DecodeCarAsync(stream).ConfigureAwait(false))
@@ -711,7 +711,7 @@ namespace AppViewLite
         public async Task<Tid> ImportCarAsync(string did, Tid since, RequestContext ctx, Action<CarImportProgress>? progress = null, CancellationToken ct = default)
         {
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx).ConfigureAwait(false);
-            var importer = new CarImporter(did, since == default ? await GetProbableDateOfEarliestRecordAsync(did, ctx) : since.Date);
+            using var importer = new CarImporter(did, since == default ? await GetProbableDateOfEarliestRecordAsync(did, ctx) : since.Date, relationshipsUnlocked.CarSpillDirectory);
             using var stream = await GetCarStreamAsync(did, ctx, since, ct).ConfigureAwait(false);
             var tid = await ImportCarAsync(did, stream, ctx, since != default ? since.Date : null, progress, ct).ConfigureAwait(false);
             return tid != default ? tid : since;

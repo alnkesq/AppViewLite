@@ -1657,28 +1657,31 @@ namespace AppViewLite
             }
             var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad), ctx);
 
-
-            var fetchListsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.ListMetadata, ctx, x => true);
-            var fetchFeedGeneratorsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.FeedGenerators, ctx, x => true);
-            fetchListsTask.GetAwaiter().OnCompleted(() =>
+            Task? hasListsOrFeedsTask = null;
+            if (profile.Profile.PluggableProtocol == null)
             {
-                if (fetchListsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
-                    profile.HasLists = true;
-            });
-            fetchFeedGeneratorsTask.GetAwaiter().OnCompleted(() =>
-            {
-                if (fetchFeedGeneratorsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
-                    profile.HasFeeds = true;
-            });
-            var hasListsOrFeedsTask = Task.WhenAny(Task.WhenAll(fetchListsTask, fetchFeedGeneratorsTask), Task.Delay(700));
-
+                var fetchListsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.ListMetadata, ctx, x => true);
+                var fetchFeedGeneratorsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.FeedGenerators, ctx, x => true);
+                fetchListsTask.GetAwaiter().OnCompleted(() =>
+                {
+                    if (fetchListsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
+                        profile.HasLists = true;
+                });
+                fetchFeedGeneratorsTask.GetAwaiter().OnCompleted(() =>
+                {
+                    if (fetchFeedGeneratorsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
+                        profile.HasFeeds = true;
+                });
+                hasListsOrFeedsTask = Task.WhenAny(Task.WhenAll(fetchListsTask, fetchFeedGeneratorsTask), Task.Delay(700));
+            }
             await EnrichAsync([profile.Profile, .. profile.FollowedByPeopleYouFollow?.Take(followersYouFollowToLoad) ?? []], ctx);
             if (profile.Profile.BasicData == null)
             {
                 ctx.IncreaseTimeout();
                 await EnrichAsync([profile.Profile], ctx);
             }
-            await hasListsOrFeedsTask;
+            if (hasListsOrFeedsTask != null)
+                await hasListsOrFeedsTask;
             profile.RssFeedInfo = rssFeedInfo;
             return profile;
         }

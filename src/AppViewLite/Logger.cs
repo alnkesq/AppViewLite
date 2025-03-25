@@ -10,13 +10,19 @@ namespace AppViewLite
     public abstract class LoggableBase
     {
         public static StreamWriter? LogFile;
-
+        public static string? LogDirectory;
         public static void Initialize()
         {
             if (LogFile != null) return;
-            var directory = Path.Combine(AppViewLiteConfiguration.GetDataDirectory(), "logs");
-            Directory.CreateDirectory(directory);
-            LogFile = new StreamWriter(Path.Combine(directory, DateTime.UtcNow.ToString("yyyy-MM-dd-HH-mm-ss") + ".log"), true);
+            LogDirectory = Path.Combine(AppViewLiteConfiguration.GetDataDirectory(), "logs");
+            Directory.CreateDirectory(LogDirectory);
+            
+            LogFile = new StreamWriter(Path.Combine(LogDirectory, DateTime.UtcNow.ToString("yyyy-MM-dd-HH-mm-ss") + ".log"), new FileStreamOptions
+            {
+                Mode = FileMode.Append,
+                Access = FileAccess.Write,
+                Share = FileShare.Read | FileShare.Delete,
+            });
             LogFile.AutoFlush = true;
         }
 

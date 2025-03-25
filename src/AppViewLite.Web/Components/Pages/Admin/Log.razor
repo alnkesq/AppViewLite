@@ -1,0 +1,41 @@
+@page "/debug/log"
+@using System.Text.RegularExpressions
+@inject NavigationManager Navigation
+@inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
+
+@code {
+    [Parameter] [SupplyParameterFromQuery] public string? Name { get; set; }
+    protected override void OnParametersSet()
+    {
+        RequestContext.EnsureAdministrator();
+        Name ??= Path.GetFileName(((FileStream)LoggableBase.LogFile!.BaseStream).Name);
+        LoggableBase.FlushLog();
+        if (!Regex.IsMatch(Name, @"^[\w\-_]+\.log$")) throw new ArgumentException();
+    }
+}
+
+<PageTitle>@Name</PageTitle>
+<h1>@Name</h1>
+
+
+<pre style="white-space: pre-wrap">
+    @{
+        string? text;
+        using var fs = new FileStream(Path.Combine(LoggableBase.LogDirectory!, Name!), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(fs);
+        text = reader.ReadToEnd(); 
+
+    }
+    @text
+</pre>
+
+<h2 class="main-padding">Previous files</h2>
+<ul class="main-padding">
+    @foreach (var item in new System.IO.DirectoryInfo(LoggableBase.LogDirectory!).EnumerateFiles("*.log").OrderByDescending(x => x.Name).Take(10).Reverse())
+    {
+        <li><a href="@Navigation.WithQueryParameter("name", item.Name)" class="blue-link">@item.Name</a></li>       
+    }
+</ul>
+
+

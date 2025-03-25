@@ -10,22 +10,21 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DuckDbSharp.Types;
 
 namespace AppViewLite
 {
     public class CarImporter
     {
         private readonly string Did;
-        private readonly Dictionary<Cid, ATObject> recordsByCid;
-        private readonly List<(string Collection, string RKey, Cid Cid)> pathToCid;
+        private readonly Dictionary<DuckDbUuid, ATObject> recordsByCid = new();
+        private readonly List<(string Collection, string RKey, DuckDbUuid CidHash)> pathToCid = new();
         private readonly string logPrefix;
 
         public CarImporter(string did, DateTime probableDateOfEarliestRecord)
         {
             if (!did.StartsWith("did:", StringComparison.Ordinal)) throw new ArgumentException();
             Did = did;
-            recordsByCid = new Dictionary<Cid, ATObject>();
-            pathToCid = new List<(string Collection, string RKey, Cid Cid)>();
             logPrefix = "ImportCar: " + did + ": ";
             ProbableDateOfEarliestRecord = probableDateOfEarliestRecord;
         }
@@ -77,7 +76,7 @@ namespace AppViewLite
                 //Console.Error.WriteLine("Record: " + blockObj["$type"] + " cid: " + p.Cid);
                 try
                 {
-                    recordsByCid[p.Cid] = blockObj.ToATObject();
+                    recordsByCid[CidToUuid(p.Cid)] = blockObj.ToATObject();
 
                 }
                 catch (Exception ex)
@@ -143,7 +142,7 @@ namespace AppViewLite
 
 
                     }
-                    pathToCid.Add((collection, rkey, valCid));
+                    pathToCid.Add((collection, rkey, CidToUuid(valCid)));
                 }
 
             }
@@ -156,14 +155,15 @@ namespace AppViewLite
 
         public IEnumerable<(string Did, string Path, ATObject Record)> EnumerateRecords()
         {
-            foreach (var item in pathToCid.DistinctBy(x => (x.Cid, x.RKey, x.Collection)).OrderBy(x => x.RKey))
+            foreach (var item in pathToCid.DistinctBy(x => (x.CidHash, x.RKey, x.Collection)).OrderBy(x => x.RKey))
             {
-                if (!recordsByCid.TryGetValue(item.Cid, out var record)) continue;
+                if (!recordsByCid.TryGetValue(item.CidHash, out var record)) continue;
 
                 yield return (Did, item.Collection + "/" + item.RKey, record);
             };
         }
 
+        private static DuckDbUuid CidToUuid(Cid cid) => StringUtils.HashToUuid(cid.ToArray());
     }
     public record struct CarImportProgress(long DownloadedBytes, long EstimatedTotalBytes, long InsertedRecords, long TotalRecords, Tid LastRecordRkey);
 }

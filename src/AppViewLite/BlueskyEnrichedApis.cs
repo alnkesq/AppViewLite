@@ -2933,13 +2933,13 @@ namespace AppViewLite
             return (list, members, hasMore ? new ListEntry(members[^1].Plc, members[^1].RelationshipRKey!.Value).Serialize() : null);
 #else
 
-            var response = await ListRecordsAsync(did, Listitem.RecordType, limit: limit + 1, cursor: continuation, ctx);
+            var response = await ListRecordsAsync(did, Listitem.RecordType, limit, cursor: continuation, ctx);
             var members = WithRelationshipsUpgradableLock(rels =>
             {
                 return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler, ctx))).ToArray();
             }, ctx);
             await EnrichAsync(members, ctx);
-            return (list, members, response.Records.Count > limit ? response!.Cursor : null);
+            return (list, members, response.Cursor);
 
 #endif
         }

@@ -710,8 +710,6 @@ namespace AppViewLite
 
         public async Task<Tid> ImportCarAsync(string did, Tid since, RequestContext ctx, Action<CarImportProgress>? progress = null, CancellationToken ct = default)
         {
-            using var at = await Apis.CreateProtocolForDidAsync(did, ctx).ConfigureAwait(false);
-            using var importer = new CarImporter(did, since == default ? await GetProbableDateOfEarliestRecordAsync(did, ctx) : since.Date, relationshipsUnlocked.CarSpillDirectory);
             using var stream = await GetCarStreamAsync(did, ctx, since, ct).ConfigureAwait(false);
             var tid = await ImportCarAsync(did, stream, ctx, since != default ? since.Date : null, progress, ct).ConfigureAwait(false);
             return tid != default ? tid : since;

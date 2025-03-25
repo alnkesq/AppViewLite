@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Web;
 using AppViewLite.PluggableProtocols;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace AppViewLite.Web
 {
@@ -13,7 +14,7 @@ namespace AppViewLite.Web
     {
         private static BlueskyRelationships Relationships = null!;
 
-        
+
         public static bool ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
 
         public static BlueskyEnrichedApis Apis => BlueskyEnrichedApis.Instance;
@@ -26,7 +27,7 @@ namespace AppViewLite.Web
             Relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(Relationships);
             var apis = new BlueskyEnrichedApis(primarySecondaryPair);
-            
+
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));
@@ -40,6 +41,11 @@ namespace AppViewLite.Web
             builder.Logging.AddProvider(new LogWrapper.Provider());
             builder.Services.AddRazorComponents();
             builder.Services.AddRazorPages();
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
             builder.Services.AddSingleton<BlueskyEnrichedApis>(_ => apis);
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
@@ -67,7 +73,7 @@ namespace AppViewLite.Web
                 if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateForRequest(); }
                 var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
-                
+
                 var ctx = RequestContext.CreateForRequest(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
                 return ctx;
             });
@@ -101,6 +107,7 @@ namespace AppViewLite.Web
             else
             {
                 app.UseExceptionHandler("/Error");
+                app.UseForwardedHeaders();
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
@@ -110,9 +117,9 @@ namespace AppViewLite.Web
             app.UseStatusCodePagesWithReExecute("/ErrorHttpStatus", "?code={0}");
             app.UseAntiforgery();
 
-            
+
             app.MapStaticAssets();
-            app.Use(async (ctx, req) => 
+            app.Use(async (ctx, req) =>
             {
 
                 var reqCtx = ctx.RequestServices.GetRequiredService<RequestContext>();
@@ -137,7 +144,7 @@ namespace AppViewLite.Web
                         }
                     }
 
-                    
+
                 }
 
                 var path = ctx.Request.Path.Value?.ToString();
@@ -236,7 +243,7 @@ namespace AppViewLite.Web
 
                 }
 
-                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES) ?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])  
+                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES) ?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])
                     .Select(x => x.Split('/'))
                     .Select(x => (Endpoint: "https://" + x[0], Did: x[1]))
                     .ToArray();
@@ -273,7 +280,7 @@ namespace AppViewLite.Web
                     {
                         await indexer.InitializePlcDirectoryFromBundleAsync(bundle);
                     }
-                    await PluggableProtocol.RetryInfiniteLoopAsync(async ct => 
+                    await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
                     {
                         while (true)
                         {
@@ -283,13 +290,13 @@ namespace AppViewLite.Web
                         }
                     }, default, TimeSpan.FromMinutes(5));
                 }).FireAndForget();
-                
+
             }
 
             AppViewLiteHubContext = app.Services.GetRequiredService<IHubContext<AppViewLiteHub>>();
             RequestContext.SendSignalrImpl = (signalrSessionId, method, args) => AppViewLiteHubContext.Clients.Client(signalrSessionId).SendCoreAsync(method, args);
             app.Run();
-            
+
         }
 
 
@@ -301,7 +308,7 @@ namespace AppViewLite.Web
         {
             return Apis.TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
         }
-       
+
         public static string? TryGetSessionCookie(HttpContext? httpContext)
         {
             return httpContext != null && httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
@@ -353,7 +360,7 @@ namespace AppViewLite.Web
         internal static Task<string> RenderComponentAsync<T>(Dictionary<string, object?> parameters) where T : ComponentBase
         {
             return RenderComponentAsync<T>(ParameterView.FromDictionary(parameters));
-        
+
         }
         internal static async Task<string> RenderComponentAsync<T>(ParameterView parameters) where T: ComponentBase
         {
@@ -387,4 +394,3 @@ namespace AppViewLite.Web
 
     }
 }
-

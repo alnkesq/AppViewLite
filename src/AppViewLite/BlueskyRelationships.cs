@@ -400,7 +400,7 @@ namespace AppViewLite
                 var potentiallyCorrupt = AllMultidictionaries.SelectMany(x => x.GetPotentiallyCorruptFiles()).ToArray();
                 if (potentiallyCorrupt.Length != 0)
                 {
-                    Log("The following slices begin or end with many NUL bytes and are probably corrupt. This can happen after an abrupt system power-off. Consider manually reverting to a previous checkpoint file.");
+                    Log("The following slices begin or end with many NUL bytes and are possibly corrupt. This can happen after an abrupt system power-off. Consider manually reverting to a previous checkpoint file.");
                     foreach (var item in potentiallyCorrupt)
                     {
                         Log(item);

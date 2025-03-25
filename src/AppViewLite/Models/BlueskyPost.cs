@@ -116,7 +116,7 @@ namespace AppViewLite.Models
                     PostBlockReasonKind.DisabledQuotesOnQuoter => "The quoted user requested not to be quoted.",
 
                     PostBlockReasonKind.HiddenReply => "This reply was hidden by the thread author.",
-                    PostBlockReasonKind.NotAllowlistedReply => "The thread author turned off replies.",
+                    PostBlockReasonKind.NotAllowlistedReply => "The thread author limited who can reply.",
                     _ => throw new NotSupportedException(),
                 };
             }

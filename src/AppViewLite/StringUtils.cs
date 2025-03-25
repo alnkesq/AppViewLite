@@ -474,6 +474,13 @@ namespace AppViewLite
                 if (sb.Length != 0 && sb[sb.Length - 1] != '\n')
                     AppendChar('\n');
             }
+            void AppendNewLineIfNecessaryAllowEmptyLine()
+            {
+                if (sb.Length == 0) return;
+                if (sb.Length >= 2 && sb[sb.Length - 2] == '\n' && sb[sb.Length - 1] == '\n')
+                    return;
+                AppendChar('\n');
+            }
 
 
             void Recurse(INode node, bool pre)
@@ -541,7 +548,7 @@ namespace AppViewLite
 
 
                     if (isBlockElement) AppendNewLineIfNecessary();
-                    if (tagName is "BR") AppendText("\n");
+                    if (tagName is "BR") AppendNewLineIfNecessaryAllowEmptyLine();
 
                 }
             }

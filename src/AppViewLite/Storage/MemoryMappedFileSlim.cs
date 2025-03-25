@@ -79,43 +79,41 @@ namespace AppViewLite.Storage
             var access = writable ? MemoryMappedFileAccess.ReadWrite : MemoryMappedFileAccess.Read;
 
             SafeFileHandle safeFileHandle;
-            if (false)
-            {
 
-                safeFileHandle = File.OpenHandle(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare, randomAccess ? FileOptions.RandomAccess : FileOptions.None);
+            if (OperatingSystem.IsWindows())
+            {
+                safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, IntPtr.Zero);
+                if (safeFileHandle.IsInvalid)
+                {
+                    if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
+                    throw new Win32Exception();
+                }
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                var fd = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
+                if (fd < 0)
+                {
+                    if (Marshal.GetLastSystemError() == 2) throw new FileNotFoundException("File not found: " + path, path);
+                    throw new Win32Exception();
+                }
+
+                safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
+                var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
+                if (errno != 0)
+                {
+                    safeFileHandle.Dispose();
+                    throw new Win32Exception(errno);
+                }
+
+
             }
             else
             {
-                if (OperatingSystem.IsWindows())
-                {
-                    safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, IntPtr.Zero);
-                    if (safeFileHandle.IsInvalid)
-                    {
-                        if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
-                        throw new Win32Exception();
-                    }
-                }
-                else
-                {
-                    var fd = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
-                    if (fd < 0)
-                    {
-                        if (Marshal.GetLastSystemError() == 2) throw new FileNotFoundException("File not found: " + path, path);
-                        throw new Win32Exception();
-                    }
-
-                    safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
-                    var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
-                    if (errno != 0)
-                    {
-                        safeFileHandle.Dispose();
-                        throw new Win32Exception(errno);
-                    }
-
-
-                }
-                
+                safeFileHandle = File.OpenHandle(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare, randomAccess ? FileOptions.RandomAccess : FileOptions.None);
             }
+
+
             var fileStream = new FileStream(safeFileHandle, FileAccess.Read, 4096, false);
             _length = fileStream.Length;
             if (_length != 0)

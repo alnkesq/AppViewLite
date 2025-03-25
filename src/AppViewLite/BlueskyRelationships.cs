@@ -570,7 +570,7 @@ namespace AppViewLite
                         }).ToArray();
                     }
                 }
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                if (OperatingSystem.IsLinux())
                 {
                     var handle = lockFile!.SafeFileHandle.DangerousGetHandle();
                     // First we flush all file data to physical disk, then we save the .pb checkpoint

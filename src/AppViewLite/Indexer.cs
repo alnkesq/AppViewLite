@@ -103,12 +103,12 @@ namespace AppViewLite
                     var rel = new Relationship(commitPlc, rkeyAsTid);
                     if (collection == Like.RecordType)
                     {
-                        var target = relationships.Likes.Delete(rel, deletionDate, (PostIdTimeFirst?)(preresolved.postLikeOrRepostTarget != default ? preresolved.postLikeOrRepostTarget : null));
+                        var target = relationships.Likes.Delete(rel, deletionDate, preresolved.postLikeOrRepostTarget);
                         if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
                     }
                     else if (collection == Follow.RecordType)
                     {
-                        relationships.Follows.Delete(rel, deletionDate, preresolved.followTarget != default ? preresolved.followTarget : null);
+                        relationships.Follows.Delete(rel, deletionDate, preresolved.followTarget);
                     }
                     else if (collection == Block.RecordType)
                     {
@@ -116,7 +116,7 @@ namespace AppViewLite
                     }
                     else if (collection == Repost.RecordType)
                     {
-                        var target = relationships.Reposts.Delete(rel, deletionDate, preresolved.postLikeOrRepostTarget != default ? preresolved.postLikeOrRepostTarget : null);
+                        var target = relationships.Reposts.Delete(rel, deletionDate, preresolved.postLikeOrRepostTarget);
                         if (target != null) relationships.NotifyPostStatsChange(target.Value, commitPlc);
                     }
                     else if (collection == Post.RecordType)

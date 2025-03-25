@@ -885,7 +885,6 @@ namespace AppViewLite
                 var rootPost = this.GetPostId(root, ctx);
                 proto.RootPostPlc = rootPost.Author.PlcValue;
                 proto.RootPostRKey = rootPost.PostRKey.TidValue;
-                AddNotification(rootPost.Author, NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
             }
             if (p.Reply?.Parent is { } parent)
             {
@@ -893,7 +892,13 @@ namespace AppViewLite
                 proto.InReplyToPlc = inReplyTo.Author.PlcValue;
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
                 this.DirectReplies.Add(inReplyTo, postId);
+
                 AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx, postId.PostRKey.Date);
+          
+                // Should the thread owner be notified of replies to replies to their post? Probably not.
+                // if (inReplyTo.Author != proto.RootPostId.Author)
+                //     AddNotification(proto.RootPostId.Author, NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
+
             }
 
 

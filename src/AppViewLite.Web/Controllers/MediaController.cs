@@ -238,13 +238,26 @@ namespace AppViewLite.Web.Controllers
             {
                 using (image)
                 {
-                    await image.SaveAsWebpAsync(cacheStream, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
+                    var webpEncoder = new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
                     {
                         Quality =
-                        image!.Width <= 16 ? 98 :
-                        image.Width <= 32 ? 90 :
-                        70
-                    }, cancellationToken: ct);
+                            image!.Width <= 16 ? 98 :
+                            image.Width <= 32 ? 90 :
+                            70
+                    };
+
+                    if (cacheStream.CanSeek)
+                    {
+                        await image.SaveAsWebpAsync(cacheStream, webpEncoder, ct);
+                    }
+                    else
+                    {
+                        // SaveAsWebp seems to truncate the image when saving to a non seekable stream.
+                        using var ms = new MemoryStream();
+                        image.SaveAsWebp(ms, webpEncoder);
+                        ms.Seek(0, SeekOrigin.Begin);
+                        await ms.CopyToAsync(cacheStream, ct);
+                    }
                 }
             }
         }

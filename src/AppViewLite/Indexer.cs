@@ -707,11 +707,11 @@ namespace AppViewLite
             }
         }
 
-        private readonly static SemaphoreSlim CarDownloadSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_DOWNLOAD_SEMAPHORE) ?? 8);
+        
 
         public async Task<Tid> ImportCarAsync(string did, Tid since, RequestContext ctx, Action<CarImportProgress>? progress = null, CancellationToken ct = default)
         {
-            await CarDownloadSemaphore.WaitAsync(ct);
+            await Apis.CarDownloadSemaphore.WaitAsync(ct);
             try
             {
                 using var stream = await GetCarStreamAsync(did, ctx, since, ct).ConfigureAwait(false);
@@ -720,7 +720,7 @@ namespace AppViewLite
             }
             finally
             {
-                CarDownloadSemaphore.Release();
+                Apis.CarDownloadSemaphore.Release();
             }
             
         }

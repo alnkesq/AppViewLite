@@ -90,17 +90,26 @@ namespace AppViewLite.Storage
         {
             Abort(new Exception(message));
         }
+
+        public static Action<string>? LogCallback;
+        public static void Log(string text)
+        {
+            if (LogCallback != null) LogCallback(text);
+            else Console.Error.WriteLine(text);
+        }
+
         [DoesNotReturn]
         public static void Abort(Exception? ex)
         {
-            Console.Error.WriteLine("Unexpected condition occurred. Aborting.");
+            Log("Unexpected condition occurred. Aborting.");
             while (ex != null)
             {
-                Console.Error.WriteLine(ex.Message);
-                Console.Error.WriteLine(ex.StackTrace);
+                Log(ex.Message);
+                if (ex.StackTrace != null)
+                    Log(ex.StackTrace);
                 ex = ex.InnerException;
             }
-            Environment.FailFast("Unexpected condition occurred. Aborting.");
+            Log("Unexpected condition occurred. Aborting.");
             throw ex;
         }
 
@@ -226,16 +235,16 @@ namespace AppViewLite.Storage
                     var cachePath = cache.GetCachePathForSlice(slice);
                     if (!cache.IsAlreadyMaterialized(cachePath))
                     {
-                        Console.Error.WriteLine("Materializing cache: " + cachePath);
+                        Log("Materializing cache: " + cachePath);
                         cache.MaterializeCacheFile(slice, cachePath);
                     }
 
-                    Console.Error.WriteLine("Reading cache: " + cachePath);
+                    Log("Reading cache: " + cachePath);
                     cache.LoadCacheFile(slice, cachePath, sliceIndex);
                 }
                 else
                 {
-                    Console.Error.WriteLine("Reading into cache (omit cache materialization): " + slice.Reader.PathPrefix + " [" + cache.Identifier + "]");
+                    Log("Reading into cache (omit cache materialization): " + slice.Reader.PathPrefix + " [" + cache.Identifier + "]");
                     cache.LoadFromOriginalSlice(slice);
                 }
             }
@@ -255,7 +264,7 @@ namespace AppViewLite.Storage
             catch (FileNotFoundException) when (!mandatory)
             {
                 var fullPath = Path.Combine(directory, sliceName.BaseName);
-                Console.Error.WriteLine("Partial slice: " + fullPath);
+                Log("Partial slice: " + fullPath);
                 File.Move(fullPath, fullPath + ".orphan-slice");
                 return default;
             }
@@ -372,7 +381,7 @@ namespace AppViewLite.Storage
                 queue.Clear();
                 LastFlushed = DateTime.UtcNow;
                 slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
-                Console.Error.WriteLine($"[{Path.GetFileName(DirectoryPath)}] Wrote {ToHumanBytes(size)}");
+                Log($"[{Path.GetFileName(DirectoryPath)}] Wrote {ToHumanBytes(size)}");
 
                 if (!disposing)
                     NotifyCachesSliceAdded(slices.Count - 1);
@@ -500,7 +509,7 @@ namespace AppViewLite.Storage
                     // Here we are again inside the lock.
                     var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
                     CompactationWriteBytes += size;
-                    Console.Error.WriteLine("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
+                    Log("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     foreach (var input in inputs)
                     {
@@ -1170,7 +1179,7 @@ namespace AppViewLite.Storage
                     if (!lastSliceIsEmpty)
                         this.queue.CreateVirtualSlice(); // nobody else is writing to primary.
 
-                    //Console.Error.WriteLine("Queue copied incrementally.");
+                    //Log("Queue copied incrementally.");
                 }
 
 
@@ -1179,7 +1188,7 @@ namespace AppViewLite.Storage
             if (copy.queue == null)
             {
                 copy.queue = this.queue.CloneAndMaybeCreateNewVirtualSlice();
-                //Console.Error.WriteLine("Queued copied from scratch.");
+                //Log("Queued copied from scratch.");
             }
             copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
             copy.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
@@ -1268,7 +1277,7 @@ namespace AppViewLite.Storage
 
                 var pruningContext = getPruningContext();
 
-                Console.Error.WriteLine("  Pruning: " + slice.Reader.PathPrefix + ".col*.dat (" + ToHumanBytes(slice.SizeInBytes) + ")");
+                Log("  Pruning: " + slice.Reader.PathPrefix + ".col*.dat (" + ToHumanBytes(slice.SizeInBytes) + ")");
                 var basePath = this.DirectoryPath + "/" + slice.StartTime.Ticks + "-" + slice.EndTime.Ticks + "-";
 
                 var preservePruneId = pruneId++; // preservePruneId is EVEN
@@ -1321,7 +1330,7 @@ namespace AppViewLite.Storage
 
                 if (prunedWriter.KeyCount == 0)
                 {
-                    Console.Error.WriteLine("    Nothing was pruned.");
+                    Log("    Nothing was pruned.");
                     prunedWriter.Dispose();
                     preservedWriter.Dispose();
                     continue;
@@ -1336,12 +1345,12 @@ namespace AppViewLite.Storage
                 if (preservedWriter.KeyCount != 0)
                 {
                     var preservedBytes = preservedWriter.CommitAndGetSize();
-                    Console.Error.WriteLine($"    Pruned: {ToHumanBytes(slice.SizeInBytes)} -> {ToHumanBytes(prunedBytes)} (old) + {ToHumanBytes(preservedBytes)} (preserve)");
+                    Log($"    Pruned: {ToHumanBytes(slice.SizeInBytes)} -> {ToHumanBytes(prunedBytes)} (old) + {ToHumanBytes(preservedBytes)} (preserve)");
                     slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior))));
                 }
                 else
                 {
-                    Console.Error.WriteLine($"    Everything was pruned ({ToHumanBytes(slice.SizeInBytes)})");
+                    Log($"    Everything was pruned ({ToHumanBytes(slice.SizeInBytes)})");
                     preservedWriter.Dispose();
                     sliceIdx--;
                 }

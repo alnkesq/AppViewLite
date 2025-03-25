@@ -50,16 +50,8 @@ namespace AppViewLite
             this.relationshipCache = relationshipCache;
             this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null);
             this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
-            using var deletionCountsLegacy = CreateMultiDictionary<TTarget, int>("-deletion-counts", PersistentDictionaryBehavior.SortedValues);
 
             this.deletionCounts = CreateMultiDictionary<TTarget, int>("-deletion-counts-2", PersistentDictionaryBehavior.SingleValue);
-            if (deletionCounts.GroupCount == 0)
-            {
-                foreach (var chunk in deletionCountsLegacy.EnumerateUnsortedGrouped())
-                {
-                    deletionCounts.Add(chunk.Key, chunk.Values[chunk.Values.Count - 1]);
-                }
-            }
 
             SetUpEventHandlers(creations);
             SetUpEventHandlers(deletions);

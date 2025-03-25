@@ -743,6 +743,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                 tumblrBlogId = segments[0];
                 postId = long.Parse(segments[1]);
             }
+            if (postId == 0)
+            {
+                // Happens for deleted blogs? /post/000
+                postId = suggestedTid.TidValue;
+            }
             return new(tumblrBlogId, postId, suggestedTid);
         }
 

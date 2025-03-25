@@ -69,15 +69,15 @@ namespace AppViewLite
                 {
                     if (collection == Like.RecordType)
                     {
-                        postLikeOrRepostTarget = rels.Likes.GetTarget(new Relationship(commitPlc, rkeyAsTid));
+                        postLikeOrRepostTarget = rels.Likes.TryGetTarget(new Relationship(commitPlc, rkeyAsTid));
                     }
                     if (collection == Repost.RecordType)
                     {
-                        postLikeOrRepostTarget = rels.Reposts.GetTarget(new Relationship(commitPlc, rkeyAsTid));
+                        postLikeOrRepostTarget = rels.Reposts.TryGetTarget(new Relationship(commitPlc, rkeyAsTid));
                     }
                     if (collection == Follow.RecordType)
                     {
-                        followTarget = rels.Follows.GetTarget(new Relationship(commitPlc, rkeyAsTid));
+                        followTarget = rels.Follows.TryGetTarget(new Relationship(commitPlc, rkeyAsTid));
                     }
                 }
                 return (commitPlc, postLikeOrRepostTarget, followTarget);

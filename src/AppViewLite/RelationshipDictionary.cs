@@ -197,33 +197,32 @@ namespace AppViewLite
 
 
 
-        public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget? target = null)
+        public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget target = default)
         {
-            if (target != null)
-                EnsureValidTarget(target.Value);
-
             if (!IsDeleted(rel))
             {
                 deletions.Add(rel, deletionDate);
 
-                if (target == null && targetToApproxTarget != null)
+                if (!TargetHasValue(target) && targetToApproxTarget != null)
                 {
-                    target = GetTarget(rel);
+                    target = TryGetTarget(rel);
                 }
 
-                if (target != null)
+                if (TargetHasValue(target))
                 {
-                    var prevDeletionCount = GetDeletionCount(target.Value);
+                    var prevDeletionCount = GetDeletionCount(target);
                     if (prevDeletionCount < 0) BlueskyRelationships.ThrowFatalError("GetDeletionCount() < 0");
-                    deletionCounts.Add(target.Value, prevDeletionCount + 1);
+                    deletionCounts.Add(target, prevDeletionCount + 1);
                 }
             }
             return target;
         }
 
-        private static void EnsureValidTarget(TTarget value)
+        private static bool TargetHasValue(TTarget target) => !EqualityComparer<TTarget>.Default.Equals(target, default);
+
+        private static void EnsureValidTarget(TTarget target)
         {
-            if (EqualityComparer<TTarget>.Default.Equals(value, default))
+            if (!TargetHasValue(target))
                 BlueskyRelationships.ThrowFatalError("target is default(TTarget)");
         }
 
@@ -270,7 +269,7 @@ namespace AppViewLite
         }
 
 
-        public TTarget GetTarget(Relationship rel)
+        public TTarget TryGetTarget(Relationship rel)
         {
             if (relationshipIdHashToApproxTarget == null) return default;
             var relHash = GetRelationshipHash(rel);

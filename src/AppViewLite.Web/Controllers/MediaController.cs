@@ -150,7 +150,7 @@ namespace AppViewLite.Web.Controllers
                     if (IsVideo(sizeEnum))
                         throw new NotSupportedException("Caching of videos to disk is not currently supported.");
 
-                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, ct);
+                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, forCache: true, ct);
                     using var image = imageResult.Image;
 
                     // TODO: if caching is enabled, we lose we don't serve the original content-disposition file name
@@ -160,7 +160,7 @@ namespace AppViewLite.Web.Controllers
                     {
                         using (var cacheStream = new System.IO.FileStream(cachePath + ".tmp", FileMode.Create, FileAccess.Write))
                         {
-                            await WriteImageOrBytesAsync(image, imageResult.SvgData, cacheStream, ct);
+                            await WriteImageOrBytesAsync(image, imageResult.PassThruBytes, cacheStream, ct);
                         }
                         System.IO.File.Move(cachePath + ".tmp", cachePath);
                     }
@@ -218,11 +218,11 @@ namespace AppViewLite.Web.Controllers
                 }
                 else
                 {
-                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, ct);
+                    var imageResult = await GetImageAsync(did, cid, pds, sizePixels, sizeEnum, forCache: false, ct);
                     using var image = imageResult.Image;
                     InitFileName(imageResult.FileNameForDownload);
-                    SetMediaHeaders(name, initialBytes: imageResult.SvgData);
-                    await WriteImageOrBytesAsync(image, imageResult.SvgData, Response.Body, ct);
+                    SetMediaHeaders(name, initialBytes: imageResult.PassThruBytes);
+                    await WriteImageOrBytesAsync(image, imageResult.PassThruBytes, Response.Body, ct);
                 }
             }
         }
@@ -270,7 +270,7 @@ namespace AppViewLite.Web.Controllers
                 .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
-        private async Task<(Image<Rgba32>? Image, byte[]? SvgData, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, CancellationToken ct)
+        private async Task<(Image<Rgba32>? Image, byte[]? PassThruBytes, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, bool forCache, CancellationToken ct)
         {
             try
             {
@@ -288,7 +288,17 @@ namespace AppViewLite.Web.Controllers
                 if (bytes.AsSpan().StartsWith(Magic_ICO))
                     image = IconParser.IconUtils.LoadLargestImage(bytes);
                 else
+                {
+                    var canPassThru = !(
+                        forCache || // we want to save disk space
+                        sizeEnum == ThumbnailSize.emoji_profile_name || // we need to ensure not confusable with verified badge
+                        (sizeEnum == ThumbnailSize.avatar_thumbnail && !BlueskyRelationships.IsNativeAtProtoDid(did)) // mastodon images can be semi transparent, which ruins our layout/CSS
+                    );
+
+                    if (canPassThru)
+                        return (null, blob.Bytes, blob.FileNameForDownload); // Don't waste time re-encoding.
                     image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
+                }
 
                 if (image.Frames.Count > 1) return (image, null, blob.FileNameForDownload);
 
@@ -327,7 +337,6 @@ namespace AppViewLite.Web.Controllers
                 using (image)
                 {
                     other.Mutate(m => m.DrawImage(image, new Point(0, 0), 1));
-
                 }
 
                 return (other, null, blob.FileNameForDownload);

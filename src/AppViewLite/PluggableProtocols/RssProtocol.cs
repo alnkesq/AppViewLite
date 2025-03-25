@@ -628,7 +628,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         private static string NormalizeTumblrTextForComparison(string title)
         {
-            return Regex.Replace(title, @"[\s…]", string.Empty);
+            return Regex.Replace(title, @"[\s….]", string.Empty);
         }
 
         private static byte[]? UrlToCid(string? imageUrl)

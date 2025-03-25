@@ -1319,13 +1319,13 @@ namespace AppViewLite
 
                         foreach (var child in children)
                         {
-                            AddOpExhaustiveReplies(child);
                             opReplies.Add(rels.GetPost(child, ctx));
+                            AddOpExhaustiveReplies(child);
                         }
                     }
                     AddOpExhaustiveReplies(focalPostId);
                 }, ctx);
-                thread.AddRange(opReplies.OrderBy(x => x.Date));
+                thread.AddRange(opReplies);
             }
 
 

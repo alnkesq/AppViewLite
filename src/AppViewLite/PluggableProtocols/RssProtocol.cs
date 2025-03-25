@@ -429,7 +429,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 if (leafPostId.BlogId != feedUrl!.Host.Split('.')[0])
                     throw new Exception("Non-matching tumblr host");
-                var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId);
+                var leafPost = UnfoldTumblrPosts(bodyDom!, leafPostId, null, null);
 
 
 
@@ -505,7 +505,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                         {
                             Text = pair.Text,
                             Facets = pair.Facets,
-                            Media = GetMediaFromDom(post.Content)
+                            Media = GetMediaFromDom(post.Content),
+                            ExternalTitle = post.ExternalLinkTitle,
+                            ExternalUrl = post.ExternalLinkUrl?.AbsoluteUri,
                         };
 
 
@@ -637,7 +639,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
 
-        private static TumblrPost UnfoldTumblrPosts(IElement bodyDom, TumblrPostId postId)
+        private static TumblrPost UnfoldTumblrPosts(IElement bodyDom, TumblrPostId postId, string? externalLinkTitle, Uri? externalLinkUrl)
         {
             var blockquote = bodyDom.Children.FirstOrDefault(x => x.TagName == "BLOCKQUOTE");
             IElement? attributionLink = null;
@@ -656,15 +658,34 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var nextSiblings = new List<INode>();
 
                 // For image only posts, content can be before the attribution
-                var possiblePreviousNodes = new List<INode>();
+                var prelude = new List<INode>();
                 foreach (var prev in bodyDom.ChildNodes)
                 {
                     if (prev == attribution || prev == blockquote) break;
-                    possiblePreviousNodes.Add(prev);
+                    prelude.Add(prev);
                 }
 
-                if (IsTumblrAttribution(possiblePreviousNodes) == null)
-                    nextSiblings.AddRange(possiblePreviousNodes);
+
+                var preludeBelongsToQuotee = false;
+                string? quotedExternalLinkTitle = null;
+                Uri? quotedExternalLinkUrl = null;
+                if (IsTumblrAttribution(prelude) == null)
+                {
+                    if (
+                        prelude.Count == 2 &&
+                        prelude[0] is Element { TagName: "A", ClassName: null, TextContent: var linkText } &&
+                        prelude[1] is { NodeType: NodeType.Text, TextContent: var colon } &&
+                        !string.IsNullOrWhiteSpace(linkText) &&
+                        colon.Trim() == ":")
+                    {
+                        quotedExternalLinkUrl = StringUtils.TryParseUri(((Element)prelude[0]).GetAttribute("href"));
+                        if(quotedExternalLinkUrl != null)
+                            quotedExternalLinkTitle = linkText.Trim();
+                        preludeBelongsToQuotee = true;
+                    }
+                    if (!preludeBelongsToQuotee)
+                        nextSiblings.AddRange(prelude);
+                }
 
                 var sibling = blockquote.NextSibling;
                 while (sibling != null)
@@ -672,12 +693,12 @@ namespace AppViewLite.PluggableProtocols.Rss
                     nextSiblings.Add(sibling);
                     sibling = sibling.NextSibling;
                 }
-                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId), nextSiblings.ToArray());
+                var quotedPost = new TumblrPost(postId, UnfoldTumblrPosts(blockquote, originalPostId, quotedExternalLinkTitle, quotedExternalLinkUrl), nextSiblings.ToArray(), externalLinkTitle, externalLinkUrl);
                 return quotedPost;
             }
             else
             {
-                return new TumblrPost(postId, null, bodyDom.ChildNodes.ToArray());
+                return new TumblrPost(postId, null, bodyDom.ChildNodes.ToArray(), externalLinkTitle, externalLinkUrl);
             }
         }
 
@@ -725,7 +746,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return new(tumblrBlogId, postId, suggestedTid);
         }
 
-        public record TumblrPost(TumblrPostId PostId, TumblrPost? QuotedPost, INode[] Content)
+        public record TumblrPost(TumblrPostId PostId, TumblrPost? QuotedPost, INode[] Content, string? ExternalLinkTitle, Uri? ExternalLinkUrl)
         {
             public override string ToString()
             {

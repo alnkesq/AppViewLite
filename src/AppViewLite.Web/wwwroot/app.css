@@ -2012,7 +2012,7 @@ input[type=radio], input[type=checkbox]{
 .labeler-mode-active {
     margin-right: 10px;
     background-color: var(--accent);
-    color: var(--white);
+    color: white;
 }
 .list-metadata-row-modes{
     text-align: right;

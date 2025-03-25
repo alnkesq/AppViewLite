@@ -64,6 +64,8 @@ namespace AppViewLite
         private readonly static int CarSpillToDiskBytes = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_SPILL_TO_DISK_BYTES) ?? (8 * 1024 * 1024);
 
         private long decodedCarBytes;
+
+        private HashSet<string> internedCollectionNames = new();
         public void OnCarDecoded(CarProgressStatusEvent p)
         {
 
@@ -167,6 +169,10 @@ namespace AppViewLite
 
 
                     }
+                    if (internedCollectionNames.TryGetValue(collection, out var interned))
+                        collection = interned;
+                    else
+                        internedCollectionNames.Add(collection);
                     pathToCid.Add((collection, rkey, CidToUuid(valCid)));
                 }
 

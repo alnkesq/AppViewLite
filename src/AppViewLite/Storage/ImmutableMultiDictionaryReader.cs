@@ -146,16 +146,41 @@ namespace AppViewLite.Storage
             return GetIndex(key) != -1;
         }
 
-        public int GetValueCount(long index)
+        public (long Offset, int Count) GetValueCountAndOffset(long index, bool forceMmap = false)
+        {
+            if (index == -1) return default;
+            if (IsSingleValueOrKeySet)
+            {
+                return (index, 1);
+            }
+            if (AlignedNativeArena.ForCurrentThread != null && !forceMmap)
+            {
+                if (index == KeyCount - 1)
+                {
+                    var offset = ReadSingleOffset(index);
+                    return (offset, checked((int)(ValueCount - offset)));
+                }
+                else
+                {
+                    var offsets = ReadOffsetSpan(index, 2);
+                    return (offsets[0], checked((int)(offsets[1] - offsets[0])));
+                }
+            }
+            else
+            {
+                var offsets = this.Offsets!;
+                MemoryInstrumentation.MaybeOnAccess(in offsets[index]);
+                ulong startOffset = offsets[index];
+                ulong endOffset = index == offsets.Length - 1 ? (ulong)Values.Length : offsets[index + 1];
+                return ((long)startOffset, checked((int)(endOffset - startOffset)));
+            }
+        }
+
+        public int GetValueCount(long index, bool forceMmap = false)
         {
             if (index == -1) return 0;
-            if (IsSingleValueOrKeySet)
-                return 1;
-            var offsets = this.Offsets!;
-            MemoryInstrumentation.MaybeOnAccess(in offsets[index]);
-            ulong startOffset = offsets[index];
-            ulong endOffset = index == offsets.Length - 1 ? (ulong)Values.Length : offsets[index + 1];
-            return checked((int)(endOffset - startOffset));
+            if (IsSingleValueOrKeySet) return 1;
+            return GetValueCountAndOffset(index, forceMmap: forceMmap).Count;
         }
 
         public int GetValueCount(TKey key) => GetValueCount(GetIndex(key));
@@ -212,11 +237,76 @@ namespace AppViewLite.Storage
         public DangerousHugeReadOnlyMemory<TValue> GetValues(long index)
         {
             if (index == -1) return default;
-            if (behavior == PersistentDictionaryBehavior.SingleValue) return Values.Slice(index, 1);
+            if (behavior == PersistentDictionaryBehavior.SingleValue) return ReadValueSpan(index, 1);
             if (behavior == PersistentDictionaryBehavior.KeySetOnly) return SingletonDefaultValue;
-            var offset = Offsets![index];
-            return Values.Slice(offset, GetValueCount(index));
+            var position = GetValueCountAndOffset(index);
+            return ReadValueSpan(position.Offset, position.Count);
         }
+
+
+        public DangerousHugeReadOnlyMemory<TKey> ReadKeySpan(long index, long length)
+        {
+            return ReadSpanCore(safeFileHandleKeys, (DangerousHugeReadOnlyMemory<TKey>)Keys, index, length);
+        }
+
+        public DangerousHugeReadOnlyMemory<UInt48> ReadOffsetSpan(long index, long length)
+        {
+            return ReadSpanCore(safeFileHandleOffsets!, (DangerousHugeReadOnlyMemory<UInt48>)Offsets!, index, length);
+        }
+        public DangerousHugeReadOnlyMemory<TValue> ReadValueSpan(long index, long length)
+        {
+            return ReadSpanCore(safeFileHandleValues!, Values, index, length);
+        }
+
+
+        public TKey ReadSingleKey(long index) => ReadSingleCore(safeFileHandleKeys, ((DangerousHugeReadOnlyMemory<TKey>)Keys), index);
+        public UInt48 ReadSingleOffset(long index) => ReadSingleCore(safeFileHandleOffsets!, ((DangerousHugeReadOnlyMemory<UInt48>)Offsets!), index);
+        public TValue ReadSingleValue(long index) => ReadSingleCore(safeFileHandleValues!, Values, index);
+
+
+        private const int MaxDirectIoReadSize = 8 * 1024 * 1024;
+
+        public unsafe T ReadSingleCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index) where T : unmanaged
+        {
+            if (AlignedNativeArena.ForCurrentThread != null)
+            {
+                return ReadSpanCore(fileHandle, hugeSpan, index, 1)[0];
+            }
+            else
+            {
+                return hugeSpan[index];
+            }
+        }
+
+        public unsafe DangerousHugeReadOnlyMemory<T> ReadSpanCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index, long length) where T:unmanaged
+        {
+            CombinedPersistentMultiDictionary.Assert(index >= 0);
+            var directIoArena = AlignedNativeArena.ForCurrentThread;
+            if (directIoArena != null)
+            {
+                var lengthInBytes = length * Unsafe.SizeOf<T>();
+                if (lengthInBytes < MaxDirectIoReadSize)
+                {
+                    var offsetInBytes = index * Unsafe.SizeOf<T>();
+
+                    if (offsetInBytes + lengthInBytes + (long)directIoArena.Alignment < (long)fileHandle.Length) // reads very close to the end can't be done (end might not be aligned)
+                    {
+
+                        //Console.Error.WriteLine("Read: " + fileHandle.Path);
+                        var spanAsBytes = DirectIo.ReadUnaligned(fileHandle.SafeFileHandle, offsetInBytes, checked((int)lengthInBytes), directIoArena);
+                        var result = new DangerousHugeReadOnlyMemory<T>((T*)(void*)spanAsBytes.Pointer, length);
+
+                        // TODO remove this slow assertion
+                        CombinedPersistentMultiDictionary.Assert(result.Span.AsSmallSpan.SequenceEqual(hugeSpan.Slice(index, length).Span.AsSmallSpan));
+
+                        return result;
+                    }
+                }
+            }
+            return hugeSpan.Slice(index, length);
+        }
+
+
         private readonly static DangerousHugeReadOnlyMemory<TValue> SingletonDefaultValue = SingletonDefaultNativeMemory<TValue>.Singleton;
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()
@@ -270,7 +360,7 @@ namespace AppViewLite.Storage
                 var offsets = this.Offsets!;
                 for (long i = 0; i < count; i++)
                 {
-                    var values = allValues.Slice(offsets[i], GetValueCount(i));
+                    var values = allValues.Slice(offsets[i], GetValueCount(i, forceMmap: true));
                     yield return (keys[i], values);
                 }
             }
@@ -307,23 +397,22 @@ namespace AppViewLite.Storage
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private long BinarySearchPaginated<TComparable>(TComparable comparable) where TComparable : IComparable<TKey>, allows ref struct
+        private long BinarySearchPaginated<TComparable>(TComparable comparable, AlignedNativeArena? directIoArena = null) where TComparable : IComparable<TKey>, allows ref struct
         {
             var keyCacheSpan = this.pageKeys.Span;
             var pageIndex = HugeSpanHelpers.BinarySearch(keyCacheSpan, comparable);
             if (pageIndex < 0)
             {
                 pageIndex = (~pageIndex) - 1;
-                var keySpan = this.Keys.Span;
                 var pageBaseIndex = pageIndex * KeyCountPerPage;
                 var page =
                     (
                         pageIndex == keyCacheSpan.Length - 1
-                            ? keySpan.Slice(pageBaseIndex)
-                            : keySpan.Slice(pageBaseIndex, KeyCountPerPage)
-                    ).AsSmallSpan;
+                            ? ReadKeySpan(pageBaseIndex, KeyCount - pageBaseIndex)
+                            : ReadKeySpan(pageBaseIndex, KeyCountPerPage)
+                    );
 
-                var innerIndex = page.BinarySearch(comparable);
+                var innerIndex = page.Span.AsSmallSpan.BinarySearch(comparable);
                 if (innerIndex < 0)
                 {
 

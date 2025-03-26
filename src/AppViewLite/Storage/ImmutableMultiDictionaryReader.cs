@@ -56,6 +56,7 @@ namespace AppViewLite.Storage
                 var keyCachePath = pathPrefix + ".keys" + KeyCountPerPage + ".cache";
                 if (!File.Exists(keyCachePath))
                 {
+                    CombinedPersistentMultiDictionary.Log("Materializing cache " + keyCachePath);
                     using (var cacheStream = new FileStream(keyCachePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
                     {
                         var keySpan = Keys.Span;

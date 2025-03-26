@@ -1,7 +1,7 @@
 using AppViewLite.Models;
 using AppViewLite.Storage;
+using AppViewLite.Storage;
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -175,10 +175,12 @@ namespace AppViewLite
                     try
                     {
                         replica.EnsureNotDisposed();
+                        SetupArena();
                         return func(replica);
                     }
                     finally
                     {
+                        ReturnArena();
                         replica.Lock.ExitReadLock();
                         MaybeLogLongLockUsage(begin2, LockKind.SecondaryRead, ctx);
                     }
@@ -204,10 +206,12 @@ namespace AppViewLite
                     var begin = PerformanceSnapshot.Capture();
                     try
                     {
+                        SetupArena();
                         return func(relationshipsUnlocked);
                     }
                     finally
                     {
+                        ReturnArena();
                         MaybeLogLongLockUsage(begin, LockKind.PrimaryReadUrgent, ctx);
                     }
                 }, tcs);
@@ -241,11 +245,13 @@ namespace AppViewLite
                 RunPendingUrgentReadTasks();
 
                 begin = PerformanceSnapshot.Capture();
+                SetupArena();
                 var result = func(rels);
                 return result;
             }
             finally
             {
+                ReturnArena();
                 MaybeRestoreThreadName(restore);
                 rels.Lock.ExitReadLock();
 
@@ -253,6 +259,26 @@ namespace AppViewLite
             }
 
         }
+
+        [Conditional("USE_DIRECT_IO")]
+        private static void SetupArena()
+        {
+            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && t_arena512ToReturn == null);
+            var pooled = AlignedArenaPool.Pool512.Get();
+            t_arena512ToReturn = pooled;
+            AlignedNativeArena.ForCurrentThread = t_arena512ToReturn.Arena;
+        }
+
+        [Conditional("USE_DIRECT_IO")]
+        private static void ReturnArena()
+        {
+            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread != null && t_arena512ToReturn != null);
+            AlignedArenaPool.Pool512.Return(t_arena512ToReturn!);
+            t_arena512ToReturn = null;
+            AlignedNativeArena.ForCurrentThread = null;
+            
+        }
+        [ThreadStatic] private static AlignedArenaPool.AlignedArena512? t_arena512ToReturn;
 
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {
@@ -300,6 +326,7 @@ namespace AppViewLite
                 RunPendingUrgentReadTasks();
 
                 begin = PerformanceSnapshot.Capture();
+                SetupArena();
                 var result = func(relationshipsUnlocked);
                 relationshipsUnlocked.MaybeGlobalFlush();
                 primarySecondaryPair.MaybeUpdateReadOnlyReplicaOpportunistic(0, alreadyHoldsLock: true);
@@ -307,6 +334,7 @@ namespace AppViewLite
             }
             finally
             {
+                ReturnArena();
                 relationshipsUnlocked.ManagedThreadIdWithWriteLock = 0;
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitWriteLock();
@@ -336,11 +364,13 @@ namespace AppViewLite
                 RunPendingUrgentReadTasks();
 
                 begin = PerformanceSnapshot.Capture();
+                SetupArena();
                 var result = func(relationshipsUnlocked);
                 return result;
             }
             finally
             {
+                ReturnArena();
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();
                 MaybeLogLongLockUsage(begin, LockKind.PrimaryUpgradeable, ctx);

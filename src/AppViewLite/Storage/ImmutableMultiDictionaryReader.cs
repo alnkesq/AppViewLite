@@ -6,7 +6,6 @@ using AppViewLite.Numerics;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Linq;
 
 namespace AppViewLite.Storage
 {
@@ -17,6 +16,10 @@ namespace AppViewLite.Storage
         private readonly PersistentDictionaryBehavior behavior;
         private DangerousHugeReadOnlyMemory<TKey> pageKeys;
         private readonly MemoryMappedFileSlim? pageKeysMmap;
+        private readonly MemoryMappedFileSlim safeFileHandleKeys;
+        private readonly MemoryMappedFileSlim? safeFileHandleValues;
+        private readonly MemoryMappedFileSlim? safeFileHandleOffsets;
+        
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
@@ -34,8 +37,18 @@ namespace AppViewLite.Storage
                 behavior == PersistentDictionaryBehavior.SingleValue ? 2 :
                 3);
             this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
+            this.safeFileHandleKeys = columnarReader.GetMemoryMappedFile(0);
+
+            if (HasValues)
+            {
+                this.safeFileHandleValues = columnarReader.GetMemoryMappedFile(1);
+            }
+
             if (HasOffsets)
+            {
                 this.Offsets = columnarReader.GetColumnHugeMemory<UInt48>(2);
+                this.safeFileHandleOffsets = columnarReader.GetMemoryMappedFile(2);
+            }
 
             if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)
             {

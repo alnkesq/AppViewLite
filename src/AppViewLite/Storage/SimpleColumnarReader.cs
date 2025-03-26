@@ -42,6 +42,7 @@ namespace AppViewLite.Storage
             return byteLength / sizeof(T);
         }
 
+        public MemoryMappedFileSlim GetMemoryMappedFile(int index) => columns[index];
         public unsafe HugeReadOnlyMemory<T> GetColumnHugeMemory<T>(int index) where T : unmanaged
         {
             var col = columns[index];

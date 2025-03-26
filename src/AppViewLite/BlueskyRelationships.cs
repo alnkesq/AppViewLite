@@ -703,7 +703,7 @@ namespace AppViewLite
 
 
 
-        public Plc SerializeDid(string did, RequestContext ctx) // TODO: actually very important to pass ctx
+        public Plc SerializeDid(string did, RequestContext ctx)
         {
 
             var plc = TrySerializeDidMaybeReadOnly(did, ctx);

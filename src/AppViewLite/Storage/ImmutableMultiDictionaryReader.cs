@@ -6,6 +6,7 @@ using AppViewLite.Numerics;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace AppViewLite.Storage
 {
@@ -292,6 +293,20 @@ namespace AppViewLite.Storage
                     if (offsetInBytes + lengthInBytes + (long)directIoArena.Alignment < (long)fileHandle.Length) // reads very close to the end can't be done (end might not be aligned)
                     {
 
+                        if (false)
+                        {
+                            lock (fileHandle.RecentReadsForDebugging)
+                            {
+                                if (fileHandle.RecentReadsForDebugging.Any(x => Math.Abs(x - offsetInBytes) < 200))
+                                {
+                                    Console.Error.WriteLine("Duplicate read for " + fileHandle.Path);
+                                }
+                                if (fileHandle.RecentReadsForDebugging.Count >= 10)
+                                    fileHandle.RecentReadsForDebugging.Dequeue();
+                                fileHandle.RecentReadsForDebugging.Enqueue(offsetInBytes);
+                            }
+                        }
+                        
                         //Console.Error.WriteLine("Read: " + fileHandle.Path);
                         var spanAsBytes = DirectIo.ReadUnaligned(fileHandle.SafeFileHandle, offsetInBytes, checked((int)lengthInBytes), directIoArena);
                         var result = new DangerousHugeReadOnlyMemory<T>((T*)(void*)spanAsBytes.Pointer, length);

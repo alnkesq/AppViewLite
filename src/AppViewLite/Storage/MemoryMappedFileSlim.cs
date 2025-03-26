@@ -16,7 +16,7 @@ namespace AppViewLite.Storage
         public static ConcurrentDictionary<MemoryMappedFileSlim, byte> Sections = new();
         public string Path { get; private set; }
         public MemoryMappedFileSlim(string path, bool randomAccess = false)
-            : this(path, writable: false, FileShare.Read, randomAccess: randomAccess)
+            : this(path, writable: false, randomAccess: randomAccess)
         {
 
         }
@@ -33,7 +33,7 @@ namespace AppViewLite.Storage
             FileShare dwShareMode,
             IntPtr lpSecurityAttributes,
             uint dwCreationDisposition,
-            uint dwFlagsAndAttributes,
+            FileOptions dwFlagsAndAttributes,
             IntPtr hTemplateFile
         );
 
@@ -74,46 +74,19 @@ namespace AppViewLite.Storage
         private static extern int posix_fadvise(int fd, long offset, long length, FileAdvice advice);
 
 
-        public MemoryMappedFileSlim(string path, bool writable, FileShare fileShare = FileShare.None, bool randomAccess = false)
+        public MemoryMappedFileSlim(string path, bool writable, FileShare? fileShare = null, bool randomAccess = false)
         {
+            fileShare ??= writable ? FileShare.None : FileShare.Read;
+
             var access = writable ? MemoryMappedFileAccess.ReadWrite : MemoryMappedFileAccess.Read;
 
-            SafeFileHandle safeFileHandle;
+            var safeFileHandle = OpenFile(path,
+                writable ? FileAccess.ReadWrite : FileAccess.Read,
+                fileOptions:
+                    (randomAccess ? FileOptions.RandomAccess : FileOptions.None) |
+                    NoBuffering);
 
-            if (OperatingSystem.IsWindows())
-            {
-                safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, IntPtr.Zero);
-                if (safeFileHandle.IsInvalid)
-                {
-                    if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
-                    throw new Win32Exception();
-                }
-            }
-            else if (OperatingSystem.IsLinux())
-            {
-                var fd = open(path, OpenFlags.O_RDONLY | OpenFlags.O_DIRECT);
-                if (fd < 0)
-                {
-                    if (Marshal.GetLastSystemError() == 2) throw new FileNotFoundException("File not found: " + path, path);
-                    throw new Win32Exception();
-                }
-
-                safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
-                var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
-                if (errno != 0)
-                {
-                    safeFileHandle.Dispose();
-                    throw new Win32Exception(errno);
-                }
-
-
-            }
-            else
-            {
-                safeFileHandle = File.OpenHandle(path, FileMode.Open, writable ? FileAccess.ReadWrite : FileAccess.Read, fileShare, randomAccess ? FileOptions.RandomAccess : FileOptions.None);
-            }
-
-
+            SafeFileHandle = safeFileHandle;
             var fileStream = new FileStream(safeFileHandle, FileAccess.Read, 4096, false);
             _length = fileStream.Length;
             if (_length != 0)
@@ -133,7 +106,52 @@ namespace AppViewLite.Storage
             Sections[this] = 0;
         }
 
+        public const FileOptions NoBuffering = (FileOptions)0x20000000; // https://github.com/dotnet/runtime/issues/27408
+        public readonly SafeFileHandle SafeFileHandle;
 
+        public static SafeFileHandle OpenFile(string path, FileAccess fileAccess = FileAccess.Read, FileShare fileShare = FileShare.Read, FileOptions fileOptions = FileOptions.None)
+        {
+            if (fileAccess == FileAccess.Read && fileShare == FileShare.Read)
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    var safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, fileOptions, IntPtr.Zero);
+                    if (safeFileHandle.IsInvalid)
+                    {
+                        if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
+                        throw new Win32Exception();
+                    }
+                    return safeFileHandle;
+                }
+                else if (OperatingSystem.IsLinux())
+                {
+                    var fd = open(path, OpenFlags.O_RDONLY | ((fileOptions & NoBuffering) != 0 ? OpenFlags.O_DIRECT : 0));
+                    if (fd < 0)
+                    {
+                        if (Marshal.GetLastSystemError() == 2) throw new FileNotFoundException("File not found: " + path, path);
+                        throw new Win32Exception();
+                    }
+
+                    var safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
+                    if ((fileOptions & FileOptions.RandomAccess) != 0)
+                    {
+                        var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
+                        if (errno != 0)
+                        {
+                            safeFileHandle.Dispose();
+                            throw new Win32Exception(errno);
+                        }
+                    }
+                    return safeFileHandle;
+
+                }
+            }
+
+
+            return File.OpenHandle(path, FileMode.Open, fileAccess, fileShare, fileOptions);
+
+
+        }
 
         public unsafe static Func<nuint, string?> GetPageToSectionFunc()
         {

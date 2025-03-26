@@ -94,7 +94,7 @@ namespace AppViewLite.Storage
         public static Action<string>? LogCallback;
         
         
-        public readonly static bool UseDirectIo = true;
+        public readonly static bool UseDirectIo = false;
         public readonly static int DiskSectorSize = 512;
 
         public static void Log(string text)

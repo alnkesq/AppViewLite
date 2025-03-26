@@ -290,7 +290,7 @@ namespace AppViewLite.Storage
             if (directIoArena != null)
             {
                 var lengthInBytes = length * Unsafe.SizeOf<T>();
-                if (lengthInBytes < MaxDirectIoReadSize)
+                if (lengthInBytes < MaxDirectIoReadSize && fileHandle.Length >= MinSizeBeforeKeyCache)
                 {
                     var offsetInBytes = index * Unsafe.SizeOf<T>();
 

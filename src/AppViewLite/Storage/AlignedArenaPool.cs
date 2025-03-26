@@ -27,7 +27,7 @@ namespace AppViewLite.Storage
         //    else throw new ArgumentException();
         //}
 
-        public class AlignedArena512 : IDisposable
+        public class AlignedArena512 : IDisposable, IResettable
         {
             internal AlignedNativeArena Arena;
             public AlignedArena512(AlignedNativeArena arena)
@@ -42,6 +42,12 @@ namespace AppViewLite.Storage
             public void Dispose()
             {
                 Arena.Dispose();
+            }
+
+            public bool TryReset()
+            {
+                Arena.Reset();
+                return true;
             }
         }
     }

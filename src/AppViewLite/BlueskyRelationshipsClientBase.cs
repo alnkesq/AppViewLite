@@ -260,18 +260,18 @@ namespace AppViewLite
 
         }
 
-        [Conditional("USE_DIRECT_IO")]
         private static void SetupArena()
         {
+            if (!CombinedPersistentMultiDictionary.UseDirectIo) return;
             BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && t_arena512ToReturn == null);
             var pooled = AlignedArenaPool.Pool512.Get();
             t_arena512ToReturn = pooled;
             AlignedNativeArena.ForCurrentThread = t_arena512ToReturn.Arena;
         }
 
-        [Conditional("USE_DIRECT_IO")]
         private static void ReturnArena()
         {
+            if (!CombinedPersistentMultiDictionary.UseDirectIo) return;
             BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread != null && t_arena512ToReturn != null);
             AlignedArenaPool.Pool512.Return(t_arena512ToReturn!);
             t_arena512ToReturn = null;

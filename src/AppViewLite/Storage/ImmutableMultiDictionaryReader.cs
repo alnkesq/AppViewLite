@@ -116,7 +116,10 @@ namespace AppViewLite.Storage
         }
 
         const int MinSizeBeforeKeyCache = 2 * 1024 * 1024;
-        const int TargetPageSizeBytes = 4 * 1024;
+
+        public readonly static int TargetPageSizeBytes = 
+            CombinedPersistentMultiDictionary.UseDirectIo ? CombinedPersistentMultiDictionary.DiskSectorSize
+            : 4 * 1024; // OS page size
 
         public unsafe readonly static int KeyCountPerPage = TargetPageSizeBytes / sizeof(TKey);
 

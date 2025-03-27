@@ -276,7 +276,7 @@ namespace AppViewLite
             AlignedArenaPool.Pool512.Return(t_arena512ToReturn!);
             t_arena512ToReturn = null;
             AlignedNativeArena.ForCurrentThread = null;
-            
+
         }
         [ThreadStatic] private static AlignedArenaPool.AlignedArena512? t_arena512ToReturn;
 

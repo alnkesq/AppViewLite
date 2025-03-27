@@ -38,17 +38,24 @@ namespace AppViewLite
         {
         }
 #nullable restore
-        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null)
+        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null)
         {
             if (!UseProbabilisticSets)
                 relationshipCache = null;
 
-            CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+            CombinedPersistentMultiDictionary<TKey, TValue> CreateMultiDictionary<TKey, TValue>(string suffix, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null, Func<TKey, MultiDictionaryIoPreference>? getIoPreferenceForKey = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
             {
-                return new CombinedPersistentMultiDictionary<TKey, TValue>(Path.Combine(baseDirectory, prefix + suffix), activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [], behavior, caches) { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
+                return new CombinedPersistentMultiDictionary<TKey, TValue>(
+                    Path.Combine(baseDirectory, prefix + suffix),
+                    activeSlices.TryGetValue(prefix + suffix, out var active) ? active : [],
+                    behavior,
+                    caches,
+                    getIoPreferenceForKey ?? BlueskyRelationships.GetIoPreferenceFunc<TKey>()
+                    )
+                { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
             }
             this.relationshipCache = relationshipCache;
-            this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null);
+            this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null, getIoPreferenceForKey: getCreationsIoPreferenceForKey);
             this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
 
             this.deletionCounts = CreateMultiDictionary<TTarget, int>("-deletion-counts-2", PersistentDictionaryBehavior.SingleValue);
@@ -269,6 +276,10 @@ namespace AppViewLite
             if (!relationshipIdHashToApproxTarget.TryGetSingleValue(relHash, out var approxTarget))
                 return default;
 
+
+            var relationshipValuesPreference = MultiDictionaryIoPreference.ValuesMmap;
+            creations.InitializeIoPreferenceForKey(default, ref relationshipValuesPreference);
+
             foreach (var sliceTuple in creations.slices)
             {
                 var slice = sliceTuple.Reader;
@@ -282,7 +293,7 @@ namespace AppViewLite
                     var k = keySpan[i];
                     if (targetToApproxTarget!(k, false) != approxTarget)
                         break;
-                    var rels = slice.GetValues(i);
+                    var rels = slice.GetValues(i, relationshipValuesPreference);
                     if (ContainsRelationship(rels.Span.AsSmallSpan, rel))
                         return k;
                 }
@@ -292,7 +303,7 @@ namespace AppViewLite
                     var k = keySpan[i];
                     if (targetToApproxTarget!(k, false) != approxTarget)
                         break;
-                    var rels = slice.GetValues(i);
+                    var rels = slice.GetValues(i, relationshipValuesPreference);
                     if (ContainsRelationship(rels.Span.AsSmallSpan, rel))
                         return k;
 
@@ -307,6 +318,8 @@ namespace AppViewLite
 
             return default;
         }
+
+
         private static bool ContainsRelationship(ReadOnlySpan<Relationship> relationships, Relationship rel)
         {
             var contains = ContainsRelationshipBinarySearch(relationships, rel);

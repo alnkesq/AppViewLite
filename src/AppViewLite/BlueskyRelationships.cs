@@ -145,24 +145,49 @@ namespace AppViewLite
             disposables.Add(r);
             return r;
         }
-        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null, Func<PruningContext, TKey, TValue, bool>? shouldPreserveValue = null, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+        private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null, Func<PruningContext, TKey, TValue, bool>? shouldPreserveValue = null, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null, Func<TKey, MultiDictionaryIoPreference>? getIoPreferenceForKey = null) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
-            return Register(new CombinedPersistentMultiDictionary<TKey, TValue>(
+            var table = new CombinedPersistentMultiDictionary<TKey, TValue>(
                 BaseDirectory + "/" + name,
                 checkpointToLoad!.TryGetValue(name, out var slices) ? slices : [],
                 behavior,
-                caches
+                caches,
+                getIoPreferenceForKey ?? GetIoPreferenceFunc<TKey>()
             )
             {
                 WriteBufferSize = TableWriteBufferSize,
                 OnCompactation = onCompactation,
                 ShouldPreserveKey = shouldPreserveKey,
                 ShouldPreserveValue = shouldPreserveValue,
-            });
+            };
+            return Register(table);
         }
-        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget, RelationshipProbabilisticCache<TTarget>? relationshipCache = null) where TTarget : unmanaged, IComparable<TTarget>
+
+
+
+        private const MultiDictionaryIoPreference SomewhatRecentEventIoPreference = MultiDictionaryIoPreference.KeysAndOffsetsMmap;
+        private const MultiDictionaryIoPreference VeryRecentEventIoPreference = MultiDictionaryIoPreference.AllMmap;
+        internal static Func<TKey, MultiDictionaryIoPreference>? GetIoPreferenceFunc<TKey>() => (Func<TKey, MultiDictionaryIoPreference>?)GetIoPreferenceFunc(typeof(TKey));
+        internal static Delegate? GetIoPreferenceFunc(Type type)
         {
-            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache));
+            if (type == typeof(Relationship)) return (Relationship r) => GetIoPreferenceForDate(r.RelationshipRKey.Date);
+            if (type == typeof(PostIdTimeFirst)) return (PostIdTimeFirst r) => GetIoPreferenceForDate(r.PostRKey.Date);
+            if (type == typeof(Plc)) return (Plc r) => MultiDictionaryIoPreference.KeysAndOffsetsMmap;
+            return null;
+        }
+
+        private static MultiDictionaryIoPreference GetIoPreferenceForDate(DateTime date)
+        {
+            var ago = DateTime.UtcNow - date;
+            var totalHours = ago.TotalHours;
+            if (totalHours < 36) return VeryRecentEventIoPreference;
+            else if (totalHours < 72) return SomewhatRecentEventIoPreference;
+            return default;
+        }
+
+        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null) where TTarget : unmanaged, IComparable<TTarget>
+        {
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache, getCreationsIoPreferenceForKey));
         }
 
         public bool IsReadOnly { get; private set; }
@@ -221,7 +246,7 @@ namespace AppViewLite
             checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray());
 
 
-            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue);
+            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
             PlcToDidPlc = RegisterDictionary<Plc, UInt128>("plc-to-did-plc", PersistentDictionaryBehavior.SingleValue);
             PlcToDidOther = RegisterDictionary<Plc, byte>("plc-to-did-other", PersistentDictionaryBehavior.PreserveOrder);
             PdsIdToString = RegisterDictionary<Pds, byte>("pds-id-to-string", PersistentDictionaryBehavior.PreserveOrder);
@@ -230,7 +255,7 @@ namespace AppViewLite
 
             Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24); //, new(1024 * 1024 * 1024, 6));
             Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24); //, new(256 * 1024 * 1024, 10));
-            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new(256 * 1024 * 1024, 6));
+            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new(256 * 1024 * 1024, 6), _ => MultiDictionaryIoPreference.KeysAndOffsetsMmap);
             Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24);
 
             Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");
@@ -894,7 +919,7 @@ namespace AppViewLite
                 this.DirectReplies.Add(inReplyTo, postId);
 
                 AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx, postId.PostRKey.Date);
-          
+
                 // Should the thread owner be notified of replies to replies to their post? Probably not.
                 // if (inReplyTo.Author != proto.RootPostId.Author)
                 //     AddNotification(proto.RootPostId.Author, NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
@@ -2012,7 +2037,7 @@ namespace AppViewLite
                 var postId = slice.Reader.Keys[i];
                 if (postId.PostRKey.Date > now) continue;
                 if (PostDeletions.ContainsKey(postId)) continue;
-                var postData = DeserializePostData(slice.Reader.GetValues(i).Span.AsSmallSpan, postId);
+                var postData = DeserializePostData(slice.Reader.GetValues(i, PostData.GetIoPreferenceForKey(postId)).Span.AsSmallSpan, postId);
                 yield return GetPost(postId, postData);
             }
         }

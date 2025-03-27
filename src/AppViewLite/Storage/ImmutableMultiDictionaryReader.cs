@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Linq;
+using System.Diagnostics;
 
 namespace AppViewLite.Storage
 {
@@ -20,7 +21,7 @@ namespace AppViewLite.Storage
         private readonly MemoryMappedFileSlim safeFileHandleKeys;
         private readonly MemoryMappedFileSlim? safeFileHandleValues;
         private readonly MemoryMappedFileSlim? safeFileHandleOffsets;
-        
+
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
@@ -29,7 +30,16 @@ namespace AppViewLite.Storage
         public bool HasOffsets => !IsSingleValueOrKeySet;
         public bool HasValues => behavior != PersistentDictionaryBehavior.KeySetOnly;
 
-        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior)
+        internal readonly Func<TKey, MultiDictionaryIoPreference>? GetIoPreferenceForKeyFunc;
+
+        public MultiDictionaryIoPreference GetIoPreferenceForKey(TKey key)
+        {
+            if (GetIoPreferenceForKeyFunc != null) return GetIoPreferenceForKeyFunc(key);
+            return default;
+        }
+
+
+        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null)
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
@@ -37,9 +47,10 @@ namespace AppViewLite.Storage
                 behavior == PersistentDictionaryBehavior.KeySetOnly ? 1 :
                 behavior == PersistentDictionaryBehavior.SingleValue ? 2 :
                 3);
+            this.GetIoPreferenceForKeyFunc = getIoPreference;
+
             this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
             this.safeFileHandleKeys = columnarReader.GetMemoryMappedFile(0);
-
             if (HasValues)
             {
                 this.safeFileHandleValues = columnarReader.GetMemoryMappedFile(1);
@@ -118,7 +129,7 @@ namespace AppViewLite.Storage
 
         const int MinSizeBeforeKeyCache = 2 * 1024 * 1024;
 
-        public readonly static int TargetPageSizeBytes = 
+        public readonly static int TargetPageSizeBytes =
             CombinedPersistentMultiDictionary.UseDirectIo ? CombinedPersistentMultiDictionary.DiskSectorSize
             : 4 * 1024; // OS page size
 
@@ -141,33 +152,33 @@ namespace AppViewLite.Storage
             pageKeys = default;
         }
 
-        public long GetIndex(TKey key)
+        public long GetIndex(TKey key, MultiDictionaryIoPreference preference)
         {
-            var z = BinarySearch(key);
+            var z = BinarySearch(key, preference);
             return z < 0 ? -1 : z;
         }
-        public bool ContainsKey(TKey key)
+        public bool ContainsKey(TKey key, MultiDictionaryIoPreference preference)
         {
-            return GetIndex(key) != -1;
+            return GetIndex(key, preference) != -1;
         }
 
-        public (long Offset, int Count) GetValueCountAndOffset(long index, bool forceMmap = false)
+        public (long Offset, int Count) GetValueCountAndOffset(long index, MultiDictionaryIoPreference preference)
         {
             if (index == -1) return default;
             if (IsSingleValueOrKeySet)
             {
                 return (index, 1);
             }
-            if (AlignedNativeArena.ForCurrentThread != null && !forceMmap)
+            if (AlignedNativeArena.ForCurrentThread != null && GetOffsetsIoPreference(preference) != IoMethodPreference.Mmap)
             {
                 if (index == KeyCount - 1)
                 {
-                    var offset = ReadSingleOffset(index);
+                    var offset = ReadSingleOffset(index, preference);
                     return (offset, checked((int)(ValueCount - offset)));
                 }
                 else
                 {
-                    var offsets = ReadOffsetSpan(index, 2);
+                    var offsets = ReadOffsetSpan(index, 2, preference);
                     return (offsets[0], checked((int)(offsets[1] - offsets[0])));
                 }
             }
@@ -181,29 +192,44 @@ namespace AppViewLite.Storage
             }
         }
 
-        public int GetValueCount(long index, bool forceMmap = false)
+        public int GetValueCount(long index, MultiDictionaryIoPreference preference)
         {
             if (index == -1) return 0;
             if (IsSingleValueOrKeySet) return 1;
-            return GetValueCountAndOffset(index, forceMmap: forceMmap).Count;
+            return GetValueCountAndOffset(index, preference).Count;
         }
 
-        public int GetValueCount(TKey key) => GetValueCount(GetIndex(key));
+        public int GetValueCount(TKey key, MultiDictionaryIoPreference preference) => GetValueCount(GetIndex(key, preference), preference);
 
-        public bool Contains(TKey key, TValue value)
+        public bool Contains(TKey key, TValue value, MultiDictionaryIoPreference preference)
         {
-            var keyIndex = GetIndex(key);
+            var keyIndex = GetIndex(key, preference);
             if (keyIndex == -1) return false;
-            var vals = GetValues(keyIndex);
+            var vals = GetValues(keyIndex, preference);
             var index = vals.Span.BinarySearch(value);
             return index >= 0;
         }
 
-        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key) => GetValues(GetIndex(key));
-        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key, TValue? minExclusive, TValue? maxExclusive) => GetValues(GetIndex(key), minExclusive, maxExclusive);
-        public DangerousHugeReadOnlyMemory<TValue> GetValues(long index, TValue? minExclusive, TValue? maxExclusive = null)
+        public void InitializeIoPreferenceForKey(TKey key, ref MultiDictionaryIoPreference preference)
         {
-            var vals = GetValues(index);
+            preference |= GetIoPreferenceForKey(key);
+        }
+
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key, MultiDictionaryIoPreference preference = default)
+        {
+            InitializeIoPreferenceForKey(key, ref preference);
+            return GetValues(GetIndex(key, preference), preference);
+        }
+
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(TKey key, TValue? minExclusive, TValue? maxExclusive, MultiDictionaryIoPreference preference = default)
+        {
+            InitializeIoPreferenceForKey(key, ref preference);
+            return GetValues(GetIndex(key, preference), minExclusive, maxExclusive, preference);
+        }
+
+        private DangerousHugeReadOnlyMemory<TValue> GetValues(long index, TValue? minExclusive, TValue? maxExclusive, MultiDictionaryIoPreference preference)
+        {
+            var vals = GetValues(index, preference);
             if (vals.Length == 0) return vals;
 
 
@@ -239,43 +265,42 @@ namespace AppViewLite.Storage
 
             return vals;
         }
-        public DangerousHugeReadOnlyMemory<TValue> GetValues(long index)
+        public DangerousHugeReadOnlyMemory<TValue> GetValues(long index, MultiDictionaryIoPreference preference)
         {
             if (index == -1) return default;
-            if (behavior == PersistentDictionaryBehavior.SingleValue) return ReadValueSpan(index, 1);
+            if (behavior == PersistentDictionaryBehavior.SingleValue) return ReadValueSpan(index, 1, preference);
             if (behavior == PersistentDictionaryBehavior.KeySetOnly) return SingletonDefaultValue;
-            var position = GetValueCountAndOffset(index);
-            return ReadValueSpan(position.Offset, position.Count);
+            var position = GetValueCountAndOffset(index, preference);
+            return ReadValueSpan(position.Offset, position.Count, preference);
         }
 
 
-        public DangerousHugeReadOnlyMemory<TKey> ReadKeySpan(long index, long length)
+        public DangerousHugeReadOnlyMemory<TKey> ReadKeySpan(long index, long length, MultiDictionaryIoPreference preference)
         {
-            return ReadSpanCore(safeFileHandleKeys, (DangerousHugeReadOnlyMemory<TKey>)Keys, index, length);
+            return ReadSpanCore(safeFileHandleKeys, (DangerousHugeReadOnlyMemory<TKey>)Keys, index, length, GetKeysIoPreference(preference));
         }
-
-        public DangerousHugeReadOnlyMemory<UInt48> ReadOffsetSpan(long index, long length)
+        public DangerousHugeReadOnlyMemory<UInt48> ReadOffsetSpan(long index, long length, MultiDictionaryIoPreference preference)
         {
-            return ReadSpanCore(safeFileHandleOffsets!, (DangerousHugeReadOnlyMemory<UInt48>)Offsets!, index, length);
+            return ReadSpanCore(safeFileHandleOffsets!, (DangerousHugeReadOnlyMemory<UInt48>)Offsets!, index, length, GetOffsetsIoPreference(preference));
         }
-        public DangerousHugeReadOnlyMemory<TValue> ReadValueSpan(long index, long length)
+        public DangerousHugeReadOnlyMemory<TValue> ReadValueSpan(long index, long length, MultiDictionaryIoPreference preference)
         {
-            return ReadSpanCore(safeFileHandleValues!, Values, index, length);
+            return ReadSpanCore(safeFileHandleValues!, Values, index, length, GetValuesIoPreference(preference));
         }
 
 
-        public TKey ReadSingleKey(long index) => ReadSingleCore(safeFileHandleKeys, ((DangerousHugeReadOnlyMemory<TKey>)Keys), index);
-        public UInt48 ReadSingleOffset(long index) => ReadSingleCore(safeFileHandleOffsets!, ((DangerousHugeReadOnlyMemory<UInt48>)Offsets!), index);
-        public TValue ReadSingleValue(long index) => ReadSingleCore(safeFileHandleValues!, Values, index);
+        public TKey ReadSingleKey(long index, MultiDictionaryIoPreference preference) => ReadSingleCore(safeFileHandleKeys, ((DangerousHugeReadOnlyMemory<TKey>)Keys), index, GetKeysIoPreference(preference));
+        public UInt48 ReadSingleOffset(long index, MultiDictionaryIoPreference preference) => ReadSingleCore(safeFileHandleOffsets!, ((DangerousHugeReadOnlyMemory<UInt48>)Offsets!), index, GetOffsetsIoPreference(preference));
+        public TValue ReadSingleValue(long index, MultiDictionaryIoPreference preference) => ReadSingleCore(safeFileHandleValues!, Values, index, GetValuesIoPreference(preference));
 
 
         private const int MaxDirectIoReadSize = 8 * 1024 * 1024;
 
-        public unsafe T ReadSingleCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index) where T : unmanaged
+        public unsafe T ReadSingleCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index, IoMethodPreference preference) where T : unmanaged
         {
-            if (AlignedNativeArena.ForCurrentThread != null)
+            if (AlignedNativeArena.ForCurrentThread != null && preference != IoMethodPreference.Mmap)
             {
-                return ReadSpanCore(fileHandle, hugeSpan, index, 1)[0];
+                return ReadSpanCore(fileHandle, hugeSpan, index, 1, preference)[0];
             }
             else
             {
@@ -283,11 +308,11 @@ namespace AppViewLite.Storage
             }
         }
 
-        public unsafe DangerousHugeReadOnlyMemory<T> ReadSpanCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index, long length) where T:unmanaged
+        public unsafe DangerousHugeReadOnlyMemory<T> ReadSpanCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index, long length, IoMethodPreference preference) where T : unmanaged
         {
             CombinedPersistentMultiDictionary.Assert(index >= 0);
             var directIoArena = AlignedNativeArena.ForCurrentThread;
-            if (directIoArena != null)
+            if (directIoArena != null && preference != IoMethodPreference.Mmap)
             {
                 var lengthInBytes = length * Unsafe.SizeOf<T>();
                 if (lengthInBytes < MaxDirectIoReadSize && fileHandle.Length >= MinSizeBeforeKeyCache)
@@ -383,17 +408,25 @@ namespace AppViewLite.Storage
                 var offsets = this.Offsets!;
                 for (long i = 0; i < count; i++)
                 {
-                    var values = allValues.Slice(offsets[i], GetValueCount(i, forceMmap: true));
+                    var values = allValues.Slice(offsets[i], GetValueCount(i, MultiDictionaryIoPreference.OffsetsMmap));
                     yield return (keys[i], values);
                 }
             }
         }
 
-        public long BinarySearch<TComparable>(TComparable comparable) where TComparable : IComparable<TKey>, allows ref struct
+        public long BinarySearch<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference = default) where TComparable : IComparable<TKey>
         {
             if (comparable.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
             if (comparable.CompareTo(MinimumKey) < 0) return ~0;
 
+            if (typeof(TComparable) == typeof(TKey))
+            {
+                InitializeIoPreferenceForKey((TKey)(object)comparable, ref preference);
+            }
+            else
+            {
+
+            }
 #if false
             var result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
@@ -409,7 +442,7 @@ namespace AppViewLite.Storage
 
             if (pageKeys.Length != 0)
             {
-                return BinarySearchPaginated(comparable);
+                return BinarySearchPaginated(comparable, preference);
             }
             else
             {
@@ -420,7 +453,7 @@ namespace AppViewLite.Storage
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private long BinarySearchPaginated<TComparable>(TComparable comparable, AlignedNativeArena? directIoArena = null) where TComparable : IComparable<TKey>, allows ref struct
+        private long BinarySearchPaginated<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference) where TComparable : IComparable<TKey>, allows ref struct
         {
             var keyCacheSpan = this.pageKeys.Span;
             var pageIndex = HugeSpanHelpers.BinarySearch(keyCacheSpan, comparable);
@@ -428,12 +461,8 @@ namespace AppViewLite.Storage
             {
                 pageIndex = (~pageIndex) - 1;
                 var pageBaseIndex = pageIndex * KeyCountPerPage;
-                var page =
-                    (
-                        pageIndex == keyCacheSpan.Length - 1
-                            ? ReadKeySpan(pageBaseIndex, KeyCount - pageBaseIndex)
-                            : ReadKeySpan(pageBaseIndex, KeyCountPerPage)
-                    );
+                var count = pageIndex == keyCacheSpan.Length - 1 ? KeyCount - pageBaseIndex : KeyCountPerPage;
+                var page = ReadKeySpan(pageBaseIndex, count, preference);
 
                 var innerIndex = page.Span.AsSmallSpan.BinarySearch(comparable);
                 if (innerIndex < 0)
@@ -454,6 +483,29 @@ namespace AppViewLite.Storage
                 return pageIndex * KeyCountPerPage;
             }
         }
+
+        public static IoMethodPreference GetKeysIoPreference(MultiDictionaryIoPreference preference)
+        {
+            return NormalizeIoPreference((IoMethodPreference)(((int)preference >> 0) & 3));
+        }
+
+        public static IoMethodPreference GetOffsetsIoPreference(MultiDictionaryIoPreference preference)
+        {
+            return NormalizeIoPreference((IoMethodPreference)(((int)preference >> 2) & 3));
+        }
+        public static IoMethodPreference GetValuesIoPreference(MultiDictionaryIoPreference preference)
+        {
+            return NormalizeIoPreference((IoMethodPreference)(((int)preference >> 4) & 3));
+        }
+
+        private static IoMethodPreference NormalizeIoPreference(IoMethodPreference preference)
+        {
+            if (preference == (IoMethodPreference.DirectIo | IoMethodPreference.Mmap))
+            {
+                return default;
+            }
+            return preference;
+        }
     }
 
     internal struct SingletonDefaultNativeMemory<T> where T : unmanaged
@@ -464,6 +516,24 @@ namespace AppViewLite.Storage
             Singleton = new DangerousHugeReadOnlyMemory<T>((T*)ptr, 1);
         }
         public readonly static DangerousHugeReadOnlyMemory<T> Singleton;
+    }
+
+    [Flags]
+    public enum MultiDictionaryIoPreference
+    {
+        None = 0,
+
+        KeysMmap = 1,
+        KeysDirectIo = 2,
+
+        OffsetsMmap = 4,
+        OffsetsDirectIo = 8,
+
+        ValuesMmap = 16,
+        ValuesDirectIo = 32,
+
+        AllMmap = KeysMmap | OffsetsMmap | ValuesMmap,
+        KeysAndOffsetsMmap = KeysMmap | OffsetsMmap,
     }
 }
 

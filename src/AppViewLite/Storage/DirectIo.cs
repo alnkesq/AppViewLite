@@ -46,5 +46,12 @@ namespace AppViewLite.Storage
         {
         }
     }
+
+    public enum IoMethodPreference
+    { 
+        Unspecified = 0,
+        Mmap = 1,
+        DirectIo = 2,
+    }
 }
 

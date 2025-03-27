@@ -679,7 +679,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         colon.Trim() == ":")
                     {
                         quotedExternalLinkUrl = StringUtils.TryParseUri(((Element)prelude[0]).GetAttribute("href"));
-                        if(quotedExternalLinkUrl != null)
+                        if (quotedExternalLinkUrl != null)
                             quotedExternalLinkTitle = linkText.Trim();
                         preludeBelongsToQuotee = true;
                     }

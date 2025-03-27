@@ -92,9 +92,9 @@ namespace AppViewLite.Storage
         }
 
         public static Action<string>? LogCallback;
-        
-        
-        public readonly static bool UseDirectIo = false;
+
+
+        public readonly static bool UseDirectIo = true;
         public readonly static int DiskSectorSize = 512;
 
         public static void Log(string text)
@@ -144,6 +144,14 @@ namespace AppViewLite.Storage
 
         private CachedView[]? Caches;
 
+        private Func<TKey, MultiDictionaryIoPreference>? GetIoPreferenceForKeyFunc;
+
+        public MultiDictionaryIoPreference GetIoPreferenceForKey(TKey key)
+        {
+            if (GetIoPreferenceForKeyFunc != null) return GetIoPreferenceForKeyFunc(key);
+            return default;
+        }
+
 #nullable disable
         private CombinedPersistentMultiDictionary(string directory, List<SliceInfo> slices, PersistentDictionaryBehavior behavior)
             : base(directory, behavior)
@@ -152,7 +160,7 @@ namespace AppViewLite.Storage
         }
 #nullable restore
 
-        public CombinedPersistentMultiDictionary(string directory, SliceName[]? sliceNames, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CachedView[]? caches = null)
+        public CombinedPersistentMultiDictionary(string directory, SliceName[]? sliceNames, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, CachedView[]? caches = null, Func<TKey, MultiDictionaryIoPreference>? getIoPreferenceForKey = null)
             : base(directory, behavior)
         {
 
@@ -163,7 +171,7 @@ namespace AppViewLite.Storage
                 throw new ArgumentException("When behavior is KeySetOnly, the dummy TValue must be System.Byte.");
 
             System.IO.Directory.CreateDirectory(directory);
-
+            this.GetIoPreferenceForKeyFunc = getIoPreferenceForKey;
             this.slices = new();
             this.prunedSlices = new();
             if (caches != null && caches.Length == 0) caches = null;
@@ -259,12 +267,12 @@ namespace AppViewLite.Storage
 
         }
 
-        private static SliceInfo OpenSlice(string directory, SliceName sliceName, PersistentDictionaryBehavior behavior, bool mandatory)
+        private SliceInfo OpenSlice(string directory, SliceName sliceName, PersistentDictionaryBehavior behavior, bool mandatory)
         {
             ImmutableMultiDictionaryReader<TKey, TValue> reader;
             try
             {
-                reader = new ImmutableMultiDictionaryReader<TKey, TValue>(Path.Combine(directory, sliceName.BaseName), behavior);
+                reader = new ImmutableMultiDictionaryReader<TKey, TValue>(Path.Combine(directory, sliceName.BaseName), behavior, GetIoPreferenceForKeyFunc);
             }
             catch (FileNotFoundException) when (!mandatory)
             {
@@ -385,7 +393,7 @@ namespace AppViewLite.Storage
                 OriginalWriteBytes += size;
                 queue.Clear();
                 LastFlushed = DateTime.UtcNow;
-                slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior))));
+                slices.Add(new(date, date, 0, new(new ImmutableMultiDictionaryReader<TKey, TValue>(prefix, behavior, GetIoPreferenceForKeyFunc))));
                 Log($"[{Path.GetFileName(DirectoryPath)}] Wrote {ToHumanBytes(size)}");
 
                 if (!disposing)
@@ -531,7 +539,7 @@ namespace AppViewLite.Storage
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
-                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior))));
+                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior, GetIoPreferenceForKeyFunc))));
                     NotifyCachesSliceAdded(groupStart);
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
@@ -554,13 +562,14 @@ namespace AppViewLite.Storage
             return false;
         }
 
-        public bool TryGetSingleValue(TKey key, out TValue value)
+        public bool TryGetSingleValue(TKey key, out TValue value, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
 #if true
             foreach (var slice in slices)
             {
-                var vals = slice.Reader.GetValues(key);
+                var vals = slice.Reader.GetValues(key, preference);
                 if (vals.Length != 0)
                 {
                     value = vals[0];
@@ -590,8 +599,9 @@ namespace AppViewLite.Storage
             return false;
         }
 
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null)
+        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             ManagedOrNativeArray<TValue> extraArr = default;
             if (queue.TryGetValues(key, out var extraStruct))
@@ -617,13 +627,14 @@ namespace AppViewLite.Storage
                     extraArr = extra.ToArray();
                 }
             }
-            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
+            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);
             return z;
         }
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false)
+        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (!omitQueue && queue.TryGetValues(key, out var extra))
             {
@@ -631,19 +642,20 @@ namespace AppViewLite.Storage
             }
             for (int i = slices.Count - 1; i >= 0; i--)
             {
-                var vals = slices[i].Reader.GetValues(key);
+                var vals = slices[i].Reader.GetValues(key, preference);
                 if (vals.Length != 0)
                     yield return vals;
             }
         }
 
 
-        public bool TryGetPreserveOrderSpanAny(TKey key, out ManagedOrNativeArray<TValue> val)
+        public bool TryGetPreserveOrderSpanAny(TKey key, out ManagedOrNativeArray<TValue> val, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(key, ref preference);
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             foreach (var slice in slices)
             {
-                var v = slice.Reader.GetValues(key);
+                var v = slice.Reader.GetValues(key, preference);
                 if (v.Length != 0)
                 {
                     val = v;
@@ -687,8 +699,9 @@ namespace AppViewLite.Storage
             return GetValuesSorted(key).DistinctAssumingOrderedInput();
         }
 
-        public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null)
+        public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(key, ref preference);
             if (minExclusive != null && maxExclusive == null)
             {
                 var chunks = GetValuesChunked(key);
@@ -767,28 +780,36 @@ namespace AppViewLite.Storage
             }
         }
 
-        public bool Contains(TKey key, TValue value)
+        public bool Contains(TKey key, TValue value, MultiDictionaryIoPreference preference = default)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            return slices.Any(slice => slice.Reader.Contains(key, value)) || queue.TryGetValues(key).Contains(value);
+            InitializeIoPreferenceForKey(key, ref preference);
+            return slices.Any(slice => slice.Reader.Contains(key, value, preference)) || queue.TryGetValues(key).Contains(value);
         }
-        public bool ContainsKey(TKey key)
+        public bool ContainsKey(TKey key, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(key, ref preference);
             foreach (var slice in slices)
             {
-                if (slice.Reader.ContainsKey(key)) return true;
+                if (slice.Reader.ContainsKey(key, preference)) return true;
             }
             if (queue.ContainsKey(key)) return true;
             return false;
         }
 
-        public long GetValueCount(TKey key)
+        public void InitializeIoPreferenceForKey(TKey key, ref MultiDictionaryIoPreference preference)
+        {
+            preference |= GetIoPreferenceForKey(key);
+        }
+
+        public long GetValueCount(TKey key, MultiDictionaryIoPreference preference = default)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
+            InitializeIoPreferenceForKey(key, ref preference);
             long num = 0;
             foreach (var slice in slices)
             {
-                num += slice.Reader.GetValueCount(key);
+                num += slice.Reader.GetValueCount(key, preference);
             }
             num += queue.TryGetValues(key).Count;
             return num;
@@ -1067,8 +1088,10 @@ namespace AppViewLite.Storage
             return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered<TKey, TKey>(keyChunks.Select(x => x.Reverse()).ToArray(), x => x, new ReverseComparer<TKey>()).DistinctAssumingOrderedInput(skipCheck: true);
         }
 
-        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive)
+        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive, MultiDictionaryIoPreference preference = default)
         {
+            InitializeIoPreferenceForKey(min, ref preference);
+
             foreach (var q in queue)
             {
                 if (IsInRange(q.Key, min, maxExclusive))
@@ -1089,7 +1112,7 @@ namespace AppViewLite.Storage
                 {
                     var key = keys.Span[i];
                     if (!IsInRange(key, min, maxExclusive)) break;
-                    yield return (key, slice.Reader.GetValues(i));
+                    yield return (key, slice.Reader.GetValues(i, preference));
                 }
 
 
@@ -1097,7 +1120,7 @@ namespace AppViewLite.Storage
                 {
                     var key = keys.Span[i];
                     if (!IsInRange(key, min, maxExclusive)) break;
-                    yield return (key, slice.Reader.GetValues(i));
+                    yield return (key, slice.Reader.GetValues(i, preference));
                 }
 
             }
@@ -1134,7 +1157,7 @@ namespace AppViewLite.Storage
         {
             var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.PruneId, x.ReaderHandle.AddRef())).ToList(), behavior);
             copy.ReplicatedFrom = this;
-
+            copy.GetIoPreferenceForKeyFunc = this.GetIoPreferenceForKeyFunc;
             // The root CloneAsReadOnly() is called from within a traditional lock.
             // Additionally, we hold a Read lock for the primary (so there can be no writers in the primary)
             // We CAN write NextReplicaCanBeBuiltFrom to the primary, even without holding the primary write lock (it's not used in reads).
@@ -1351,7 +1374,7 @@ namespace AppViewLite.Storage
                 {
                     var preservedBytes = preservedWriter.CommitAndGetSize();
                     Log($"    Pruned: {ToHumanBytes(slice.SizeInBytes)} -> {ToHumanBytes(prunedBytes)} (old) + {ToHumanBytes(preservedBytes)} (preserve)");
-                    slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior))));
+                    slices.Insert(sliceIdx, new SliceInfo(slice.StartTime, slice.EndTime, preservePruneId, new(new(basePath + preservePruneId, behavior, GetIoPreferenceForKeyFunc))));
                 }
                 else
                 {

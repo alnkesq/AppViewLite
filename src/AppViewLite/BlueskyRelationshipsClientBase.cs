@@ -141,6 +141,14 @@ namespace AppViewLite
                 return 0;
             }, ctx, urgent);
         }
+        public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext ctx, bool urgent)
+        {
+            WithRelationshipsWriteLock<int>(rels =>
+            {
+                func(rels);
+                return 0;
+            }, ctx, urgent);
+        }
 
 
 
@@ -192,41 +200,7 @@ namespace AppViewLite
 
             if (urgent)
             {
-                var invoker = new object();
-
-                var tcs = new TaskCompletionSource<object?>();
-                ctx.TimeSpentWaitingForLocks.Start();
-                var task = new UrgentReadTask((currentInvoker) =>
-                {
-                    ctx.TimeSpentWaitingForLocks.Stop();
-
-                    if (invoker == currentInvoker) Interlocked.Increment(ref ctx.ReadsFromPrimaryLate);
-                    else Interlocked.Increment(ref ctx.ReadsFromPrimaryStolen);
-
-                    var begin = PerformanceSnapshot.Capture();
-                    try
-                    {
-                        SetupArena();
-                        return func(relationshipsUnlocked);
-                    }
-                    finally
-                    {
-                        ReturnArena();
-                        MaybeLogLongLockUsage(begin, LockKind.PrimaryReadUrgent, ctx);
-                    }
-                }, tcs);
-
-                primarySecondaryPair.urgentReadTasks.Enqueue(task);
-
-                Task.Run(() =>
-                {
-                    WithRelationshipsLock(rels =>
-                    {
-                        RunPendingUrgentReadTasks(invoker);
-                    }, ctx, urgent: false);
-                });
-
-                return (T)tcs.Task.GetAwaiter().GetResult()!;
+                return RunUrgentPrimaryTask(func, ctx, isWrite: false);
             }
 
             var rels = relationshipsUnlocked;
@@ -234,8 +208,8 @@ namespace AppViewLite
 
             rels.EnsureLockNotAlreadyHeld();
             ctx.TimeSpentWaitingForLocks.Start();
+            var restore = MaybeSetThreadName(ctx, LockKind.PrimaryRead);
             rels.Lock.EnterReadLock();
-            var restore = MaybeSetThreadName("Lock_Read");
             PerformanceSnapshot begin = default;
             try
             {
@@ -260,6 +234,66 @@ namespace AppViewLite
 
         }
 
+        private T RunUrgentPrimaryTask<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool isWrite)
+        {
+            var invoker = new object();
+
+            var tcs = new TaskCompletionSource<object?>();
+            ctx.TimeSpentWaitingForLocks.Start();
+            var task = new UrgentPrimaryTask((currentInvoker) =>
+            {
+                ctx.TimeSpentWaitingForLocks.Stop();
+
+                if (isWrite)
+                {
+                    relationshipsUnlocked.AssertHasWriteLock();
+                    if (invoker == currentInvoker) Interlocked.Increment(ref ctx.WritesToPrimaryLate);
+                    else Interlocked.Increment(ref ctx.WritesToPrimaryStolen);
+                }
+                else
+                {
+                    relationshipsUnlocked.AssertCanRead();
+                    if (invoker == currentInvoker) Interlocked.Increment(ref ctx.ReadsFromPrimaryLate);
+                    else Interlocked.Increment(ref ctx.ReadsFromPrimaryStolen);
+                }
+
+                var begin = PerformanceSnapshot.Capture();
+                try
+                {
+                    SetupArena();
+                    return func(relationshipsUnlocked);
+                }
+                finally
+                {
+                    ReturnArena();
+                    MaybeLogLongLockUsage(begin, isWrite ? LockKind.PrimaryWriteUrgent : LockKind.PrimaryReadUrgent, ctx);
+                }
+            }, tcs);
+
+            (isWrite ? primarySecondaryPair.urgentWriteTasks : primarySecondaryPair.urgentReadTasks).Enqueue(task);
+
+            
+            var late = Task.Run(() =>
+            {
+                if (isWrite)
+                {
+                    WithRelationshipsWriteLock(rels =>
+                    {
+                        RunPendingUrgentWriteTasks(invoker);
+                    }, ctx, urgent: false);
+                }
+                else
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        RunPendingUrgentReadTasks(invoker);
+                    }, ctx, urgent: false);
+                }
+            });
+
+            return (T)tcs.Task.GetAwaiter().GetResult()!;
+        }
+
         private static void SetupArena()
         {
             if (!CombinedPersistentMultiDictionary.UseDirectIo) return;
@@ -282,15 +316,29 @@ namespace AppViewLite
 
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {
-            while (primarySecondaryPair.urgentReadTasks.TryDequeue(out var urgentReadTask))
+            while (primarySecondaryPair.urgentReadTasks.TryDequeue(out var urgentTask))
             {
                 try
                 {
-                    urgentReadTask.Tcs.SetResult(urgentReadTask.Run(invoker));
+                    urgentTask.Tcs.SetResult(urgentTask.Run(invoker));
                 }
                 catch (Exception ex)
                 {
-                    urgentReadTask.Tcs.SetException(ex);
+                    urgentTask.Tcs.SetException(ex);
+                }
+            }
+        }
+        private void RunPendingUrgentWriteTasks(object? invoker = null)
+        {
+            while (primarySecondaryPair.urgentWriteTasks.TryDequeue(out var urgentTask))
+            {
+                try
+                {
+                    urgentTask.Tcs.SetResult(urgentTask.Run(invoker));
+                }
+                catch (Exception ex)
+                {
+                    urgentTask.Tcs.SetException(ex);
                 }
             }
         }
@@ -299,11 +347,18 @@ namespace AppViewLite
 
         public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)
         {
+            return WithRelationshipsWriteLock(func, ctx, ctx.IsUrgent);
+        }
+
+        public T WithRelationshipsWriteLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool urgent)
+        {
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
-            Stopwatch? sw = null;
-            int gc = 0;
+            if (urgent)
+            {
+                return RunUrgentPrimaryTask(func, ctx, isWrite: true);
+            }
 
             Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
 
@@ -312,10 +367,10 @@ namespace AppViewLite
             BeforeLockEnter?.Invoke(ctx);
             ctx.TimeSpentWaitingForLocks.Start();
             using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
+            var restore = MaybeSetThreadName(ctx, LockKind.PrimaryWrite);
             relationshipsUnlocked.Lock.EnterWriteLock();
 
             relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
-            var restore = MaybeSetThreadName("**** LOCK_WRITE ****");
             PerformanceSnapshot begin = default;
             try
             {
@@ -324,6 +379,7 @@ namespace AppViewLite
                 ctx.TimeSpentWaitingForLocks.Stop();
                 relationshipsUnlocked.EnsureNotDisposed();
                 RunPendingUrgentReadTasks();
+                RunPendingUrgentWriteTasks();
 
                 begin = PerformanceSnapshot.Capture();
                 SetupArena();
@@ -354,8 +410,8 @@ namespace AppViewLite
             relationshipsUnlocked.EnsureLockNotAlreadyHeld();
             BeforeLockEnter?.Invoke(ctx);
             ctx.TimeSpentWaitingForLocks.Start();
+            var restore = MaybeSetThreadName(ctx, LockKind.PrimaryUpgradeable);
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
-            var restore = MaybeSetThreadName("**** LOCK_UPGRADEABLE ****");
             PerformanceSnapshot begin = default;
             try
             {
@@ -378,24 +434,23 @@ namespace AppViewLite
 
         }
 
+        public static bool SetThreadNames = false;
 
         private static void MaybeRestoreThreadName(string? prevName)
         {
-#if false
-            Thread.CurrentThread.Name = prevName;
-#endif
+            if(SetThreadNames)
+                Thread.CurrentThread.Name = prevName;
         }
 
-        private static string? MaybeSetThreadName(string newName)
+        private static string? MaybeSetThreadName(RequestContext ctx, LockKind kind)
         {
-#if false
-            var prev = Thread.CurrentThread.Name;
-            Thread.CurrentThread.Name = newName;
-            return prev;
-#else
+            if (SetThreadNames)
+            {
+                var prev = Thread.CurrentThread.Name;
+                Thread.CurrentThread.Name = ctx.ToString() + (ctx.IsUrgent ? " [URGENT]" : null) + " (" + kind + ")";
+                return prev;
+            }
             return null;
-#endif
-
         }
 
         public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext ctx)
@@ -551,8 +606,9 @@ namespace AppViewLite
         PrimaryUpgradeable,
         PrimaryReadUrgent,
         SecondaryRead,
+        PrimaryWriteUrgent,
     }
 
-    public record UrgentReadTask(Func<object?, object?> Run, TaskCompletionSource<object?> Tcs);
+    public record UrgentPrimaryTask(Func<object?, object?> Run, TaskCompletionSource<object?> Tcs);
 }
 

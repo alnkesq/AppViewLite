@@ -32,6 +32,8 @@ namespace AppViewLite
         public int ReadsFromPrimaryLate;
         public int ReadsFromPrimaryNonUrgent;
         public int ReadsFromSecondary;
+        public int WritesToPrimaryStolen;
+        public int WritesToPrimaryLate;
 
         public long StopwatchTicksSpentInsideSecondaryLock;
         public long StopwatchTicksSpentInsidePrimaryLock;
@@ -69,7 +71,7 @@ namespace AppViewLite
 
         public override string? ToString()
         {
-            return RequestUrl;
+            return RequestUrl ?? FirehoseReason;
         }
 
         public required DateTime StartDate;

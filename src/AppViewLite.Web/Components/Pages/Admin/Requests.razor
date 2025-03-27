@@ -27,8 +27,10 @@
         <th style="text-align: left">Date</th>
         <th style="text-align: left">Path</th>
         <th title="Reads from readonly replica">Reads repl.</th>
-        <th title="Reads from primary (urgent stolen lock)">Reads prim. (stolen)</th>
-        <th title="Reads from primary (late)">Reads prim. (late)</th>
+        <th title="Reads from primary (urgent)">Reads prim. (urg.)</th>
+        <th title="Writes to primary (urgent)">Writes prim. (urg.)</th>
+@*         <th title="Reads from primary (urgent stolen lock)">Reads prim. (stolen)</th>
+        <th title="Reads from primary (late)">Reads prim. (late)</th> *@
         <th title="Write or upgradeable locks">Write/upgr. locks</th>
         <th title="Time spent waiting for locks (ms)">Lock waits</th>
         <th title="Time spent while holding a lock to the primary database (ms)">Primary time</th>
@@ -44,6 +46,11 @@
         var readsFromSecondary = req.ReadsFromSecondary;
         var readsFromPrimaryStolen = req.ReadsFromPrimaryStolen;
         var readsFromPrimaryLate = req.ReadsFromPrimaryLate;
+        var readsFromPrimary = readsFromPrimaryStolen + readsFromPrimaryLate;
+        var writesToPrimaryStolen = req.WritesToPrimaryStolen;
+        var writesToPrimaryLate = req.WritesToPrimaryLate;
+        var writesToPrimary = writesToPrimaryStolen + writesToPrimaryLate;
+
         var writes = req.WriteOrUpgradeLockEnterCount;
         var primaryTime = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(req.StopwatchTicksSpentInsidePrimaryLock);
         var secondaryTime = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(req.StopwatchTicksSpentInsideSecondaryLock);
@@ -53,8 +60,10 @@
             <td style="text-align: left">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</td>
             <td style="text-align: left; white-space: nowrap; max-width: 600px; text-overflow: ellipsis; overflow: hidden;">@req.DebugText</td>
             <td>@(readsFromSecondary != 0 ? readsFromSecondary : "-")</td>
-            <td>@(readsFromPrimaryStolen != 0 ? readsFromPrimaryStolen : "-")</td>
-            <td>@(readsFromPrimaryLate != 0 ? readsFromPrimaryLate : "-")</td>
+            <td>@(readsFromPrimary != 0 ? readsFromPrimary : "-")</td>
+            <td>@(writesToPrimaryLate != 0 ? writesToPrimaryLate : "-")</td>
+@*             <td>@(readsFromPrimaryStolen != 0 ? readsFromPrimaryStolen : "-")</td>
+            <td>@(readsFromPrimaryLate != 0 ? readsFromPrimaryLate : "-")</td> *@
             <td>@(writes != 0 ? writes : "-")</td>
             <td style="background: @GetCellBackground(w.Ticks, TimeSpan.FromMilliseconds(50).Ticks)">@(w != default ? (w.TotalMilliseconds).ToString("0.000") : "-")</td>
             <td style="background: @GetCellBackground(primaryTime.Ticks, BlueskyRelationshipsClientBase.PrintLongPrimaryLocks.Ticks)">@(req.MaxOccurredGarbageCollectionGenerationInsideLock != -1 && primaryTime != default ? $"[GC-{req.MaxOccurredGarbageCollectionGenerationInsideLock}] " : null)@(primaryTime != default ? (primaryTime.TotalMilliseconds).ToString("0.000") : "-")</td>

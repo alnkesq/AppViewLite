@@ -15,7 +15,8 @@ namespace AppViewLite
         public BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked;
         public Lock buildNewReadOnlyReplicaLock = new Lock();
 
-        internal ConcurrentQueue<UrgentReadTask> urgentReadTasks = new();
+        internal ConcurrentQueue<UrgentPrimaryTask> urgentReadTasks = new();
+        internal ConcurrentQueue<UrgentPrimaryTask> urgentWriteTasks = new();
         public PrimarySecondaryPair(BlueskyRelationships primary)
         {
             this.relationshipsUnlocked = primary;

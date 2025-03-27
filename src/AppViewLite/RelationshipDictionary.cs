@@ -151,7 +151,7 @@ namespace AppViewLite
                     if (!hs.Contains((target, actor)))
                     {
                         certainlyDoesntExist = true;
-                        // return false; // TODO: early exit if we don't see any assertions
+                        return false;
                     }
                 }
             }

@@ -392,7 +392,7 @@ namespace AppViewLite
             using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryWrite);
             relationshipsUnlocked.Lock.EnterWriteLock();
-
+            if (SetThreadNames) Thread.CurrentThread.Name = "[HOLDS WRITE LOCK] " + Thread.CurrentThread.Name;
             relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
             PerformanceSnapshot begin = default;
             try

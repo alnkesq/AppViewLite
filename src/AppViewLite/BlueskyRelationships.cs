@@ -727,6 +727,13 @@ namespace AppViewLite
         }
 
 
+        public Plc SerializeDidWithHint(string did, RequestContext ctx, Plc optionalHint)
+        {
+            if (optionalHint != default) return optionalHint;
+            var result = SerializeDid(did, ctx);
+            // Assert(optionalHint == default || optionalHint == result);
+            return result;
+        }
 
         public Plc SerializeDid(string did, RequestContext ctx)
         {
@@ -817,7 +824,7 @@ namespace AppViewLite
         {
             return new PostId(Plc, Tid.Parse(rkey));
         }
-        public PostId GetPostId(StrongRef subject, RequestContext ctx, bool ignoreIfNotPost = false)
+        public PostId GetPostId(StrongRef subject, RequestContext ctx, bool ignoreIfNotPost = false, Plc hint = default)
         {
             var uri = subject.Uri;
             if (uri.Collection != Post.RecordType)
@@ -825,7 +832,7 @@ namespace AppViewLite
                 if (ignoreIfNotPost) return default;
                 throw new UnexpectedFirehoseDataException("Unexpected URI type: " + uri.Collection);
             }
-            return new PostId(SerializeDid(uri.Did!.Handler, ctx), Tid.Parse(uri.Rkey));
+            return new PostId(SerializeDidWithHint(uri.Did!.Handler, ctx, hint), Tid.Parse(uri.Rkey));
         }
         public static PostIdString GetPostIdStr(StrongRef uri)
         {

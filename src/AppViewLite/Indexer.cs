@@ -183,8 +183,16 @@ namespace AppViewLite
                 if (ignoreIfDisposing && rels.IsDisposed) return default;
 
                 var commitPlc = rels.TrySerializeDidMaybeReadOnly(commitAuthor, ctx);
-                if (commitPlc == default) return default;
-                return commitPlc;
+
+                var subjectDid =
+                    record is Like like ? like.Subject!.Uri.Did!.Handler :
+                    record is Repost repost ? repost.Subject!.Uri.Did!.Handler :
+                    record is Follow follow ? follow.Subject!.Handler :
+                    null;
+
+                var subjectPlc = subjectDid != null ? rels.TrySerializeDidMaybeReadOnly(subjectDid, ctx) : default;
+
+                return (commitPlc, subjectPlc);
             }, ctx);
 
 
@@ -197,7 +205,7 @@ namespace AppViewLite
                     if (!generateNotifications) relationships.SuppressNotificationGeneration++;
                     relationships.EnsureNotDisposed();
 
-                    var commitPlc = preresolved != default ? preresolved : relationships.SerializeDid(commitAuthor, ctx);
+                    var commitPlc = relationships.SerializeDidWithHint(commitAuthor, ctx, preresolved.commitPlc);
 
                     if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
                     {
@@ -210,7 +218,7 @@ namespace AppViewLite
                         {
                             // quick check to avoid noisy exceptions
 
-                            var postId = relationships.GetPostId(l.Subject, ctx);
+                            var postId = relationships.GetPostId(l.Subject, ctx, hint: preresolved.subjectPlc);
 
                             // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
                             BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
@@ -236,7 +244,7 @@ namespace AppViewLite
                         else if (l.Subject.Uri.Collection == Generator.RecordType)
                         {
                             // TODO: handle deletions for feed likes
-                            var feedId = new RelationshipHashedRKey(relationships.SerializeDid(l.Subject.Uri.Did!.Handler, ctx), l.Subject.Uri.Rkey);
+                            var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.Did!.Handler, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
 
                             var likeRkey = GetMessageTid(path, Like.RecordType + "/");
                             if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
@@ -254,7 +262,7 @@ namespace AppViewLite
                     else if (record is Follow f)
                     {
                         if (HasNumericRKey(path)) return;
-                        var followed = relationships.SerializeDid(f.Subject!.Handler, ctx);
+                        var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
 
                         if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey)))
@@ -271,7 +279,7 @@ namespace AppViewLite
                     }
                     else if (record is Repost r)
                     {
-                        var postId = relationships.GetPostId(r.Subject!, ctx);
+                        var postId = relationships.GetPostId(r.Subject!, ctx, hint: preresolved.subjectPlc);
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");

@@ -350,8 +350,7 @@ namespace AppViewLite.Storage
                         var spanAsBytes = DirectIo.ReadUnaligned(fileHandle.SafeFileHandle, offsetInBytes, checked((int)lengthInBytes), directIoArena);
                         var result = new DangerousHugeReadOnlyMemory<T>((T*)(void*)spanAsBytes.Pointer, length);
 
-                        // TODO remove this slow assertion
-                        CombinedPersistentMultiDictionary.Assert(result.Span.AsSmallSpan.SequenceEqual(hugeSpan.Slice(index, length).Span.AsSmallSpan));
+                        //CombinedPersistentMultiDictionary.Assert(result.Span.AsSmallSpan.SequenceEqual(hugeSpan.Slice(index, length).Span.AsSmallSpan));
 
                         return result;
                     }

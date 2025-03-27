@@ -319,7 +319,6 @@ namespace AppViewLite
         private static void ReturnArena()
         {
             if (!CombinedPersistentMultiDictionary.UseDirectIo) return;
-            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread != null && (t_arena512ToReturn != null || t_arena4096ToReturn != null));
 
             if (t_arena512ToReturn != null)
             {

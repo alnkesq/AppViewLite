@@ -105,7 +105,7 @@ namespace AppViewLite.PluggableProtocols
                 var reposterPlc = rels.SerializeDid(reposterDid, ctx);
                 var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did, ctx), tid);
 
-                rels.UserToRecentReposts.AddIfMissing(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
+                rels.UserToRecentReposts.Add(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
             }, ctx);
         }
         public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, RequestContext ctx, bool shouldIndex = true, bool replyIsSemanticallyRepost = false)
@@ -214,10 +214,10 @@ namespace AppViewLite.PluggableProtocols
                     rels.DirectReplies.AddIfMissing(data.InReplyToPostId!.Value, data.PostId);
                 }
 
-                rels.UserToRecentPosts.AddIfMissing(data.PostId.Author, new RecentPost(data.PostId.PostRKey, replyIsSemanticallyRepost ? default : new Plc(data.InReplyToPlc.GetValueOrDefault())));
+                rels.UserToRecentPosts.Add(data.PostId.Author, new RecentPost(data.PostId.PostRKey, replyIsSemanticallyRepost ? default : new Plc(data.InReplyToPlc.GetValueOrDefault())));
 
                 if (data.Media != null)
-                    rels.UserToRecentMediaPosts.AddIfMissing(data.PostId.Author, data.PostId.PostRKey);
+                    rels.UserToRecentMediaPosts.Add(data.PostId.Author, data.PostId.PostRKey);
 
                 simplePostId = new PostId(authorPlc, postId.PostId.Tid);
 

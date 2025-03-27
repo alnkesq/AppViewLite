@@ -71,7 +71,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         {
             var content = e.Content;
             var kind = (NostrEventKind)e.Kind;
-            var ctx = RequestContext.CreateForFirehose("Nostr:" + kind + ":" + relay);
+            
             if (content?.Length >= 4 * 1024) return;
             if (e.Kind == (int)NostrEventKind.Short_Text_Note && content != null)
             {
@@ -95,7 +95,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             if (RecentlyAddedPosts.Count >= 10_000)
                 RecentlyAddedPosts = new();
 
-
+            var ctx = RequestContext.CreateForFirehose("Nostr:" + kind + ":" + relay, allowStale: true);
             var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.TryGetLatestValue(didHash, out _), ctx);
             if (!previouslySeen)
             {

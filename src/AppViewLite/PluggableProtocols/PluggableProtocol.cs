@@ -89,6 +89,7 @@ namespace AppViewLite.PluggableProtocols
 
         public void OnRepostDiscovered(string reposterDid, QualifiedPluggablePostId qualifiedPostId, DateTime repostDate, RequestContext ctx)
         {
+            ctx.AllowStale = false;
             EnsureOwnDid(reposterDid);
             EnsureValidDid(reposterDid);
             var tid = (GetPostIdWithCorrectTid(qualifiedPostId, ctx) ?? default).Tid;
@@ -155,9 +156,11 @@ namespace AppViewLite.PluggableProtocols
             ContinueOutsideLock continueOutsideLock = default;
             PostId simplePostId = default;
 
+            var preresolved = Apis.SerializeSingleDid(postId.Did, ctx);
+
             Apis.WithRelationshipsWriteLock(rels =>
             {
-                var authorPlc = rels.SerializeDid(postId.Did, ctx);
+                var authorPlc = rels.SerializeDidWithHint(postId.Did, ctx, preresolved);
 
 
                 if (!StoreTidIfNotReversible(rels, ref postId))
@@ -174,9 +177,12 @@ namespace AppViewLite.PluggableProtocols
                     inReplyTo = null;
                 }
 
-                if (!StoreTidIfNotReversible(rels, ref rootPostId))
+                if (!postId.Equals(rootPostId))
                 {
-                    rootPostId = inReplyTo ?? postId;
+                    if (!StoreTidIfNotReversible(rels, ref rootPostId))
+                    {
+                        rootPostId = inReplyTo ?? postId;
+                    }
                 }
 
                 if (inReplyTo != null)

@@ -493,7 +493,7 @@ namespace AppViewLite
                     TryProcessRecord(() =>
                     {
                         OnJetStreamEvent(e);
-                        watchdog.Kick();
+                        watchdog?.Kick();
                     }, e.Record.Did?.Handler, accounting);
                 };
                 await firehose.ConnectAsync(token: ct);
@@ -510,7 +510,7 @@ namespace AppViewLite
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnRepoFirehoseEvent(s, e);
-                    watchdog.Kick();
+                    watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler, accounting);
             }, ct);
         }
@@ -521,11 +521,11 @@ namespace AppViewLite
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnLabelFirehoseEvent(s, e);
-                    watchdog.Kick();
+                    watchdog?.Kick();
                 }, nameForDebugging, accounting);
             }, ct);
         }
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog, LagBehindAccounting> setupHandler, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?, LagBehindAccounting> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
@@ -560,10 +560,11 @@ namespace AppViewLite
 
         }
 
-        private Watchdog CreateFirehoseWatchdog(TaskCompletionSource tcs)
+        private Watchdog? CreateFirehoseWatchdog(TaskCompletionSource tcs)
         {
-            // TODO: temporary debugging code
-            return new Watchdog(TimeSpan.FromSeconds(120), () =>
+            var timeout = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS) ?? 0;
+            if (timeout == 0) return null;
+            return new Watchdog(TimeSpan.FromSeconds(timeout), () =>
             {
                 File.AppendAllText(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/firehose-watchdog.txt", DateTime.UtcNow.ToString("O") + " " + FirehoseUrl + "\n");
                 tcs.TrySetException(new Exception("Firehose watchdog"));

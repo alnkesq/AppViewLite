@@ -183,16 +183,32 @@ namespace AppViewLite
                 if (ignoreIfDisposing && rels.IsDisposed) return default;
 
                 var commitPlc = rels.TrySerializeDidMaybeReadOnly(commitAuthor, ctx);
+                if (commitPlc == default) return default;
 
-                var subjectDid =
-                    record is Like like ? like.Subject!.Uri.Did!.Handler :
-                    record is Repost repost ? repost.Subject!.Uri.Did!.Handler :
-                    record is Follow follow ? follow.Subject!.Handler :
-                    null;
+                Plc subjectPlc = default;
+                bool relationshipIsAbsent = false;
+                
+                if (record is Like like && like.Subject!.Uri.Collection == Post.RecordType)
+                {
+                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(like.Subject!.Uri.Did!.Handler, ctx);
+                    if (subjectPlc != default && !rels.Likes.HasActor(new PostIdTimeFirst(Tid.Parse(like.Subject.Uri.Rkey), subjectPlc), commitPlc, out _))
+                        relationshipIsAbsent = true;
+                }
+                else if (record is Repost repost && repost.Subject!.Uri.Collection == Post.RecordType)
+                {
+                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(repost.Subject!.Uri.Did!.Handler, ctx);
+                    if (subjectPlc != default && !rels.Reposts.HasActor(new PostIdTimeFirst(Tid.Parse(repost.Subject.Uri.Rkey), subjectPlc), commitPlc, out _))
+                        relationshipIsAbsent = true;
+                }
+                else if (record is Follow follow)
+                {
+                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(follow.Subject!.Handler, ctx);
+                    if (subjectPlc != default && !rels.Follows.HasActor(subjectPlc, commitPlc, out _))
+                        relationshipIsAbsent = true;
+                }
 
-                var subjectPlc = subjectDid != null ? rels.TrySerializeDidMaybeReadOnly(subjectDid, ctx) : default;
 
-                return (commitPlc, subjectPlc);
+                return (commitPlc, subjectPlc, relationshipIsAbsentAsOf: relationshipIsAbsent ? rels.Version : 0);
             }, ctx);
 
 
@@ -224,7 +240,7 @@ namespace AppViewLite
                             BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                             var likeRkey = GetMessageTid(path, Like.RecordType + "/");
-                            if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey)))
+                            if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey), preresolved.relationshipIsAbsentAsOf))
                             {
                                 relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
 
@@ -265,7 +281,7 @@ namespace AppViewLite
                         var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
                         var rkey = GetMessageTid(path, Follow.RecordType + "/");
 
-                        if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey)))
+                        if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey), preresolved.relationshipIsAbsentAsOf))
                         {
                             if (relationships.IsRegisteredForNotifications(followed))
                                 relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx, rkey.Date);
@@ -283,7 +299,7 @@ namespace AppViewLite
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                         var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
-                        if (relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey)))
+                        if (relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey), preresolved.relationshipIsAbsentAsOf))
                         {
                             relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx, repostRKey.Date);
 

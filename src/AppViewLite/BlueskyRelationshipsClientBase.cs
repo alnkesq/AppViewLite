@@ -210,6 +210,7 @@ namespace AppViewLite
             ctx.TimeSpentWaitingForLocks.Start();
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryRead);
             rels.Lock.EnterReadLock();
+            if (SetThreadNames) Thread.CurrentThread.Name = "[HOLDS PRIMARY READ] " + Thread.CurrentThread.Name;
             PerformanceSnapshot begin = default;
             try
             {
@@ -435,6 +436,7 @@ namespace AppViewLite
             ctx.TimeSpentWaitingForLocks.Start();
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryUpgradeable);
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
+            if (SetThreadNames) Thread.CurrentThread.Name = "[HOLDS PRIMARY UPGRADEABLE] " + Thread.CurrentThread.Name;
             PerformanceSnapshot begin = default;
             try
             {
@@ -457,7 +459,7 @@ namespace AppViewLite
 
         }
 
-        public static bool SetThreadNames = false;
+        public static bool SetThreadNames = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SET_THREAD_NAMES) ?? false;
 
         private static void MaybeRestoreThreadName(string? prevName)
         {

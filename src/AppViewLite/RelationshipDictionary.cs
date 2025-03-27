@@ -130,9 +130,31 @@ namespace AppViewLite
         public bool IsDeleted(Relationship relationship) => deletions.ContainsKey(relationship);
 
 
-        public bool HasActor(TTarget target, Plc actor, out Relationship relationship)
+        private HashSet<(TTarget Target, Plc Actor)>? TryGetNewRelationshipsSinceLastReadOnlySnapshot(long version)
+        {
+            if (NewRelationshipsSinceLastReadOnlySnapshot.MinVersion == version)
+                return NewRelationshipsSinceLastReadOnlySnapshot.Value;
+            if (NewRelationshipsSinceLastReadOnlySnapshotPrev.MinVersion == version)
+                return NewRelationshipsSinceLastReadOnlySnapshotPrev.Value;
+            return null;
+        }
+
+        public bool HasActor(TTarget target, Plc actor, out Relationship relationship, long knownAbsentAsOf = 0)
         {
             relationship = default;
+
+            bool certainlyDoesntExist = false;
+            if (knownAbsentAsOf != 0)
+            {
+                if (TryGetNewRelationshipsSinceLastReadOnlySnapshot(knownAbsentAsOf) is { } hs)
+                {
+                    if (!hs.Contains((target, actor)))
+                    {
+                        certainlyDoesntExist = true;
+                        // return false; // TODO: early exit if we don't see any assertions
+                    }
+                }
+            }
 
             var cannotPossiblyExist = false;
             if (relationshipCache != null)
@@ -158,6 +180,7 @@ namespace AppViewLite
                     if (IsDeleted(latestRel)) return false;
                     relationship = latestRel;
 
+                    BlueskyRelationships.Assert(!certainlyDoesntExist);
                     return true;
                 }
             }
@@ -188,6 +211,8 @@ namespace AppViewLite
                     relationship = next;
                     if (cannotPossiblyExist)
                         BlueskyRelationships.ThrowFatalError("Probabilistic filter returned false, but relationship was actually found.");
+                    
+                    BlueskyRelationships.Assert(!certainlyDoesntExist);
                     return true;
                 }
             }
@@ -235,15 +260,16 @@ namespace AppViewLite
             return 0;
         }
 
-        public bool Add(TTarget target, Relationship relationship)
+        public bool Add(TTarget target, Relationship relationship, long knownAbsentAsOf = 0)
         {
             EnsureValidTarget(target);
 
-            if (HasActor(target, relationship.Actor, out var oldrel))
+            if (HasActor(target, relationship.Actor, out var oldrel, knownAbsentAsOf))
             {
                 if (oldrel == relationship) return false;
                 Delete(oldrel, DateTime.UtcNow, target);
             }
+            NewRelationshipsSinceLastReadOnlySnapshot.Value.Add((target, relationship.Actor));
             creations.Add(target, relationship);
 
             if (relationshipIdHashToApproxTarget != null)
@@ -419,9 +445,17 @@ namespace AppViewLite
             copy.relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly();
             copy.targetToApproxTarget = this.targetToApproxTarget;
             copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();
-            return copy;
 
+            var currentVersion = GetVersion!();
+
+            NewRelationshipsSinceLastReadOnlySnapshotPrev = NewRelationshipsSinceLastReadOnlySnapshot;
+            NewRelationshipsSinceLastReadOnlySnapshot = new(new(), currentVersion);
+            return copy;
         }
+
+        public Func<long>? GetVersion;
+        private Versioned<HashSet<(TTarget Target, Plc Actor)>> NewRelationshipsSinceLastReadOnlySnapshot = new(new(), 0);
+        private Versioned<HashSet<(TTarget Target, Plc Actor)>> NewRelationshipsSinceLastReadOnlySnapshotPrev = new(new(), 0);
 
         ICloneableAsReadOnly ICloneableAsReadOnly.CloneAsReadOnly() => CloneAsReadOnly();
     }

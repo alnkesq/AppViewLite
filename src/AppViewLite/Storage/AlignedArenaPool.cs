@@ -8,14 +8,15 @@ namespace AppViewLite.Storage
     {
 
         public static readonly ObjectPool<AlignedArena512> Pool512 = ObjectPool.Create<AlignedArena512>();
+        public static readonly ObjectPool<AlignedArena4096> Pool4096 = ObjectPool.Create<AlignedArena4096>();
 
 
-        public static ArenaBorrowScope AcquireScope(out AlignedNativeArena arena)
-        {
-            var wrapper = Pool512.Get();
-            arena = wrapper.Arena;
-            return new ArenaBorrowScope(wrapper);
-        }
+        //public static ArenaBorrowScope AcquireScope(out AlignedNativeArena arena)
+        //{
+        //    var wrapper = Pool512.Get();
+        //    arena = wrapper.Arena;
+        //    return new ArenaBorrowScope(wrapper);
+        //}
 
         //public static AlignedNativeArena Acquire()
         //{
@@ -27,18 +28,14 @@ namespace AppViewLite.Storage
         //    else throw new ArgumentException();
         //}
 
-        public class AlignedArena512 : IDisposable, IResettable
+
+        public abstract class PooledAlignedArena
         {
             internal AlignedNativeArena Arena;
-            public AlignedArena512(AlignedNativeArena arena)
+            public PooledAlignedArena(AlignedNativeArena arena)
             {
                 Arena = arena;
             }
-            public AlignedArena512()
-            {
-                Arena = new AlignedNativeArena(512, 256 * 1024);
-            }
-
             public void Dispose()
             {
                 Arena.Dispose();
@@ -50,24 +47,45 @@ namespace AppViewLite.Storage
                 return true;
             }
         }
+
+        public class AlignedArena512 : PooledAlignedArena, IDisposable, IResettable
+        {
+
+            public AlignedArena512()
+                : base(new AlignedNativeArena(512, 256 * 1024))
+            {
+            }
+
+        }
+
+        public class AlignedArena4096 : PooledAlignedArena, IDisposable, IResettable
+        {
+
+            public AlignedArena4096()
+                : base(new AlignedNativeArena(4096, 512 * 1024))
+            {
+            }
+
+        }
+
     }
 
 
-    public ref struct ArenaBorrowScope
-    {
-        internal AlignedArenaPool.AlignedArena512 wrapper;
-        internal ArenaBorrowScope(AlignedArenaPool.AlignedArena512 wrapper)
-        {
-            this.wrapper = wrapper;
-        }
+    //public ref struct ArenaBorrowScope
+    //{
+    //    internal AlignedArenaPool.AlignedArena512 wrapper;
+    //    internal ArenaBorrowScope(AlignedArenaPool.AlignedArena512 wrapper)
+    //    {
+    //        this.wrapper = wrapper;
+    //    }
 
-        public void Dispose()
-        {
-            if (wrapper == null) return;
-            AlignedArenaPool.Pool512.Return(wrapper);
-            wrapper = null!;
-        }
-    }
+    //    public void Dispose()
+    //    {
+    //        if (wrapper == null) return;
+    //        AlignedArenaPool.Pool512.Return(wrapper);
+    //        wrapper = null!;
+    //    }
+    //}
 
 
 

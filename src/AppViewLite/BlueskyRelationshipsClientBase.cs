@@ -297,22 +297,45 @@ namespace AppViewLite
         private static void SetupArena()
         {
             if (!CombinedPersistentMultiDictionary.UseDirectIo) return;
-            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && t_arena512ToReturn == null);
-            var pooled = AlignedArenaPool.Pool512.Get();
-            t_arena512ToReturn = pooled;
-            AlignedNativeArena.ForCurrentThread = t_arena512ToReturn.Arena;
+            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && t_arena512ToReturn == null && t_arena4096ToReturn == null);
+
+            if (CombinedPersistentMultiDictionary.DiskSectorSize == 512)
+            {
+                var pooled = AlignedArenaPool.Pool512.Get();
+                t_arena512ToReturn = pooled;
+                AlignedNativeArena.ForCurrentThread = t_arena512ToReturn.Arena;
+            }
+            else if (CombinedPersistentMultiDictionary.DiskSectorSize == 4096)
+            {
+                var pooled = AlignedArenaPool.Pool4096.Get();
+                t_arena4096ToReturn = pooled;
+                AlignedNativeArena.ForCurrentThread = t_arena4096ToReturn.Arena;
+            }
+            else throw new NotSupportedException("Disk sector size is not supported.");
+            
         }
 
         private static void ReturnArena()
         {
             if (!CombinedPersistentMultiDictionary.UseDirectIo) return;
-            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread != null && t_arena512ToReturn != null);
-            AlignedArenaPool.Pool512.Return(t_arena512ToReturn!);
-            t_arena512ToReturn = null;
+            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread != null && (t_arena512ToReturn != null || t_arena4096ToReturn != null));
+
+            if (t_arena512ToReturn != null)
+            {
+                AlignedArenaPool.Pool512.Return(t_arena512ToReturn!);
+                t_arena512ToReturn = null;
+            }
+            if (t_arena4096ToReturn != null)
+            {
+                AlignedArenaPool.Pool4096.Return(t_arena4096ToReturn!);
+                t_arena4096ToReturn = null;
+            }
+
             AlignedNativeArena.ForCurrentThread = null;
 
         }
         [ThreadStatic] private static AlignedArenaPool.AlignedArena512? t_arena512ToReturn;
+        [ThreadStatic] private static AlignedArenaPool.AlignedArena4096? t_arena4096ToReturn;
 
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {

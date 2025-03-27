@@ -22,6 +22,8 @@ namespace AppViewLite.Web
         public static async Task Main(string[] args)
         {
             LoggableBase.Initialize();
+            CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? false;
+            CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             BlueskyRelationships.CreateTimeSeries();
             Relationships = new();
             Relationships.MaybeEnterWriteLockAndPrune();

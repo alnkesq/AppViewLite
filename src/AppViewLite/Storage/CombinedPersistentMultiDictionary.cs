@@ -1500,6 +1500,11 @@ namespace AppViewLite.Storage
             return EnumerateKeysSortedDescending((TKey?)maxExclusive);
         }
 
+        public TCache? GetCache<TCache>() where TCache : CachedView
+        {
+            return Caches?.OfType<TCache>().SingleOrDefault();
+        }
+
         public abstract class CachedView : IDisposable
         {
             public abstract string Identifier { get; }

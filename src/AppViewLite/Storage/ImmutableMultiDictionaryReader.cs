@@ -333,19 +333,17 @@ namespace AppViewLite.Storage
                             bool isDuplicateRead = false;
                             lock (fileHandle.RecentReadsForDebugging)
                             {
-                                if (fileHandle.RecentReadsForDebugging.Any(x => Math.Abs(x - offsetInBytes) < 200))
+                                if (fileHandle.RecentReadsForDebugging.Any(x => x.File == fileHandle && Math.Abs(x.Offset - offsetInBytes) < 200))
                                 {
                                     isDuplicateRead = true;
                                 }
                                 if (fileHandle.RecentReadsForDebugging.Count >= 10)
                                     fileHandle.RecentReadsForDebugging.Dequeue();
-                                fileHandle.RecentReadsForDebugging.Enqueue(offsetInBytes);
-                            }
-
-                            Console.Error.WriteLine((isDuplicateRead ? "Dupe: " : "Read: " ) + fileHandle.Path + " " + offsetInBytes + " (" + lengthInBytes + ")");
+                                fileHandle.RecentReadsForDebugging.Enqueue((fileHandle, offsetInBytes));
+                            Console.Error.WriteLine((isDuplicateRead ? "Dupe: " : "Read: ") + fileHandle.Path + " " + offsetInBytes + " (" + lengthInBytes + ")");
                         }
-                        
-                        
+
+
 
                         var spanAsBytes = DirectIo.ReadUnaligned(fileHandle.SafeFileHandle, offsetInBytes, checked((int)lengthInBytes), directIoArena);
                         var result = new DangerousHugeReadOnlyMemory<T>((T*)(void*)spanAsBytes.Pointer, length);

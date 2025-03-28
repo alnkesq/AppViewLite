@@ -23,7 +23,7 @@ namespace AppViewLite.Storage
         }
 
 
-        public Queue<long> RecentReadsForDebugging = new();
+        public Queue<(MemoryMappedFileSlim File, long Offset)> RecentReadsForDebugging = new();
 
         private const uint GENERIC_READ = 0x80000000;
         private const uint FILE_SHARE_READ = 0x00000001;

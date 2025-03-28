@@ -540,8 +540,26 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             if (!hasFullContent)
             {
+
                 if (summaryText != null)
                 {
+                    var firstAppearedOn = Regex.Match(summaryText, "(first appeared on|appeared first on)", RegexOptions.IgnoreCase);
+                    if (firstAppearedOn != null)
+                    {
+                        summaryText = summaryText.Substring(0, firstAppearedOn.Index);
+                        var endOfPreviousSentence = summaryText.AsSpan().LastIndexOfAny('\n', '.', '…');
+                        if (endOfPreviousSentence >= 1)
+                        {
+                            summaryText = summaryText.Substring(0, endOfPreviousSentence + 1).TrimEnd();
+                        }
+                    }
+                }
+
+                if (summaryText != null)
+                {
+
+
+
                     if (summaryText.Length < 400 && !IsTrimmedText(bodyAsText, summaryText))
                     {
                         var readMore = Regex.Match(summaryText, @"(?:…|\.\.\.|\b[Rr]ead [Mm]ore|[Cc]ontinue [Rr]eading)\W*$");
@@ -550,9 +568,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                             summaryText = summaryText.Substring(0, readMore.Index).TrimEnd([' ', '\n', '.', '…']) + "…";
                         }
 
-
                         data.Text = summaryText;
                     }
+
 
                 }
                 data.ExternalUrl = url!.AbsoluteUri;

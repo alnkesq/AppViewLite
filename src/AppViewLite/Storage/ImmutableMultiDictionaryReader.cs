@@ -330,6 +330,11 @@ namespace AppViewLite.Storage
                         }
                         if (CombinedPersistentMultiDictionary.PrintDirectIoReads)
                         {
+                            var sliceKind = Path.GetFileName(fileHandle.Path);
+                            var kind = sliceKind.Substring(sliceKind.IndexOf('.') + 1);
+                            var sliceKey = Path.GetFileName(Path.GetDirectoryName(fileHandle.Path)) + "_" + kind;
+                            CombinedPersistentMultiDictionary.DirectIoReadStats.AddOrUpdate(sliceKey, 0, (_, prev) => prev += lengthInBytes);
+
                             bool isDuplicateRead = false;
                             lock (fileHandle.RecentReadsForDebugging)
                             {

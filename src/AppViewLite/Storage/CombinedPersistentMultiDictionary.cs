@@ -12,6 +12,7 @@ using System.Collections;
 using DuckDbSharp.Bindings;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Collections.Concurrent;
 
 namespace AppViewLite.Storage
 {
@@ -168,6 +169,7 @@ namespace AppViewLite.Storage
         public static bool UseDirectIo = true;
         public static int DiskSectorSize = 512;
         public static bool PrintDirectIoReads;
+        public static ConcurrentDictionary<string, long> DirectIoReadStats = new();
 
         public static void Log(string text)
         {

@@ -4289,6 +4289,7 @@ namespace AppViewLite
                 Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
                 Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
                 UserContext = ctx.IsLoggedIn ? ctx.UserContext.GetCountersThreadSafe() : null,
+                DirectIoReadStats = new OrderedDictionary<string, long>(CombinedPersistentMultiDictionary.DirectIoReadStats.OrderByDescending(x => x.Value).Select(x => new KeyValuePair<string, long>(x.Key.Replace(".dat", null).Replace("col0", "K").Replace("col1", "V").Replace("col2", "O"), x.Value)))
             };
         }
 

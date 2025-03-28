@@ -16,7 +16,7 @@ namespace AppViewLite.Web
         private static BlueskyRelationships Relationships = null!;
 
 
-        public static bool ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
+        public static bool ListenToFirehose;
 
         public static BlueskyEnrichedApis Apis => BlueskyEnrichedApis.Instance;
 
@@ -26,6 +26,7 @@ namespace AppViewLite.Web
             LoggableBase.Initialize();
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? false;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
+            ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
             BlueskyRelationships.CreateTimeSeries();
             Relationships = new();
             Relationships.MaybeEnterWriteLockAndPrune();

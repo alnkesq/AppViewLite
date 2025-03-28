@@ -303,7 +303,7 @@ namespace AppViewLite
                 return default;
 
 
-            var relationshipValuesPreference = MultiDictionaryIoPreference.ValuesMmap;
+            var relationshipValuesPreference = MultiDictionaryIoPreference.ValuesMmap | MultiDictionaryIoPreference.OffsetsMmap;
             creations.InitializeIoPreferenceForKey(default, ref relationshipValuesPreference);
 
             foreach (var sliceTuple in creations.slices)

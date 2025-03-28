@@ -127,7 +127,7 @@ namespace AppViewLite.Storage
             return !begin.ContainsAnyExcept((byte)0) || !end.ContainsAnyExcept((byte)0);
         }
 
-        const int MinSizeBeforeKeyCache = 2 * 1024 * 1024;
+        const int MinSizeBeforeKeyCache = 1 * 1024 * 1024;
 
         public readonly static int TargetPageSizeBytes =
             CombinedPersistentMultiDictionary.UseDirectIo ? CombinedPersistentMultiDictionary.DiskSectorSize

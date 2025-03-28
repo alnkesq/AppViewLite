@@ -167,6 +167,7 @@ namespace AppViewLite.Storage
 
         public static bool UseDirectIo = true;
         public static int DiskSectorSize = 512;
+        public static bool PrintDirectIoReads;
 
         public static void Log(string text)
         {

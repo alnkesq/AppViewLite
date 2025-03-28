@@ -328,7 +328,7 @@ namespace AppViewLite.Storage
                             {
                             }
                         }
-                        if (false)
+                        if (CombinedPersistentMultiDictionary.PrintDirectIoReads)
                         {
                             bool isDuplicateRead = false;
                             lock (fileHandle.RecentReadsForDebugging)

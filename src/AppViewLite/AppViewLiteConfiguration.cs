@@ -1,10 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AppViewLite
 {
@@ -53,6 +49,53 @@ namespace AppViewLite
         public static string GetDataDirectory()
         {
             return GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData");
+        }
+
+        public static void ReadEnvAndArgs(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                var arg = args[i];
+                if (arg.StartsWith("--", StringComparison.Ordinal))
+                {
+                    var name = arg.Substring(2).ToUpperInvariant().Replace('-', '_');
+                    if (!name.StartsWith("APPVIEWLITE_", StringComparison.Ordinal))
+                        name = "APPVIEWLITE_" + name;
+                    if (!Enum.TryParse<AppViewLiteParameter>(name, false, out _))
+                        throw new ArgumentException("Unrecognized argument: " + arg);
+                    if (i == args.Length - 1 || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+                        throw new ArgumentException("Missing value for argument " + arg);
+
+                    Environment.SetEnvironmentVariable(name, args[i + 1]);
+                    i++;
+                }
+                else
+                {
+                    throw new ArgumentException("Unrecognized argument: " + arg);
+                }
+            }
+
+
+            var envpath = GetString(AppViewLiteParameter.APPVIEWLITE_CONFIGURATION);
+            if (envpath != null)
+            {
+                foreach (var line in StringUtils.ReadTextFile(envpath))
+                {
+                    var eq = line.IndexOf('=');
+                    if (eq == -1) throw new Exception("Invalid line in configuration file: " + line);
+                    var name = line.Substring(0, eq);
+                    var value = line.Substring(eq + 1);
+                    if (value.StartsWith("~/", StringComparison.Ordinal))
+                        value = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), value.Substring(2));
+                    if (Environment.GetEnvironmentVariable(name) is { } envval && envval != value)
+                    {
+                        // Too early for LoggableBase
+                        Console.Error.WriteLine($"Warning: {name} is \"{envval}\" in environment, but \"{value}\" in env file. Using environment.");
+                        continue;
+                    }
+                    Environment.SetEnvironmentVariable(name, value);
+                }
+            }
         }
     }
 
@@ -116,6 +159,7 @@ namespace AppViewLite
         APPVIEWLITE_DIRECT_IO_SECTOR_SIZE,
         APPVIEWLITE_SET_THREAD_NAMES,
         APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS,
+        APPVIEWLITE_CONFIGURATION,
     }
 }
 

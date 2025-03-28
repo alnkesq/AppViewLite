@@ -9,6 +9,7 @@ namespace AppViewLite
     {
         static async Task Main(string[] args)
         {
+            AppViewLiteConfiguration.ReadEnvAndArgs(args);
             LoggableBase.Initialize();
             using var relationships = new BlueskyRelationships();
             BlueskyRelationships.CreateTimeSeries();

@@ -244,8 +244,14 @@ namespace AppViewLite
                             {
                                 relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
 
-                                // TODO: here we perform the binary search twice: 1 for HasActor, 2 for GetApproximateActorCount.
-                                var approxActorCount = relationships.Likes.GetApproximateActorCount(postId);
+                                var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false, null);
+                                approxActorCount++; // this dict is only written here, while holding the write lock.
+                                if (approxActorCount >= int.MaxValue)
+                                    relationships.ApproximateLikeCountCache.Remove(postId);
+                                else
+                                    relationships.ApproximateLikeCountCache[postId] = (int)approxActorCount;
+
+                                //Console.Error.WriteLine("LikeCount: " + approxActorCount);
                                 relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
                                 relationships.NotifyPostStatsChange(postId, commitPlc);
 

@@ -227,6 +227,7 @@ namespace AppViewLite
         public BlueskyRelationships(string basedir, bool isReadOnly)
             : this(isReadOnly)
         {
+            ApproximateLikeCountCache = new(128 * 1024);
             DidToPlcConcurrentCache = new(512 * 1024);
             PlcToDidConcurrentCache = new(128 * 1024);
             Lock = new ReaderWriterLockSlim();
@@ -3228,6 +3229,7 @@ namespace AppViewLite
             copy.UserToRecentPopularPosts = this.UserToRecentPopularPosts;
             copy.DefaultLabelSubscriptions = this.DefaultLabelSubscriptions;
             copy.PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot;
+            copy.ApproximateLikeCountCache = this.ApproximateLikeCountCache;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var field in fields)
             {
@@ -3275,9 +3277,21 @@ namespace AppViewLite
             return ancestors;
         }
 
+        public ConcurrentFullEvictionCache<PostIdTimeFirst, int> ApproximateLikeCountCache;
 
+
+        
         public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>? plcToRecentPostLikes)
         {
+            if (!couldBePluggablePost)
+            {
+                if (ApproximateLikeCountCache.TryGetValue(postId, out var val))
+                {
+                    return val;
+                }
+                // Don't write back to the cache.
+            }
+
             var likeCount = Likes.GetApproximateActorCount(postId);
             if (likeCount == 0 && couldBePluggablePost)
             {
@@ -3704,11 +3718,12 @@ namespace AppViewLite
                 this.AvoidFlushes,
                 checkpointToLoad = this.checkpointToLoad?.Count,
                 DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
-                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.Count,
+                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
+                ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
                 lastGlobalFlush = this.lastGlobalFlush.Elapsed,
                 this.PlcDirectoryStaleness,
                 this.PlcDirectorySyncDate,
-                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.Count,
+                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
                 PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
                 registerForNotificationsCache = this.registerForNotificationsCache.Count,

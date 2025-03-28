@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
@@ -20,10 +21,25 @@ namespace AppViewLite
             this.dict = new(-1, capacity);
         }
 
+        public ConcurrentDictionary<TKey, TValue> Dictionary => dict;
+
+        public readonly HitMissCounter HitMissCounter = new();
+
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
-            return dict.TryGetValue(key, out value);
+            if (dict.TryGetValue(key, out value))
+            {
+                HitMissCounter.OnHit();
+                return true;
+            }
+            else
+            {
+                HitMissCounter.OnMiss();
+                return false;
+            }
         }
+
+        public object GetCounters() => new { Count = Count, HitRatio = HitMissCounter.HitRatio, LastResetAgo = Stopwatch.GetElapsedTime(LastReset) };
 
         public int Count => dict.Count;
         public int ApproximateCount => approximateCount;
@@ -44,9 +60,12 @@ namespace AppViewLite
                     // It's ok to have races here. Count is only approximate.
                     dict = new();
                     approximateCount = 0;
+                    LastReset = Stopwatch.GetTimestamp();
                 }
             }
         }
+
+        private long LastReset = Stopwatch.GetTimestamp();
 
         public void Remove(TKey key)
         {

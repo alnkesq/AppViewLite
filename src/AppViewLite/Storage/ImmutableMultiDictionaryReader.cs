@@ -510,6 +510,11 @@ namespace AppViewLite.Storage
             }
             return preference;
         }
+
+        public DangerousHugeReadOnlyMemory<TKey> EnumerateKeys()
+        {
+            return ((DangerousHugeReadOnlyMemory<TKey>)Keys);
+        }
     }
 
     internal struct SingletonDefaultNativeMemory<T> where T : unmanaged

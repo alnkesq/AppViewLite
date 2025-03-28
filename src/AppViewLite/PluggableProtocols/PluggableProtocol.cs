@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using AppViewLite.Storage;
 using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
@@ -286,7 +287,9 @@ namespace AppViewLite.PluggableProtocols
             else
             {
                 var hash = postId.GetExternalPostIdHash();
-                if (rels.ExternalPostIdHashToSyntheticTid.TryGetSingleValue(hash, out var tid))
+                var probabilistcCache = rels.ExternalPostIdHashToSyntheticTid.GetCache<KeyProbabilisticCache<DuckDbUuid, Tid>>();
+                var couldAlreadyExist = probabilistcCache == null || probabilistcCache.PossiblyContainsKey(hash);
+                if (couldAlreadyExist && rels.ExternalPostIdHashToSyntheticTid.TryGetSingleValue(hash, out var tid))
                 {
                     postId = postId.WithTid(tid);
                 }

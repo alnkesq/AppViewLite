@@ -106,7 +106,6 @@ namespace AppViewLite.Storage
         [DoesNotReturn]
         public static void Abort(Exception? ex)
         {
-            Log("Unexpected condition occurred. Aborting.");
             while (ex != null)
             {
                 Log(ex.Message);
@@ -114,8 +113,7 @@ namespace AppViewLite.Storage
                     Log(ex.StackTrace);
                 ex = ex.InnerException;
             }
-            Log("Unexpected condition occurred. Aborting.");
-            throw ex;
+            BlueskyRelationships.ThrowFatalError(ex?.Message ?? "Unexpected condition.");
         }
 
         public static void Assert(bool condition)

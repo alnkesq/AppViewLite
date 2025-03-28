@@ -213,7 +213,7 @@ namespace AppViewLite
             ctx.TimeSpentWaitingForLocks.Start();
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryRead);
             rels.Lock.EnterReadLock();
-            if (SetThreadNames) Thread.CurrentThread.Name = "[HOLDS PRIMARY READ] " + Thread.CurrentThread.Name;
+            if (SetThreadNames != 0) Thread.CurrentThread.Name = "[HOLDS PRIMARY READ] " + Thread.CurrentThread.Name;
             PerformanceSnapshot begin = default;
             try
             {
@@ -415,7 +415,7 @@ namespace AppViewLite
             using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryWrite);
             relationshipsUnlocked.Lock.EnterWriteLock();
-            if (SetThreadNames) Thread.CurrentThread.Name = "[HOLDS WRITE LOCK] " + Thread.CurrentThread.Name;
+            if (SetThreadNames != 0) Thread.CurrentThread.Name = "[HOLDS WRITE LOCK] " + Thread.CurrentThread.Name;
             relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
             PerformanceSnapshot begin = default;
             try
@@ -458,7 +458,7 @@ namespace AppViewLite
             ctx.TimeSpentWaitingForLocks.Start();
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryUpgradeable);
             relationshipsUnlocked.Lock.EnterUpgradeableReadLock();
-            if (SetThreadNames) Thread.CurrentThread.Name = "[HOLDS PRIMARY UPGRADEABLE] " + Thread.CurrentThread.Name;
+            if (SetThreadNames != 0) Thread.CurrentThread.Name = "[HOLDS PRIMARY UPGRADEABLE] " + Thread.CurrentThread.Name;
             PerformanceSnapshot begin = default;
             try
             {
@@ -481,23 +481,26 @@ namespace AppViewLite
 
         }
 
-        public static bool SetThreadNames = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_SET_THREAD_NAMES) ?? false;
+        public static int SetThreadNames = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_SET_THREAD_NAMES) ?? 0;
 
         private static void MaybeRestoreThreadName(string? prevName)
         {
-            if(SetThreadNames)
+            if (prevName != null)
                 Thread.CurrentThread.Name = prevName;
         }
 
         private static string? MaybeSetThreadName(RequestContext ctx, LockKind kind)
         {
-            if (SetThreadNames)
+            // Thread.set_Name is surprisingly slow.
+            if (SetThreadNames == 0) return null;
+            else if (SetThreadNames == 1) return Thread.CurrentThread.Name;
+            else if (SetThreadNames == 2)
             {
                 var prev = Thread.CurrentThread.Name;
                 Thread.CurrentThread.Name = ctx.ToString() + (ctx.IsUrgent ? " [URGENT]" : null) + " (" + kind + ")";
                 return prev;
             }
-            return null;
+            throw new ArgumentException();
         }
 
         public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext ctx)

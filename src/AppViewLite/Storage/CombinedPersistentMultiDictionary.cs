@@ -152,6 +152,10 @@ namespace AppViewLite.Storage
         public virtual long InMemorySize { get; }
         public virtual long OnDiskSize { get; }
 
+        public virtual long KeyCount { get; }
+        public virtual long ValueCount { get; }
+        public virtual int SliceCount { get; }
+
         [DoesNotReturn]
         public static void Abort(string? message)
         {
@@ -937,8 +941,9 @@ namespace AppViewLite.Storage
             MaybeFlush();
         }
 
-        public long GroupCount => queue.GroupCount + slices.Sum(x => x.Reader.KeyCount);
-        public long ValueCount => queue.ValueCount + slices.Sum(x => x.Reader.ValueCount);
+        public override long KeyCount => queue.GroupCount + slices.Sum(x => x.Reader.KeyCount);
+        public override long ValueCount => queue.ValueCount + slices.Sum(x => x.Reader.ValueCount);
+        public override int SliceCount => slices.Count;
 
         public TimeSpan? MaximumInMemoryBufferDuration { get; set; }
         public TKey? MaximumKey

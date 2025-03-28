@@ -1699,11 +1699,17 @@ function formatEngagementCount(value)
         // 10K..999K
         return formatTwoSignificantDigits(value / 1_000.0) + "K";
     }
-    else
+    else if (value < 1_000_000_000)
     {
         // 1.0M..9.9M
-        // 10M..1234567M
+        // 10M..999M
         return formatTwoSignificantDigits(value / 1_000_000.0) + "M";
+    }
+    else
+    {
+        // 1.0B..9.9B
+        // 10B..1234567B
+        return formatTwoSignificantDigits(value / 1_000_000_000.0) + "B";
     }
 
     

@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Collections;
+using DuckDbSharp.Bindings;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
@@ -49,6 +52,70 @@ namespace AppViewLite.Storage
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
         public PersistentDictionaryBehavior Behavior => behavior;
+
+        [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
+
+        public unsafe static ManagedOrNativeArray<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T: unmanaged
+        {
+            var arena = UnalignedArenaForCurrentThread!;
+            if (TryGetSpan(enumerable, out var src))
+            {
+                if (src.IsEmpty) return default;
+                var size = Unsafe.SizeOf<T>() * src.Length;
+                var ptr = arena.Allocate(size);
+                src.CopyTo(new Span<T>((void*)ptr, src.Length));
+                Console.Error.WriteLine("ToNativeArray: " + src.Length);
+                return new DangerousHugeReadOnlyMemory<T>((T*)ptr, src.Length);
+            }
+
+            if (enumerable.TryGetNonEnumeratedCount(out var count))
+            {
+                if (count == 0) return default;
+
+                var size = Unsafe.SizeOf<T>() * count;
+                var ptr = arena.Allocate(size);
+
+
+                var dest = new Span<T>((T*)ptr, count);
+                var index = 0;
+                foreach (var item in enumerable)
+                {
+                    dest[index++] = item;
+                }
+                return new DangerousHugeReadOnlyMemory<T>((T*)ptr, count);
+
+            }
+            else
+            {
+                Console.Error.WriteLine("ToNativeArray (enumeration)");
+                return ToNativeArray(enumerable.ToArray());
+            }
+
+            
+        }
+
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool TryGetSpan<TSource>(IEnumerable<TSource> source, out ReadOnlySpan<TSource> span)
+        {
+            bool result = true;
+            if (source.GetType() == typeof(TSource[]))
+            {
+                span = Unsafe.As<TSource[]>(source);
+            }
+            //else if (source.GetType() == typeof(List<TSource>))
+            //{
+            //    span = CollectionsMarshal.AsSpan(Unsafe.As<List<TSource>>(source));
+            //}
+            else
+            {
+                span = default(ReadOnlySpan<TSource>);
+                result = false;
+            }
+            return result;
+        }
+
         public abstract string[] GetPotentiallyCorruptFiles();
 
         public abstract IEnumerable GetValuesSortedUntyped(object key, object? minExclusive);
@@ -609,20 +676,20 @@ namespace AppViewLite.Storage
                 {
                     if (maxExclusive != null)
                     {
-                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0 && x.CompareTo(maxExclusive.Value) < 0).ToArray();
+                        extraArr = ToNativeArray(extra.Where(x => minExclusive.Value.CompareTo(x) < 0 && x.CompareTo(maxExclusive.Value) < 0));
                     }
                     else
                     {
-                        extraArr = extra.Where(x => minExclusive.Value.CompareTo(x) < 0).ToArray();
+                        extraArr = ToNativeArray(extra.Where(x => minExclusive.Value.CompareTo(x) < 0));
                     }
                 }
                 else if (maxExclusive != null)
                 {
-                    extraArr = extra.Where(x => x.CompareTo(maxExclusive.Value) < 0).ToArray();
+                    extraArr = ToNativeArray(extra.Where(x => x.CompareTo(maxExclusive.Value) < 0));
                 }
                 else
                 {
-                    extraArr = extra.ToArray();
+                    extraArr = ToNativeArray(extra);
                 }
             }
             var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
@@ -630,13 +697,15 @@ namespace AppViewLite.Storage
                 z = z.Append(extraArr);
             return z;
         }
+
+
         public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false, MultiDictionaryIoPreference preference = default)
         {
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (!omitQueue && queue.TryGetValues(key, out var extra))
             {
-                yield return extra.ValuesUnsortedArray; // this will actually be sorted
+                yield return ToNativeArray(extra.ValuesUnsorted); // this will actually be sorted
             }
             for (int i = slices.Count - 1; i >= 0; i--)
             {
@@ -664,7 +733,7 @@ namespace AppViewLite.Storage
 
             if (queue.TryGetValues(key, out var q))
             {
-                val = q.ValuesUnsortedArray;
+                val = ToNativeArray(q.ValuesUnsorted);
                 return true;
             }
             val = default;
@@ -675,7 +744,7 @@ namespace AppViewLite.Storage
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (queue.TryGetValues(key, out var extra))
             {
-                val = extra.ValuesUnsortedArray;
+                val = ToNativeArray(extra.ValuesUnsorted);
                 return true;
             }
             for (int i = slices.Count - 1; i >= 0; i--)
@@ -996,7 +1065,7 @@ namespace AppViewLite.Storage
             }
             foreach (var q in queue.Groups)
             {
-                yield return (q.Key, q.Value.ValuesUnsortedArray);
+                yield return (q.Key, ToNativeArray(q.Value.ValuesUnsorted));
             }
         }
 
@@ -1011,7 +1080,7 @@ namespace AppViewLite.Storage
             var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (ManagedOrNativeArray<TValue>)x.Values)));
             if (queue.GroupCount != 0)
             {
-                s = s.Append(queue.Select(x => (x.Key, Values: (ManagedOrNativeArray<TValue>)x.Values.ValuesSorted.ToArray())));
+                s = s.Append(queue.Select(x => (x.Key, Values: ToNativeArray(x.Values.ValuesSorted))));
             }
             return SimpleJoin
                 .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.Key)
@@ -1055,9 +1124,7 @@ namespace AppViewLite.Storage
             }
             if (queue.GroupCount != 0)
             {
-                var keys = queue.Keys.ToArray();
-                Array.Sort(keys);
-                yield return keys;
+                yield return ToNativeArray(queue.Keys.Order());
             }
         }
 
@@ -1089,11 +1156,10 @@ namespace AppViewLite.Storage
         public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive, MultiDictionaryIoPreference preference = default)
         {
             InitializeIoPreferenceForKey(min, ref preference);
-
             foreach (var q in queue)
             {
                 if (IsInRange(q.Key, min, maxExclusive))
-                    yield return (q.Key, q.Values.ValuesUnsortedArray);
+                    yield return (q.Key, ToNativeArray(q.Values.ValuesUnsorted));
             }
 
             foreach (var slice in slices)

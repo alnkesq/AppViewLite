@@ -96,7 +96,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
                 RecentlyAddedPosts = new();
 
             var ctx = RequestContext.CreateForFirehose("Nostr:" + kind + ":" + relay, allowStale: true);
-            var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.TryGetLatestValue(didHash, out _), ctx);
+            var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.ContainsKey(didHash), ctx);
             if (!previouslySeen)
             {
                 // Avoid wasting Plc assignments for single-use spam pubkeys.

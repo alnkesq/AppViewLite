@@ -1165,7 +1165,7 @@ namespace AppViewLite
             if (small.Count != 0)
             {
                 small.Sort();
-                result.Add(small.ToArray());
+                result.Add(CombinedPersistentMultiDictionary.ToNativeArray(small));
             }
 
             return result;

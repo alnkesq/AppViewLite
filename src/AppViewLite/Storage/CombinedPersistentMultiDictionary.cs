@@ -1265,7 +1265,28 @@ namespace AppViewLite.Storage
 
                     foreach (var key in keysToCopy)
                     {
-                        copy.queue.Groups[key] = this.queue.Groups[key];
+                        var g = this.queue.Groups[key];
+                        if (g._manyValuesSorted != null)
+                        {
+                            if (copy.queue.Groups.TryGetValue(key, out var preexisting))
+                            {
+                                if (preexisting.Count == g.Count) // if _manyValuesSorted didn't grow, we can keep the old version instead of cloning the whole SortedSet
+                                {
+                                    // Assert(preexisting._manyValuesSorted!.SequenceEqual(g._manyValuesSorted));
+                                    continue;
+                                }
+
+                            }
+
+                            if (g.Count >= 250)
+                                Console.Error.WriteLine("Copying SortedSet of size " + g.Count);
+                            // _manyValuesSorted is mutable (unlike _manyValuesPreserved), so we need to copy it.
+                            
+                            
+                            // TODO: instead, each virtual slices contains List<KeyValuePair<TKey, TValue>>. After a replica is captured, we set that field to null. keep in mind when each obsolete for recycling is returned
+                            g._manyValuesSorted = new SortedSet<TValue>(g._manyValuesSorted);
+                        }
+                        copy.queue.Groups[key] = g;
                     }
 
                     if (!lastSliceIsEmpty)

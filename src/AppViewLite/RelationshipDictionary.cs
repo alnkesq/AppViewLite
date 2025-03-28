@@ -442,6 +442,7 @@ namespace AppViewLite
             copy.creations = this.creations.CloneAsReadOnly();
             copy.deletions = this.deletions.CloneAsReadOnly();
             copy.deletionCounts = this.deletionCounts.CloneAsReadOnly();
+            copy.relationshipCache = this.relationshipCache; // Reads during writes are safe.
             copy.relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly();
             copy.targetToApproxTarget = this.targetToApproxTarget;
             copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();

@@ -3718,12 +3718,9 @@ namespace AppViewLite
                 this.AvoidFlushes,
                 checkpointToLoad = this.checkpointToLoad?.Count,
                 DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
-                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
-                ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
                 lastGlobalFlush = this.lastGlobalFlush.Elapsed,
                 this.PlcDirectoryStaleness,
                 this.PlcDirectorySyncDate,
-                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
                 PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
                 registerForNotificationsCache = this.registerForNotificationsCache.Count,
@@ -3733,6 +3730,11 @@ namespace AppViewLite
                 UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
                 this.Version,
+                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
+                ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
+                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
+                Caches = this.IsPrimary ? this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value) : null,
+
             };
         }
 

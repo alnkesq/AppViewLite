@@ -59,6 +59,11 @@ namespace AppViewLite.Storage
         {
             probabilisticSet.Add(key);
         }
+
+        public override object? GetCounters()
+        {
+            return probabilisticSet.GetCounters();
+        }
     }
 
 }

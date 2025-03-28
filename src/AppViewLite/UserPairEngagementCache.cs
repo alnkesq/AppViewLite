@@ -100,5 +100,10 @@ namespace AppViewLite
         {
             Version++;
         }
+
+        public override object? GetCounters()
+        {
+            return null;
+        }
     }
 }

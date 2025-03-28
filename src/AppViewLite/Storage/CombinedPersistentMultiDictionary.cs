@@ -122,7 +122,7 @@ namespace AppViewLite.Storage
         public abstract IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive);
         public abstract IEnumerable GetValuesPreserveOrderUntyped(object key);
         public abstract IEnumerable EnumerateSortedDescendingUntyped(object? maxExclusive);
-
+        public abstract IEnumerable<(string Name, object Value)> GetCounters();
         protected CombinedPersistentMultiDictionary(string directory, PersistentDictionaryBehavior behavior)
         {
             this.DirectoryPath = directory;
@@ -1505,6 +1505,17 @@ namespace AppViewLite.Storage
             return Caches?.OfType<TCache>().SingleOrDefault();
         }
 
+        public override IEnumerable<(string Name, object Value)> GetCounters()
+        {
+            return (Caches ?? []).Select(x =>
+            {
+                var typeName = x.GetType().Name;
+                var quot = typeName.IndexOf('\u0060');
+                if (quot != -1) typeName = typeName.Substring(0, quot);
+                return (this.Name + "_" + typeName, x.GetCounters());
+            }).Where(x => x.Item2 != null)!;
+        }
+
         public abstract class CachedView : IDisposable
         {
             public abstract string Identifier { get; }
@@ -1529,6 +1540,7 @@ namespace AppViewLite.Storage
             public virtual void OnSliceAdded(int insertedAt, SliceInfo slice) { }
             public virtual void OnSliceRemoved(int removedAt) { }
             public virtual void Dispose() { }
+            public abstract object? GetCounters();
         }
     }
 

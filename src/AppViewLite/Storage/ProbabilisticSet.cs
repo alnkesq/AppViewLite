@@ -23,6 +23,9 @@ namespace AppViewLite
         public long SizeInBytes => (long)Array.Length * BYTES_PER_WORD;
         public int BitsPerFunction => _bitsPerFunction;
         public int HashFunctions => _hashFunctions;
+
+        public HitMissCounter RuleOutCounter = new HitMissCounter();
+
         public ProbabilisticSet(long sizeInBytes, int hashFunctions)
             : this(new ulong[checked((int)(sizeInBytes / BYTES_PER_WORD))], hashFunctions)
         {
@@ -50,8 +53,12 @@ namespace AppViewLite
 
                 var word = Array[wordIndex];
                 if ((word & wordTest) == 0)
+                {
+                    RuleOutCounter.OnHit();
                     return false;
+                }
             }
+            RuleOutCounter.OnMiss();
             return true;
         }
 
@@ -130,6 +137,14 @@ namespace AppViewLite
                     index++;
                 }
             }
+        }
+
+        public object GetCounters()
+        {
+            return new
+            {
+                DefinitelyNotExistsRatio = RuleOutCounter.HitRatio
+            };
         }
     }
 }

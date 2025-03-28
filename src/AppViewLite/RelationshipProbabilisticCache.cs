@@ -65,6 +65,11 @@ namespace AppViewLite
         {
             probabilisticSet.Add((key, value.Actor));
         }
+
+        public override object? GetCounters()
+        {
+            return probabilisticSet.GetCounters();
+        }
     }
 
 }

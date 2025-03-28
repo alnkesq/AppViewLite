@@ -1744,9 +1744,9 @@ namespace AppViewLite
 
         }
 
-        public BlueskyPostData? TryGetPostData(PostId id, bool skipBpeDecompression = false)
+        public BlueskyPostData? TryGetPostData(PostId id, bool skipBpeDecompression = false, bool ignoreDeletions = false)
         {
-            var isDeleted = PostDeletions.ContainsKey(id);
+            var isDeleted = ignoreDeletions ? false : PostDeletions.ContainsKey(id);
 
             BlueskyPostData? proto = null;
             ManagedOrNativeArray<byte> postDataCompressed;

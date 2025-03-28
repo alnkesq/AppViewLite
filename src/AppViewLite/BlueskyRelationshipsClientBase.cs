@@ -261,15 +261,18 @@ namespace AppViewLite
                     else Interlocked.Increment(ref ctx.ReadsFromPrimaryStolen);
                 }
 
+                var alreadyHasArena = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread != null; // happens when we run from "var late = Task.Run(...)"
                 var begin = PerformanceSnapshot.Capture();
                 try
                 {
-                    SetupArena();
+                    if (!alreadyHasArena)
+                        SetupArena();
                     return func(relationshipsUnlocked);
                 }
                 finally
                 {
-                    ReturnArena();
+                    if (!alreadyHasArena)
+                        ReturnArena();
                     MaybeLogLongLockUsage(begin, isWrite ? LockKind.PrimaryWriteUrgent : LockKind.PrimaryReadUrgent, ctx);
                 }
             }, tcs);

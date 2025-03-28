@@ -167,6 +167,8 @@ namespace AppViewLite
 
         private const MultiDictionaryIoPreference SomewhatRecentEventIoPreference = MultiDictionaryIoPreference.KeysAndOffsetsMmap;
         private const MultiDictionaryIoPreference VeryRecentEventIoPreference = MultiDictionaryIoPreference.AllMmap;
+        private readonly static TimeSpan SomewhatRecentEventAge = TimeSpan.FromHours(72);
+        private readonly static TimeSpan VeryRecentEventAge = TimeSpan.FromHours(36);
         internal static Func<TKey, MultiDictionaryIoPreference>? GetIoPreferenceFunc<TKey>() => (Func<TKey, MultiDictionaryIoPreference>?)GetIoPreferenceFunc(typeof(TKey));
         internal static Delegate? GetIoPreferenceFunc(Type type)
         {
@@ -176,12 +178,14 @@ namespace AppViewLite
             return null;
         }
 
+        private static bool IsSomewhatRecentDate(DateTime date) => DateTime.UtcNow - date < SomewhatRecentEventAge;
+        private static bool IsVeryRecentDate(DateTime date) => DateTime.UtcNow - date < VeryRecentEventAge;
+
         private static MultiDictionaryIoPreference GetIoPreferenceForDate(DateTime date)
         {
             var ago = DateTime.UtcNow - date;
-            var totalHours = ago.TotalHours;
-            if (totalHours < 36) return VeryRecentEventIoPreference;
-            else if (totalHours < 72) return SomewhatRecentEventIoPreference;
+            if (ago < VeryRecentEventAge) return VeryRecentEventIoPreference;
+            else if (ago < SomewhatRecentEventAge) return SomewhatRecentEventIoPreference;
             return default;
         }
 
@@ -274,8 +278,8 @@ namespace AppViewLite
             ProfileSearchPrefix8 = RegisterDictionary<SizeLimitedWord8, Plc>("profile-search-prefix");
             ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
-            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder, shouldPreserveKey: (ctx, postId) => ctx.ShouldPreservePost(postId));
-            RecentPluggablePostLikeCount = RegisterDictionary<Plc, RecentPostLikeCount>("recent-post-like-count", onCompactation: x => x.DistinctByAssumingOrderedInputLatest(x => x.PostRKey), getIoPreferenceForKey: x => MultiDictionaryIoPreference.ValuesMmap);
+            PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder, shouldPreserveKey: (ctx, postId) => ctx.ShouldPreservePost(postId), getIoPreferenceForKey: x => IsVeryRecentDate(x.PostRKey.Date) ? MultiDictionaryIoPreference.KeysAndOffsetsMmap : MultiDictionaryIoPreference.None);
+            RecentPluggablePostLikeCount = RegisterDictionary<Plc, RecentPostLikeCount>("recent-post-like-count", onCompactation: x => x.DistinctByAssumingOrderedInputLatest(x => x.PostRKey), getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
             PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32");
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");

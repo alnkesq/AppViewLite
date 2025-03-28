@@ -340,6 +340,7 @@ namespace AppViewLite.Storage
                                 if (fileHandle.RecentReadsForDebugging.Count >= 10)
                                     fileHandle.RecentReadsForDebugging.Dequeue();
                                 fileHandle.RecentReadsForDebugging.Enqueue((fileHandle, offsetInBytes));
+                            }
                             Console.Error.WriteLine((isDuplicateRead ? "Dupe: " : "Read: ") + fileHandle.Path + " " + offsetInBytes + " (" + lengthInBytes + ")");
                         }
 

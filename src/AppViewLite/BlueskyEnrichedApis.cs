@@ -4268,10 +4268,13 @@ namespace AppViewLite
             SaveAppViewLiteProfile(ctx);
         }
 
+        public readonly static long TimeProcessStarted = Stopwatch.GetTimestamp();
         public object GetCountersThreadSafe(RequestContext ctx)
         {
             return new
             {
+                Uptime = Stopwatch.GetElapsedTime(TimeProcessStarted),
+                Pid = Environment.ProcessId,
                 CarImportCount = this.CarImportDict.Count,
                 FetchAndStoreDidDocNoOverrideDict = this.FetchAndStoreDidDocNoOverrideDict.Count,
                 FetchAndStoreLabelerServiceMetadataDict = this.FetchAndStoreLabelerServiceMetadataDict.Count,

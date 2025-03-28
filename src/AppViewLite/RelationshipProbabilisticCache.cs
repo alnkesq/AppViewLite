@@ -1,10 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Storage;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.ServiceModel.Security;
 
 namespace AppViewLite
 {
@@ -25,7 +21,7 @@ namespace AppViewLite
 
         public override void LoadCacheFile(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, string cachePath, int sliceIndex)
         {
-            probabilisticSet.UnionWith(ProbabilisticSetCache.ReadCompressedProbabilisticSetFromFile(cachePath));
+            probabilisticSet.UnionWith(ProbabilisticSetIo.ReadCompressedProbabilisticSetFromFile(cachePath));
         }
 
         public override void LoadFromOriginalSlice(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice)
@@ -37,7 +33,7 @@ namespace AppViewLite
         {
             var cache = new ProbabilisticSet<(TTarget, Plc)>(sizeInBytes, hashFunctions);
             ReadInto(slice, cache);
-            ProbabilisticSetCache.WriteCompressedProbabilisticSetToFile(destination, cache);
+            ProbabilisticSetIo.WriteCompressedProbabilisticSetToFile(destination, cache);
         }
 
         private static void ReadInto(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, ProbabilisticSet<(TTarget, Plc)> cache)
@@ -68,33 +64,6 @@ namespace AppViewLite
         public override void Add(TTarget key, Relationship value)
         {
             probabilisticSet.Add((key, value.Actor));
-        }
-    }
-
-    public static class ProbabilisticSetCache
-    {
-
-        public static void WriteCompressedProbabilisticSetToFile<T>(string destination, ProbabilisticSet<T> probabilisticSet) where T : unmanaged
-        {
-            using (var stream = new System.IO.Compression.GZipStream(new FileStream(destination + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None), System.IO.Compression.CompressionLevel.Fastest))
-            {
-                stream.Write(probabilisticSet.ArrayAsBytes);
-            }
-            File.Move(destination + ".tmp", destination, true);
-        }
-
-        public static IEnumerable<ReadOnlyMemory<ulong>> ReadCompressedProbabilisticSetFromFile(string path)
-        {
-            using var stream = new System.IO.Compression.GZipStream(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), System.IO.Compression.CompressionMode.Decompress);
-            var buffer = new ulong[8 * 1024];
-            while (true)
-            {
-
-                var bufferAsBytes = MemoryMarshal.AsBytes<ulong>(buffer);
-                var readBytes = stream.ReadAtLeast(bufferAsBytes, bufferAsBytes.Length, throwOnEndOfStream: false);
-                if (readBytes == 0) yield break;
-                yield return new ReadOnlyMemory<ulong>(buffer, 0, readBytes / 8);
-            }
         }
     }
 

@@ -339,6 +339,8 @@ namespace AppViewLite
         {
             while (primarySecondaryPair.urgentReadTasks.TryDequeue(out var urgentTask))
             {
+                using var _ = BlueskyRelationshipsClientBase.CreateNormalPriorityScope();
+
                 try
                 {
                     urgentTask.Tcs.SetResult(urgentTask.Run(invoker));
@@ -353,6 +355,8 @@ namespace AppViewLite
         {
             while (primarySecondaryPair.urgentWriteTasks.TryDequeue(out var urgentTask))
             {
+                using var _ = BlueskyRelationshipsClientBase.CreateNormalPriorityScope();
+
                 try
                 {
                     urgentTask.Tcs.SetResult(urgentTask.Run(invoker));
@@ -387,7 +391,7 @@ namespace AppViewLite
             relationshipsUnlocked.OnBeforeWriteLockEnter();
             BeforeLockEnter?.Invoke(ctx);
             ctx.TimeSpentWaitingForLocks.Start();
-            using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
+            using var _ = BlueskyRelationshipsClientBase.CreateNormalPriorityScope();
             var restore = MaybeSetThreadName(ctx, LockKind.PrimaryWrite);
             relationshipsUnlocked.Lock.EnterWriteLock();
             if (SetThreadNames != 0) Thread.CurrentThread.Name = "[HOLDS WRITE LOCK] " + Thread.CurrentThread.Name;
@@ -619,7 +623,8 @@ namespace AppViewLite
 
 
 
-        public static ThreadPriorityScope CreateIngestionThreadPriorityScope() => new ThreadPriorityScope(ThreadPriority.Lowest);
+        public static ThreadPriorityScope CreateIngestionThreadPriorityScope() => new ThreadPriorityScope(ThreadPriority.BelowNormal);
+        public static ThreadPriorityScope CreateNormalPriorityScope() => new ThreadPriorityScope(ThreadPriority.Normal);
 
     }
 

@@ -809,7 +809,7 @@ namespace AppViewLite
             {
                 if (Lock.IsReadLockHeld) throw ThrowIncorrectLockUsageException("Lock should've been entered in upgradable mode, but read mode was used.");
                 OnBeforeWriteLockEnter();
-                using var _ = new ThreadPriorityScope(ThreadPriority.Normal);
+                using var _ = BlueskyRelationshipsClientBase.CreateNormalPriorityScope();
                 Lock.EnterWriteLock();
                 try
                 {

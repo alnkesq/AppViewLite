@@ -1,6 +1,11 @@
 # Configuration
 
-You can set the following environment variables:
+Each of these options can be specified (by descending priority):
+* As a command line argument (`--example-setting 1`)
+* As an environment variable (`APPVIEWLITE_EXAMPLE_SETTING=1`)
+* As a line in an env file (`APPVIEWLITE_EXAMPLE_SETTING=1`, use `#` for comments), whose path can be specified via `--configuration example.env`
+
+## Main settings
 
 * `APPVIEWLITE_DIRECTORY`: Where to store the data. Defaults to `~/BskyAppViewLiteData`
 * `APPVIEWLITE_PLC_DIRECTORY_BUNDLE`: Path to an optional parquet file for quick bootstraping of the PLC directory data.
@@ -14,6 +19,7 @@ You can set the following environment variables:
 * `APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS`: External previews to these domains will be always displayed in compact format (not just when quoted or the post was already seen by the user).
 * `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exits during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
 * `APPVIEWLITE_ADMINISTRATIVE_DIDS`: List of DIDs that, when logged in, can perform privileged operations. Defaults to none. You can use `*` for local development.
+* `APPVIEWLITE_CONFIGURATION`: Path to an env file that will be loaded into the environment at startup. Prior environment variables take the precendence.
 
 ## Storage (low level configuration)
 * `APPVIEWLITE_USE_READONLY_REPLICA`: If enabled, most requests will be served from a readonly snapshot of the database (so that we don't have to wait for any current write lock to complete). Defaults to `1`.
@@ -33,6 +39,11 @@ You can set the following environment variables:
 * `APPVIEWLITE_CAR_SPILL_TO_DISK_BYTES`: Amount of memory after which we spill CAR entries to a temporary file on disk. This is necessary because reading a CAR file requires random access to previous parts of the file. Shared across all currently running imports. Defaults to `67108864` (64MB)
 * `APPVIEWLITE_CAR_INSERTION_SEMAPHORE_SIZE`: How many running CAR imports can perform a database insertion at once. Defaults to `2`.
 * `APPVIEWLITE_EVENT_CHART_HISTORY_DAYS`: How many days of statistics (with 1 second granularity) are preserved, for `/debug/event-charts`. Defaults to `2`.
+* `APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS`: If we observe no events from the firehose for this amount of seconds, restart the websocket connection. Defaults to `120`.
+* `APPVIEWLITE_SET_THREAD_NAMES`: Sets the name of the current thread to a description of the current context, every time a database lock is taken, for easier debugging. Slow things down quite a bit.
+* `APPVIEWLITE_DIRECT_IO`: Uses direct IO (`O_DIRECT`) instead of memory mapping for some reads that are unlikely to be necessary again in the near future. Defaults to `1`.
+* `APPVIEWLITE_DIRECT_IO_SECTOR_SIZE`: Sets the sector block size for direct reads. Must be a multiple of the disk sector size. If AppViewLite crashes on startup and you have an enterprise disk with 4KB sectors, try changing this to `4096`. Defaults to `512`.
+* `APPVIEWLITE_DIRECT_IO_PRINT_READS`: Prints to stderr every time a direct IO read is performed, with path, offset and length.
 
 ## Handle and DID doc resolution
 * `APPVIEWLITE_DNS_SERVER`: DNS server for TXT resolutions. Defaults to `1.1.1.1`
@@ -56,7 +67,7 @@ You can use `#` for comments (whole line, or partial).
 It will be live-reloaded if it changes.
 
 ## Additional protocols
-By default, only ATProto/Bluesky is enabled.<br>
+By default, only ATProto/Bluesky and RSS are enabled.<br>
 You can however enable additional protocols:
 
 ### ActivityPub (Fediverse)

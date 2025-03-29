@@ -320,7 +320,7 @@ namespace AppViewLite
                     if (targetToApproxTarget!(k, false) != approxTarget)
                         break;
                     var rels = slice.GetValues(i, relationshipValuesPreference);
-                    if (ContainsRelationship(rels.Span.AsSmallSpan, rel))
+                    if (ContainsRelationship(rels.Span.AsSmallSpan(), rel))
                         return k;
                 }
 
@@ -330,7 +330,7 @@ namespace AppViewLite
                     if (targetToApproxTarget!(k, false) != approxTarget)
                         break;
                     var rels = slice.GetValues(i, relationshipValuesPreference);
-                    if (ContainsRelationship(rels.Span.AsSmallSpan, rel))
+                    if (ContainsRelationship(rels.Span.AsSmallSpan(), rel))
                         return k;
 
                 }

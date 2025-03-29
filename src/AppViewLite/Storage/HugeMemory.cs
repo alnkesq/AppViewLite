@@ -192,7 +192,7 @@ namespace AppViewLite.Storage
             }
         }
         public long Length => length;
-
+        public bool IsEmpty => Length == 0;
         public HugeSpan<T> Slice(long start)
         {
             if ((ulong)start > (ulong)length) throw new ArgumentOutOfRangeException();
@@ -205,13 +205,7 @@ namespace AppViewLite.Storage
             return new HugeSpan<T>(ref Unsafe.Add(ref ptr, (nint)start), length);
         }
 
-        public Span<T> AsSmallSpan
-        {
-            get
-            {
-                return MemoryMarshal.CreateSpan(ref ptr, checked((int)length));
-            }
-        }
+        public Span<T> AsSmallSpan() => MemoryMarshal.CreateSpan(ref ptr, checked((int) length));
 
         public static implicit operator HugeReadOnlySpan<T>(HugeSpan<T> span) => span.AsReadOnly();
         public HugeReadOnlySpan<T> AsReadOnly() => new HugeReadOnlySpan<T>(in ptr, length);
@@ -257,19 +251,15 @@ namespace AppViewLite.Storage
             return new HugeReadOnlySpan<T>(in Unsafe.Add(ref Unsafe.AsRef(in ptr), (nint)start), length);
         }
 
-        public ReadOnlySpan<T> AsSmallSpan
-        {
-            get
-            {
-                return MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in ptr), checked((int)length));
-            }
-        }
+        public ReadOnlySpan<T> AsSmallSpan() => MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in ptr), checked((int) length));
 
         public static implicit operator HugeReadOnlySpan<T>(T[]? array)
         {
             if (array == null || array.Length == 0) return default;
             return new HugeReadOnlySpan<T>(in array[0], array.Length);
         }
+
+        public bool IsEmpty => Length == 0;
     }
 
 

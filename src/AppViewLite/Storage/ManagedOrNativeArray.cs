@@ -79,7 +79,7 @@ namespace AppViewLite.Storage
             native.Span;
         public ReadOnlySpan<T> AsSmallSpan() =>
             // managed != null ? managed : 
-            native.Span.AsSmallSpan;
+            native.Span.AsSmallSpan();
 
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         private ReadOnlySpan<T> AsSpanForDebugger => AsSmallSpan();

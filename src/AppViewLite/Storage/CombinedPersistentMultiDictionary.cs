@@ -56,19 +56,34 @@ namespace AppViewLite.Storage
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
 
+        public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
+        {
+            if (TryGetSpan(enumerable, out var span))
+            {
+                return span;
+            }
+            return ToNativeArrayCore(enumerable, UnalignedArenaForCurrentThread!);
+        }
+
         public unsafe static ManagedOrNativeArray<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T: unmanaged
         {
             var arena = UnalignedArenaForCurrentThread!;
             if (TryGetSpan(enumerable, out var src))
             {
                 if (src.IsEmpty) return default;
-                var size = Unsafe.SizeOf<T>() * src.Length;
+                var size = checked((int)(Unsafe.SizeOf<T>() * src.Length));
                 var ptr = arena.Allocate(size);
-                src.CopyTo(new Span<T>((void*)ptr, src.Length));
+                src.AsSmallSpan().CopyTo(new Span<T>(ptr, (int)src.Length));
                 Console.Error.WriteLine("ToNativeArray: " + src.Length);
                 return new DangerousHugeReadOnlyMemory<T>((T*)ptr, src.Length);
             }
 
+            return ToNativeArrayCore(enumerable, arena);
+
+        }
+
+        private static unsafe ManagedOrNativeArray<T> ToNativeArrayCore<T>(IEnumerable<T> enumerable, NativeArenaSlim arena) where T : unmanaged
+        {
             if (enumerable.TryGetNonEnumeratedCount(out var count))
             {
                 if (count == 0) return default;
@@ -91,19 +106,19 @@ namespace AppViewLite.Storage
                 Console.Error.WriteLine("ToNativeArray (enumeration)");
                 return ToNativeArray(enumerable.ToArray());
             }
-
-            
         }
 
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool TryGetSpan<TSource>(IEnumerable<TSource> source, out ReadOnlySpan<TSource> span)
+        private static bool TryGetSpan<TSource>(IEnumerable<TSource> source, out HugeReadOnlySpan<TSource> span) where TSource: unmanaged
         {
             bool result = true;
             if (source.GetType() == typeof(TSource[]))
             {
                 span = Unsafe.As<TSource[]>(source);
+            }
+            else if (source is ManagedOrNativeArray<TSource> nativeArray)
+            {
+                span = nativeArray;
             }
             //else if (source.GetType() == typeof(List<TSource>))
             //{
@@ -111,7 +126,7 @@ namespace AppViewLite.Storage
             //}
             else
             {
-                span = default(ReadOnlySpan<TSource>);
+                span = default;
                 result = false;
             }
             return result;
@@ -723,7 +738,7 @@ namespace AppViewLite.Storage
         }
 
 
-        public bool TryGetPreserveOrderSpanAny(TKey key, out ManagedOrNativeArray<TValue> val, MultiDictionaryIoPreference preference = default)
+        public bool TryGetPreserveOrderSpanAny(TKey key, out HugeReadOnlySpan<TValue> val, MultiDictionaryIoPreference preference = default)
         {
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
@@ -732,7 +747,7 @@ namespace AppViewLite.Storage
                 var v = slice.Reader.GetValues(key, preference);
                 if (v.Length != 0)
                 {
-                    val = v;
+                    val = v.Span;
                     return true;
                 }
 
@@ -740,18 +755,18 @@ namespace AppViewLite.Storage
 
             if (queue.TryGetValues(key, out var q))
             {
-                val = ToNativeArray(q.ValuesUnsorted);
+                val = ToSpan(q.ValuesUnsorted);
                 return true;
             }
             val = default;
             return false;
         }
-        public bool TryGetPreserveOrderSpanLatest(TKey key, out ManagedOrNativeArray<TValue> val)
+        public bool TryGetPreserveOrderSpanLatest(TKey key, out HugeReadOnlySpan<TValue> val)
         {
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (queue.TryGetValues(key, out var extra))
             {
-                val = ToNativeArray(extra.ValuesUnsorted);
+                val = ToSpan(extra.ValuesUnsorted);
                 return true;
             }
             for (int i = slices.Count - 1; i >= 0; i--)
@@ -759,7 +774,7 @@ namespace AppViewLite.Storage
                 var v = slices[i].Reader.GetValues(key);
                 if (v.Length != 0)
                 {
-                    val = v;
+                    val = v.Span;
                     return true;
                 }
             }
@@ -1023,7 +1038,7 @@ namespace AppViewLite.Storage
                 foreach (var group in groupedSlices)
                 {
                     var mostRecent = group.Values[^1];
-                    output.AddPresorted(group.Key, mostRecent.Span.AsSmallSpan);
+                    output.AddPresorted(group.Key, mostRecent.Span.AsSmallSpan());
                 }
 
             }
@@ -1034,7 +1049,7 @@ namespace AppViewLite.Storage
                 {
                     if (group.Values.Count == 1)
                     {
-                        output.AddPresorted(group.Key, group.Values[0].Span.AsSmallSpan);
+                        output.AddPresorted(group.Key, group.Values[0].Span.AsSmallSpan());
                     }
                     else
                     {
@@ -1413,7 +1428,7 @@ namespace AppViewLite.Storage
                     {
                         if (ShouldPreserveKey != null && !ShouldPreserveKey(pruningContext, group.Key))
                         {
-                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan());
                         }
                         else
                         {
@@ -1440,11 +1455,11 @@ namespace AppViewLite.Storage
                     {
                         if (ShouldPreserveKey!(pruningContext, group.Key))
                         {
-                            preservedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                            preservedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan());
                         }
                         else
                         {
-                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan);
+                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan());
                         }
                     }
                 }
@@ -1491,7 +1506,7 @@ namespace AppViewLite.Storage
         }
         public override IEnumerable GetValuesPreserveOrderUntyped(object key)
         {
-            return TryGetPreserveOrderSpanLatest((TKey)key, out var vals) ? vals.ToArray() : [];
+            return TryGetPreserveOrderSpanLatest((TKey)key, out var vals) ? vals.AsSmallSpan().ToArray() : [];
         }
         public override IEnumerable GetValuesSortedDescendingUntyped(object key, object? maxExclusive)
         {

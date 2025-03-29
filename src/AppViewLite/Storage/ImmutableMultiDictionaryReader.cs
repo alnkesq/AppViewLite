@@ -122,8 +122,8 @@ namespace AppViewLite.Storage
         {
             var span = new HugeReadOnlySpan<byte>((byte*)column.Pointer, column.Length * Unsafe.SizeOf<T>());
             var maxLength = (int)Math.Min(span.Length, 256);
-            var begin = span.Slice(0, maxLength).AsSmallSpan;
-            var end = span.Slice(span.Length - maxLength).AsSmallSpan;
+            var begin = span.Slice(0, maxLength).AsSmallSpan();
+            var end = span.Slice(span.Length - maxLength).AsSmallSpan();
             return !begin.ContainsAnyExcept((byte)0) || !end.ContainsAnyExcept((byte)0);
         }
 
@@ -473,7 +473,7 @@ namespace AppViewLite.Storage
                 var count = pageIndex == keyCacheSpan.Length - 1 ? KeyCount - pageBaseIndex : KeyCountPerPage;
                 var page = ReadKeySpan(pageBaseIndex, count, preference);
 
-                var innerIndex = page.Span.AsSmallSpan.BinarySearch(comparable);
+                var innerIndex = page.Span.AsSmallSpan().BinarySearch(comparable);
                 if (innerIndex < 0)
                 {
 

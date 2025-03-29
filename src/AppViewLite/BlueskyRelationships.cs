@@ -1754,10 +1754,9 @@ namespace AppViewLite
             var isDeleted = ignoreDeletions ? false : PostDeletions.ContainsKey(id);
 
             BlueskyPostData? proto = null;
-            ManagedOrNativeArray<byte> postDataCompressed;
 
             // latest instead of any (pluggable posts include their own like count)
-            if (PostData.TryGetPreserveOrderSpanLatest(id, out postDataCompressed))
+            if (PostData.TryGetPreserveOrderSpanLatest(id, out var postDataCompressed))
             {
                 proto = DeserializePostData(postDataCompressed.AsSmallSpan(), id, skipBpeDecompression: skipBpeDecompression);
             }
@@ -2052,7 +2051,7 @@ namespace AppViewLite
                 var postId = slice.Reader.Keys[i];
                 if (postId.PostRKey.Date > now) continue;
                 if (PostDeletions.ContainsKey(postId)) continue;
-                var postData = DeserializePostData(slice.Reader.GetValues(i, PostData.GetIoPreferenceForKey(postId)).Span.AsSmallSpan, postId);
+                var postData = DeserializePostData(slice.Reader.GetValues(i, PostData.GetIoPreferenceForKey(postId)).Span.AsSmallSpan(), postId);
                 yield return GetPost(postId, postData);
             }
         }

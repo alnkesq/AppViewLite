@@ -52,7 +52,13 @@ namespace AppViewLite
         }
         public void Add(TKey key, TValue value)
         {
-            if (dict.TryAdd(key, value))
+            var wasAdded = true;
+            dict.AddOrUpdate(key, value, (key, old) =>
+            {
+                wasAdded = false;
+                return value;
+            });
+            if (wasAdded)
             {
                 var incremented = Interlocked.Increment(ref approximateCount);
                 if (incremented >= capacity)

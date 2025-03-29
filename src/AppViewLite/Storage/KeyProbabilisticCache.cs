@@ -17,6 +17,7 @@ namespace AppViewLite.Storage
 
         public override string Identifier => "k-" + probabilisticSet.BitsPerFunction + "-" + hashFunctions;
 
+        public override bool CanBeUsedByReplica => true;
 
         public override void LoadCacheFile(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string cachePath, int sliceIndex)
         {

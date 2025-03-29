@@ -294,12 +294,12 @@ namespace AppViewLite
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
             FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");
 
-            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item");
+            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item", caches: [new DelegateProbabilisticCache<Relationship, ListEntry, (Relationship, Plc)>("member", 32 * 1024 * 1024, 6, (k, v) => (k, v.Member))]);
             ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
             ListMemberships = RegisterDictionary<Plc, ListMembership>("list-membership-2");
 
             Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder);
-            ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue);
+            ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
 
             Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder);
             ThreadgateDeletions = RegisterDictionary<PostId, DateTime>("threadgate-deletion", PersistentDictionaryBehavior.SingleValue);
@@ -2219,6 +2219,12 @@ namespace AppViewLite
 
         public bool IsMemberOfList(Relationship list, Plc member)
         {
+            if (!ListItems.GetCache<DelegateProbabilisticCache<Relationship, ListEntry, (Relationship, Plc)>>()!.PossiblyContains((list, member)))
+            {
+                return false;
+            }
+
+
             if (ListDeletions.ContainsKey(list))
                 return false;
 

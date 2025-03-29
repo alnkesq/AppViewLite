@@ -18,6 +18,7 @@ namespace AppViewLite
 
         public override string Identifier => "relset-" + probabilisticSet.BitsPerFunction + "-" + hashFunctions;
 
+        public override bool CanBeUsedByReplica => true;
 
         public override void LoadCacheFile(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, string cachePath, int sliceIndex)
         {

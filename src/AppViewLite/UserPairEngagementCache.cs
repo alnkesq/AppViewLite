@@ -12,6 +12,7 @@ namespace AppViewLite
     {
         public override string Identifier => "user-pair-stats-2";
 
+        public override bool CanBeUsedByReplica => false;
 
         public List<(SliceName OriginalSlice, ImmutableMultiDictionaryReader<Plc, UserEngagementStats> Cache)> cacheSlices = new();
 

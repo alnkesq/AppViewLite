@@ -403,7 +403,7 @@ namespace AppViewLite.Storage
         {
             if (pendingCompactation != null) throw new Exception();
 
-            if (Caches != null)
+            if (Caches != null && ownsCaches)
             {
                 foreach (var cache in Caches)
                 {
@@ -1240,11 +1240,23 @@ namespace AppViewLite.Storage
             return null;
         }
 
+        private bool ownsCaches = true;
+
         public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
         {
             var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.PruneId, x.ReaderHandle.AddRef())).ToList(), behavior);
             copy.ReplicatedFrom = this;
             copy.GetIoPreferenceForKeyFunc = this.GetIoPreferenceForKeyFunc;
+            copy.ownsCaches = false;
+
+            if (this.Caches != null)
+            {
+
+                copy.Caches = this.Caches.Where(x => x.CanBeUsedByReplica).ToArray();
+                if (copy.Caches.Length == 0)
+                    copy.Caches = null;
+            }
+
             // The root CloneAsReadOnly() is called from within a traditional lock.
             // Additionally, we hold a Read lock for the primary (so there can be no writers in the primary)
             // We CAN write NextReplicaCanBeBuiltFrom to the primary, even without holding the primary write lock (it's not used in reads).
@@ -1558,6 +1570,7 @@ namespace AppViewLite.Storage
             public virtual void OnSliceRemoved(int removedAt) { }
             public virtual void Dispose() { }
             public abstract object? GetCounters();
+            public abstract bool CanBeUsedByReplica { get; }
         }
     }
 

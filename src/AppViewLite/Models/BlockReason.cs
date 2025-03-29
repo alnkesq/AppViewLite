@@ -13,7 +13,7 @@ namespace AppViewLite.Models
         {
             var text = ToDisplayString(subjects);
             var listId = List;
-            var list = text != null && listId != default ? BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetList(listId), ctx) : null;
+            var list = text != null && listId != default ? BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetList(listId, ctx: ctx), ctx) : null;
             return text != null ? new BlockReasonDisplayStringAndList(text, list) : null;
         }
         public string? ToDisplayString(BlockSubjects subjects)

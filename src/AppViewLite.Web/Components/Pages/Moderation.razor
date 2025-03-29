@@ -19,7 +19,7 @@
         {
             return RequestContext.PrivateProfile.LabelerSubscriptions.Select(x =>
             {
-                if (x.ListRKey != 0) return (BlueskyModerationBase)rels.GetList(new Relationship(new Plc(x.LabelerPlc), new Numerics.Tid(x.ListRKey)));
+                if (x.ListRKey != 0) return (BlueskyModerationBase)rels.GetList(new Relationship(new Plc(x.LabelerPlc), new Numerics.Tid(x.ListRKey)), ctx: RequestContext);
                 if (new Plc(x.LabelerPlc) == moderationBsky) return null;
                 return rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash));
             }).WhereNonNull().ToArray();

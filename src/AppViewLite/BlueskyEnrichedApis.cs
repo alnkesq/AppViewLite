@@ -456,7 +456,7 @@ namespace AppViewLite
                 .Take(limit + 1)
                 .Select(x => new Plc(x.Plc))
                 .ToArray();
-            var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x)).ToArray(), ctx);
+            var profiles = WithRelationshipsLock(rels => plcs.Select(x => rels.GetProfile(x, ctx)).ToArray(), ctx);
             await EnrichAsync(profiles, ctx);
             return (profiles.Take(limit).ToArray(), profiles.Length == limit + 1 ? (offset + limit).ToString() : null);
 
@@ -892,7 +892,7 @@ namespace AppViewLite
                             })
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
-                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)));
+                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key), ctx));
 
                         if (options.MediaOnly)
                             posts = posts.Where(x => x.Data!.Media != null);
@@ -907,7 +907,7 @@ namespace AppViewLite
                     })
                     .Select(x =>
                     {
-                        x.InReplyToUser = x.InReplyToPostId != null ? rels.GetProfile(x.InReplyToPostId.Value.Author) : null;
+                        x.InReplyToUser = x.InReplyToPostId != null ? rels.GetProfile(x.InReplyToPostId.Value.Author, ctx) : null;
                         return x;
                     })
                     .DistinctBy(x => x.PostId)
@@ -1536,9 +1536,9 @@ namespace AppViewLite
                 var now = DateTime.UtcNow;
                 var enumerables = rels.PostData.slices.Select(slice =>
                 {
-                    return rels.GetRecentPosts(slice, maxPostIdExclusive, now); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
+                    return rels.GetFirehosePosts(slice, maxPostIdExclusive, now, ctx); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 })
-                .Append(rels.PostData.QueuedItems.Where(x => x.Key.PostRKey.Date < now).Where(x => (!maxPostIdExclusive.HasValue || x.Key.CompareTo(maxPostIdExclusive.Value) < 0) && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key))))
+                .Append(rels.PostData.QueuedItems.Where(x => x.Key.PostRKey.Date < now).Where(x => (!maxPostIdExclusive.HasValue || x.Key.CompareTo(maxPostIdExclusive.Value) < 0) && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key), ctx)))
                 .ToArray();
 
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)))
@@ -1693,7 +1693,7 @@ namespace AppViewLite
         }
         public async Task<BlueskyProfile[]> GetProfilesAsync(string[] dids, RequestContext ctx, Action<BlueskyProfile>? onProfileDataAvailable = null)
         {
-            var profiles = WithRelationshipsUpgradableLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x, ctx))).ToArray(), ctx);
+            var profiles = WithRelationshipsUpgradableLock(rels => dids.Select(x => rels.GetProfile(rels.SerializeDid(x, ctx), ctx)).ToArray(), ctx);
             await EnrichAsync(profiles, ctx, onProfileDataAvailable);
             return profiles;
         }
@@ -2411,7 +2411,7 @@ namespace AppViewLite
                 var s = dict[profile.Plc];
                 profile.Labels = [new AdditionalDataBadge(s.Score.ToString("0.00") + ": " + s.Raw.FollowingEngagedPosts + " (+" + s.Raw.EngagedPosts + ")" + " / " + s.Raw.FollowingSeenPosts), .. profile.Labels];
             }
-            var page = WithRelationshipsLock(rels => pageScores.Select(x => rels.GetProfile(x.Raw.Target)).ToArray(), ctx);
+            var page = WithRelationshipsLock(rels => pageScores.Select(x => rels.GetProfile(x.Raw.Target, ctx)).ToArray(), ctx);
             await EnrichAsync(page, ctx, SetBadge);
             foreach (var item in page)
             {
@@ -2830,7 +2830,7 @@ namespace AppViewLite
                     .Where(x => !rels.ListItemDeletions.ContainsKey(new(x.ListAuthor, x.ListItemRKey)))
                     .Select(x =>
                     {
-                        var list = rels.GetList(new(x.ListAuthor, x.ListRKey));
+                        var list = rels.GetList(new(x.ListAuthor, x.ListRKey), ctx: ctx);
                         list.MembershipRkey = x.ListItemRKey;
                         return list;
                     })
@@ -2936,7 +2936,7 @@ namespace AppViewLite
             var response = await ListRecordsAsync(did, Listitem.RecordType, limit, cursor: continuation, ctx);
             var members = WithRelationshipsUpgradableLock(rels =>
             {
-                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler, ctx))).ToArray();
+                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler, ctx), ctx)).ToArray();
             }, ctx);
             await EnrichAsync(members, ctx);
             return (list, members, response.Cursor);
@@ -3065,7 +3065,7 @@ namespace AppViewLite
                 var items = WithRelationshipsLock(rels =>
                 {
                     return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix, out _), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
-                    .Select(x => rels.GetProfile(x))
+                    .Select(x => rels.GetProfile(x, ctx))
                     .Where(x => rels.ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix))
                     .Where(x => alreadyReturned.Add(x.Plc))
                     .Select(x =>
@@ -3107,7 +3107,7 @@ namespace AppViewLite
                         return
                             rels.SearchProfiles(updatedSearchTerms, SizeLimitedWord8.Create(updatedWordPrefix, out _), Plc.MaxValue, false)
                             .Where(x => !alreadyReturned.Contains(x))
-                            .Select(x => rels.GetProfile(x))
+                            .Select(x => rels.GetProfile(x, ctx))
                             .Where(x => x.DisplayName == null) // otherwise should've matched earlier
                             .Where(x => rels.ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
                             .Select(x =>
@@ -3154,7 +3154,7 @@ namespace AppViewLite
                 return response!.Records!.Select(x =>
                 {
                     var listId = new Models.Relationship(plc, Tid.Parse(x.Uri.Rkey));
-                    return rels.GetList(listId, BlueskyRelationships.ListToProto((List)x.Value));
+                    return rels.GetList(listId, BlueskyRelationships.ListToProto((List)x.Value), ctx: ctx);
                 }).ToArray();
             }, ctx);
             await EnrichAsync(lists, ctx);

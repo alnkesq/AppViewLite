@@ -1728,9 +1728,9 @@ namespace AppViewLite
             }
         }
 
-        public BlueskyPost GetPost(PostId id, BlueskyPostData? data)
+        public BlueskyPost GetPost(PostId id, BlueskyPostData? data, RequestContext? ctx = null)
         {
-            var post = GetPostWithoutData(id);
+            var post = GetPostWithoutData(id, ctx);
             post.Data = data;
             DecompressPluggablePostData(id.PostRKey, data, post.Author.Did);
             MaybePropagateAdministrativeBlockToPost(post);
@@ -2034,7 +2034,7 @@ namespace AppViewLite
             var r = everything.AsEnumerable();
             if (continuation != null) r = r.Skip(int.Parse(continuation));
             r = r.Take(limit);
-            var page = r.Select(x => GetProfile(x)).ToArray();
+            var page = r.Select(x => GetProfile(x, ctx)).ToArray();
             var end = offset + page.Length;
             return new ProfilesAndContinuation(page, end < everything.Length ? end.ToString() : null);
         }
@@ -2071,7 +2071,7 @@ namespace AppViewLite
             FlushLog();
         }
 
-        internal IEnumerable<BlueskyPost> GetRecentPosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst? maxPostIdExlusive, DateTime now)
+        internal IEnumerable<BlueskyPost> GetFirehosePosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst? maxPostIdExlusive, DateTime now, RequestContext? ctx = null)
         {
             var index = maxPostIdExlusive != null ? slice.Reader.BinarySearch(maxPostIdExlusive.Value) : (slice.Reader.KeyCount + 1);
             if (index >= 0) index--;
@@ -2082,7 +2082,7 @@ namespace AppViewLite
                 if (postId.PostRKey.Date > now) continue;
                 if (PostDeletions.ContainsKey(postId)) continue;
                 var postData = DeserializePostData(slice.Reader.GetValues(i, PostData.GetIoPreferenceForKey(postId)).Span.AsSmallSpan(), postId);
-                yield return GetPost(postId, postData);
+                yield return GetPost(postId, postData, ctx);
             }
         }
 
@@ -2477,7 +2477,7 @@ namespace AppViewLite
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId, ctx);
-                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter));
+                            post.RepostedBy = (reposterProfile ??= GetProfile(reposter, ctx));
                             post.RepostDate = x.RepostRKey.Date;
                             requireFollowStillValid[post] = (reposter, default, default);
                             return post;
@@ -2657,7 +2657,7 @@ namespace AppViewLite
 
 
 
-        public BlueskyList GetList(Relationship listId, ListData? listData = null)
+        public BlueskyList GetList(Relationship listId, ListData? listData = null, RequestContext? ctx = null)
         {
             var did = GetDid(listId.Actor);
             return new BlueskyList
@@ -2666,7 +2666,7 @@ namespace AppViewLite
                 ListId = listId,
                 Data = listData ?? TryGetListData(listId),
                 ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()!),
-                Moderator = GetProfile(listId.Actor)
+                Moderator = GetProfile(listId.Actor, ctx)
             };
         }
 
@@ -2773,7 +2773,7 @@ namespace AppViewLite
 
             if (parsed.Collection == FishyFlip.Lexicon.App.Bsky.Graph.List.RecordType)
             {
-                return GetList(new Relationship(plc, Tid.Parse(parsed.Rkey)));
+                return GetList(new Relationship(plc, Tid.Parse(parsed.Rkey)), ctx: ctx);
             }
 
             return null;
@@ -3216,12 +3216,12 @@ namespace AppViewLite
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
             profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
-            profile.Labels = GetProfileLabels(profile.Plc, ctx.NeedsLabels).Select(x => (BlueskyModerationBase)GetLabel(x)).Concat(ctx.LabelSubscriptions.Where(x => x.ListRKey != 0).Select(x =>
+            profile.Labels = GetProfileLabels(profile.Plc, ctx.NeedsLabels).Select(x => (BlueskyModerationBase)GetLabel(x, ctx)).Concat(ctx.LabelSubscriptions.Where(x => x.ListRKey != 0).Select(x =>
             {
                 var listId = new Models.Relationship(new Plc(x.LabelerPlc), new Tid(x.ListRKey));
                 if (IsMemberOfList(listId, profile.Plc))
                 {
-                    return GetList(listId);
+                    return GetList(listId, ctx: ctx);
                 }
                 return null;
             }).WhereNonNull()).ToArray();

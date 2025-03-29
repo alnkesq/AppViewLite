@@ -11,11 +11,11 @@ namespace AppViewLite
         {
             AppViewLiteConfiguration.ReadEnvAndArgs(args);
             LoggableBase.Initialize();
-            Indexer.InitializeFirehoseThreadpool();
             using var relationships = new BlueskyRelationships();
             BlueskyRelationships.CreateTimeSeries();
             using var primarySecondaryPair = new PrimarySecondaryPair(relationships);
             var apis = new BlueskyEnrichedApis(primarySecondaryPair);
+            Indexer.InitializeFirehoseThreadpool(apis);
             Console.CancelKeyPress += (s, e) =>
             {
 

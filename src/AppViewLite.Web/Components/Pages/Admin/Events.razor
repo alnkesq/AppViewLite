@@ -41,6 +41,6 @@
 <TimeSeriesChart TimeSeries="BlueskyRelationships.FirehoseEventProcessedTimeSeries" Scope="@scope" MaxEventsPerSecond="@MaxEventsPerSecond" BucketCount="@BucketCount" />
 
 <h2 class="main-padding time-series-title">Firehose processing lag behind</h2>
-<TimeSeriesChart TimeSeries="BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries" Scope="@scope" MaxEventsPerSecond="@Indexer.LagBehindAccounting.LagBehindErrorThreshold" BucketCount="@BucketCount" ShowPerSecondSuffix="false" />
+<TimeSeriesChart TimeSeries="BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries" Scope="@scope" MaxEventsPerSecond="@Indexer.LagBehindErrorThreshold" BucketCount="@BucketCount" ShowPerSecondSuffix="false" />
 
 

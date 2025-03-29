@@ -16,7 +16,14 @@ namespace AppViewLite
 
         protected override IEnumerable<Task>? GetScheduledTasks() => tasks.ToArray();
 
-        protected override void QueueTask(Task task) => tasks.Add(task);
+        public event Action? BeforeTaskEnqueued;
+        public event Action? AfterTaskProcessed;
+
+        protected override void QueueTask(Task task)
+        {
+            BeforeTaskEnqueued?.Invoke();
+            tasks.Add(task);
+        }
 
         protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued) => false;
 
@@ -52,6 +59,7 @@ namespace AppViewLite
             foreach (var task in tasks.GetConsumingEnumerable(cts.Token))
             {
                 TryExecuteTask(task);
+                AfterTaskProcessed?.Invoke();
             }
         }
 

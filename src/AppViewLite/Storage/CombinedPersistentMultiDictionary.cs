@@ -9,10 +9,10 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Collections;
-using DuckDbSharp.Bindings;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Collections.Concurrent;
+using DuckDbSharp.Bindings;
 
 namespace AppViewLite.Storage
 {

@@ -6,39 +6,32 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace AppViewLite.Storage
+namespace DuckDbSharp.Bindings
 {
 
-    public unsafe class AlignedNativeArena : IDisposable
+    public unsafe class NativeArenaSlim : IDisposable
     {
-        public readonly nuint Alignment;
         [Obsolete("Only for ObjectPool<> compatibility.", error: true)]
-        public AlignedNativeArena() => throw new InvalidOperationException();
-        public AlignedNativeArena(int alignment, nuint initialSize)
+        public NativeArenaSlim() => throw new InvalidOperationException();
+        public NativeArenaSlim(int initialSize)
         {
-            if (!BitOperations.IsPow2(alignment)) throw new ArgumentException();
-            this.Alignment = (nuint)alignment;
-            EnsureAligned(initialSize);
-            lastChunkSize = initialSize / 2; // will be doubled on first alloc = Math.Max(1, initialBlockCount);
+            lastChunkSize = initialSize / 2;
 
         }
 
-        private List<(nuint Start, nuint Length)> chunks = new();
+        private List<(nuint Start, int Length)> chunks = new();
         private byte* nextAllocation;
         private byte* nextAllocationThreshold;
 
-        private nuint lastChunkSize;
+        private int lastChunkSize;
         private int consumedChunks;
         public byte* NextAllocation => nextAllocation;
 
         public bool IsDisposed => chunks != null;
 
-        [ThreadStatic] public static AlignedNativeArena? ForCurrentThread;
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public byte* Allocate(nuint size)
+        public byte* Allocate(int size)
         {
-            EnsureAligned(size);
             var updatedNextAllocation = nextAllocation + size;
             if (updatedNextAllocation >= nextAllocationThreshold)
             {
@@ -49,22 +42,13 @@ namespace AppViewLite.Storage
             return ptr;
         }
 
-        private void EnsureAligned(nuint size)
-        {
-            if ((size % Alignment) != 0)
-                throw new ArgumentException();
-        }
+        public Span<byte> GetRemaingSpaceInCurrentChunk() => new Span<byte>(nextAllocation, (int)(nextAllocationThreshold - nextAllocation));
+        public void AdvanceBy(int bytes) => nextAllocation += bytes;
 
-        public Span<byte> GetRemaingSpaceInCurrentChunk() => new Span<byte>(nextAllocation, (checked((int)(nextAllocationThreshold - nextAllocation))));
-        public void AdvanceBy(nuint bytes)
-        {
-            EnsureAligned(bytes);
-            nextAllocation += bytes;
-        }
 
-        public byte* Grow(nuint size)
+        public byte* Grow(int size)
         {
-            EnsureAligned(size);
+
             while (consumedChunks < chunks.Count)
             {
                 var chunk = chunks[consumedChunks];
@@ -78,11 +62,14 @@ namespace AppViewLite.Storage
             }
 
 
-            var chunkSize = Math.Max(BitOperations.RoundUpToPowerOf2(size), lastChunkSize);
-            if (chunkSize * 2 < int.MaxValue)
-                chunkSize *= 2;
+            var chunkSizeLong = Math.Max(BitOperations.RoundUpToPowerOf2((uint)size), lastChunkSize);
+            if (chunkSizeLong * 2 < int.MaxValue)
+                chunkSizeLong *= 2;
+            var chunkSize = checked((int)chunkSizeLong);
             lastChunkSize = chunkSize;
-            nextAllocation = (byte*)NativeMemory.AlignedAlloc(chunkSize, Alignment);
+            nextAllocation = (byte*)NativeMemory.Alloc((nuint)chunkSize);
+            //if ((nuint)nextAllocation % 8 != 0) throw new Exception();
+            Debug.Assert((nuint)nextAllocation % 8 == 0);
             nextAllocationThreshold = nextAllocation + chunkSize;
             chunks.Add(((nuint)nextAllocation, chunkSize));
             consumedChunks++;
@@ -92,8 +79,9 @@ namespace AppViewLite.Storage
 
         public long TotalAllocatedSize => chunks.Sum(x => (long)x.Length);
 
+
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private byte* GrowAndAllocate(nuint size)
+        private byte* GrowAndAllocate(int size)
         {
             Grow(size);
             return Allocate(size);
@@ -111,13 +99,13 @@ namespace AppViewLite.Storage
             if (chunks == null) return;
             foreach (var item in chunks)
             {
-                NativeMemory.AlignedFree((void*)item.Start);
+                NativeMemory.Free((void*)item.Start);
             }
             chunks = null!;
             nextAllocation = null;
         }
 
-        ~AlignedNativeArena()
+        ~NativeArenaSlim()
         {
             Dispose(false);
         }
@@ -131,7 +119,6 @@ namespace AppViewLite.Storage
 
 
     }
-
 }
 
 

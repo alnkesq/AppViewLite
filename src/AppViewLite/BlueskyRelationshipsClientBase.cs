@@ -302,66 +302,38 @@ namespace AppViewLite
         }
 
 
-        private readonly static ObjectPool<NativeArenaSlim> UnalignedArenaPool = ObjectPool.Create<NativeArenaSlim>();
+        private readonly static ObjectPool<NativeArenaSlim> UnalignedArenaPool = ObjectPool.Create(new NativeArenaSlimPoolingPolicy(64 * 1024));
+        private static readonly ObjectPool<AlignedNativeArena> AlignedArenaPool = ObjectPool.Create(new AlignedNativeArenaPoolingPolicy(CombinedPersistentMultiDictionary.DiskSectorSize, 256 * 1024));
 
         private static void SetupArena()
         {
-            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && t_arena512ToReturn == null && t_arena4096ToReturn == null && CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread == null);
-
-            
-
+            BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread == null);
             CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = UnalignedArenaPool.Get();
-
-            if (CombinedPersistentMultiDictionary.UseDirectIo)
-            {
-                if (CombinedPersistentMultiDictionary.DiskSectorSize == 512)
-                {
-                    var pooled = AlignedArenaPool.Pool512.Get();
-                    t_arena512ToReturn = pooled;
-                    AlignedNativeArena.ForCurrentThread = t_arena512ToReturn.Arena;
-                }
-                else if (CombinedPersistentMultiDictionary.DiskSectorSize == 4096)
-                {
-                    var pooled = AlignedArenaPool.Pool4096.Get();
-                    t_arena4096ToReturn = pooled;
-                    AlignedNativeArena.ForCurrentThread = t_arena4096ToReturn.Arena;
-                }
-                else throw new NotSupportedException("Disk sector size is not supported.");
-            }
+            AlignedNativeArena.ForCurrentThread = AlignedArenaPool.Get();
+            
         }
+
+
 
         private static void ReturnArena()
         {
 
-            if (t_arena512ToReturn != null)
+            var alignedArena = AlignedNativeArena.ForCurrentThread;
+            if (alignedArena != null)
             {
-                AlignedArenaPool.Pool512.Return(t_arena512ToReturn!);
-                t_arena512ToReturn = null;
+                AlignedArenaPool.Return(alignedArena!);
+                AlignedNativeArena.ForCurrentThread = null;
             }
-            if (t_arena4096ToReturn != null)
-            {
-                AlignedArenaPool.Pool4096.Return(t_arena4096ToReturn!);
-                t_arena4096ToReturn = null;
-            }
-
-            AlignedNativeArena.ForCurrentThread = null;
+       
             var unalignedArena = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread;
             if (unalignedArena != null)
             {
-                NativeArenaSlim_Reset(unalignedArena);
                 UnalignedArenaPool.Return(unalignedArena);
                 CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = null;
             }
 
 
         }
-
-
-        // TODO: Remove once DuckDbSharp is released with Reset() public
-        private readonly static Action<NativeArenaSlim> NativeArenaSlim_Reset = typeof(NativeArenaSlim).GetMethod("Reset", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!.CreateDelegate<Action<NativeArenaSlim>>();
-
-        [ThreadStatic] private static AlignedArenaPool.AlignedArena512? t_arena512ToReturn;
-        [ThreadStatic] private static AlignedArenaPool.AlignedArena4096? t_arena4096ToReturn;
 
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {

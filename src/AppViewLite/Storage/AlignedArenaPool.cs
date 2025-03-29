@@ -1,15 +1,13 @@
 using Microsoft.Extensions.ObjectPool;
 using AppViewLite.Storage;
+using DuckDbSharp.Bindings;
+using AppViewLite.Storage;
 using System;
 
 namespace AppViewLite.Storage
 {
     public static class AlignedArenaPool
     {
-
-        public static readonly ObjectPool<AlignedArena512> Pool512 = ObjectPool.Create<AlignedArena512>();
-        public static readonly ObjectPool<AlignedArena4096> Pool4096 = ObjectPool.Create<AlignedArena4096>();
-
 
         //public static ArenaBorrowScope AcquireScope(out AlignedNativeArena arena)
         //{
@@ -48,26 +46,55 @@ namespace AppViewLite.Storage
             }
         }
 
-        public class AlignedArena512 : PooledAlignedArena, IDisposable, IResettable
+    }
+
+    public class AlignedNativeArenaPoolingPolicy : IPooledObjectPolicy<AlignedNativeArena>
+    {
+        private readonly int alignment;
+        private readonly nuint initialSize;
+        public AlignedNativeArenaPoolingPolicy(int alignment, nuint initialSize)
         {
-
-            public AlignedArena512()
-                : base(new AlignedNativeArena(512, 256 * 1024))
-            {
-            }
-
+            this.alignment = alignment;
+            this.initialSize = initialSize;
+        }
+        public AlignedNativeArena Create()
+        {
+            return new AlignedNativeArena(alignment, initialSize);
         }
 
-        public class AlignedArena4096 : PooledAlignedArena, IDisposable, IResettable
+        public bool Return(AlignedNativeArena obj)
         {
-
-            public AlignedArena4096()
-                : base(new AlignedNativeArena(4096, 512 * 1024))
+            if (obj.TotalAllocatedSize == (long)initialSize)
             {
+                obj.Reset();
+                return true;   
             }
+            return false;
+        }
+    }
 
+
+    public class NativeArenaSlimPoolingPolicy : IPooledObjectPolicy<NativeArenaSlim>
+    {
+        private readonly int initialSize;
+        public NativeArenaSlimPoolingPolicy(int initialSize)
+        {
+            this.initialSize = initialSize;
+        }
+        public NativeArenaSlim Create()
+        {
+            return new NativeArenaSlim(initialSize);
         }
 
+        public bool Return(NativeArenaSlim obj)
+        {
+            if (obj.TotalAllocatedSize == initialSize)
+            {
+                obj.Reset();
+                return true;
+            }
+            return false;
+        }
     }
 
 
@@ -86,7 +113,6 @@ namespace AppViewLite.Storage
     //        wrapper = null!;
     //    }
     //}
-
 
 
 }

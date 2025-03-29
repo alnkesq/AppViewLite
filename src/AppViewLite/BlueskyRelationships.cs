@@ -234,6 +234,7 @@ namespace AppViewLite
             : this(isReadOnly)
         {
             ApproximateLikeCountCache = new(128 * 1024);
+            ReplicaOnlyApproximateLikeCountCache = new(128 * 1024);
             DidToPlcConcurrentCache = new(512 * 1024);
             PlcToDidConcurrentCache = new(128 * 1024);
             Lock = new ReaderWriterLockSlim();
@@ -3263,6 +3264,7 @@ namespace AppViewLite
             copy.DefaultLabelSubscriptions = this.DefaultLabelSubscriptions;
             copy.PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot;
             copy.ApproximateLikeCountCache = this.ApproximateLikeCountCache;
+            copy.ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var field in fields)
             {
@@ -3310,11 +3312,12 @@ namespace AppViewLite
             return ancestors;
         }
 
-        public ConcurrentFullEvictionCache<PostIdTimeFirst, int> ApproximateLikeCountCache;
+        public ConcurrentFullEvictionCache<PostIdTimeFirst, int> ApproximateLikeCountCache; // is always up to date
+        public ConcurrentFullEvictionCache<PostIdTimeFirst, int> ReplicaOnlyApproximateLikeCountCache; // might be out of date, and can be racy/imprecise
 
 
-        
-        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>? plcToRecentPostLikes)
+
+        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>? plcToRecentPostLikes, bool allowImprecise = false)
         {
             if (!couldBePluggablePost)
             {
@@ -3322,12 +3325,22 @@ namespace AppViewLite
                 {
                     return val;
                 }
-                // Don't write back to the cache.
+                if (allowImprecise && ReplicaOnlyApproximateLikeCountCache.TryGetValue(postId, out val))
+                {
+                    return val;
+                }
             }
 
             var likeCount = Likes.GetApproximateActorCount(postId);
+
+            if (allowImprecise && !couldBePluggablePost && likeCount <= int.MaxValue)
+            {
+                ReplicaOnlyApproximateLikeCountCache.Add(postId, (int)likeCount);
+            }
+
             if (likeCount == 0 && couldBePluggablePost)
             {
+                // TODO: do we really need this plcToRecentPostLikes now that we have global ReplicaOnlyApproximateLikeCountCache?
                 if (plcToRecentPostLikes == null || !plcToRecentPostLikes.TryGetValue(postId.Author, out var recentPostLikes))
                 {
                     var did = GetDid(postId.Author);
@@ -3351,6 +3364,7 @@ namespace AppViewLite
                         .LikeCount;
                 }
             }
+
             return likeCount;
         }
 
@@ -3763,9 +3777,11 @@ namespace AppViewLite
                 UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
                 this.Version,
-                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
-                ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
-                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
+
+                DidToPlcConcurrentCache = IsPrimary ? this.DidToPlcConcurrentCache.GetCounters() : null,
+                ApproximateLikeCountCache = IsPrimary ? this.ApproximateLikeCountCache.GetCounters() : null,
+                ReplicaOnlyApproximateLikeCountCache = IsPrimary ? this.ReplicaOnlyApproximateLikeCountCache.GetCounters() : null,
+                PlcToDidConcurrentCache = IsPrimary ? this.PlcToDidConcurrentCache.GetCounters() : null,
                 Caches = this.IsPrimary ? this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value) : null,
 
             };

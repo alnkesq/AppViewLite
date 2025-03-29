@@ -1973,7 +1973,7 @@ namespace AppViewLite
                             .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
                             .ToArray(),
                        Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes)))
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes, allowImprecise: true)))
                             .ToArray()
                        );
                 }).Where(x => x.Plc != default).ToArray();

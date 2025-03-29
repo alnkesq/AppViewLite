@@ -238,10 +238,22 @@ namespace AppViewLite
 
                                 var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false, null);
                                 approxActorCount++; // this dict is only written here, while holding the write lock.
+                                var primaryLikeCountCache = relationships.ApproximateLikeCountCache;
+                                
                                 if (approxActorCount >= int.MaxValue)
-                                    relationships.ApproximateLikeCountCache.Remove(postId);
+                                    primaryLikeCountCache.Remove(postId);
                                 else
-                                    relationships.ApproximateLikeCountCache[postId] = (int)approxActorCount;
+                                    primaryLikeCountCache[postId] = (int)approxActorCount;
+
+
+                                var replicaLikeCountCache = relationships.ReplicaOnlyApproximateLikeCountCache;
+                                if (replicaLikeCountCache.Dictionary.ContainsKey(postId))
+                                {
+                                    if (approxActorCount >= int.MaxValue)
+                                        replicaLikeCountCache.Remove(postId);
+                                    else 
+                                        replicaLikeCountCache[postId] = (int)approxActorCount;
+                                }
 
                                 //Console.Error.WriteLine("LikeCount: " + approxActorCount);
                                 relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);

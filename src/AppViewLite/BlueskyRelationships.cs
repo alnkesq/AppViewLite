@@ -330,7 +330,7 @@ namespace AppViewLite
             DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory", PersistentDictionaryBehavior.KeySetOnly);
-            HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications");
+            HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications", getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
             ProfileLabels = RegisterDictionary<Plc, LabelEntry>("profile-label");

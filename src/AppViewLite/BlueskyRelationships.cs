@@ -61,7 +61,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<PostId, DateTime> PostgateDeletions;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
-        public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
+        public CombinedPersistentMultiDictionary<PostIdTimeFirst, PostId> DirectReplies;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, PostId> Quotes;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, DateTime> PostDeletions;
         public CombinedPersistentMultiDictionary<Plc, byte> Profiles;
@@ -269,7 +269,9 @@ namespace AppViewLite
             Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");
             RecentBookmarks = RegisterDictionary<Plc, BookmarkDateFirst>("bookmark-recent");
             BookmarkDeletions = RegisterDictionary<Plc, Tid>("bookmark-deletion");
-            DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct");
+            DirectReplies = RegisterDictionary<PostIdTimeFirst, PostId>("post-reply-direct-2");
+            Migrate(DirectReplies, RegisterDictionary<PostId, PostId>("post-reply-direct"));
+
             Quotes = RegisterDictionary<PostIdTimeFirst, PostId>("post-quote-2");
             Migrate(Quotes, RegisterDictionary<PostId, PostId>("post-quote"));
 

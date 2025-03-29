@@ -29,6 +29,7 @@ namespace AppViewLite.Web
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
             ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
             BlueskyRelationships.CreateTimeSeries();
+            Indexer.InitializeFirehoseThreadpool();
             Relationships = new();
             Relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(Relationships);

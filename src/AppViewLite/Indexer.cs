@@ -471,7 +471,11 @@ namespace AppViewLite
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
                 var tcs = new TaskCompletionSource();
-                using var firehose = new ATJetStreamBuilder().WithInstanceUrl(FirehoseUrl).WithLogger(new LogWrapper()).Build();
+                using var firehose = new ATJetStreamBuilder()
+                    .WithInstanceUrl(FirehoseUrl)
+                    .WithLogger(new LogWrapper())
+                    .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
+                    .Build();
                 using var accounting = new LagBehindAccounting(Apis);
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
@@ -537,7 +541,11 @@ namespace AppViewLite
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
                 var tcs = new TaskCompletionSource();
-                using var firehose = new ATWebSocketProtocolBuilder().WithInstanceUrl(FirehoseUrl).WithLogger(new LogWrapper()).Build();
+                using var firehose = new ATWebSocketProtocolBuilder()
+                    .WithInstanceUrl(FirehoseUrl)
+                    .WithLogger(new LogWrapper())
+                    .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
+                    .Build();
                 using var accounting = new LagBehindAccounting(Apis);
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
@@ -1087,6 +1095,14 @@ namespace AppViewLite
         {
             if (handle.Length > 100) handle = string.Concat(handle.AsSpan(0, 50), "...");
             return handle;
+        }
+
+
+        public static TaskFactory? FirehoseThreadpoolTaskFactory;
+
+        public static void InitializeFirehoseThreadpool()
+        {
+            FirehoseThreadpoolTaskFactory = new TaskFactory(new DedicatedThreadPoolScheduler(Environment.ProcessorCount, "Firehose processing thread"));
         }
 
         public class LagBehindAccounting : IDisposable

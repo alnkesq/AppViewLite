@@ -63,7 +63,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostId, PostId> DirectReplies;
         public CombinedPersistentMultiDictionary<PostId, PostId> Quotes;
-        public CombinedPersistentMultiDictionary<PostId, DateTime> PostDeletions;
+        public CombinedPersistentMultiDictionary<PostIdTimeFirst, DateTime> PostDeletions;
         public CombinedPersistentMultiDictionary<Plc, byte> Profiles;
         public CombinedPersistentMultiDictionary<Plc, byte> PlcToDidOther;
         public CombinedPersistentMultiDictionary<Plc, UInt128> PlcToDidPlc;
@@ -271,7 +271,10 @@ namespace AppViewLite
             BookmarkDeletions = RegisterDictionary<Plc, Tid>("bookmark-deletion");
             DirectReplies = RegisterDictionary<PostId, PostId>("post-reply-direct");
             Quotes = RegisterDictionary<PostId, PostId>("post-quote");
-            PostDeletions = RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue);
+            
+            PostDeletions = RegisterDictionary<PostIdTimeFirst, DateTime>("post-deletion-2", PersistentDictionaryBehavior.SingleValue);
+            Migrate(PostDeletions, RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue));
+
             Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
             ProfileSearchLong = RegisterDictionary<HashedWord, Plc>("profile-search-long");
             ProfileSearchDescriptionOnly = RegisterDictionary<HashedWord, Plc>("profile-search-description-only");
@@ -445,6 +448,28 @@ namespace AppViewLite
             GarbageCollectOldSlices(allowTempFileDeletion: true);
 
             Log("Loaded.");
+        }
+
+        private static void Migrate<TValue>(CombinedPersistentMultiDictionary<PostIdTimeFirst, TValue> newTable, CombinedPersistentMultiDictionary<PostId, TValue> oldTable) where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
+        {
+            if (newTable.KeyCount != 0) return;
+            Assert(newTable.Behavior == oldTable.Behavior);
+            Log("Migrating: " + newTable.Name);
+            if (newTable.Behavior == PersistentDictionaryBehavior.PreserveOrder)
+            {
+                foreach (var item in oldTable.EnumerateUnsortedGrouped())
+                {
+                    newTable.AddRange(item.Key, item.Values.AsSmallSpan());
+                }
+            }
+            else
+            {
+                foreach (var item in oldTable.EnumerateUnsorted())
+                {
+                    newTable.Add(item.Key, item.Value);
+                }
+            }
+            Log("  Migrated.");
         }
 
         public static IEnumerable<PostEngagement> CompactPostEngagements(IEnumerable<PostEngagement> enumerable)

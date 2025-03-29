@@ -131,7 +131,7 @@ namespace AppViewLite
 
         }
 
-        public static IEnumerable<T> EnumerateFrom<T>(this ManagedOrNativeArray<T> source, T inclusiveStartingPoint) where T : unmanaged, IComparable<T>
+        public static IEnumerable<T> EnumerateFrom<T>(this DangerousHugeReadOnlyMemory<T> source, T inclusiveStartingPoint) where T : unmanaged, IComparable<T>
         {
             var index = HugeSpanHelpers.BinarySearch<T, T>(source, inclusiveStartingPoint);
             if (index < 0)
@@ -141,7 +141,7 @@ namespace AppViewLite
             return source.Slice(index);
         }
 
-        public static IEnumerable<T> EnumerateFromReverse<T>(this ManagedOrNativeArray<T> source, T startingPointInclusive) where T : unmanaged, IComparable<T>
+        public static IEnumerable<T> EnumerateFromReverse<T>(this DangerousHugeReadOnlyMemory<T> source, T startingPointInclusive) where T : unmanaged, IComparable<T>
         {
             var index = HugeSpanHelpers.BinarySearch<T, T>(source, startingPointInclusive);
             if (index < 0)
@@ -157,7 +157,7 @@ namespace AppViewLite
 
 
 
-        public static IEnumerable<T> EnumerateFromRightBiased<T>(this ManagedOrNativeArray<T> source, T inclusiveStartingPoint) where T : unmanaged, IComparable<T>
+        public static IEnumerable<T> EnumerateFromRightBiased<T>(this DangerousHugeReadOnlyMemory<T> source, T inclusiveStartingPoint) where T : unmanaged, IComparable<T>
         {
             var index = source.AsSpan().BinarySearchRightBiased(inclusiveStartingPoint);
             if (index < 0)
@@ -167,7 +167,7 @@ namespace AppViewLite
             return source.Slice(index);
         }
 
-        public static IEnumerable<T> EnumerateFromReverseRightBiased<T>(this ManagedOrNativeArray<T> source, T inclusiveStartingPoint) where T : unmanaged, IComparable<T>
+        public static IEnumerable<T> EnumerateFromReverseRightBiased<T>(this DangerousHugeReadOnlyMemory<T> source, T inclusiveStartingPoint) where T : unmanaged, IComparable<T>
         {
             var index = source.AsSpan().BinarySearchRightBiased(inclusiveStartingPoint);
             if (index < 0)

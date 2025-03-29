@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -78,6 +80,8 @@ namespace AppViewLite.Storage
         public ref readonly T this[long index] => ref Unsafe.AsRef(in ptr[index]);
 
     }
+
+    [DebuggerDisplay("Length = {Length}")]
     public unsafe struct DangerousHugeReadOnlyMemory<T> : IDisposable, IEnumerable<T> where T : unmanaged
     {
         private T* ptr;
@@ -95,6 +99,9 @@ namespace AppViewLite.Storage
                 return new HugeReadOnlySpan<T>(in Unsafe.AsRef<T>((void*)ptr), length);
             }
         }
+
+        public static implicit operator HugeReadOnlySpan<T>(DangerousHugeReadOnlyMemory<T> memory) => memory.Span;
+
         public DangerousHugeReadOnlyMemory(T* ptr, long length)
         {
             this.ptr = ptr;
@@ -102,6 +109,9 @@ namespace AppViewLite.Storage
         }
 
         public long Length => length;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public long Count => length;
 
         public void Dispose()
         {
@@ -135,6 +145,11 @@ namespace AppViewLite.Storage
                 yield return this[i];
             }
         }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public HugeReadOnlySpan<T> AsSpan() => this.Span;
+        
+        public ReadOnlySpan<T> AsSmallSpan() => this.Span.AsSmallSpan();
 
         public ref readonly T this[long index] => ref Unsafe.AsRef(in this.ptr[index]);
         public unsafe struct Enumerator : IEnumerator<T>

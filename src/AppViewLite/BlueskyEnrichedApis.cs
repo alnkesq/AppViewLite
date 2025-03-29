@@ -32,6 +32,7 @@ using AppViewLite;
 using System.Security.Cryptography;
 using AppViewLite.PluggableProtocols;
 using System.Collections.Frozen;
+using AppViewLite.Storage;
 
 namespace AppViewLite
 {
@@ -490,8 +491,8 @@ namespace AppViewLite
 
             WithRelationshipsLock(rels =>
             {
-                ManagedOrNativeArray<BookmarkPostFirst>[]? userBookmarks = null;
-                ManagedOrNativeArray<Tid>[]? userDeletedBookmarks = null;
+                DangerousHugeReadOnlyMemory<BookmarkPostFirst>[]? userBookmarks = null;
+                DangerousHugeReadOnlyMemory<Tid>[]? userDeletedBookmarks = null;
 
                 foreach (var post in posts)
                 {
@@ -1241,7 +1242,7 @@ namespace AppViewLite
         {
             return WithRelationshipsLock(rels =>
             {
-                ManagedOrNativeArray<Tid>[]? deletedBookmarks = null;
+                DangerousHugeReadOnlyMemory<Tid>[]? deletedBookmarks = null;
                 return rels.RecentBookmarks.GetValuesSortedDescending(ctx.LoggedInUser, null, maxExclusive != null ? new BookmarkDateFirst(maxExclusive.Value, default) : null)
                     .Where(c =>
                     {
@@ -1935,7 +1936,7 @@ namespace AppViewLite
 
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
 
-                var plcToRecentPostLikes = new Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>();
+                var plcToRecentPostLikes = new Dictionary<Plc, DangerousHugeReadOnlyMemory<RecentPostLikeCount>[]?>();
 
                 var userPosts = possibleFollows.PossibleFollows.Select(pair =>
                 {

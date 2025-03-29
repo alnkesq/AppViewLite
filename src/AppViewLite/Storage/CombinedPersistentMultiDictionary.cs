@@ -65,7 +65,7 @@ namespace AppViewLite.Storage
             return ToNativeArrayCore(enumerable, UnalignedArenaForCurrentThread!);
         }
 
-        public unsafe static ManagedOrNativeArray<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T: unmanaged
+        public unsafe static DangerousHugeReadOnlyMemory<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T: unmanaged
         {
             var arena = UnalignedArenaForCurrentThread!;
             if (TryGetSpan(enumerable, out var src))
@@ -82,7 +82,7 @@ namespace AppViewLite.Storage
 
         }
 
-        private static unsafe ManagedOrNativeArray<T> ToNativeArrayCore<T>(IEnumerable<T> enumerable, NativeArenaSlim arena) where T : unmanaged
+        private static unsafe DangerousHugeReadOnlyMemory<T> ToNativeArrayCore<T>(IEnumerable<T> enumerable, NativeArenaSlim arena) where T : unmanaged
         {
             if (enumerable.TryGetNonEnumeratedCount(out var count))
             {
@@ -116,7 +116,7 @@ namespace AppViewLite.Storage
             {
                 span = Unsafe.As<TSource[]>(source);
             }
-            else if (source is ManagedOrNativeArray<TSource> nativeArray)
+            else if (source is DangerousHugeReadOnlyMemory<TSource> nativeArray)
             {
                 span = nativeArray;
             }
@@ -686,11 +686,11 @@ namespace AppViewLite.Storage
             return false;
         }
 
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
+        public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
-            ManagedOrNativeArray<TValue> extraArr = default;
+            DangerousHugeReadOnlyMemory<TValue> extraArr = default;
             if (queue.TryGetValues(key, out var extraStruct))
             {
                 var extra = extraStruct.ValuesSorted;
@@ -714,14 +714,14 @@ namespace AppViewLite.Storage
                     extraArr = ToNativeArray(extra);
                 }
             }
-            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0).Select(x => (ManagedOrNativeArray<TValue>)x);
+            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0).Select(x => (DangerousHugeReadOnlyMemory<TValue>)x);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);
             return z;
         }
 
 
-        public IEnumerable<ManagedOrNativeArray<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false, MultiDictionaryIoPreference preference = default)
+        public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false, MultiDictionaryIoPreference preference = default)
         {
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
@@ -1077,7 +1077,7 @@ namespace AppViewLite.Storage
         }
 
 
-        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> EnumerateUnsortedGrouped()
+        public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> EnumerateUnsortedGrouped()
         {
             foreach (var slice in slices)
             {
@@ -1097,10 +1097,10 @@ namespace AppViewLite.Storage
         public bool HasValues => behavior != PersistentDictionaryBehavior.KeySetOnly;
 
 
-        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue>[] ValueChunks)> EnumerateSortedGrouped()
+        public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {
             if (IsSingleValueOrKeySet) throw new InvalidOperationException();
-            var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (ManagedOrNativeArray<TValue>)x.Values)));
+            var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (DangerousHugeReadOnlyMemory<TValue>)x.Values)));
             if (queue.GroupCount != 0)
             {
                 s = s.Append(queue.Select(x => (x.Key, Values: ToNativeArray(x.Values.ValuesSorted))));
@@ -1139,7 +1139,7 @@ namespace AppViewLite.Storage
         {
             return EnumerateKeyChunks().SelectMany(x => x);
         }
-        public IEnumerable<ManagedOrNativeArray<TKey>> EnumerateKeyChunks()
+        public IEnumerable<DangerousHugeReadOnlyMemory<TKey>> EnumerateKeyChunks()
         {
             foreach (var slice in slices)
             {
@@ -1176,7 +1176,7 @@ namespace AppViewLite.Storage
             return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered<TKey, TKey>(keyChunks.Select(x => x.Reverse()).ToArray(), x => x, new ReverseComparer<TKey>()).DistinctAssumingOrderedInput(skipCheck: true);
         }
 
-        public IEnumerable<(TKey Key, ManagedOrNativeArray<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive, MultiDictionaryIoPreference preference = default)
+        public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive, MultiDictionaryIoPreference preference = default)
         {
             InitializeIoPreferenceForKey(min, ref preference);
             foreach (var q in queue)

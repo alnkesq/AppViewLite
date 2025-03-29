@@ -24,6 +24,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using AppViewLite.Storage;
 
 namespace AppViewLite
 {
@@ -1170,7 +1171,7 @@ namespace AppViewLite
 
 
 
-        public List<ManagedOrNativeArray<Plc>> SearchProfilesPrefixOnly(SizeLimitedWord8 prefix)
+        public List<DangerousHugeReadOnlyMemory<Plc>> SearchProfilesPrefixOnly(SizeLimitedWord8 prefix)
         {
             if (prefix.Length <= 2)
             {
@@ -1186,9 +1187,9 @@ namespace AppViewLite
 
         }
 
-        private static List<ManagedOrNativeArray<Plc>> ConsolidatePrefixSearch(IEnumerable<ManagedOrNativeArray<Plc>> slices)
+        private static List<DangerousHugeReadOnlyMemory<Plc>> ConsolidatePrefixSearch(IEnumerable<DangerousHugeReadOnlyMemory<Plc>> slices)
         {
-            var result = new List<ManagedOrNativeArray<Plc>>();
+            var result = new List<DangerousHugeReadOnlyMemory<Plc>>();
             var small = new List<Plc>();
             foreach (var slice in slices)
             {
@@ -1211,11 +1212,11 @@ namespace AppViewLite
         {
             var searchTermsArray = searchTerms.Select(x => HashWord(x)).Distinct().ToArray();
 
-            var toIntersect = new List<List<ManagedOrNativeArray<Plc>>>();
+            var toIntersect = new List<List<DangerousHugeReadOnlyMemory<Plc>>>();
 
             foreach (var word in searchTerms)
             {
-                var slices = new List<ManagedOrNativeArray<Plc>>();
+                var slices = new List<DangerousHugeReadOnlyMemory<Plc>>();
                 var sizeLimited = SizeLimitedWord8.Create(word, out var truncated);
 
                 if (truncated)
@@ -1290,7 +1291,7 @@ namespace AppViewLite
 
         }
 
-        private static bool RemoveEmptySearchSlices<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, T approxDate) where T : unmanaged, IEquatable<T>
+        private static bool RemoveEmptySearchSlices<T>((long TotalCount, List<DangerousHugeReadOnlyMemory<T>> Slices)[] words, T approxDate) where T : unmanaged, IEquatable<T>
         {
             var firstWord = words[0].Slices;
             var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1].Equals(approxDate));
@@ -1300,7 +1301,7 @@ namespace AppViewLite
             return firstWord.Count != 0;
         }
 
-        private static void PeelUntilNextCommonPost<T>((long TotalCount, List<ManagedOrNativeArray<T>> Slices)[] words, ref T mostRecentCommonPost) where T : unmanaged, IComparable<T>
+        private static void PeelUntilNextCommonPost<T>((long TotalCount, List<DangerousHugeReadOnlyMemory<T>> Slices)[] words, ref T mostRecentCommonPost) where T : unmanaged, IComparable<T>
         {
             var first = true;
             while (true)
@@ -1338,7 +1339,7 @@ namespace AppViewLite
 
         }
 
-        private static void TrimAwayPostsAboveThreshold<T>(List<ManagedOrNativeArray<T>> slices, T maxPost) where T : unmanaged, IComparable<T>
+        private static void TrimAwayPostsAboveThreshold<T>(List<DangerousHugeReadOnlyMemory<T>> slices, T maxPost) where T : unmanaged, IComparable<T>
         {
             for (int sliceIdx = 0; sliceIdx < slices.Count; sliceIdx++)
             {
@@ -3068,7 +3069,7 @@ namespace AppViewLite
             {
                 if (plc == default) return true;
 
-                // Callers can assume that this lambda is SAFE to reuse across re-locks (must not capture ManagedOrNativeArrays)
+                // Callers can assume that this lambda is SAFE to reuse across re-locks (must not capture DangerousHugeReadOnlyMemorys)
 
                 if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
                 if (rkey == default) return true; // private follow
@@ -3144,7 +3145,7 @@ namespace AppViewLite
             };
         }
 
-        internal static bool IsPostSeen(PostIdTimeFirst postId, ManagedOrNativeArray<PostEngagement>[] seenPostsSlices)
+        internal static bool IsPostSeen(PostIdTimeFirst postId, DangerousHugeReadOnlyMemory<PostEngagement>[] seenPostsSlices)
         {
             foreach (var slice in seenPostsSlices)
             {
@@ -3323,7 +3324,7 @@ namespace AppViewLite
 
 
 
-        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, ManagedOrNativeArray<RecentPostLikeCount>[]?>? plcToRecentPostLikes, bool allowImprecise = false)
+        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, DangerousHugeReadOnlyMemory<RecentPostLikeCount>[]?>? plcToRecentPostLikes, bool allowImprecise = false)
         {
             if (!couldBePluggablePost)
             {
@@ -3378,11 +3379,11 @@ namespace AppViewLite
 
         public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser)
         {
-            ManagedOrNativeArray<BookmarkPostFirst>[]? a = null;
-            ManagedOrNativeArray<Tid>[]? b = null;
+            DangerousHugeReadOnlyMemory<BookmarkPostFirst>[]? a = null;
+            DangerousHugeReadOnlyMemory<Tid>[]? b = null;
             return TryGetLatestBookmarkForPost(postId, loggedInUser, ref a, ref b);
         }
-        public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser, ref ManagedOrNativeArray<BookmarkPostFirst>[]? userBookmarks, ref ManagedOrNativeArray<Tid>[]? userDeletedBookmarks)
+        public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser, ref DangerousHugeReadOnlyMemory<BookmarkPostFirst>[]? userBookmarks, ref DangerousHugeReadOnlyMemory<Tid>[]? userDeletedBookmarks)
         {
             if (userBookmarks == null)
             {

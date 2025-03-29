@@ -20,6 +20,17 @@ namespace AppViewLite.Web
         {
             get
             {
+                if (_ctxWithoutConnectionId.SignalrConnectionId == null)
+                {
+                    _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
+                }
+                if (_ctxWithoutConnectionId.Session == null)
+                {
+                    var httpContext = this.Context.GetHttpContext();
+                    var ctx = Program.TryGetSession(httpContext);
+                    _ctxWithoutConnectionId.Session = ctx ?? AppViewLiteSession.CreateAnonymous();
+                }
+
                 return _ctxWithoutConnectionId;
             }
         }
@@ -139,14 +150,10 @@ namespace AppViewLite.Web
 
         public override Task OnConnectedAsync()
         {
-            var httpContext = this.Context.GetHttpContext();
-            var ctx = Program.TryGetSession(httpContext);
-            var userPlc = ctx != null && ctx.IsLoggedIn ? ctx.LoggedInUser : default;
+            var ctx = RequestContext;
+            Plc? userPlc = ctx.IsLoggedIn ? ctx.LoggedInUser : null;
             var connectionId = Context.ConnectionId;
-
-            _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
-            _ctxWithoutConnectionId.Session = ctx ?? AppViewLiteSession.CreateAnonymous();
-
+      
             void SubmitLivePostEngagement(Versioned<PostStatsNotification> versionedNotification, Plc commitPlc)
             {
                 var notification = versionedNotification.Value;
@@ -155,6 +162,7 @@ namespace AppViewLite.Web
                 object? ownRelationshipChange = null;
                 if (commitPlc != default && commitPlc == userPlc)
                 {
+                    ctx.BumpMinimumVersion(versionedNotification.MinVersion);
                     apis.WithRelationshipsLock(rels =>
                     {
                         rels.Likes.HasActor(notification.PostId, commitPlc, out var userLike);
@@ -166,7 +174,7 @@ namespace AppViewLite.Web
                             repostRkey = userRepost.RelationshipRKey.ToString() ?? "-",
                             bookmarkRkey = bookmark?.ToString() ?? "-"
                         };
-                    }, RequestContext.CreateForRequest(ctx, urgent: false, minVersion: versionedNotification.MinVersion));
+                    }, RequestContext.ToNonUrgent(ctx));
 
                 }
                 client.SendAsync("PostEngagementChanged", new { notification.Did, notification.RKey, notification.LikeCount, notification.RepostCount, notification.QuoteCount, notification.ReplyCount }, ownRelationshipChange).FireAndForget();
@@ -189,7 +197,6 @@ namespace AppViewLite.Web
 
                     client.SendAsync("NotificationCount", notificationCount).FireAndForget();
                 },
-                SessionCookie = Program.TryGetSessionCookie(httpContext)
             };
             if (!connectionIdToCallback.TryAdd(connectionId, context)) throw new Exception();
 
@@ -251,7 +258,6 @@ namespace AppViewLite.Web
         public required Throttler<Versioned<PostStatsNotification>> LiveUpdatesCallbackThrottler;
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
-        public string? SessionCookie;
         public Throttler? MarkAsReadThrottler;
         public List<PostEngagementStr> PostEngagementPending = new();
         public void Dispose()

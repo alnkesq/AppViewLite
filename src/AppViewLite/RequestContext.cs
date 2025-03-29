@@ -164,7 +164,7 @@ namespace AppViewLite
             InitializeDeadlines();
         }
 
-        internal void BumpMinimumVersion(long version)
+        public void BumpMinimumVersion(long version)
         {
             while (true)
             {

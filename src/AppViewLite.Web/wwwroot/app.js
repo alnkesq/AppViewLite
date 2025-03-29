@@ -1755,7 +1755,7 @@ async function updateLiveSubscriptions() {
         
         var sideWithQuotee = new URL(location.href).pathname.endsWith('/quotes')
         await connection.invoke('LoadPendingPosts',
-            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, replyChainLength: x.dataset.replychainlength })),
+            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, replyChainLength: +x.dataset.replychainlength })),
             sideWithQuotee,
             focalDid
         )

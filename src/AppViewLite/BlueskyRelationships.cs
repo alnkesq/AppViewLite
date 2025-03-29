@@ -172,8 +172,10 @@ namespace AppViewLite
         internal static Func<TKey, MultiDictionaryIoPreference>? GetIoPreferenceFunc<TKey>() => (Func<TKey, MultiDictionaryIoPreference>?)GetIoPreferenceFunc(typeof(TKey));
         internal static Delegate? GetIoPreferenceFunc(Type type)
         {
-            if (type == typeof(Relationship)) return (Relationship r) => GetIoPreferenceForDate(r.RelationshipRKey.Date);
             if (type == typeof(PostIdTimeFirst)) return (PostIdTimeFirst r) => GetIoPreferenceForDate(r.PostRKey.Date);
+            if (type == typeof(TimePostSeen)) return (TimePostSeen r) => GetIoPreferenceForDate(r.Date);
+            if (type == typeof(PostEngagement)) return (PostEngagement r) => GetIoPreferenceForDate(r.PostId.PostRKey.Date);
+
             if (type == typeof(Plc)) return (Plc r) => MultiDictionaryIoPreference.KeysAndOffsetsMmap;
             return null;
         }

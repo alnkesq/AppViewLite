@@ -56,6 +56,7 @@ namespace AppViewLite
 
         private void ThreadWorker()
         {
+            using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
             foreach (var task in tasks.GetConsumingEnumerable(cts.Token))
             {
                 TryExecuteTask(task);

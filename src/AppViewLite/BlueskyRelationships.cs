@@ -3238,7 +3238,7 @@ namespace AppViewLite
                 profile.IsBlockedBySelf = blockedBySelf.RelationshipRKey;
             }
             // ctx.Session is null when logging in (ourselves)
-            profile.PrivateFollow = ctx.IsLoggedIn ? ctx.UserContext.GetPrivateFollow(profile.Plc) ?? new() { Plc = profile.Plc.PlcValue } : null;
+            profile.PrivateFollow = (ctx.IsLoggedIn ? ctx.UserContext.GetPrivateFollow(profile.Plc) : null) ?? new() { Plc = profile.Plc.PlcValue };
         }
 
         public void AssertCanRead()

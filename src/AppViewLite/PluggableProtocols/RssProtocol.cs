@@ -200,11 +200,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                     return refreshInfo;
                 }
                 refreshInfo.LastHttpStatus = response.StatusCode;
-                var redirectLocation = response.Headers.Location;
+                var redirectLocation = response.GetRedirectLocationUrl();
                 if (redirectLocation != null)
                 {
-                    if (redirectLocation.AbsoluteUri == feedUrl.AbsoluteUri)
-                        throw new UnexpectedFirehoseDataException("Redirect loop");
                     refreshInfo.RedirectsTo = redirectLocation.AbsoluteUri;
                     return refreshInfo;
                 }
@@ -1029,11 +1027,9 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
 
-            if (response.Headers.Location != null)
+            if (response.GetRedirectLocationUrl() is { } newUrl)
             {
-                if (response.Headers.Location.AbsoluteUri == url.AbsoluteUri)
-                    throw new UnexpectedFirehoseDataException("Redirect loop.");
-                return "/" + response.Headers.Location.AbsoluteUri;
+                return "/" + newUrl.AbsoluteUri;
             }
 
             response.EnsureSuccessStatusCode();

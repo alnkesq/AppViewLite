@@ -14,6 +14,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -861,6 +863,19 @@ namespace AppViewLite
             "xml",
             "zip",
         }.ToFrozenSet().GetAlternateLookup<ReadOnlySpan<char>>();
+
+        public static Uri? GetRedirectLocationUrl(this HttpResponseMessage response, bool forbidLoop = true)
+        {
+            var location = response.Headers.Location;
+            if (location == null) return null;
+            var originalUrl = response.RequestMessage!.RequestUri!;
+            if (!location.IsAbsoluteUri) 
+                location = new Uri(originalUrl, location);
+            if (forbidLoop && originalUrl.AbsoluteUri == location.AbsoluteUri)
+                throw new UnexpectedFirehoseDataException("The server returned a redirect to the same page.");
+            return location;
+        }
+
     }
 }
 

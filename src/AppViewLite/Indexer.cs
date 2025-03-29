@@ -1086,10 +1086,10 @@ namespace AppViewLite
         private static Stopwatch? LastLagBehindWarningPrint;
         private static Stopwatch? LastDropEventsWarningPrint;
         private readonly static Lock FirehoseLagBehindWarnLock = new();
-
-        public static void InitializeFirehoseThreadpool(BlueskyEnrichedApis? flushBeforeFatalGiveUp)
+        public static void InitializeFirehoseThreadpool(BlueskyEnrichedApis apis)
         {
-            var scheduler = new DedicatedThreadPoolScheduler(Environment.ProcessorCount, "Firehose processing thread");
+            var ct = apis.DangerousUnlockedRelationships.ShutdownRequestedCts.Token;
+            var scheduler = new DedicatedThreadPoolScheduler(Environment.ProcessorCount, "Firehose processing thread", ct);
             scheduler.BeforeTaskEnqueued += () =>
             {
                 BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
@@ -1117,7 +1117,7 @@ namespace AppViewLite
                     }
                     else
                     {
-                        flushBeforeFatalGiveUp?.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), RequestContext.CreateForFirehose("FlushBeforeLagBehindExit"));
+                        apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), RequestContext.CreateForFirehose("FlushBeforeLagBehindExit"));
                         BlueskyRelationships.ThrowFatalError(errorText);
                     }
                 }

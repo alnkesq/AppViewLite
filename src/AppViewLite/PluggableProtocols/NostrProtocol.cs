@@ -380,6 +380,11 @@ namespace AppViewLite.PluggableProtocols.Nostr
             }
             return Task.FromResult<string?>(null);
         }
+
+        public override string? GetDisplayHandle(BlueskyProfile profile)
+        {
+            return GetDisplayNameFromDid(profile.Did);
+        }
     }
 }
 

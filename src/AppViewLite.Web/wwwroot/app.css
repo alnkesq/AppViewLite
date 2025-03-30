@@ -673,8 +673,11 @@ ul {
     transition: opacity 0.5s linear;
 }
 
-.handle-generic::before{
+.handle-with-at-prefix::before{
     content: '@';
+}
+.post:not(.post-focal) .post-meta .handle-without-at-prefix {
+    margin-left: 5px;
 }
 .post .handle-generic::before,
 .search-form-suggestions .handle-generic::before

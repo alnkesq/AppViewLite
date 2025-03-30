@@ -150,6 +150,14 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             return false;
         }
         public override bool ProvidesLikeCount => true;
+
+        public override string? GetDisplayHandle(BlueskyProfile profile)
+        {
+            var username = GetUserName(profile.Did);
+            if (username == null)
+                return "news.ycombinator.com";
+            return "news.ycombinator.com/user?id=" + username;
+        }
     }
 }
 

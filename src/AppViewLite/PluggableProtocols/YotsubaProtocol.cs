@@ -71,7 +71,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
                 OnProfileDiscovered(did, new BlueskyProfileBasicInfo
                 {
-                    DisplayName = "/" + boardId.BoardName + "/ - " + board.title + " (" + displayHost + ")",
+                    DisplayName = "/" + boardId.BoardName + "/ - " + board.title,
                     Description = description.Text,
                     DescriptionFacets = description.Facets,
                     HasExplicitFacets = true,
@@ -317,6 +317,12 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         public override bool ShouldUseCompactMediaThumbnails(BlueskyPost post)
         {
             return true;
+        }
+
+        public override string? GetDisplayHandle(BlueskyProfile profile)
+        {
+            var board = GetBoardIdFromDid(profile.Did);
+            return board.Host + "/" + board.BoardName + "/";
         }
     }
 

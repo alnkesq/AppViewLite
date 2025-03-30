@@ -905,7 +905,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("reddit.com"))
             {
                 var path = url.GetSegments();
-                return "/" + path[0] + "/" + path[1];
+                if (path[0] == "u") return "/" + path[0] + "/" + path[1];
+                else return path[1];
             }
             var host = url.GetDomainTrimWww();
             if (host.StartsWith("blog.", StringComparison.Ordinal))
@@ -1115,6 +1116,22 @@ namespace AppViewLite.PluggableProtocols.Rss
                 });
             }
             return false;
+        }
+
+        public override string? GetDisplayHandle(BlueskyProfile profile)
+        {
+            var url = DidToUrl(profile.Did);
+            if (url.HasHostSuffix("reddit.com"))
+            {
+                var segments = url.GetSegments();
+                if(segments.Length >= 2)
+                    return "/" + segments[0] + "/" + segments[1];
+            }
+            if (url.HasHostSuffix("tumblr.com"))
+            {
+                return url.Host;
+            }
+            return StringUtils.GetDisplayHost(url);
         }
     }
 }

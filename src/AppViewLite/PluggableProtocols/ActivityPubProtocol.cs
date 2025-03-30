@@ -40,6 +40,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return Task.CompletedTask;
         }
 
+        public override string? GetDisplayHandle(BlueskyProfile profile)
+        {
+            return ParseDid(profile.Did).ToString();
+        }
 
         private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions { IncludeFields = true };
         private async Task ListenActivityPubRelay(string host, CancellationToken ct)

@@ -479,6 +479,11 @@ namespace AppViewLite.PluggableProtocols
         {
             return false;
         }
+
+        public virtual string? GetDisplayHandle(BlueskyProfile profile)
+        {
+            return null;
+        }
     }
 }
 

@@ -59,10 +59,15 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                             ExternalUrl = hasExternalLink ? titleUrl.AbsoluteUri : null,
                         };
 
-                        var postId = new QualifiedPluggablePostId(DidPrefix + username, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id));
+#if true
+                        var postDid = DidPrefix + username;
+#else
+                        var postDid = HackerNewsMainDid;
+#endif
+                        var postId = new QualifiedPluggablePostId(postDid, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id));
                         var assignedPostId = OnPostDiscovered(postId, null, null, data, ctx);
 
-                        if (assignedPostId != null)
+                        if (assignedPostId != null && postDid != HackerNewsMainDid)
                             OnRepostDiscovered(HackerNewsMainDid, postId, date, ctx);
                     }
 

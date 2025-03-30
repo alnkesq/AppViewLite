@@ -236,6 +236,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
 
                 }
+
+                if (feedUrl.HasHostSuffix("reddit.com"))
+                    title = null;
+
                 var altUrl = GetAlternateLink(rss);
                 if (altUrl != null && string.Equals(NormalizeForApproxUrlEquality(altUrl), NormalizeForApproxUrlEquality(feedUrl), StringComparison.OrdinalIgnoreCase))
                     altUrl = null;
@@ -292,7 +296,6 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
                     refreshInfo.DidAttemptFaviconRetrieval = true;
                 }
-
 
                 OnProfileDiscovered(did, new BlueskyProfileBasicInfo
                 {

@@ -573,7 +573,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 }
                 data.ExternalUrl = url!.AbsoluteUri;
 
-                if (feedUrl.HasHostSuffix("reddit.com"))
+                if (feedUrl.HasHostSuffix("reddit.com") && data.Text == null)
                 {
                     data.Text = title;
                 }

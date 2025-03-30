@@ -243,12 +243,25 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 }
 
-                if (feedUrl.HasHostSuffix("reddit.com"))
-                    title = null;
 
                 var altUrl = GetAlternateLink(rss);
                 if (altUrl != null && string.Equals(NormalizeForApproxUrlEquality(altUrl), NormalizeForApproxUrlEquality(feedUrl), StringComparison.OrdinalIgnoreCase))
                     altUrl = null;
+
+
+                if (feedUrl.HasHostSuffix("reddit.com"))
+                {
+                    var label = GetAttribute(GetChild(rss, "category"), "label");
+                    if (label != null && label.StartsWith("r/", StringComparison.Ordinal))
+                    {
+                        // get display case
+                        title = label.Split('/')[1];
+                    }
+                    else title = null;
+                    
+                }
+
+
                 var altUrlOrFallback = altUrl;
                 if (altUrlOrFallback == null)
                     altUrlOrFallback = new Uri(feedUrl.GetLeftPart(UriPartial.Authority) + "/");
@@ -1132,8 +1145,15 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var segments = url.GetSegments();
                 url.GetQueryDictionary().TryGetValue("t", out var top);
 
-                if(segments.Length >= 2)
-                    return "/" + segments[0] + "/" + segments[1] + (top != null ? " (top "+ top +")" : null);
+
+
+                if (segments.Length >= 2)
+                {
+                    var suffix = (top != null ? " (top " + top + ")" : null);
+                    if (segments[0] == "r" && segments[1].Equals(profile.DisplayName, StringComparison.OrdinalIgnoreCase))
+                        return "/r/" + profile.DisplayName + suffix;
+                    return "/" + segments[0] + "/" + segments[1] + suffix;
+                }
             }
             if (url.HasHostSuffix("tumblr.com"))
             {

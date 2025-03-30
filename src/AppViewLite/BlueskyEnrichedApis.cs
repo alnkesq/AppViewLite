@@ -1963,7 +1963,7 @@ namespace AppViewLite
 
                     if (posts.Length == 0 && reposts.Length == 0) return default;
                     if (!possibleFollows.IsStillFollowed(plc, rels)) return default;
-
+                    var isReposterOnly = reposts.Length != 0 && posts.Length == 0 && rels.ReposterOnlyProfile.ContainsKey(plc);
 
 
                     return (
@@ -1974,7 +1974,7 @@ namespace AppViewLite
                             .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
                             .ToArray(),
                        Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels), LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes, allowImprecise: true)))
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels) || isReposterOnly, LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes, allowImprecise: true)))
                             .ToArray()
                        );
                 }).Where(x => x.Plc != default).ToArray();

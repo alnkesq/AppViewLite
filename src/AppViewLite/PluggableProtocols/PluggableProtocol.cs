@@ -31,7 +31,7 @@ namespace AppViewLite.PluggableProtocols
                 throw new ArgumentException();
         }
 
-        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, RequestContext ctx, bool shouldIndex = true)
+        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, RequestContext ctx, bool shouldIndex = true, bool willOnlyRepost = false)
         {
             EnsureOwnDid(did);
             EnsureValidDid(did);
@@ -65,6 +65,8 @@ namespace AppViewLite.PluggableProtocols
                     }
 
                 }
+                if (willOnlyRepost)
+                    rels.ReposterOnlyProfile.AddIfMissing(plc, 0);
 
                 rels.StoreProfileBasicInfo(plc, data);
             }, ctx);
@@ -287,9 +289,7 @@ namespace AppViewLite.PluggableProtocols
             else
             {
                 var hash = postId.GetExternalPostIdHash();
-                var probabilistcCache = rels.ExternalPostIdHashToSyntheticTid.GetCache<KeyProbabilisticCache<DuckDbUuid, Tid>>();
-                var couldAlreadyExist = probabilistcCache == null || probabilistcCache.PossiblyContainsKey(hash);
-                if (couldAlreadyExist && rels.ExternalPostIdHashToSyntheticTid.TryGetSingleValue(hash, out var tid))
+                if (rels.ExternalPostIdHashToSyntheticTid.TryGetSingleValue(hash, out var tid))
                 {
                     postId = postId.WithTid(tid);
                 }

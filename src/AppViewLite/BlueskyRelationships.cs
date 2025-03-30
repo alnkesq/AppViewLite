@@ -100,6 +100,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, TimePostSeen> SeenPostsByDate;
         public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
+        public CombinedPersistentMultiDictionary<Plc, byte> ReposterOnlyProfile;
 
         public ConcurrentFullEvictionCache<DuckDbUuid, Plc> DidToPlcConcurrentCache;
         public ConcurrentFullEvictionCache<Plc, string> PlcToDidConcurrentCache;
@@ -346,6 +347,7 @@ namespace AppViewLite
             SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
+            ReposterOnlyProfile = RegisterDictionary<Plc, byte>("reposter-only-profile", PersistentDictionaryBehavior.KeySetOnly);
 
 
 

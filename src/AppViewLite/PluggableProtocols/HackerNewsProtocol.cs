@@ -21,7 +21,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             {
 
 
-                OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"));
+                OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"), willOnlyRepost: true);
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromMinutes(10), ct);

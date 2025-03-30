@@ -2,4 +2,7 @@
     [Parameter] public required BlueskyProfile Profile { get; set; }
 }
 
-<a data-handledid="@Profile.Did" class="handle-generic @(Profile.HandleIsUncertain ? "handle-uncertain" : Profile.PossibleHandle == null ? "handle-invalid" : null)" href="@Profile.HomeUrl" tabindex="-1">@(Profile.PossibleHandle ?? "handle.invalid")</a>
+@{
+    var displayHandle = Profile.PluggableProtocol?.GetDisplayHandle(Profile);
+}
+<a data-handledid="@Profile.Did" class="handle-generic @(displayHandle == null ? "handle-with-at-prefix" : "handle-without-at-prefix") @(displayHandle == null && Profile.HandleIsUncertain ? "handle-uncertain" : Profile.PossibleHandle == null && displayHandle == null ? "handle-invalid" : null)" href="@Profile.HomeUrl" tabindex="-1">@(displayHandle ?? Profile.PossibleHandle ?? "handle.invalid")</a>

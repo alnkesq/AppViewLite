@@ -572,8 +572,16 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 }
                 data.ExternalUrl = url!.AbsoluteUri;
-                data.ExternalDescription = bodyAsText;
-                data.ExternalTitle = title;
+
+                if (feedUrl.HasHostSuffix("reddit.com"))
+                {
+                    data.Text = title;
+                }
+                else
+                {
+                    data.ExternalDescription = bodyAsText;
+                    data.ExternalTitle = title;
+                }
 
                 var mediaThumb = GetAttribute(mediaGroup?.Element(NsMedia + "thumbnail"), "url");
                 if (mediaThumb != null)
@@ -1063,6 +1071,19 @@ namespace AppViewLite.PluggableProtocols.Rss
         public override async Task TryFetchProfileMetadataAsync(string did, RequestContext ctx)
         {
             await MaybeRefreshFeedAsync(did, ctx);
+        }
+
+        public override bool RequiresLateOpenGraphData(BlueskyPost post)
+        {
+            if (post.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
+            {
+                var data = post.Data;
+                if (data == null) return false;
+                if (data.ExternalUrl == null) return false;
+                // Reddit RSS doesn't provide description. However, keep RSS thumbnail as a fallback.
+                return true;
+            }
+            return base.RequiresLateOpenGraphData(post);
         }
     }
 }

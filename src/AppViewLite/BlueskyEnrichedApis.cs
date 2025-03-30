@@ -4339,15 +4339,16 @@ namespace AppViewLite
 
         public string? GetExternalThumbnailUrl(BlueskyPost post)
         {
-            if (post.LateOpenGraphData?.ExternalThumbnailUrl is { } url)
+            if (post.Data?.ExternalThumbCid is { } cid)
+            {
+                return GetImageThumbnailUrl(post.Did, cid, post.Author.Pds);
+            }
+            else if (post.LateOpenGraphData?.ExternalThumbnailUrl is { } url)
             {
                 var u = new Uri(url);
                 return GetImageThumbnailUrl("host:" + u.Host, Encoding.UTF8.GetBytes(u.PathAndQuery), null);
             }
-            else if (post?.Data?.ExternalThumbCid is { } cid)
-            {
-                return GetImageThumbnailUrl(post.Did, cid, post.Author.Pds);
-            }
+            
             return null;
         }
     }

@@ -57,7 +57,10 @@ namespace AppViewLite.Models
         {
             if (Link != null) return Link;
             if (SameLinkAsText == true)
-                return Encoding.UTF8.GetString(fullPostUtf8.Slice(Start, Length));
+            {
+                if (Start + Length < fullPostUtf8.Length) // post text could be trimmed
+                    return Encoding.UTF8.GetString(fullPostUtf8.Slice(Start, Length));
+            }
             return null;
         }
     }

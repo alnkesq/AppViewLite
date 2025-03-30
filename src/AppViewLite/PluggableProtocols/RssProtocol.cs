@@ -1130,8 +1130,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("reddit.com"))
             {
                 var segments = url.GetSegments();
+                url.GetQueryDictionary().TryGetValue("t", out var top);
+
                 if(segments.Length >= 2)
-                    return "/" + segments[0] + "/" + segments[1];
+                    return "/" + segments[0] + "/" + segments[1] + (top != null ? " (top "+ top +")" : null);
             }
             if (url.HasHostSuffix("tumblr.com"))
             {

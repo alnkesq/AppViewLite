@@ -297,10 +297,10 @@
         }
         else
         {
-            <a class="post-external-preview @((ShouldUseCompactView && Post.Data.ExternalThumbCid != null) ? "post-external-preview-compact" : null) post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
-                @if (Post.Data.ExternalThumbCid != null && !Post.Author.IsMediaBlockedByAdministrativeRule)
+            <a class="post-external-preview @((ShouldUseCompactView && Post.HasExternalThumbnailBestGuess) ? "post-external-preview-compact" : null) post-indented" target="_blank" rel="noreferrer" href="@Post.Data.ExternalUrl">
+                @if (Post.HasExternalThumbnail && !Post.Author.IsMediaBlockedByAdministrativeRule)
                 {
-                    <img class="post-external-preview-image" src="@Apis.GetImageThumbnailUrl(Post.Did, Post.Data.ExternalThumbCid, Post.Author.Pds)" />
+                    <img class="post-external-preview-image" src="@Apis.GetExternalThumbnailUrl(Post)" />
                 }
                 <div class="post-external-preview-metadata">
                     <h2 class="post-external-preview-title">@(Post.Data.ExternalTitle ?? Post.Data.ExternalUrl)</h2>

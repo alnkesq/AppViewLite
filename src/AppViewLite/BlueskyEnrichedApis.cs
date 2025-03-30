@@ -591,9 +591,9 @@ namespace AppViewLite
 
                 rels.PopulateViewerFlags(post, ctx);
 
-                if (post.Data?.ExternalThumbCid != null)
+                if (post.HasExternalThumbnailBestGuess)
                 {
-                    var domain = StringUtils.TryParseUri(post.Data.ExternalUrl)?.GetDomainTrimWww();
+                    var domain = StringUtils.TryParseUri(post.Data!.ExternalUrl)?.GetDomainTrimWww();
                     if (domain != null && ExternalDomainsAlwaysCompactView.Contains(domain))
                         post.ShouldUseCompactView = true;
                 }
@@ -634,7 +634,7 @@ namespace AppViewLite
                     ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>
                     {
-                        post.LateOpenGraphData = rels.GetOpenGraphData(externalUrl);
+                        post.ApplyLateOpenGraphData(rels.GetOpenGraphData(externalUrl));
                     }, ctx);
 
 
@@ -2222,7 +2222,7 @@ namespace AppViewLite
                                     if (rels.ShouldIncludeLeafOrRootPostInFollowingFeed(rootPost, ctx) == false)
                                         return false;
 
-                                    if (rootPost.Data?.ExternalThumbCid != null && IsPostSeenOrAlreadyReturned(rootPost.PostId))
+                                    if (rootPost.HasExternalThumbnailBestGuess && IsPostSeenOrAlreadyReturned(rootPost.PostId))
                                     {
                                         rootPost.ShouldUseCompactView = true;
                                     }
@@ -3553,6 +3553,7 @@ namespace AppViewLite
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(DidDocProto.GetDomainFromPds(pds));
 
+
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
                 var url = new Uri(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
@@ -4334,6 +4335,21 @@ namespace AppViewLite
         }
 
         public readonly SemaphoreSlim CarDownloadSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_DOWNLOAD_SEMAPHORE) ?? 8);
+
+
+        public string? GetExternalThumbnailUrl(BlueskyPost post)
+        {
+            if (post.LateOpenGraphData?.ExternalThumbnailUrl is { } url)
+            {
+                var u = new Uri(url);
+                return GetImageThumbnailUrl("host:" + u.Host, Encoding.UTF8.GetBytes(u.PathAndQuery), null);
+            }
+            else if (post?.Data?.ExternalThumbCid is { } cid)
+            {
+                return GetImageThumbnailUrl(post.Did, cid, post.Author.Pds);
+            }
+            return null;
+        }
     }
 }
 

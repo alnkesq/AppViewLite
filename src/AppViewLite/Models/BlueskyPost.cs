@@ -1,8 +1,6 @@
-using FishyFlip.Models;
 using AppViewLite.Numerics;
 using System;
 using AppViewLite.PluggableProtocols;
-using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Collections.Generic;
 
@@ -78,6 +76,9 @@ namespace AppViewLite.Models
 
 
         public OpenGraphData? LateOpenGraphData;
+
+        public bool HasExternalThumbnail => Data?.ExternalThumbCid != null || LateOpenGraphData?.ExternalThumbnailUrl != null;
+        public bool HasExternalThumbnailBestGuess => HasExternalThumbnail || RequiresLateOpenGraphData;
 
         private QualifiedPluggablePostId GetPluggablePostId(string? did, NonQualifiedPluggablePostId? postId)
         {
@@ -230,6 +231,15 @@ namespace AppViewLite.Models
             if (externalDomainForMute != null) externalDomainForMute = StringUtils.TrimWww(externalDomainForMute);
 
             return externalDomainForMute ?? QuotedPost?.GetExternalDomainForMuteHint();
+        }
+
+        public void ApplyLateOpenGraphData(OpenGraphData? openGraphData)
+        {
+            if (openGraphData == null) return;
+            this.LateOpenGraphData = openGraphData;
+            Data!.ExternalTitle = openGraphData.ExternalTitle;
+            Data.ExternalDescription = openGraphData.ExternalDescription;
+            // Image requires different blob resolution, so it's handled separately.
         }
 
         public bool ShouldUseCompactView;

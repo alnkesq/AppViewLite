@@ -1,30 +1,31 @@
+using AppViewLite.Models;
+using AppViewLite.Numerics;
+using AppViewLite.PluggableProtocols;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
-using AppViewLite.Models;
-using AppViewLite.Numerics;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
+using AppViewLite.Numerics;
+using AppViewLite.Storage;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Hashing;
 using System.Linq;
 using System.Numerics;
-using AppViewLite.PluggableProtocols;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Collections.Concurrent;
-using System.ComponentModel;
-using AppViewLite.Storage;
 
 namespace AppViewLite
 {
@@ -1717,6 +1718,10 @@ namespace AppViewLite
                 {
                     Error = "This post could be found."
                 };
+            }
+            if (post.PluggableProtocol?.RequiresLateOpenGraphData(post) == true)
+            {
+                post.ApplyLateOpenGraphData(GetOpenGraphData(post.Data!.ExternalUrl!));
             }
             MaybePropagateAdministrativeBlockToPost(post);
             return post;
@@ -3868,7 +3873,9 @@ namespace AppViewLite
             EfficientTextCompressor.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
             EfficientTextCompressor.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
             EfficientTextCompressor.DecompressInPlace(ref proto.ExternalThumbnailUrl, ref proto.ExternalThumbnailUrlBpe);
-            EfficientTextCompressor.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
+
+            // not needed
+            // EfficientTextCompressor.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
             return proto;
         }
 

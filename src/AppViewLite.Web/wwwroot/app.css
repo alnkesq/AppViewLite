@@ -1840,10 +1840,13 @@ h1 .profile-badge img{
 }
 
 
-.post[data-postdid^='did:yotsuba:'] .post-image, .post[data-postdid^='did:yotsuba:'] video {
+.post-small-media-thumbnail .post-image,
+.post-small-media-thumbnail video {
     max-width: 250px;
     max-height: 250px;
     object-fit: scale-down;
+    width: auto;
+    height: auto;
     object-position: left;
     pointer-events: none;
 }

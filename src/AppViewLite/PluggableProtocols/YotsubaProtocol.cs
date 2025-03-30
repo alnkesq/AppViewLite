@@ -313,6 +313,11 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         {
             return false;
         }
+
+        public override bool ShouldUseCompactMediaThumbnails(BlueskyPost post)
+        {
+            return true;
+        }
     }
 
     public record struct YotsubaBoardId(string Host, string BoardName)

@@ -474,6 +474,11 @@ namespace AppViewLite.PluggableProtocols
             if (data.ExternalDescription != null || data.ExternalTitle != null || data.ExternalThumbCid != null) return false;
             return true;
         }
+
+        public virtual bool ShouldUseCompactMediaThumbnails(BlueskyPost post)
+        {
+            return false;
+        }
     }
 }
 

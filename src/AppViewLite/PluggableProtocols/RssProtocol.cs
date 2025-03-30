@@ -1102,6 +1102,20 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             return base.RequiresLateOpenGraphData(post);
         }
+
+        public override bool ShouldUseCompactMediaThumbnails(BlueskyPost post)
+        {
+            if (post.Data?.Media != null && post.Author.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
+            {
+                return post.Data.Media.Any(x =>
+                {
+                    var mediaUrl = new Uri(EfficientTextCompressor.Decompress(x.Cid!)!.Split('\n')[0]);
+                    if (mediaUrl.HasHostSuffix("thumbs.redditmedia.com")) return true;
+                    return false;
+                });
+            }
+            return false;
+        }
     }
 }
 

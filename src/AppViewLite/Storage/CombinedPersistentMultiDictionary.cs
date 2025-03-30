@@ -65,7 +65,7 @@ namespace AppViewLite.Storage
             return ToNativeArrayCore(enumerable, UnalignedArenaForCurrentThread!);
         }
 
-        public unsafe static DangerousHugeReadOnlyMemory<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T: unmanaged
+        public unsafe static DangerousHugeReadOnlyMemory<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             var arena = UnalignedArenaForCurrentThread!;
             if (TryGetSpan(enumerable, out var src))
@@ -109,7 +109,7 @@ namespace AppViewLite.Storage
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool TryGetSpan<TSource>(IEnumerable<TSource> source, out HugeReadOnlySpan<TSource> span) where TSource: unmanaged
+        private static bool TryGetSpan<TSource>(IEnumerable<TSource> source, out HugeReadOnlySpan<TSource> span) where TSource : unmanaged
         {
             bool result = true;
             if (source.GetType() == typeof(TSource[]))
@@ -653,6 +653,11 @@ namespace AppViewLite.Storage
         {
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
+            if (GetKeyProbabilisticCache()?.PossiblyContainsKey(key) == false)
+            {
+                value = default;
+                return false;
+            }
 #if true
             foreach (var slice in slices)
             {
@@ -872,11 +877,16 @@ namespace AppViewLite.Storage
         public bool Contains(TKey key, TValue value, MultiDictionaryIoPreference preference = default)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
+
+            if (GetKeyValueProbabilisticCache()?.PossiblyContains(key, value) == false) return false;
+
             InitializeIoPreferenceForKey(key, ref preference);
             return slices.Any(slice => slice.Reader.Contains(key, value, preference)) || queue.TryGetValues(key).Contains(value);
         }
         public bool ContainsKey(TKey key, MultiDictionaryIoPreference preference = default)
         {
+            if (GetKeyProbabilisticCache()?.PossiblyContainsKey(key) == false) return false;
+
             InitializeIoPreferenceForKey(key, ref preference);
             foreach (var slice in slices)
             {
@@ -1316,8 +1326,8 @@ namespace AppViewLite.Storage
                             if (g.Count >= 250)
                                 Console.Error.WriteLine("Copying SortedSet of size " + g.Count);
                             // _manyValuesSorted is mutable (unlike _manyValuesPreserved), so we need to copy it.
-                            
-                            
+
+
                             // TODO: instead, each virtual slices contains List<KeyValuePair<TKey, TValue>>. After a replica is captured, we set that field to null. keep in mind when each obsolete for recycling is returned
                             g._manyValuesSorted = new SortedSet<TValue>(g._manyValuesSorted);
                         }
@@ -1545,6 +1555,10 @@ namespace AppViewLite.Storage
             }).Where(x => x.Item2 != null)!;
         }
 
+        public KeyProbabilisticCache<TKey, TValue>? GetKeyProbabilisticCache() => this.GetCache<KeyProbabilisticCache<TKey, TValue>>();
+        public KeyValueProbabilisticCache<TKey, TValue>? GetKeyValueProbabilisticCache() => this.GetCache<KeyValueProbabilisticCache<TKey, TValue>>();
+        public DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>? GetDelegateProbabilisticCache<TProbabilistcKey>() where TProbabilistcKey: unmanaged => this.GetCache<DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>>();
+
         public abstract class CachedView : IDisposable
         {
             public abstract string Identifier { get; }
@@ -1573,10 +1587,6 @@ namespace AppViewLite.Storage
             public abstract bool CanBeUsedByReplica { get; }
         }
     }
-
-
-
-
 
 
 }

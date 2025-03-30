@@ -1,8 +1,10 @@
 using ProtoBuf;
 using AppViewLite.Storage;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace AppViewLite.Models
 {
@@ -20,6 +22,37 @@ namespace AppViewLite.Models
         [ProtoMember(9)] public FeedSubscription[] FeedSubscriptions = null!;
         [ProtoMember(10)] public LabelerSubscription[] LabelerSubscriptions = null!;
         [ProtoMember(11)] public bool ImportedFollows;
+
+        public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
+        public ObjectIdentityBasedCache<MuteRule[], Func<string?, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;
+
+        public ILookup<Plc, MuteRule> MuteRulesByPlc => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _muteRulesByPlc, x => x.Where(x => x.AppliesToPlc != null).ToLookup(x => new Plc(x.AppliesToPlc!.Value)));
+        public Func<string?, Uri[], MuteRule[]> TextCouldContainGlobalMuteWords => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _textCouldContainGlobalMuteWords, x =>
+        {
+            var globalMuteRules = x.Where(x => x.AppliesToPlc == null).ToArray();
+
+            var longestWordForEachGlobalMuteRule =
+                globalMuteRules
+                .Select(x =>
+                {
+                    var words = StringUtils.GetDistinctWords(x.Word);
+                    if (words.Length == 0) return null;
+                    return words.MaxBy(x => x.Length);
+                })
+                .WhereNonNull()
+                .ToArray();
+            if (longestWordForEachGlobalMuteRule.Length == 0) return (_, _) => [];
+
+            // SearchValues only supports Ordinal and OrdinalIgnoreCase
+            var regex = new Regex("\b(?:" + string.Join("|", longestWordForEachGlobalMuteRule.Select(x => Regex.Escape(x))) + ")\b", RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            return (postText, urls) =>
+            {
+                var isMatch =
+                    (postText != null && regex.IsMatch(postText)) ||
+                    (urls.Length != 0 && urls.Any(x => regex.IsMatch(x.Host)));
+                return isMatch ? globalMuteRules : [];
+            };
+        });
 
         internal object GetCountersThreadSafe()
         {

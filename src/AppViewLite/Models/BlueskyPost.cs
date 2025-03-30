@@ -165,14 +165,34 @@ namespace AppViewLite.Models
                     return true;
             }
 
-            if (Data != null && ctx.IsLoggedIn && ctx.UserContext.PrivateProfile!.MuteRules is { Length: > 0 } muteRules)
+            if (Data != null && ctx.IsLoggedIn)
             {
-                var words = StringUtils.GetAllWords(Data.Text).ToArray();
-                var urls = Data.GetExternalUrls().Distinct().Select(x => StringUtils.TryParseUri(x)).WhereNonNull().ToArray();
-                this.MutedByRule = muteRules.FirstOrDefault(x => x.AppliesTo(words, urls, this));
-                if (MutedByRule != null)
+                var privateProfile = ctx.UserContext.PrivateProfile!;
+
+                IEnumerable<MuteRule> muteRules = privateProfile.MuteRulesByPlc[AuthorId];
+                if (RepostedBy?.Plc is { } repostedBy && repostedBy != this.AuthorId)
                 {
-                    return true;
+                    muteRules = muteRules.Concat(privateProfile.MuteRulesByPlc[repostedBy]);
+                }
+
+
+                var urls = Data.GetExternalUrls().Distinct().Select(StringUtils.TryParseUri).WhereNonNull().ToArray();
+
+
+                if (Data.Text != null || urls.Length != 0)
+                {
+                    muteRules = muteRules.Concat(privateProfile.TextCouldContainGlobalMuteWords(Data.Text, urls));
+                }
+                var muteRulesArray = muteRules.ToArray();
+                if (muteRulesArray.Length != 0)
+                {
+                    var words = StringUtils.GetAllWords(Data.Text).ToArray();
+
+                    this.MutedByRule = muteRulesArray.FirstOrDefault(x => x.AppliesTo(words, urls, this));
+                    if (MutedByRule != null)
+                    {
+                        return true;
+                    }
                 }
             }
 

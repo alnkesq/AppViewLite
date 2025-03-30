@@ -669,7 +669,7 @@ namespace AppViewLite
                                     if (sideWithQuotee) quoter.PostBlockReason = PostBlockReasonKind.RemovedByQuoteeOnQuoter;
                                     else quoted.PostBlockReason = PostBlockReasonKind.RemovedByQuotee;
                                 }
-                                else if (quotedPostgate.DisallowQuotes)
+                                else if (quotedPostgate.DisallowQuotes && quoter.AuthorId != quoted.AuthorId)
                                 {
                                     if (sideWithQuotee) quoter.PostBlockReason = PostBlockReasonKind.DisabledQuotesOnQuoter;
                                     else quoted.PostBlockReason = PostBlockReasonKind.DisabledQuotes;

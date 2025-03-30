@@ -2614,7 +2614,7 @@ namespace AppViewLite
             AuthSession authSession;
             try
             {
-                authSession = (await sessionProtocol.RefreshAuthSessionAsync())!;
+                authSession = (await sessionProtocol.RefreshAuthSessionResultAsync()).HandleResult()!;
                 if (authSession == null) throw new Exception("Null authSession");
             }
             catch (Exception ex)
@@ -3973,7 +3973,7 @@ namespace AppViewLite
 
         }
 
-        public void LogOut(string id, string unverifiedDid, RequestContext ctx)
+        public void LogOut(string? id, string unverifiedDid, RequestContext ctx)
         {
             var unverifiedUserContext = GetOrCreateUserContext(unverifiedDid, ctx);
             var session = unverifiedUserContext.TryGetAppViewLiteSession(id);

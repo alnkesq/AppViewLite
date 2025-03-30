@@ -56,8 +56,9 @@ namespace AppViewLite
 
         public long MinVersion;
 
-        public AppViewLiteSessionProto? TryGetAppViewLiteSession(string sessionId)
+        public AppViewLiteSessionProto? TryGetAppViewLiteSession(string? sessionId)
         {
+            if (sessionId == null) return null;
             return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
         }
 

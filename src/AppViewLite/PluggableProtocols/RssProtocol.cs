@@ -1044,7 +1044,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                     q.TryGetValue("t", out var t);
                     if (sort == "top" && string.IsNullOrEmpty(t))
-                        t = "week";
+                        t = "month";
                     var suffix =
                         sort == "top"
                             ? "/top/.rss?sort=" + sort + "&t=" + t

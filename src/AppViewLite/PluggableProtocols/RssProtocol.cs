@@ -1029,8 +1029,22 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var segments = url.GetSegments();
                 if (segments.Length != 0)
                 {
-                    if (segments[0] == "r") return $"did:rss:www.reddit.com:r:{segments[1].ToLowerInvariant()}:.rss";
-                    if (segments[0] == "u") return $"did:rss:www.reddit.com:u:{segments[1].ToLowerInvariant()}:.rss";
+                    var sortSegment = segments.ElementAtOrDefault(2);
+                    if (sortSegment is "comments" or "wiki") throw new Exception("RSS feeds to reddit comments or wikis are not supported.");
+                    var q = url.GetQueryDictionary();
+                    var sort = q.TryGetValue("sort", out var sortQ) && !string.IsNullOrEmpty(sortQ) ? sortQ : sortSegment;
+                    sort ??= "top";
+
+                    q.TryGetValue("t", out var t);
+                    if (sort == "top" && string.IsNullOrEmpty(t))
+                        t = "week";
+                    var suffix =
+                        sort == "top"
+                            ? "/top/.rss?sort=" + sort + "&t=" + t
+                            : "/" + sort + ".rss";
+
+                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/r/{segments[1].ToLowerInvariant()}" + suffix));
+                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/u/{segments[1].ToLowerInvariant()}" + suffix));
                 }
             }
 

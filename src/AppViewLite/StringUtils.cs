@@ -876,6 +876,20 @@ namespace AppViewLite
             return location;
         }
 
+        public static Dictionary<string, string?> GetQueryDictionary(this Uri url)
+        {
+            var result = new Dictionary<string, string?>();
+            var search = url.Query;
+            if (string.IsNullOrEmpty(search)) return result;
+            foreach (var part in search.Substring(1).Split('&'))
+            {
+                var d = part.Split('=');
+                result[UnescapeDataStringOrPlus(d[0])] = d.Length > 1 ? UnescapeDataStringOrPlus(d[1]) : null;
+            }
+            return result;
+        }
+
+        private static string UnescapeDataStringOrPlus(string s) => Uri.UnescapeDataString(s.Replace('+', ' '));
     }
 }
 

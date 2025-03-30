@@ -2237,7 +2237,7 @@ namespace AppViewLite
 
         public bool IsMemberOfList(Relationship list, Plc member)
         {
-            if (!ListItems.GetDelegateProbabilisticCache<(Relationship, Plc)>()!.PossiblyContains((list, member)))
+            if (ListItems.GetDelegateProbabilisticCache<(Relationship, Plc)>()?.PossiblyContains((list, member)) == false)
             {
                 return false;
             }

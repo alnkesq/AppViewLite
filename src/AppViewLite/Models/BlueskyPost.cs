@@ -49,6 +49,9 @@ namespace AppViewLite.Models
         public bool IsRepost => RepostedBy != null;
         public object? EmbedRecord;
 
+        public bool RequiresLateOpenGraphData =>
+            LateOpenGraphData == null &&
+            PluggableProtocol?.RequiresLateOpenGraphData(this) == true;
 
         public PostBlockReasonKind PostBlockReason;
         public BlockReason ParentAndAuthorBlockReason;
@@ -72,6 +75,9 @@ namespace AppViewLite.Models
 
         public QualifiedPluggablePostId QualifiedPluggablePostId => GetPluggablePostId(Did, Data?.PluggablePostId);
         public QualifiedPluggablePostId QualifiedPluggableInReplyToPostId => GetPluggablePostId(InReplyToUser?.Did, Data?.PluggableInReplyToPostId);
+
+
+        public OpenGraphData? LateOpenGraphData;
 
         private QualifiedPluggablePostId GetPluggablePostId(string? did, NonQualifiedPluggablePostId? postId)
         {

@@ -1,6 +1,5 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using AppViewLite.Storage;
 using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
@@ -466,6 +465,15 @@ namespace AppViewLite.PluggableProtocols
         public virtual bool SupportsProfileMetadataLookup(string did) => false;
 
         public virtual Task TryFetchProfileMetadataAsync(string did, RequestContext ctx) => Task.FromResult<BlueskyProfileBasicInfo?>(null);
+
+        public virtual bool RequiresLateOpenGraphData(BlueskyPost post)
+        {
+            var data = post.Data;
+            if (data == null) return false;
+            if (data.ExternalUrl == null) return false;
+            if (data.ExternalDescription != null || data.ExternalTitle != null || data.ExternalThumbCid != null) return false;
+            return true;
+        }
     }
 }
 

@@ -101,6 +101,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, byte> RssRefreshInfos;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
         public CombinedPersistentMultiDictionary<Plc, byte> ReposterOnlyProfile;
+        public CombinedPersistentMultiDictionary<DuckDbUuid, byte> OpenGraphData;
 
         public ConcurrentFullEvictionCache<DuckDbUuid, Plc> DidToPlcConcurrentCache;
         public ConcurrentFullEvictionCache<Plc, string> PlcToDidConcurrentCache;
@@ -348,6 +349,7 @@ namespace AppViewLite
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
             ReposterOnlyProfile = RegisterDictionary<Plc, byte>("reposter-only-profile", PersistentDictionaryBehavior.KeySetOnly);
+            OpenGraphData = RegisterDictionary<DuckDbUuid, byte>("opengraph", PersistentDictionaryBehavior.PreserveOrder);
 
 
 
@@ -3854,6 +3856,21 @@ namespace AppViewLite
         public SemaphoreSlim CarRecordInsertionSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_INSERTION_SEMAPHORE_SIZE) ?? 2);
 
         public string CarSpillDirectory => Path.Combine(BaseDirectory, "car-disk-spill");
+
+
+
+        public OpenGraphData? GetOpenGraphData(string externalUrl)
+        {
+            var urlHash = StringUtils.HashUnicodeToUuid(externalUrl);
+            if (!OpenGraphData.TryGetPreserveOrderSpanLatest(urlHash, out var span)) return null;
+            var proto = DeserializeProto<OpenGraphData>(span.AsSmallSpan());
+
+            EfficientTextCompressor.DecompressInPlace(ref proto.ExternalTitle, ref proto.ExternalTitleBpe);
+            EfficientTextCompressor.DecompressInPlace(ref proto.ExternalDescription, ref proto.ExternalDescriptionBpe);
+            EfficientTextCompressor.DecompressInPlace(ref proto.ExternalThumbnailUrl, ref proto.ExternalThumbnailUrlBpe);
+            EfficientTextCompressor.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
+            return proto;
+        }
 
     }
 

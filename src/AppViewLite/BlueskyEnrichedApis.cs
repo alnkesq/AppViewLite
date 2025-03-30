@@ -59,6 +59,7 @@ namespace AppViewLite
             FetchAndStoreProfileDict = new(FetchAndStoreProfileCoreAsync);
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
+            FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
             CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, extraArgs.Ctx));
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
@@ -114,7 +115,20 @@ namespace AppViewLite
             primarySecondaryPair.relationshipsUnlocked.NotificationGenerated += Relationships_NotificationGenerated;
         }
 
-
+        private async Task<long> FetchOpenGraphDictCoreAsync(string url, RequestContext ctx)
+        {
+            var urlHash = StringUtils.HashUnicodeToUuid(url);
+            var data = await OpenGraph.TryRetrieveOpenGraphDataAsync(new Uri(url));
+            EfficientTextCompressor.CompressInPlace(ref data.ExternalTitle, ref data.ExternalTitleBpe);
+            EfficientTextCompressor.CompressInPlace(ref data.ExternalDescription, ref data.ExternalDescriptionBpe);
+            EfficientTextCompressor.CompressInPlace(ref data.ExternalThumbnailUrl, ref data.ExternalThumbnailUrlBpe);
+            EfficientTextCompressor.CompressInPlace(ref data.ExternalUrl, ref data.ExternalUrlBpe);
+            return WithRelationshipsWriteLock(rels =>
+            {
+                rels.OpenGraphData.AddRange(urlHash, BlueskyRelationships.SerializeProto(data));
+                return rels.Version;
+            }, ctx);
+        }
 
         private void Relationships_NotificationGenerated(Plc destination, Notification notification, RequestContext ctx)
         {
@@ -154,7 +168,9 @@ namespace AppViewLite
         public TaskDictionary<string, RequestContext, long> FetchAndStoreProfileDict;
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
+        public TaskDictionary<string, RequestContext, long> FetchAndStoreOpenGraphDict;
 
+        public Task<long> FetchAndStoreOpenGraphAsync(Uri url, RequestContext ctx) => FetchAndStoreOpenGraphDict.GetValueAsync(url.AbsoluteUri, RequestContext.CreateForTaskDictionary(ctx));
 
         public async Task<string> RunHandleVerificationAsync(string handle, RequestContext ctx)
         {
@@ -610,6 +626,22 @@ namespace AppViewLite
                         OnPostDataAvailable(rels, post);
                     }, ctx);
                 })), ctx);
+
+                await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.RequiresLateOpenGraphData).Select(async post =>
+                {
+                    var externalUrl = post.Data!.ExternalUrl!;
+                    var version = await FetchAndStoreOpenGraphDict.GetValueAsync(externalUrl, RequestContext.CreateForTaskDictionary(ctx));
+                    ctx.BumpMinimumVersion(version);
+                    WithRelationshipsLock(rels =>
+                    {
+                        post.LateOpenGraphData = rels.GetOpenGraphData(externalUrl);
+                    }, ctx);
+
+
+                    onPostDataAvailable?.Invoke(post);
+                })), ctx);
+
+
             }
 
             await EnrichAsync(posts.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
@@ -4281,6 +4313,7 @@ namespace AppViewLite
                 FetchAndStoreLabelerServiceMetadataDict = this.FetchAndStoreLabelerServiceMetadataDict.Count,
                 FetchAndStoreListMetadataDict = this.FetchAndStoreListMetadataDict.Count,
                 FetchAndStorePostDict = this.FetchAndStorePostDict.Count,
+                FetchAndStoreOpenGraphDict = this.FetchAndStoreOpenGraphDict.Count,
                 FetchAndStoreProfileDict = this.FetchAndStoreProfileDict.Count,
                 recentSearches = this.recentSearches.Count,
                 RunHandleVerificationDict = this.RunHandleVerificationDict.Count,

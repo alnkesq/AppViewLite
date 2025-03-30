@@ -41,6 +41,8 @@ namespace AppViewLite.Models
             ExtensionMethods.MakeUtc(ref HttpLastModified);
         }
 
+        public BlueskyProfile? BlueskyProfile;
+
         public string? RssErrorMessage
         {
             get

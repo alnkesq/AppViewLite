@@ -107,19 +107,25 @@ namespace AppViewLite.PluggableProtocols.Rss
             await RefreshFeed.GetValueAsync(did, RequestContext.CreateForFirehose("Rss"));
         }
 
-        private static DateTime? GetNextRefreshTime(RssRefreshInfo refreshInfo)
+        public static DateTime? GetNextRefreshTime(RssRefreshInfo refreshInfo)
         {
             if (refreshInfo.LastRefreshAttempt == default) return DateTime.UtcNow;
 
+            var averageDaysBetweenPosts = GetAverageDaysBetweenPosts(refreshInfo);
+            if (averageDaysBetweenPosts == null) return null;
+
+            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts.Value * 0.5, TimeSpan.FromMinutes(15).TotalDays, TimeSpan.FromDays(90).TotalDays);
+            return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts.Value);
+
+        }
+
+        public static double? GetAverageDaysBetweenPosts(RssRefreshInfo refreshInfo)
+        {
             if (refreshInfo.XmlOldestPost == null || refreshInfo.LastSuccessfulRefresh == null || refreshInfo.XmlPostCount == 0)
             {
                 return null;
             }
-            var averageDaysBetweenPosts = 0.5 * Math.Max(0, (refreshInfo.LastSuccessfulRefresh.Value - refreshInfo.XmlOldestPost.Value).TotalDays) / refreshInfo.XmlPostCount;
-
-            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts, TimeSpan.FromMinutes(15).TotalDays, TimeSpan.FromDays(90).TotalDays);
-            return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts);
-
+            return Math.Max(0, (refreshInfo.LastSuccessfulRefresh.Value - refreshInfo.XmlOldestPost.Value).TotalDays) / refreshInfo.XmlPostCount;
         }
 
         private static XElement? GetChild(XElement? element, string name)

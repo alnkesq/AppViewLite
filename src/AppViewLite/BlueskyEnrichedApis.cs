@@ -4351,6 +4351,26 @@ namespace AppViewLite
             
             return null;
         }
+
+        public async Task<(RssRefreshInfo[] Page, string? NextContinuation)> GetRssRefreshInfosAsync(string? continuation, RequestContext ctx, int limit = default, string? onlyDid = null)
+        {
+            EnsureLimit(ref limit);
+            var onlyPlc = onlyDid != null ? SerializeSingleDid(onlyDid, ctx) : default;
+            var page = WithRelationshipsLock(rels =>
+            {
+                return (onlyDid != null ? [onlyPlc] : rels.RssRefreshInfos.EnumerateKeysSortedDescending(StringUtils.DeserializeFromString<Plc>(continuation)))
+                    .Take(limit + 1)
+                    .Select(x =>
+                    {
+                        var rss = rels.GetRssRefreshInfo(x)!;
+                        rss.BlueskyProfile = rels.GetProfile(x);
+                        return rss;
+                    })
+                    .ToArray();
+            }, ctx);
+            await EnrichAsync(page.Select(x => x.BlueskyProfile!).ToArray(), ctx);
+            return (page.Take(limit).ToArray(), page.Length <= limit ? null : StringUtils.SerializeToString(page[^1].BlueskyProfile!.Plc));
+        }
     }
 }
 

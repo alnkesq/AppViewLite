@@ -2065,3 +2065,8 @@ input[type=radio], input[type=checkbox]{
     margin-top: 20px;
     margin-bottom: 0px;
 }
+
+.property-name {
+    color: gray;
+    font-size: 9pt;
+}

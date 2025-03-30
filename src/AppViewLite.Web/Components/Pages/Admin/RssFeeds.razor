@@ -1,0 +1,51 @@
+@page "/debug/rss"
+@using AppViewLite.PluggableProtocols.Rss
+@inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
+@inject NavigationManager Navigation
+
+<PageTitle>RSS feeds</PageTitle>
+<h1>RSS feeds</h1>
+
+@code{
+    private RssRefreshInfo[] RefreshInfos = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Did { get; set; }
+    private Uri? nextContinuationUrl;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        (RefreshInfos, var nextContinuation) = await Apis.GetRssRefreshInfosAsync(Continuation, RequestContext, onlyDid: Did);
+        nextContinuationUrl = Navigation.GetNextContinuationUrl(nextContinuation);
+    }
+}
+
+@foreach (var feed in RefreshInfos)
+{
+    
+    var feedUrl = feed.BlueskyProfile!.PluggableProtocol!.TryGetOriginalProfileUrl(feed.BlueskyProfile);
+    
+    <div class="main-padding">
+        <InlineProfileLink Profile="feed.BlueskyProfile" BlueLink="true" /><br>
+        <a href="@feedUrl" target="_blank" class="blue-link" rel="noreferrer">@feedUrl</a><br>
+        <span class="property-name">First refresh:</span> @StringUtils.ToFullHumanDate(feed.FirstRefresh)<br>
+        <span class="property-name">Last attempt:</span> @StringUtils.ToFullHumanDate(feed.LastRefreshAttempt)<br>
+        <span class="property-name">Last successful refresh:</span> @(feed.LastSuccessfulRefresh != null ? StringUtils.ToFullHumanDate(feed.LastSuccessfulRefresh.Value) : "(never)")<br>
+        <span class="property-name">Next refresh (assuming subscribers):</span> @(RssProtocol.GetNextRefreshTime(feed) is { } d ? StringUtils.ToHumanTimeSpan(d - DateTime.UtcNow) : "(manual only)")<br>
+        <span class="property-name">Avg days between posts:</span>@(RssProtocol.GetAverageDaysBetweenPosts(feed) is { } days ? StringUtils.FormatTwoSignificantDigits(days) : "(unknown)")<br>
+        <span class="property-name">Status:</span> @(feed.RssErrorMessage ?? "OK") <br>
+        <span class="property-name">Posts in XML:</span> @feed.XmlPostCount <br>
+        <span class="property-name">Oldest post in XML:</span> @(feed.XmlOldestPost is { } oldest ? StringUtils.ToHumanDate(oldest) : "(unknown)")<br>
+        <span class="property-name">Newest post in XML:</span> @(feed.XmlNewestPost is { } newest ? StringUtils.ToHumanDate(newest) : "(unknown)")<br>
+        <br><br>
+    </div>
+}
+
+@if (nextContinuationUrl != null)
+{
+
+    <div class="pagination-button">
+        <a href="@nextContinuationUrl">Next</a>
+    </div>
+}
+

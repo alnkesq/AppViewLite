@@ -152,8 +152,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             var feedUrl = DidToUrl(did);
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
-                if ((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()))
-                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, and the path lowercased.");
+                if ((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()) || !feedUrl.AbsolutePath.EndsWith("/.rss", StringComparison.Ordinal) || feedUrl.AbsolutePath.Contains("//", StringComparison.Ordinal))
+                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, path lowercased, ending in slash dot rss.");
                 var segments = feedUrl.GetSegments();
                 if (segments.Length < 2 || segments[0] != "r")
                     throw new Exception("Only subreddit URLs are supported.");

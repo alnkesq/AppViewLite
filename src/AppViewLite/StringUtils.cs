@@ -491,7 +491,7 @@ namespace AppViewLite
             }
 
 
-            void Recurse(INode node, bool pre)
+            void Recurse(INode node, bool pre, bool omitBlockElementNewLine = false)
             {
                 if (node.NodeType == NodeType.Text)
                 {
@@ -531,7 +531,7 @@ namespace AppViewLite
                     var element = (IElement)node;
                     var tagName = element.TagName;
                     var isBlockElement = tagName is "P" or "DIV" or "BLOCKQUOTE" or "LI";
-                    if (isBlockElement) AppendNewLineIfNecessary();
+                    if (isBlockElement && !omitBlockElementNewLine) AppendNewLineIfNecessary();
 
                     if (tagName == "LI")
                         AppendText("• ");
@@ -542,7 +542,7 @@ namespace AppViewLite
                     var startIndex = utf8length;
                     foreach (var child in node.ChildNodes)
                     {
-                        Recurse(child, pre);
+                        Recurse(child, pre, omitBlockElementNewLine = tagName == "LI");
                     }
 
                     var facet = getFacet(element);

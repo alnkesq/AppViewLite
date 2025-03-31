@@ -60,7 +60,7 @@ namespace AppViewLite
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
-            CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, extraArgs.Ctx));
+            CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, extraArgs.Ctx, extraArgs.SlowImport));
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
                 var config = DidDocOverridesConfiguration.ReadFromFile(path);
@@ -2561,7 +2561,7 @@ namespace AppViewLite
 
         public ConcurrentSet<RepositoryImportEntry> RunningCarImports = new();
 
-        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default)
+        public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default, bool slowImport = false)
         {
             async Task<RepositoryImportEntry?> CoreAsync()
             {
@@ -2578,7 +2578,7 @@ namespace AppViewLite
                 if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
                     return previousImport;
 
-                var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, RequestContext.CreateForTaskDictionary(ctx)));
+                var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, slowImport, RequestContext.CreateForTaskDictionary(ctx)));
                 ctx.BumpMinimumVersion(result.MinVersion);
                 return result;
             }
@@ -2591,7 +2591,7 @@ namespace AppViewLite
             
         }
 
-        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx)
+        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx, bool slowImport)
         {
             var startDate = DateTime.UtcNow;
             var summary = new RepositoryImportEntry
@@ -2648,7 +2648,7 @@ namespace AppViewLite
                         RepositoryImportKind.FeedGenerators => Generator.RecordType,
                         _ => throw new Exception("Unknown collection kind.")
                     };
-                    (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ctx, ct, progress).ConfigureAwait(false);
+                    (lastTid, exception) = await indexer.IndexUserCollectionAsync(did, recordType, since, ctx, ct, progress, slowImport).ConfigureAwait(false);
                 }
                 summary.DurationMillis = (long)sw.Elapsed.TotalMilliseconds;
                 summary.LastRevOrTid = lastTid.TidValue;
@@ -3721,7 +3721,7 @@ namespace AppViewLite
             return result;
         }
 
-        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
+        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, bool SlowImport, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
 
@@ -3983,14 +3983,14 @@ namespace AppViewLite
             var tasks = plcs.Distinct().Select(x => EnsureHaveCollectionAsync(x, kind, ctx));
             return Task.WhenAll(tasks);
         }
-        public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx)
+        public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, bool slowImport = false)
         {
             if (WithRelationshipsLock(rels =>
             {
                 return rels.HaveCollectionForUser(plc, kind);
             }, ctx))
                 return null;
-            return await ImportCarIncrementalAsync(plc, kind, ctx, ignoreIfPrevious: x => true);
+            return await ImportCarIncrementalAsync(plc, kind, ctx, ignoreIfPrevious: x => true, slowImport: slowImport);
         }
 
         public static string? TryGetSessionIdFromCookie(string? cookie, out string? unverifiedDid)

@@ -374,7 +374,7 @@ namespace AppViewLite
 
                     if (!isRepositoryImport && !relationships.HaveCollectionForUser(commitPlc, RepositoryImportKind.ListEntries))
                     {
-                        Indexer.RunOnFirehoseProcessingThreadpool(() => Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx)).FireAndForget();
+                        Indexer.RunOnFirehoseProcessingThreadpool(() => Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx, slowImport: true)).FireAndForget();
                     }
                 }
                 else if (record is Threadgate threadGate)
@@ -844,7 +844,7 @@ namespace AppViewLite
 
         }
 
-        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, RequestContext ctx, CancellationToken ct = default, Action<CarImportProgress>? progress = null)
+        public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, RequestContext ctx, CancellationToken ct, Action<CarImportProgress>? progress, bool slowImport)
         {
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
 
@@ -889,6 +889,8 @@ namespace AppViewLite
                             lastTid = tid;
                         }
                     }
+
+                    // if (slowImport) await Task.Delay();
 
                     if (cursor == null) break;
                 }

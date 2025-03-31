@@ -1160,6 +1160,12 @@ function onInitialLoad() {
 
 
     document.addEventListener('contextmenu', e => {
+        if (e.target?.classList?.contains('post-action-bar-button') && !e.shiftKey) { 
+            e.preventDefault();
+            e.target.click();
+            document.body.classList.toggle('show-advanced-menu-items', true);
+            return;
+        }
         var target = e.target;
         if (target.classList?.contains('theater-image')) {
             recordPostEngagement(target.postElement, 'Downloaded');
@@ -1265,6 +1271,7 @@ function onInitialLoad() {
                         currentlyOpenMenuButton = actionButton;
                         currentlyOpenMenu = prevMenu;
                         visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
+                        document.body.classList.toggle('show-advanced-menu-items', e.shiftKey);
                         ensureMenuFullyVisible();
                         var first = currentlyOpenMenu.querySelector('a, button');
                         if (first) {

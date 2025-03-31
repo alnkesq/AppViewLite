@@ -1500,6 +1500,14 @@ a[disabled]{
         background: #a4a4a53d;
     }
 
+.menu-item-advanced {
+    display: none;
+}
+
+.show-advanced-menu-items .menu-item-advanced {
+    display: block;
+}
+
 
 .compose-quoted-post {
     margin-left: 50px;

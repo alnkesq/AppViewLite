@@ -373,7 +373,7 @@ namespace AppViewLite
 
                         relationships.ListItems.Add(listId, entry);
                         relationships.ListMemberships.Add(entry.Member, new ListMembership(commitPlc, listRkey, listItemRkey));
-                        relationships.AddNotification(entry.Member, NotificationKind.AddedYouToAList, commitPlc, ctx, entry.ListItemRKey.Date);
+                        relationships.AddNotification(entry.Member, NotificationKind.AddedYouToAList, commitPlc, listRkey, ctx, entry.ListItemRKey.Date);
                     }
                     else if (record is Threadgate threadGate)
                     {

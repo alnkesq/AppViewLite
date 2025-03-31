@@ -76,7 +76,9 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, DateTime> FailedListLookups;
         public CombinedPersistentMultiDictionary<PostId, DateTime> FailedPostLookups;
         public CombinedPersistentMultiDictionary<Plc, Notification> LastSeenNotifications;
+        public CombinedPersistentMultiDictionary<Plc, Notification> LastSeenDarkNotifications;
         public CombinedPersistentMultiDictionary<Plc, Notification> Notifications;
+        public CombinedPersistentMultiDictionary<Plc, Notification> DarkNotifications;
         public CombinedPersistentMultiDictionary<Plc, ListEntry> RegisteredUserToFollowees;
         public CombinedPersistentMultiDictionary<Plc, Plc> RssFeedToFollowers;
         public CombinedPersistentMultiDictionary<Plc, RecentPost> UserToRecentPosts;
@@ -323,6 +325,7 @@ namespace AppViewLite
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
 
             Notifications = RegisterDictionary<Plc, Notification>("notification-2");
+            DarkNotifications = RegisterDictionary<Plc, Notification>("notification-dark");
 
             RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees");
             RssFeedToFollowers = RegisterDictionary<Plc, Plc>("registered-user-to-rss-feeds");
@@ -334,6 +337,7 @@ namespace AppViewLite
             CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder);
 
             LastSeenNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-3", PersistentDictionaryBehavior.SingleValue);
+            LastSeenDarkNotifications = RegisterDictionary<Plc, Notification>("last-seen-notification-dark", PersistentDictionaryBehavior.SingleValue);
 
             AppViewLiteProfiles = RegisterDictionary<Plc, byte>("appviewlite-profile", PersistentDictionaryBehavior.PreserveOrder);
             FeedGenerators = RegisterDictionary<RelationshipHashedRKey, byte>("feed-generator", PersistentDictionaryBehavior.PreserveOrder);
@@ -2316,14 +2320,26 @@ namespace AppViewLite
             if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
             var notification = new Notification((ApproximateDateTime32)date, actor, rkey, kind);
-            if (Notifications.Contains(destination, notification)) return;
+            var dark = IsDarkNotification(kind);
+            var table = GetNotificationTable(dark);
+            if (table.Contains(destination, notification)) return;
 
-            if (UsersHaveBlockRelationship(destination, actor) != default) return;
-            Notifications.Add(destination, notification);
-            UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination), (data, handler) => handler(data));
+            if (!dark && UsersHaveBlockRelationship(destination, actor) != default) return;
+            table.Add(destination, notification);
+            if (!dark)
+                UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination, dark: false), (data, handler) => handler(data));
 
             // Callback must stay inside the lock.
             NotificationGenerated?.Invoke(destination, notification, ctx);
+        }
+
+
+        public CombinedPersistentMultiDictionary<Plc, Notification> GetNotificationTable(bool dark) => dark ? DarkNotifications : Notifications;
+        public CombinedPersistentMultiDictionary<Plc, Notification> GetLastSeenNotificationTable(bool dark) => dark ? LastSeenDarkNotifications : LastSeenNotifications;
+
+        public static bool IsDarkNotification(NotificationKind kind)
+        {
+            return kind >= NotificationKind.DarkNotificationBase;
         }
 
         public int SuppressNotificationGeneration;
@@ -2368,22 +2384,26 @@ namespace AppViewLite
 
         }
 
-        public long GetNotificationCount(Plc user)
+        public long GetNotificationCount(Plc user, bool dark)
         {
-            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return 0;
+            if (!GetLastSeenNotificationTable(dark).TryGetLatestValue(user, out var threshold)) return 0;
 
             long count = 0;
-            foreach (var chunk in Notifications.GetValuesChunked(user, threshold))
+            foreach (var chunk in GetNotificationTable(dark).GetValuesChunked(user, threshold))
             {
                 count += chunk.Count;
             }
             return count;
         }
 
-        public (BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification) GetNotificationsForUser(Plc user, RequestContext ctx)
+        public (BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification) GetNotificationsForUser(Plc user, RequestContext ctx, bool dark)
         {
-            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return ([], [], default);
-            var newNotificationsCore = Notifications.GetValuesSortedDescending(user, threshold, null).ToArray();
+            if (!LastSeenNotifications.TryGetLatestValue(user, out var threshold)) return ([], [], default); // on user registration, only last seen main notification table is initialized.
+            if (dark)
+                LastSeenDarkNotifications.TryGetLatestValue(user, out threshold);
+
+            var table = GetNotificationTable(dark);
+            var newNotificationsCore = table.GetValuesSortedDescending(user, threshold, null).ToArray();
 
             Notification? newestNotification = newNotificationsCore.Length != 0 ? newNotificationsCore[0] : null;
 
@@ -2398,7 +2418,7 @@ namespace AppViewLite
             var distinctOldCoalesceKeys = new HashSet<NotificationCoalesceKey>();
 
             var oldNotifications =
-                Notifications.GetValuesSortedDescending(user, null, oldestNew)
+                table.GetValuesSortedDescending(user, null, oldestNew)
                 .Select(x =>
                 {
                     newestNotification ??= x;

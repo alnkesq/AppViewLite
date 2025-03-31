@@ -8,17 +8,21 @@
 
     private CoalescedNotification[] newNotifications = [];
     private CoalescedNotification[] oldNotifications = [];
+    [Parameter][SupplyParameterFromQuery] public int? Dark { get; set; }
     private Notification newestNotification;
+    private string pageTitle;
     protected override async Task OnParametersSetAsync()
     {
+        var dark = Dark == 1;
         NavigationManager.RedirectIfNotLoggedIn(RequestContext);
-        (newNotifications, oldNotifications, newestNotification) = await Apis.GetCoalescedNotificationsAsync(RequestContext);
+        (newNotifications, oldNotifications, newestNotification) = await Apis.GetCoalescedNotificationsAsync(RequestContext, dark: dark);
+        pageTitle = dark ? "Dark notifications" : "Notifications";
     }
 }
 
-<PageTitle>Notifications</PageTitle>
+<PageTitle>@pageTitle</PageTitle>
 
-<h1>Notifications</h1>
+<h1>@pageTitle</h1>
 
 <div id="notification-newest-id" data-newestnotification="@newestNotification.Serialize()"></div>
 @foreach (var notification in newNotifications)

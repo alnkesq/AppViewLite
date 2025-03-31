@@ -45,6 +45,12 @@ namespace AppViewLite.Models
         RepliedToYourThread,
         FollowedYouBack,
         LikedYourFeed,
+
+
+        DarkNotificationBase = 128,
+        BlockedYou,
+        UnfollowedYou,
+        AddedYouToAList,
     }
 }
 

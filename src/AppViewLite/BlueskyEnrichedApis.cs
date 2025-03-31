@@ -1760,22 +1760,22 @@ namespace AppViewLite
             return WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFeedGenerator(plc, data, ctx), ctx);
         }
 
-        public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx)
+        public async Task<(BlueskyNotification[] NewNotifications, BlueskyNotification[] OldNotifications, Notification NewestNotification)> GetNotificationsAsync(RequestContext ctx, bool dark)
         {
             if (!ctx.IsLoggedIn) return ([], [], default);
             var session = ctx.Session;
             var user = session.LoggedInUser!.Value;
 
-            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user, ctx), ctx);
+            var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user, ctx, dark), ctx);
             var nonHiddenNotifications = notifications.NewNotifications.Concat(notifications.OldNotifications).Where(x => !x.Hidden).ToArray();
             await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).WhereNonNull().ToArray(), ctx);
             await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).WhereNonNull().ToArray(), ctx);
             return (notifications.NewNotifications, notifications.OldNotifications, notifications.NewestNotification);
         }
 
-        public async Task<(CoalescedNotification[] NewNotifications, CoalescedNotification[] OldNotifications, Notification NewestNotification)> GetCoalescedNotificationsAsync(RequestContext ctx)
+        public async Task<(CoalescedNotification[] NewNotifications, CoalescedNotification[] OldNotifications, Notification NewestNotification)> GetCoalescedNotificationsAsync(RequestContext ctx, bool dark)
         {
-            var rawNotifications = await GetNotificationsAsync(ctx);
+            var rawNotifications = await GetNotificationsAsync(ctx, dark);
 
             return (
                 CoalesceNotifications(rawNotifications.NewNotifications, areNew: true),
@@ -1924,10 +1924,10 @@ namespace AppViewLite
             return "?pds=" + Uri.EscapeDataString(pds ?? string.Empty) + "&name=" + Uri.EscapeDataString(fileNameForDownload ?? string.Empty);
         }
 
-        public long GetNotificationCount(AppViewLiteSession ctx, RequestContext reqCtx)
+        public long GetNotificationCount(AppViewLiteSession ctx, RequestContext reqCtx, bool dark)
         {
             if (!ctx.IsLoggedIn) return 0;
-            return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value), reqCtx);
+            return WithRelationshipsLock(rels => rels.GetNotificationCount(ctx.LoggedInUser!.Value, dark), reqCtx);
         }
 
 

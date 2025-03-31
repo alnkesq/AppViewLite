@@ -102,7 +102,9 @@ namespace AppViewLite
                     }
                     else if (collection == Follow.RecordType)
                     {
-                        relationships.Follows.Delete(rel, deletionDate, preresolved.followTarget);
+                        var unfollowedUser = relationships.Follows.Delete(rel, deletionDate, preresolved.followTarget);
+                        if (unfollowedUser != null)
+                            relationships.AddNotification(unfollowedUser.Value, NotificationKind.UnfollowedYou, commitPlc, ctx, deletionDate);
                     }
                     else if (collection == Block.RecordType)
                     {
@@ -323,8 +325,10 @@ namespace AppViewLite
                     }
                     else if (record is Block b)
                     {
-                        relationships.Blocks.Add(relationships.SerializeDid(b.Subject!.Handler, ctx), new Relationship(commitPlc, GetMessageTid(path, Block.RecordType + "/")));
-
+                        var blockedUser = relationships.SerializeDid(b.Subject!.Handler, ctx);
+                        var blockRkey = GetMessageTid(path, Block.RecordType + "/");
+                        relationships.Blocks.Add(blockedUser, new Relationship(commitPlc, blockRkey));
+                        relationships.AddNotification(blockedUser, NotificationKind.BlockedYou, commitPlc, ctx, blockRkey.Date);
                     }
                     else if (record is Post p)
                     {
@@ -369,6 +373,7 @@ namespace AppViewLite
 
                         relationships.ListItems.Add(listId, entry);
                         relationships.ListMemberships.Add(entry.Member, new ListMembership(commitPlc, listRkey, listItemRkey));
+                        relationships.AddNotification(entry.Member, NotificationKind.AddedYouToAList, commitPlc, ctx, entry.ListItemRKey.Date);
                     }
                     else if (record is Threadgate threadGate)
                     {

@@ -10,7 +10,7 @@
     [Parameter] public bool NeedsNotificationCount { get; set; }
     protected override void OnParametersSet()
     {
-        NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext) : -1;
+        NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext, dark: false) : -1;
         var staleness = Apis.PlcDirectoryStaleness;
 
         if (staleness.TotalDays >= 7) 

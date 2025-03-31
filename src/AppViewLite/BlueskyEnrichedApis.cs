@@ -362,22 +362,16 @@ namespace AppViewLite
             return WithRelationshipsWriteLock(rels =>
             {
                 var id = rels.GetPostId(postId.Did, postId.RKey, ctx);
-                rels.SuppressNotificationGeneration++;
-                try
+
+                if (response != null)
                 {
-                    if (response != null)
-                    {
-                        rels.StorePostInfo(id, response, postId.Did, ctx);
-                    }
-                    else
-                    {
-                        rels.FailedPostLookups.Add(id, DateTime.UtcNow);
-                    }
+                    rels.StorePostInfo(id, response, postId.Did, ctx);
                 }
-                finally
+                else
                 {
-                    rels.SuppressNotificationGeneration--;
+                    rels.FailedPostLookups.Add(id, DateTime.UtcNow);
                 }
+
                 return rels.Version;
             }, ctx);
         }
@@ -1425,7 +1419,10 @@ namespace AppViewLite
                             }
                             if (threadgate.AllowFollowers)
                             {
-                                wantFollowersFor.AddRange(thread.Select(x => x.AuthorId).Where(x => x != rootPostId.Author));
+                                foreach (var item in thread.Select(x => x.AuthorId).Where(x => x != rootPostId.Author))
+                                {
+                                    wantFollowersFor.Add(item);
+                                }
                             }
                         }
                     }, ctx);
@@ -2688,7 +2685,7 @@ namespace AppViewLite
             var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
 
             var indexer = new Indexer(this);
-            indexer.OnRecordCreated(ctx.UserContext.Did!, record.Type + "/" + tid.ToString(), record, ctx: ctx, generateNotifications: true);
+            indexer.OnRecordCreated(ctx.UserContext.Did!, record.Type + "/" + tid.ToString(), record, ctx: ctx);
             return tid;
         }
 

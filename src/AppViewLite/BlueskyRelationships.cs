@@ -2337,7 +2337,6 @@ namespace AppViewLite
         }
         public void AddNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey, RequestContext ctx, DateTime date)
         {
-            if (SuppressNotificationGeneration != 0) return;
             if (destination == actor) return;
             if (!IsRegisteredForNotifications(destination)) return;
             var notification = new Notification((ApproximateDateTime32)date, actor, rkey, kind);
@@ -2362,8 +2361,6 @@ namespace AppViewLite
         {
             return kind >= NotificationKind.DarkNotificationBase;
         }
-
-        public int SuppressNotificationGeneration;
 
         public event Action<Plc, Notification, RequestContext>? NotificationGenerated;
 
@@ -3838,7 +3835,6 @@ namespace AppViewLite
                 registerForNotificationsCache = this.registerForNotificationsCache.Count,
                 this.ReplicaAge?.Elapsed,
                 ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
-                this.SuppressNotificationGeneration,
                 UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
                 this.Version,

@@ -163,7 +163,7 @@ namespace AppViewLite
 
 
 
-        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool generateNotifications = false, bool ignoreIfDisposing = false, RequestContext? ctx = null)
+        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
@@ -210,227 +210,220 @@ namespace AppViewLite
             WithRelationshipsWriteLock(relationships =>
             {
                 if (ignoreIfDisposing && relationships.IsDisposed) return;
-                try
+
+                relationships.EnsureNotDisposed();
+
+                var commitPlc = relationships.SerializeDidWithHint(commitAuthor, ctx, preresolved.commitPlc);
+
+                if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
                 {
-                    if (!generateNotifications) relationships.SuppressNotificationGeneration++;
-                    relationships.EnsureNotDisposed();
+                    relationships.IndexHandle(null, commitAuthor, ctx);
+                }
 
-                    var commitPlc = relationships.SerializeDidWithHint(commitAuthor, ctx, preresolved.commitPlc);
-
-                    if (commitAuthor.StartsWith("did:web:", StringComparison.Ordinal))
+                if (record is Like l)
+                {
+                    if (l.Subject!.Uri!.Collection == Post.RecordType)
                     {
-                        relationships.IndexHandle(null, commitAuthor, ctx);
-                    }
+                        // quick check to avoid noisy exceptions
 
-                    if (record is Like l)
-                    {
-                        if (l.Subject!.Uri!.Collection == Post.RecordType)
-                        {
-                            // quick check to avoid noisy exceptions
+                        var postId = relationships.GetPostId(l.Subject, ctx, hint: preresolved.subjectPlc);
 
-                            var postId = relationships.GetPostId(l.Subject, ctx, hint: preresolved.subjectPlc);
-
-                            // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
-                            BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
-
-                            var likeRkey = GetMessageTid(path, Like.RecordType + "/");
-                            if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey), preresolved.relationshipIsAbsentAsOf))
-                            {
-                                relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
-
-                                var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false, null);
-                                approxActorCount++; // this dict is only written here, while holding the write lock.
-                                var primaryLikeCountCache = relationships.ApproximateLikeCountCache;
-                                
-                                if (approxActorCount >= int.MaxValue)
-                                    primaryLikeCountCache.Remove(postId);
-                                else
-                                    primaryLikeCountCache[postId] = (int)approxActorCount;
-
-
-                                var replicaLikeCountCache = relationships.ReplicaOnlyApproximateLikeCountCache;
-                                if (replicaLikeCountCache.Dictionary.ContainsKey(postId))
-                                {
-                                    if (approxActorCount >= int.MaxValue)
-                                        replicaLikeCountCache.Remove(postId);
-                                    else 
-                                        replicaLikeCountCache[postId] = (int)approxActorCount;
-                                }
-
-                                //Console.Error.WriteLine("LikeCount: " + approxActorCount);
-                                relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
-                                relationships.NotifyPostStatsChange(postId, commitPlc);
-
-
-
-                                relationships.IncrementRecentPopularPostLikeCount(postId, 1);
-
-                                if (relationships.IsRegisteredForNotifications(commitPlc))
-                                    relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
-                            }
-                        }
-                        else if (l.Subject.Uri.Collection == Generator.RecordType)
-                        {
-                            // TODO: handle deletions for feed likes
-                            var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.Did!.Handler, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
-
-                            var likeRkey = GetMessageTid(path, Like.RecordType + "/");
-                            if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
-                            {
-                                var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
-                                relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
-                                relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/, ctx, likeRkey.Date);
-                                if (!relationships.FeedGenerators.ContainsKey(feedId))
-                                {
-                                    ScheduleRecordIndexing(l.Subject.Uri, ctx);
-                                }
-                            }
-                        }
-                    }
-                    else if (record is Follow f)
-                    {
-                        if (HasNumericRKey(path)) return;
-                        var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
-                        var rkey = GetMessageTid(path, Follow.RecordType + "/");
-
-                        if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey), preresolved.relationshipIsAbsentAsOf))
-                        {
-                            if (relationships.IsRegisteredForNotifications(followed))
-                                relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx, rkey.Date);
-                        }
-
-
-                        if (relationships.IsRegisteredForNotifications(commitPlc)) // must stay outside of if(Follow.Add) since IsRegisteredForNotifications can change over time
-                        {
-                            relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
-                        }
-                    }
-                    else if (record is Repost r)
-                    {
-                        var postId = relationships.GetPostId(r.Subject!, ctx, hint: preresolved.subjectPlc);
+                        // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
-                        var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
-                        if (relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey), preresolved.relationshipIsAbsentAsOf))
+                        var likeRkey = GetMessageTid(path, Like.RecordType + "/");
+                        if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey), preresolved.relationshipIsAbsentAsOf))
                         {
-                            relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx, repostRKey.Date);
+                            relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
 
-                            relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
-                            relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
+                            var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false, null);
+                            approxActorCount++; // this dict is only written here, while holding the write lock.
+                            var primaryLikeCountCache = relationships.ApproximateLikeCountCache;
+                                
+                            if (approxActorCount >= int.MaxValue)
+                                primaryLikeCountCache.Remove(postId);
+                            else
+                                primaryLikeCountCache[postId] = (int)approxActorCount;
+
+
+                            var replicaLikeCountCache = relationships.ReplicaOnlyApproximateLikeCountCache;
+                            if (replicaLikeCountCache.Dictionary.ContainsKey(postId))
+                            {
+                                if (approxActorCount >= int.MaxValue)
+                                    replicaLikeCountCache.Remove(postId);
+                                else 
+                                    replicaLikeCountCache[postId] = (int)approxActorCount;
+                            }
+
+                            //Console.Error.WriteLine("LikeCount: " + approxActorCount);
+                            relationships.MaybeIndexPopularPost(postId, "likes", approxActorCount, BlueskyRelationships.SearchIndexPopularityMinLikes);
                             relationships.NotifyPostStatsChange(postId, commitPlc);
+
+
+
+                            relationships.IncrementRecentPopularPostLikeCount(postId, 1);
 
                             if (relationships.IsRegisteredForNotifications(commitPlc))
                                 relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
                         }
                     }
-                    else if (record is Block b)
+                    else if (l.Subject.Uri.Collection == Generator.RecordType)
                     {
-                        var blockedUser = relationships.SerializeDid(b.Subject!.Handler, ctx);
-                        var blockRkey = GetMessageTid(path, Block.RecordType + "/");
-                        relationships.Blocks.Add(blockedUser, new Relationship(commitPlc, blockRkey));
-                        relationships.AddNotification(blockedUser, NotificationKind.BlockedYou, commitPlc, ctx, blockRkey.Date);
-                    }
-                    else if (record is Post p)
-                    {
-                        var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
-                        BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
+                        // TODO: handle deletions for feed likes
+                        var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.Did!.Handler, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
 
-                        // Is this check too expensive?
-                        //var didDoc = relationships.TryGetLatestDidDoc(commitPlc);
-                        //if (didDoc != null && Apis.AdministrativeBlocklist.ShouldBlockIngestion(null, didDoc))
-                        //return;
-
-                        var proto = relationships.StorePostInfoExceptData(p, postId, ctx);
-                        if (proto != null)
+                        var likeRkey = GetMessageTid(path, Like.RecordType + "/");
+                        if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
                         {
-
-
-                            byte[]? postBytes = null;
-                            continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto, commitAuthor), relationships =>
+                            var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
+                            relationships.MaybeIndexPopularFeed(feedId, "likes", approxActorCount, BlueskyRelationships.SearchIndexFeedPopularityMinLikes);
+                            relationships.AddNotification(feedId.Plc, NotificationKind.LikedYourFeed, commitPlc, new Tid((long)feedId.RKeyHash) /*evil cast*/, ctx, likeRkey.Date);
+                            if (!relationships.FeedGenerators.ContainsKey(feedId))
                             {
-                                relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
-                            });
-                        }
-                    }
-                    else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
-                    {
-                        relationships.StoreProfileBasicInfo(commitPlc, pf, ctx);
-                    }
-                    else if (record is List list)
-                    {
-                        relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType + "/")), BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(list)));
-                    }
-                    else if (record is Listitem listItem)
-                    {
-                        if (commitAuthor != listItem.List!.Did!.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
-                        if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
-                        var listRkey = Tid.Parse(listItem.List.Rkey);
-                        var listItemRkey = GetMessageTid(path, Listitem.RecordType + "/");
-                        var member = relationships.SerializeDid(listItem.Subject!.Handler, ctx);
-
-                        var listId = new Relationship(commitPlc, listRkey);
-                        var entry = new ListEntry(member, listItemRkey);
-
-                        relationships.ListItems.Add(listId, entry);
-                        relationships.ListMemberships.Add(entry.Member, new ListMembership(commitPlc, listRkey, listItemRkey));
-                        relationships.AddNotification(entry.Member, NotificationKind.AddedYouToAList, commitPlc, listRkey, ctx, entry.ListItemRKey.Date);
-                    }
-                    else if (record is Threadgate threadGate)
-                    {
-                        var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
-                        if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
-                        if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
-                        if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
-                        relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate, ctx, out var threadgateProto));
-                        if (threadgateProto.HiddenReplies != null)
-                        {
-                            foreach (var hiddenReply in threadgateProto.HiddenReplies)
-                            {
-                                var replyId = hiddenReply.PostId;
-                                var replyRkey = replyId.PostRKey;
-                                var now = threadGate.CreatedAt ?? replyRkey.Date;
-                                relationships.AddNotificationDateInvariant(replyId.Author, NotificationKind.HidYourReply, commitPlc, replyRkey, ctx, now, replyRkey.Date < now ? replyRkey.Date : now);
+                                ScheduleRecordIndexing(l.Subject.Uri, ctx);
                             }
                         }
                     }
-                    else if (record is Postgate postgate)
-                    {
-                        var rkey = GetMessageTid(path, Postgate.RecordType + "/");
-                        if (postgate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
-                        if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
-                        if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
-                        relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate, ctx, out var proto));
-                        if (proto.DetachedEmbeddings != null)
-                        {
-                            foreach (var detachedQuote in proto.DetachedEmbeddings)
-                            {
-                                var quoterId = detachedQuote.PostId;
-                                var quoterRkey = quoterId.PostRKey;
-                                var now = postgate.CreatedAt ?? quoterRkey.Date;
-                                relationships.AddNotificationDateInvariant(quoterId.Author, NotificationKind.DislikesYourQuote, commitPlc, quoterRkey, ctx, now, quoterRkey.Date < now ? quoterRkey.Date : now);
-                            }
-                        }
-                    }
-                    else if (record is Listblock listBlock)
-                    {
-                        var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
-                        if (listBlock.Subject!.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
-                        var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler, ctx), Tid.Parse(listBlock.Subject.Rkey));
-
-                        relationships.ListBlocks.Add(blockId, listId);
-                    }
-                    else if (record is Generator generator)
-                    {
-                        var rkey = GetMessageRKey(path, Generator.RecordType + "/");
-                        relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
-                    }
-                    //else LogInfo("Creation of unknown object type: " + path);
-                    relationships.MaybeGlobalFlush();
                 }
-                finally
+                else if (record is Follow f)
                 {
-                    if (!generateNotifications) relationships.SuppressNotificationGeneration--;
+                    if (HasNumericRKey(path)) return;
+                    var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
+                    var rkey = GetMessageTid(path, Follow.RecordType + "/");
+
+                    if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey), preresolved.relationshipIsAbsentAsOf))
+                    {
+                        if (relationships.IsRegisteredForNotifications(followed))
+                            relationships.AddNotification(followed, relationships.Follows.HasActor(commitPlc, followed, out _) ? NotificationKind.FollowedYouBack : NotificationKind.FollowedYou, commitPlc, ctx, rkey.Date);
+                    }
+
+
+                    if (relationships.IsRegisteredForNotifications(commitPlc)) // must stay outside of if(Follow.Add) since IsRegisteredForNotifications can change over time
+                    {
+                        relationships.RegisteredUserToFollowees.AddIfMissing(commitPlc, new ListEntry(followed, rkey));
+                    }
                 }
+                else if (record is Repost r)
+                {
+                    var postId = relationships.GetPostId(r.Subject!, ctx, hint: preresolved.subjectPlc);
+                    BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
+
+                    var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
+                    if (relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey), preresolved.relationshipIsAbsentAsOf))
+                    {
+                        relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx, repostRKey.Date);
+
+                        relationships.MaybeIndexPopularPost(postId, "reposts", relationships.Reposts.GetApproximateActorCount(postId), BlueskyRelationships.SearchIndexPopularityMinReposts);
+                        relationships.UserToRecentReposts.Add(commitPlc, new RecentRepost(repostRKey, postId));
+                        relationships.NotifyPostStatsChange(postId, commitPlc);
+
+                        if (relationships.IsRegisteredForNotifications(commitPlc))
+                            relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
+                    }
+                }
+                else if (record is Block b)
+                {
+                    var blockedUser = relationships.SerializeDid(b.Subject!.Handler, ctx);
+                    var blockRkey = GetMessageTid(path, Block.RecordType + "/");
+                    relationships.Blocks.Add(blockedUser, new Relationship(commitPlc, blockRkey));
+                    relationships.AddNotification(blockedUser, NotificationKind.BlockedYou, commitPlc, ctx, blockRkey.Date);
+                }
+                else if (record is Post p)
+                {
+                    var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
+                    BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
+
+                    // Is this check too expensive?
+                    //var didDoc = relationships.TryGetLatestDidDoc(commitPlc);
+                    //if (didDoc != null && Apis.AdministrativeBlocklist.ShouldBlockIngestion(null, didDoc))
+                    //return;
+
+                    var proto = relationships.StorePostInfoExceptData(p, postId, ctx);
+                    if (proto != null)
+                    {
+
+
+                        byte[]? postBytes = null;
+                        continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(proto, commitAuthor), relationships =>
+                        {
+                            relationships.PostData.AddRange(postId, postBytes); // double insertions are fine, the second one wins.
+                        });
+                    }
+                }
+                else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
+                {
+                    relationships.StoreProfileBasicInfo(commitPlc, pf, ctx);
+                }
+                else if (record is List list)
+                {
+                    relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType + "/")), BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(list)));
+                }
+                else if (record is Listitem listItem)
+                {
+                    if (commitAuthor != listItem.List!.Did!.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
+                    if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
+                    var listRkey = Tid.Parse(listItem.List.Rkey);
+                    var listItemRkey = GetMessageTid(path, Listitem.RecordType + "/");
+                    var member = relationships.SerializeDid(listItem.Subject!.Handler, ctx);
+
+                    var listId = new Relationship(commitPlc, listRkey);
+                    var entry = new ListEntry(member, listItemRkey);
+
+                    relationships.ListItems.Add(listId, entry);
+                    relationships.ListMemberships.Add(entry.Member, new ListMembership(commitPlc, listRkey, listItemRkey));
+                    relationships.AddNotification(entry.Member, NotificationKind.AddedYouToAList, commitPlc, listRkey, ctx, entry.ListItemRKey.Date);
+                }
+                else if (record is Threadgate threadGate)
+                {
+                    var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
+                    if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
+                    if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
+                    if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
+                    relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate, ctx, out var threadgateProto));
+                    if (threadgateProto.HiddenReplies != null)
+                    {
+                        foreach (var hiddenReply in threadgateProto.HiddenReplies)
+                        {
+                            var replyId = hiddenReply.PostId;
+                            var replyRkey = replyId.PostRKey;
+                            var now = threadGate.CreatedAt ?? replyRkey.Date;
+                            relationships.AddNotificationDateInvariant(replyId.Author, NotificationKind.HidYourReply, commitPlc, replyRkey, ctx, now, replyRkey.Date < now ? replyRkey.Date : now);
+                        }
+                    }
+                }
+                else if (record is Postgate postgate)
+                {
+                    var rkey = GetMessageTid(path, Postgate.RecordType + "/");
+                    if (postgate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
+                    if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
+                    if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
+                    relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate, ctx, out var proto));
+                    if (proto.DetachedEmbeddings != null)
+                    {
+                        foreach (var detachedQuote in proto.DetachedEmbeddings)
+                        {
+                            var quoterId = detachedQuote.PostId;
+                            var quoterRkey = quoterId.PostRKey;
+                            var now = postgate.CreatedAt ?? quoterRkey.Date;
+                            relationships.AddNotificationDateInvariant(quoterId.Author, NotificationKind.DislikesYourQuote, commitPlc, quoterRkey, ctx, now, quoterRkey.Date < now ? quoterRkey.Date : now);
+                        }
+                    }
+                }
+                else if (record is Listblock listBlock)
+                {
+                    var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
+                    if (listBlock.Subject!.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
+                    var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler, ctx), Tid.Parse(listBlock.Subject.Rkey));
+
+                    relationships.ListBlocks.Add(blockId, listId);
+                }
+                else if (record is Generator generator)
+                {
+                    var rkey = GetMessageRKey(path, Generator.RecordType + "/");
+                    relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
+                }
+                //else LogInfo("Creation of unknown object type: " + path);
+                relationships.MaybeGlobalFlush();
             }, ctx);
 
             if (continueOutsideLock != null)
@@ -470,7 +463,7 @@ namespace AppViewLite
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
             {
-                OnRecordCreated(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, e.Record.Commit.Record!, generateNotifications: true, ignoreIfDisposing: true);
+                OnRecordCreated(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, e.Record.Commit.Record!, ignoreIfDisposing: true);
             }
             if (e.Record.Commit?.Operation == ATWebSocketCommitType.Delete)
             {
@@ -620,7 +613,7 @@ namespace AppViewLite
 
             if (record != null)
             {
-                OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, generateNotifications: true, ignoreIfDisposing: true);
+                OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, ignoreIfDisposing: true);
             }
         }
 

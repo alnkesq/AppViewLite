@@ -1874,6 +1874,7 @@ namespace AppViewLite
                         LatestDate = raw.EventDate,
                         Post = raw.Post,
                         Feed = raw.Feed,
+                        List = raw.List,
                         IsNew = areNew,
                     };
                     coalescedList.Add(c);

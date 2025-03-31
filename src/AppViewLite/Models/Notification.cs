@@ -52,7 +52,7 @@ namespace AppViewLite.Models
         UnfollowedYou,
         AddedYouToAList,
         HidYourReply,
-        DislikesYourQuote,
+        DetachedYourQuotePost,
     }
 }
 

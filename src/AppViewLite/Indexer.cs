@@ -405,7 +405,7 @@ namespace AppViewLite
                             var quoterId = detachedQuote.PostId;
                             var quoterRkey = quoterId.PostRKey;
                             var now = postgate.CreatedAt ?? quoterRkey.Date;
-                            relationships.AddNotificationDateInvariant(quoterId.Author, NotificationKind.DislikesYourQuote, commitPlc, quoterRkey, ctx, now, quoterRkey.Date < now ? quoterRkey.Date : now);
+                            relationships.AddNotificationDateInvariant(quoterId.Author, NotificationKind.DetachedYourQuotePost, commitPlc, quoterRkey, ctx, now, quoterRkey.Date < now ? quoterRkey.Date : now);
                         }
                     }
                 }

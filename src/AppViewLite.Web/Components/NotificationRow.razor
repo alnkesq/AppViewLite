@@ -10,7 +10,7 @@
     var embedFullPost = Notification.Kind is NotificationKind.MentionedYou or NotificationKind.QuotedYourPost or NotificationKind.RepliedToYourThread or NotificationKind.RepliedToYourPost;
 }
 <div class="notification @(Notification.IsNew ? "notification-new" : null)" @key="@(Notification.LatestDate.Ticks + Notification.Kind.ToString())">
-    <a class="notification-background-link" href="@(Notification.Post?.BaseUrl ?? Notification.Feed?.BaseUrl ?? Notification.Profiles?.FirstOrDefault()?.HomeUrl)"></a>
+    <a class="notification-background-link" href="@(Notification.Post?.BaseUrl ?? Notification.List?.BaseUrl ?? Notification.Feed?.BaseUrl ?? Notification.Profiles?.FirstOrDefault()?.HomeUrl)"></a>
     @if (!embedFullPost)
     {
         <div class="notification-kind-icon">
@@ -25,6 +25,28 @@
             else if(Notification.Kind is NotificationKind.FollowedYou or NotificationKind.FollowedYouBack)
             {
                 <svg fill="none" viewBox="0 0 24 24" width="28" height="28" style="color: rgb(16, 131, 254);"><path fill="hsl(211, 99%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M7.5 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM12 12c-4.758 0-8.083 3.521-8.496 7.906A1 1 0 0 0 4.5 21H15a3 3 0 1 1 0-6c0-.824.332-1.571.87-2.113C14.739 12.32 13.435 12 12 12Zm6 2a1 1 0 0 1 1 1v2h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2h-2a1 1 0 1 1 0-2h2v-2a1 1 0 0 1 1-1Z"></path></svg>
+            } 
+            else if(Notification.Kind == NotificationKind.UnfollowedYou)
+            {
+                <svg fill="none" viewBox="0 0 24 24" width="28" height="28" style="color: #808080;">
+                    <path style="clip-rule:evenodd;fill:currentColor;fill-rule:evenodd" d="m 7.5,6.5 c 0,-5.9999974 9,-5.9999974 9,0 0,5.999997 -9,5.999997 -9,0 z M 12,12 C 7.242,12 3.917,15.521 3.504,19.906 3.4485787,20.492977 3.9104124,21.000252 4.5,21 H 15 c -3.999998,0 -3.999998,-6 0,-6 4.570755,-0.0032 5.992377,0.38183 0.87,-2.113 C 14.739,12.32 13.435,12 12,12 Z m 9,5 c 1.333333,0 1.333333,2 0,2 -6,0 -2.011084,-0.0046 -6,0 -1.333333,0 -1.333333,-2 0,-2 z" />
+                </svg>
+            }
+            else if (Notification.Kind is NotificationKind.HidYourReply or NotificationKind.DetachedYourQuotePost)
+            {
+                <svg viewBox="0 0 24 24" style="color: #A41515" width="28" height="28">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M3.61399 4.21063C3.17804 3.87156 2.54976 3.9501 2.21069 4.38604C1.87162 4.82199 1.95016 5.45027 2.38611 5.78934L4.66386 7.56093C3.78436 8.54531 3.03065 9.68043 2.41854 10.896L2.39686 10.9389C2.30554 11.1189 2.18764 11.3514 2.1349 11.6381C2.09295 11.8661 2.09295 12.1339 2.1349 12.3618C2.18764 12.6485 2.30554 12.881 2.39686 13.0611L2.41854 13.104C4.35823 16.956 7.71985 20 12.0001 20C14.2313 20 16.2129 19.1728 17.8736 17.8352L20.3861 19.7893C20.8221 20.1284 21.4503 20.0499 21.7894 19.6139C22.1285 19.178 22.0499 18.5497 21.614 18.2106L3.61399 4.21063ZM16.2411 16.5654L14.4434 15.1672C13.7676 15.6894 12.9201 16 12.0001 16C9.79092 16 8.00006 14.2091 8.00006 12C8.00006 11.4353 8.11706 10.898 8.32814 10.4109L6.24467 8.79044C5.46659 9.63971 4.77931 10.6547 4.20485 11.7955C4.17614 11.8525 4.15487 11.8948 4.13694 11.9316C4.12114 11.964 4.11132 11.9853 4.10491 12C4.11132 12.0147 4.12114 12.036 4.13694 12.0684C4.15487 12.1052 4.17614 12.1474 4.20485 12.2045C5.9597 15.6894 8.76726 18 12.0001 18C13.5314 18 14.9673 17.4815 16.2411 16.5654ZM10.0187 11.7258C10.0064 11.8154 10.0001 11.907 10.0001 12C10.0001 13.1046 10.8955 14 12.0001 14C12.2667 14 12.5212 13.9478 12.7538 13.8531L10.0187 11.7258Z" fill="currentColor" />
+                    <path d="M10.9506 8.13908L15.9995 12.0661C15.9999 12.0441 16.0001 12.022 16.0001 12C16.0001 9.79085 14.2092 7.99999 12.0001 7.99999C11.6369 7.99999 11.285 8.04838 10.9506 8.13908Z" fill="currentColor" />
+                    <path d="M19.7953 12.2045C19.4494 12.8913 19.0626 13.5326 18.6397 14.1195L20.2175 15.3467C20.7288 14.6456 21.1849 13.8917 21.5816 13.104L21.6033 13.0611C21.6946 12.881 21.8125 12.6485 21.8652 12.3618C21.9072 12.1339 21.9072 11.8661 21.8652 11.6381C21.8125 11.3514 21.6946 11.1189 21.6033 10.9389L21.5816 10.896C19.6419 7.04402 16.2803 3.99998 12.0001 3.99998C10.2848 3.99998 8.71714 4.48881 7.32934 5.32257L9.05854 6.66751C9.98229 6.23476 10.9696 5.99998 12.0001 5.99998C15.2329 5.99998 18.0404 8.31058 19.7953 11.7955C19.824 11.8525 19.8453 11.8948 19.8632 11.9316C19.879 11.964 19.8888 11.9853 19.8952 12C19.8888 12.0147 19.879 12.036 19.8632 12.0684C19.8453 12.1052 19.824 12.1474 19.7953 12.2045Z" fill="currentColor" />
+                </svg>
+            }
+            else if (Notification.Kind is NotificationKind.AddedYouToAList)
+            {
+                <svg viewBox="0 0 512 512" style="color: #83890C" width="28" height="28">
+                    <g transform="matrix(0.86349752,0,0,0.86349752,0,6.7411774)">
+                        <path style="fill:currentColor" d="M 545.32604,199.73758 297.953,198.255 h -42.891 c -14,0 -40.77398,-6.1234 -16.52684,-17.51842 l 72.97509,-34.29491 c 20.70428,-9.73005 20.60728,-36.85631 5.90428,-54.325306 -8.20931,-9.651177 -37.54077,-8.529844 -47.92166,-4.037096 L 128.61785,149.04859 C 109.15327,158.60546 85.219,189.724 65.063,208.333 28.906,241.677 0,272.287 0,324.896 0,400.958 61.656,462.614 137.719,462.614 H 311.5 c 20.078,0 36.344,-16.266 36.344,-36.328 0,-10.844 -4.828,-20.453 -12.359,-27.125 h 5.672 c 20.063,0 36.328,-16.25 36.328,-36.328 0,-11.266 -5.219,-21.188 -13.266,-27.859 16.531,-3.406 28.984,-18.031 28.984,-35.578 0,-11.609 -5.547,-21.828 -14.016,-28.469 h 166.13904 c 20.063,0 36.34411,-16.266 36.34411,-36.328 0,-20.062 -16.28147,-34.74118 -36.34411,-34.86142 z" />
+                    </g>
+                </svg>
             }
         </div>
     }
@@ -120,7 +142,21 @@
             </div>
 
             <InlineProfileLink Profile="@profile" />
-            @Notification.KindDisplayText
+            @if (Notification.Kind == NotificationKind.AddedYouToAList)
+            {
+                <text> added you to </text>
+                <b>@Notification.List!.DisplayNameOrFallback</b>
+            }
+            else if (Notification.Kind == NotificationKind.LikedYourFeed)
+            {
+
+                <text> liked your feed </text>
+                <b>@Notification.Feed!.DisplayNameOrFallback</b>
+            }
+            else
+            {
+                @Notification.KindDisplayText
+            }
             <span class="notification-date">&nbsp;·&nbsp;@StringUtils.ToHumanDate(Notification.LatestDate)</span>
 
         </div>
@@ -128,7 +164,7 @@
     @if (!embedFullPost)
     {
         <div class="notification-post-text notification-indented">
-            @(Notification.Post?.Data?.Text ?? Notification.Feed?.DisplayName)
+            @(Notification.Post?.Data?.Text ?? Notification.List?.Description)
         </div>
         @if (Notification.Post?.Data?.Media is { } media && media.Length != 0)
         {

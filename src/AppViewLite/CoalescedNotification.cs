@@ -17,6 +17,7 @@ namespace AppViewLite
         public List<BlueskyProfile>? Profiles;
         public bool IsNew;
         public BlueskyFeedGenerator? Feed;
+        public BlueskyList? List;
         public RelationshipHashedRKey FeedRKeyHash;
         public Tid ListRKey;
 
@@ -41,7 +42,7 @@ namespace AppViewLite
                     NotificationKind.UnfollowedYou => "unfollowed you",
                     NotificationKind.AddedYouToAList => "added you to a list",
                     NotificationKind.HidYourReply => "hid your reply",
-                    NotificationKind.DislikesYourQuote => "dislikes your quote post",
+                    NotificationKind.DetachedYourQuotePost => "detached your quote",
                     _ => throw new Exception()
                 };
             }

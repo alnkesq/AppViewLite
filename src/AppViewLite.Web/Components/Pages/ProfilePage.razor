@@ -189,7 +189,10 @@
                                 <PrivateFollowToggleButton User="@SimpleProfile" Flag="@PrivateFollowFlags.MuteAllPosts" />
                             }
                         }
-                        <button actionkind="toggleBlock" class="menu-item">@(SimpleProfile.IsBlockedBySelf != null ? "Unblock" : "Block")</button>
+                        @if (SimpleProfile.PluggableProtocol == null)
+                        {
+                            <button actionkind="toggleBlock" class="menu-item">@(SimpleProfile.IsBlockedBySelf != null ? "Unblock" : "Block")</button>
+                        }
                     }
                 </div>
 

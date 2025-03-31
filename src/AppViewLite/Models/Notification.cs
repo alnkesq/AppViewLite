@@ -51,6 +51,8 @@ namespace AppViewLite.Models
         BlockedYou,
         UnfollowedYou,
         AddedYouToAList,
+        HidYourReply,
+        DislikesYourQuote,
     }
 }
 

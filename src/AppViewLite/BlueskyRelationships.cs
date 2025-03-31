@@ -2162,9 +2162,9 @@ namespace AppViewLite
 
 
 
-        internal ReadOnlySpan<byte> SerializeThreadgateToBytes(Threadgate threadGate, RequestContext ctx)
+        internal ReadOnlySpan<byte> SerializeThreadgateToBytes(Threadgate threadGate, RequestContext ctx, out BlueskyThreadgate proto)
         {
-            var proto = new BlueskyThreadgate
+            proto = new BlueskyThreadgate
             {
                 HiddenReplies = threadGate.HiddenReplies?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
                 AllowlistedOnly = threadGate.Allow != null,
@@ -2298,9 +2298,30 @@ namespace AppViewLite
             registerForNotificationsCache.Add(user);
         }
 
+        public bool HasRecentNotification(Plc destination, NotificationKind kind, Plc actor, Tid rkey, ApproximateDateTime32 minDate)
+        {
+            foreach (var chunk in GetNotificationTable(IsDarkNotification(kind)).GetValuesChunked(destination, new Notification(minDate.AddTicks(-1), default, default, default)))
+            {
+                foreach (var notif in chunk)
+                {
+                    if (notif.Actor == actor && notif.Kind == kind && notif.RKey == rkey)
+                        return true;
+                }
+            }
+            return false;
+        }
+
         public bool IsRegisteredForNotifications(Plc user)
         {
             return registerForNotificationsCache.Contains(user);
+        }
+        public void AddNotificationDateInvariant(Plc destination, NotificationKind kind, Plc actor, Tid rkey, RequestContext ctx, DateTime date, DateTime minDate)
+        {
+            if (!IsRegisteredForNotifications(destination)) return;
+
+            if (date < minDate) minDate = date;
+            if (HasRecentNotification(destination, kind, actor, rkey, (ApproximateDateTime32)minDate)) return;
+            AddNotification(destination, kind, actor, rkey, ctx, date); 
         }
         public void AddNotification(PostId destination, NotificationKind kind, Plc actor, RequestContext ctx, DateTime date)
         {

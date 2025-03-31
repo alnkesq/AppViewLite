@@ -22,7 +22,7 @@ namespace AppViewLite.Numerics
         }
 
 
-        public readonly ApproximateDateTime32 AddTicks(uint ticks) => new ApproximateDateTime32(Value + ticks);
+        public readonly ApproximateDateTime32 AddTicks(int ticks) => new ApproximateDateTime32((uint)((long)Value + ticks));
 
         public readonly static ApproximateDateTime32 MinValue = new ApproximateDateTime32(uint.MinValue);
         public readonly static ApproximateDateTime32 MaxValue = new ApproximateDateTime32(uint.MaxValue);

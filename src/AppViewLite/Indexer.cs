@@ -381,7 +381,17 @@ namespace AppViewLite
                         if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
                         if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
                         if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
-                        relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate, ctx));
+                        relationships.Threadgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializeThreadgateToBytes(threadGate, ctx, out var threadgateProto));
+                        if (threadgateProto.HiddenReplies != null)
+                        {
+                            foreach (var hiddenReply in threadgateProto.HiddenReplies)
+                            {
+                                var authorPlc = new Plc(hiddenReply.Plc);
+                                var postRkey = new Tid(hiddenReply.Tid);
+                                var now = threadGate.CreatedAt ?? postRkey.Date;
+                                relationships.AddNotificationDateInvariant(authorPlc, NotificationKind.HidYourReply, commitPlc, postRkey, ctx, now, postRkey.Date < now ? postRkey.Date : now);
+                            }
+                        }
                     }
                     else if (record is Postgate postgate)
                     {

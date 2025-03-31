@@ -11,7 +11,8 @@ namespace AppViewLite.Models
         public bool Hidden;
         public Notification NotificationCore;
         public BlueskyFeedGenerator? Feed;
-        public NotificationCoalesceKey CoalesceKey => new(Post?.PostId ?? default, Kind, Feed?.RKeyHash ?? default);
+        public BlueskyList? List;
+        public NotificationCoalesceKey CoalesceKey => new(Post?.PostId ?? default, Kind, Feed?.RKeyHash ?? default, List?.ListId.RelationshipRKey ?? default);
     }
 }
 

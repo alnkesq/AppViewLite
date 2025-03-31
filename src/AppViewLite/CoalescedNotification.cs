@@ -1,4 +1,5 @@
 using AppViewLite.Models;
+using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,8 +18,9 @@ namespace AppViewLite
         public bool IsNew;
         public BlueskyFeedGenerator? Feed;
         public RelationshipHashedRKey FeedRKeyHash;
+        public Tid ListRKey;
 
-        public NotificationCoalesceKey CoalesceKey => new(PostId, Kind, FeedRKeyHash);
+        public NotificationCoalesceKey CoalesceKey => new(PostId, Kind, FeedRKeyHash, ListRKey);
 
         public string KindDisplayText
         {
@@ -35,6 +37,11 @@ namespace AppViewLite
                     NotificationKind.MentionedYou => "mentioned you",
                     NotificationKind.RepliedToYourPost => "replied to your post",
                     NotificationKind.RepliedToYourThread => "replied to your thread",
+                    NotificationKind.BlockedYou => "blocked you",
+                    NotificationKind.UnfollowedYou => "unfollowed you",
+                    NotificationKind.AddedYouToAList => "added you to a list",
+                    NotificationKind.HidYourReply => "hid your reply",
+                    NotificationKind.DislikesYourQuote => "dislikes your quote post",
                     _ => throw new Exception()
                 };
             }
@@ -42,6 +49,6 @@ namespace AppViewLite
 
     }
 
-    public record struct NotificationCoalesceKey(PostId PostId, NotificationKind Kind, RelationshipHashedRKey FeedRKeyHash);
+    public record struct NotificationCoalesceKey(PostId PostId, NotificationKind Kind, RelationshipHashedRKey FeedRKeyHash, Tid ListRKey);
 }
 

@@ -2370,21 +2370,28 @@ namespace AppViewLite
         {
             (PostId post, Plc actor) = notification.Kind switch
             {
-                NotificationKind.FollowedYou or NotificationKind.FollowedYouBack => (default, notification.Actor),
-                NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost => (new PostId(destination, notification.RKey), notification.Actor),
+                NotificationKind.FollowedYou or NotificationKind.FollowedYouBack or NotificationKind.UnfollowedYou or NotificationKind.BlockedYou => (default, notification.Actor),
+                NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost or NotificationKind.DislikesYourQuote or NotificationKind.HidYourReply => (new PostId(destination, notification.RKey), notification.Actor),
                 NotificationKind.RepliedToYourPost or NotificationKind.RepliedToYourThread or NotificationKind.QuotedYourPost => (new PostId(notification.Actor, notification.RKey), notification.Actor),
                 _ => default
             };
 
             BlueskyFeedGenerator? feed = null;
+            BlueskyList? list = null;
             if (notification.Kind == NotificationKind.LikedYourFeed)
             {
                 feed = TryGetFeedGenerator(new RelationshipHashedRKey(destination, (ulong)notification.RKey.TidValue), ctx);
                 actor = notification.Actor;
                 post = default;
             }
+            if (notification.Kind == NotificationKind.AddedYouToAList)
+            {
+                list = GetList(new Relationship(notification.Actor, notification.RKey), ctx: ctx);
+                actor = notification.Actor;
+                post = default;
+            }
 
-            if (post == default && actor == default && feed == null) return null;
+            if (post == default && actor == default && feed == null && list == null) return null;
 
 
             return new BlueskyNotification
@@ -2396,6 +2403,7 @@ namespace AppViewLite
                 Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
                 Feed = feed,
+                List = list,
             };
 
 

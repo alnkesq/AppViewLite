@@ -1830,8 +1830,12 @@ namespace AppViewLite
 
             var notifications = WithRelationshipsLock(rels => rels.GetNotificationsForUser(user, ctx, dark), ctx);
             var nonHiddenNotifications = notifications.NewNotifications.Concat(notifications.OldNotifications).Where(x => !x.Hidden).ToArray();
-            await EnrichAsync(nonHiddenNotifications.Select(x => x.Post).WhereNonNull().ToArray(), ctx);
-            await EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).WhereNonNull().ToArray(), ctx);
+            await Task.WhenAll([
+                EnrichAsync(nonHiddenNotifications.Select(x => x.Post).WhereNonNull().ToArray(), ctx),
+                EnrichAsync(nonHiddenNotifications.Select(x => x.Profile).WhereNonNull().ToArray(), ctx),
+                EnrichAsync(nonHiddenNotifications.Select(x => x.List).WhereNonNull().ToArray(), ctx),
+                EnrichAsync(nonHiddenNotifications.Select(x => x.Feed).WhereNonNull().ToArray(), ctx)
+            ]);
             return (notifications.NewNotifications, notifications.OldNotifications, notifications.NewestNotification);
         }
 
@@ -1865,6 +1869,7 @@ namespace AppViewLite
                         PostId = key.PostId,
                         Kind = key.Kind,
                         FeedRKeyHash = key.FeedRKeyHash,
+                        ListRKey = key.ListRKey,
 
                         LatestDate = raw.EventDate,
                         Post = raw.Post,

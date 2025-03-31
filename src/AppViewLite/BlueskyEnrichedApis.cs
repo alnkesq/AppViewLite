@@ -1949,7 +1949,7 @@ namespace AppViewLite
 
 
 
-        record struct ScoredBlueskyPostWithSource(ScoredBlueskyPost Post, Queue<ScoredBlueskyPost> Source);
+        record struct ScoredBlueskyPostWithSource(ScoredBlueskyPost Post, QueueWithOwner<ScoredBlueskyPost> Source);
 
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
@@ -2030,7 +2030,7 @@ namespace AppViewLite
                         return user.Posts
                             .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date, userScore)))
                             .OrderByDescending(x => x.PerUserScore)
-                            .ToQueue();
+                            .ToQueueWithOwner(user.Plc);
                     })
                 .Where(x => x.Count != 0)
                 .ToList();
@@ -2042,7 +2042,7 @@ namespace AppViewLite
                         return user.Reposts
                                 .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date, userScore)))
                                 .OrderByDescending(x => x.PerUserScore)
-                                .ToQueue();
+                                .ToQueueWithOwner(user.Plc);
                     })
                 .Where(x => x.Count != 0)
                 .ToList();
@@ -2059,7 +2059,7 @@ namespace AppViewLite
                 var followedPostsToEnqueue = new List<ScoredBlueskyPostWithSource>();
                 var nonFollowedRepostsToEnqueue = new List<ScoredBlueskyPostWithSource>();
 
-                void SampleEachUser(IEnumerable<Queue<ScoredBlueskyPost>> users)
+                void SampleEachUser(IEnumerable<QueueWithOwner<ScoredBlueskyPost>> users)
                 {
                     foreach (var user in users)
                     {
@@ -2098,8 +2098,8 @@ namespace AppViewLite
                 {
                     extraIterations++;
 
-                    var usersDeservingFollowedPostResampling = new List<Queue<ScoredBlueskyPost>>();
-                    var usersDeservingNonFollowedPostResampling = new List<Queue<ScoredBlueskyPost>>();
+                    var usersDeservingFollowedPostResampling = new List<QueueWithOwner<ScoredBlueskyPost>>();
+                    var usersDeservingNonFollowedPostResampling = new List<QueueWithOwner<ScoredBlueskyPost>>();
 
                     WithRelationshipsLock(rels =>
                     {
@@ -2301,11 +2301,11 @@ namespace AppViewLite
                         {
                             foreach (var queue in usersDeservingFollowedPostResampling)
                             {
-                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().PostId.Author, addCredits: true);
+                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Owner, addCredits: true);
                             }
                             foreach (var queue in usersDeservingNonFollowedPostResampling)
                             {
-                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Dequeue().Repost.Actor, addCredits: true);
+                                ConsumeFollowingFeedCreditsMustHoldLock(ctx, queue.Owner, addCredits: true);
                             }
                         }
                         break;

@@ -29,6 +29,18 @@ namespace AppViewLite
         }
 
         public static Queue<T> ToQueue<T>(this IEnumerable<T> items) => new(items);
+        public static QueueWithOwner<T> ToQueueWithOwner<T>(this IEnumerable<T> items, Plc owner)
+        {
+            var q = new QueueWithOwner<T>()
+            {
+                Owner = owner
+            };
+            foreach (var item in items)
+            {
+                q.Enqueue(item);
+            }
+            return q;
+        }
         public static void EnqueueRange<T>(this Queue<T> queue, IEnumerable<T> items)
         {
             foreach (var item in items)

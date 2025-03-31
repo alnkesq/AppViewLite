@@ -2563,22 +2563,32 @@ namespace AppViewLite
 
         public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default)
         {
-            RepositoryImportEntry? previousImport = null;
-            bool isRegisteredUser = false;
-            string? did = null;
-            WithRelationshipsLock(rels =>
+            async Task<RepositoryImportEntry?> CoreAsync()
             {
-                did = rels.GetDid(plc);
-                isRegisteredUser = rels.IsRegisteredForNotifications(plc);
-                previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
-            }, ctx);
+                RepositoryImportEntry? previousImport = null;
+                bool isRegisteredUser = false;
+                string? did = null;
+                WithRelationshipsLock(rels =>
+                {
+                    did = rels.GetDid(plc);
+                    isRegisteredUser = rels.IsRegisteredForNotifications(plc);
+                    previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
+                }, ctx);
 
-            if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
-                return previousImport;
+                if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
+                    return previousImport;
 
-            var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, RequestContext.CreateForTaskDictionary(ctx)));
-            ctx.BumpMinimumVersion(result.MinVersion);
-            return result;
+                var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, RequestContext.CreateForTaskDictionary(ctx)));
+                ctx.BumpMinimumVersion(result.MinVersion);
+                return result;
+            }
+
+            if (!ctx.IsUrgent)
+            {
+                return await Indexer.RunOnFirehoseProcessingThreadpool(CoreAsync);
+            }
+            return await CoreAsync();
+            
         }
 
         private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx)

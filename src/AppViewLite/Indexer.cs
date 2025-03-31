@@ -166,7 +166,6 @@ namespace AppViewLite
         public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
-
             var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
@@ -375,7 +374,7 @@ namespace AppViewLite
 
                     if (!isRepositoryImport && !relationships.HaveCollectionForUser(commitPlc, RepositoryImportKind.ListEntries))
                     {
-                        Task.Run(() => Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx));
+                        Indexer.RunOnFirehoseProcessingThreadpool(() => Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx)).FireAndForget();
                     }
                 }
                 else if (record is Threadgate threadGate)
@@ -463,7 +462,7 @@ namespace AppViewLite
 
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {
-
+            if (!OnFirehoseEventBeginProcessing()) return;
             VerifyValidForCurrentRelay!(e.Record.Did!.ToString());
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
@@ -474,6 +473,63 @@ namespace AppViewLite
             {
                 OnRecordDeleted(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, ignoreIfDisposing: true);
             }
+        }
+
+        private bool OnFirehoseEventBeginProcessing()
+        {
+            if (Apis.DangerousUnlockedRelationships.ShutdownRequested.IsCancellationRequested) return false;
+
+            BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
+            var received = Interlocked.Increment(ref RecordsReceived);
+            var processed = Interlocked.Read(in RecordsProcessed);
+
+            var lagBehind = received - processed;
+            BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries.Set((int)lagBehind);
+            if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
+            {
+
+                Interlocked.Decrement(ref RecordsReceived); // we're about to fatally crash, or to throw. Task will not actually be enqueued, so undo the increment.
+                if (LagBehindErrorDropEvents)
+                {
+                    lock (FirehoseLagBehindWarnLock)
+                    {
+                        if (LastDropEventsWarningPrint == null || LastDropEventsWarningPrint.ElapsedMilliseconds > 5000)
+                        {
+                            Log("Unable to process the firehose quickly enough, dropping events. Lagging behind: " + lagBehind);
+                            LastDropEventsWarningPrint ??= Stopwatch.StartNew();
+                            LastDropEventsWarningPrint.Restart();
+                        }
+
+                        
+                    }
+
+                    return false;
+                }
+                else
+                {
+                    Apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), RequestContext.CreateForFirehose("FlushBeforeLagBehindExit"));
+                    BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
+                }
+            }
+
+
+            if ((RecordsReceived % 30) == 0)
+            {
+                if (lagBehind >= LagBehindWarnThreshold)
+                {
+                    lock (FirehoseLagBehindWarnLock)
+                    {
+                        if (LastLagBehindWarningPrint == null || LastLagBehindWarningPrint.ElapsedMilliseconds > LagBehindWarnIntervalMs)
+                        {
+                            LogInfo($"Struggling to process the firehose quickly enough, lagging behind: {lagBehind} ({processed}/{received}, {(100.0 * processed / received):0.0}%)");
+                            LastLagBehindWarningPrint ??= Stopwatch.StartNew();
+                            LastLagBehindWarningPrint.Restart();
+                        }
+                    }
+                    
+                }
+            }
+            return true;
         }
 
         public static string GetMessageRKey(SubscribeRepoMessage message, string prefix)
@@ -604,6 +660,7 @@ namespace AppViewLite
 
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
         {
+            if (!OnFirehoseEventBeginProcessing()) return;
             var record = e.Message.Record;
             var commitAuthor = e.Message.Commit?.Repo!.Handler;
             if (commitAuthor == null) return;
@@ -1124,56 +1181,7 @@ namespace AppViewLite
         public static void InitializeFirehoseThreadpool(BlueskyEnrichedApis apis)
         {
             var ct = apis.DangerousUnlockedRelationships.ShutdownRequestedCts.Token;
-            var scheduler = new DedicatedThreadPoolScheduler(Environment.ProcessorCount, "Firehose processing thread", ct);
-            scheduler.BeforeTaskEnqueued += () =>
-            {
-                BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
-                var received = Interlocked.Increment(ref RecordsReceived);
-                var processed = Interlocked.Read(in RecordsProcessed);
-
-                var lagBehind = received - processed;
-                BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries.Set((int)lagBehind);
-                if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
-                {
-
-                    Interlocked.Decrement(ref RecordsReceived); // we're about to fatally crash, or to throw. Task will not actually be enqueued, so undo the increment.
-                    var errorText = "Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind;
-                    if (LagBehindErrorDropEvents)
-                    {
-                        lock (FirehoseLagBehindWarnLock)
-                        {
-                            if (LastDropEventsWarningPrint != null && LastDropEventsWarningPrint.ElapsedMilliseconds < 5000)
-                                throw new UnexpectedFirehoseDataException(errorText);
-                            LastDropEventsWarningPrint ??= Stopwatch.StartNew();
-                            LastDropEventsWarningPrint.Restart();
-                        }
-
-                        throw new Exception(errorText);
-                    }
-                    else
-                    {
-                        apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), RequestContext.CreateForFirehose("FlushBeforeLagBehindExit"));
-                        BlueskyRelationships.ThrowFatalError(errorText);
-                    }
-                }
-
-
-                if ((RecordsReceived % 30) == 0)
-                {
-                    if (lagBehind >= LagBehindWarnThreshold)
-                    {
-                        lock (FirehoseLagBehindWarnLock)
-                        {
-                            if (LastLagBehindWarningPrint != null && LastLagBehindWarningPrint.ElapsedMilliseconds < LagBehindWarnIntervalMs)
-                                return;
-                            LastLagBehindWarningPrint ??= Stopwatch.StartNew();
-                            LastLagBehindWarningPrint.Restart();
-                        }
-                        LogInfo($"Struggling to process the firehose quickly enough, lagging behind: {lagBehind} ({processed}/{received}, {(100.0 * processed / received):0.0}%)");
-                    }
-                }
-
-            };
+            var scheduler = new DedicatedThreadPoolScheduler(Environment.ProcessorCount, "Firehose processing thread");
             scheduler.AfterTaskProcessed += () =>
             {
                 BlueskyRelationships.FirehoseEventProcessedTimeSeries.Increment();
@@ -1182,6 +1190,18 @@ namespace AppViewLite
             FirehoseThreadpoolTaskFactory = new TaskFactory(scheduler);
         }
 
+        public static async Task<T> RunOnFirehoseProcessingThreadpool<T>(Func<Task<T>> func)
+        {
+            if (TaskScheduler.Current == Indexer.FirehoseThreadpoolTaskFactory!.Scheduler)
+            {
+                await Task.Yield();
+                return await func();
+            }
+            else
+            {
+                return await Indexer.FirehoseThreadpoolTaskFactory.StartNew(() => func()).Unwrap();
+            }
+        }
     }
     internal record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
 }

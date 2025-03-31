@@ -8,22 +8,16 @@ namespace AppViewLite
 {
     public sealed class DedicatedThreadPoolScheduler : TaskScheduler, IDisposable
     {
-        public static TaskFactory? DefaultTaskFactory { get; set; }
 
         private readonly BlockingCollection<Task> tasks = new();
         private readonly List<Thread> threads;
-        private readonly CancellationTokenSource cts = new();
 
         protected override IEnumerable<Task>? GetScheduledTasks() => tasks.ToArray();
 
-        public event Action? BeforeTaskEnqueued;
         public event Action? AfterTaskProcessed;
-        private readonly CancellationToken CancellationToken;
 
         protected override void QueueTask(Task task)
         {
-            CancellationToken.ThrowIfCancellationRequested();
-            BeforeTaskEnqueued?.Invoke();
             tasks.Add(task);
         }
 
@@ -31,7 +25,6 @@ namespace AppViewLite
 
         public void Dispose()
         {
-            cts.Cancel();
             tasks.CompleteAdding();
             foreach (var thread in threads)
             {
@@ -40,9 +33,8 @@ namespace AppViewLite
         }
 
 
-        public DedicatedThreadPoolScheduler(int threadCount, string? name, CancellationToken ct)
+        public DedicatedThreadPoolScheduler(int threadCount, string? name)
         {
-            CancellationToken = ct;
             threads = new List<Thread>(threadCount);
             for (int i = 0; i < threadCount; i++)
             {
@@ -60,9 +52,8 @@ namespace AppViewLite
         private void ThreadWorker()
         {
             using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
-            foreach (var task in tasks.GetConsumingEnumerable(cts.Token))
+            foreach (var task in tasks.GetConsumingEnumerable())
             {
-                if (CancellationToken.IsCancellationRequested) return;
                 TryExecuteTask(task);
                 AfterTaskProcessed?.Invoke();
             }

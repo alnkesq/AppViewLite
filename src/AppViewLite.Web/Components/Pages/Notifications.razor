@@ -10,7 +10,7 @@
     private CoalescedNotification[] oldNotifications = [];
     [Parameter][SupplyParameterFromQuery] public int? Dark { get; set; }
     private Notification newestNotification;
-    private string pageTitle;
+    private string? pageTitle;
     protected override async Task OnParametersSetAsync()
     {
         var dark = Dark == 1;

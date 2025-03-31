@@ -47,6 +47,14 @@ namespace AppViewLite
                         ExternalUrl = url.AbsoluteUri,
                         ExternalThumbnailUrl = (imageUrl != null ? new Uri(url, imageUrl) : null)?.AbsoluteUri,
                     };
+
+                    if (url.HasHostSuffix("tumblr.com"))
+                    {
+                        // Title is just the author's display name
+                        result.ExternalTitle = result.ExternalDescription;
+                        result.ExternalDescription = null;
+                    }
+
                     if (result.ExternalDescription == result.ExternalTitle)
                         result.ExternalDescription = null;
                     return result;

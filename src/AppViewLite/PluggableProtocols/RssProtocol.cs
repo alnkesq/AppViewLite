@@ -1112,13 +1112,21 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override bool RequiresLateOpenGraphData(BlueskyPost post)
         {
+            var data = post.Data;
+            if (data == null) return false;
+            if (data.ExternalUrl == null) return false;
+
             if (post.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
-            {
-                var data = post.Data;
-                if (data == null) return false;
-                if (data.ExternalUrl == null) return false;
+            {    
                 // Reddit RSS doesn't provide description. However, keep RSS thumbnail as a fallback.
                 return true;
+            }
+            if (new Uri(data.ExternalUrl).HasHostSuffix("tumblr.com"))
+            {
+                if (DidToUrl(post.Did).HasHostSuffix("tumblr.com"))
+                {
+                    return true;
+                }
             }
             return base.RequiresLateOpenGraphData(post);
         }

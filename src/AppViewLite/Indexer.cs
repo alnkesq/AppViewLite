@@ -163,7 +163,7 @@ namespace AppViewLite
 
 
 
-        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null)
+        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
@@ -372,6 +372,11 @@ namespace AppViewLite
                     relationships.ListItems.Add(listId, entry);
                     relationships.ListMemberships.Add(entry.Member, new ListMembership(commitPlc, listRkey, listItemRkey));
                     relationships.AddNotification(entry.Member, NotificationKind.AddedYouToAList, commitPlc, listRkey, ctx, entry.ListItemRKey.Date);
+
+                    if (!isRepositoryImport && !relationships.HaveCollectionForUser(commitPlc, RepositoryImportKind.ListEntries))
+                    {
+                        Task.Run(() => Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx));
+                    }
                 }
                 else if (record is Threadgate threadGate)
                 {
@@ -708,7 +713,7 @@ namespace AppViewLite
                 try
                 {
 
-                    TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record), record.Did);
+                    TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record, isRepositoryImport: true), record.Did);
                 }
                 finally
                 {
@@ -803,7 +808,7 @@ namespace AppViewLite
                         await Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.WaitAsync(ct);
                         try
                         {
-                            OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value);
+                            OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value, isRepositoryImport: true);
                         }
                         finally
                         {

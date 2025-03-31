@@ -3977,7 +3977,7 @@ namespace AppViewLite
         {
             if (WithRelationshipsLock(rels =>
             {
-                return rels.GetRepositoryImports(plc).Any(x => RepositoryImportKindIncludesCollection(x.Kind, kind));
+                return rels.HaveCollectionForUser(plc, kind);
             }, ctx))
                 return null;
             return await ImportCarIncrementalAsync(plc, kind, ctx, ignoreIfPrevious: x => true);

@@ -2463,6 +2463,11 @@ namespace AppViewLite
 
         }
 
+        internal bool HaveCollectionForUser(Plc plc, RepositoryImportKind kind)
+        {
+            return GetRepositoryImports(plc).Any(x => BlueskyEnrichedApis.RepositoryImportKindIncludesCollection(x.Kind, kind));
+        }
+
         internal IEnumerable<(PostId PostId, Plc InReplyTo)> EnumerateRecentPosts(Plc author, Tid minDateExclusive, Tid? maxDateExclusive)
         {
             return this.UserToRecentPosts.GetValuesSortedDescending(author, new RecentPost(minDateExclusive, default), maxDateExclusive != null ? new RecentPost(maxDateExclusive.Value, default) : null).Select(x => (new PostId(author, x.RKey), x.InReplyTo));

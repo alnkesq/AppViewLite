@@ -4182,6 +4182,14 @@ namespace AppViewLite
                     return await ResolveHandleAsync(segments[1], ctx);
                 return null;
             }
+            // clearsky links
+            if (url.Host == "clearsky.app")
+            {
+                var segments = url.GetSegments();
+                if (segments.Length != 0)
+                    return await ResolveHandleAsync(segments[0], ctx);
+                return null;
+            }
 
 
             // recursive appviewlite links
@@ -4305,6 +4313,10 @@ namespace AppViewLite
             // bsky.app links
             if (url.Host == "bsky.app")
                 return url.PathAndQuery;
+
+            // clearsky links
+            if (url.Host == "clearsky.app" && url.GetSegments().FirstOrDefault() is { } clearskyHandle)
+                return clearskyHandle;
 
             // recursive appviewlite links
             if (url.Host == baseUrl?.Host)

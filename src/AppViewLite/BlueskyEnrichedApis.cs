@@ -1693,8 +1693,8 @@ namespace AppViewLite
             Task? hasListsOrFeedsTask = null;
             if (profile.Profile.PluggableProtocol == null)
             {
-                var fetchListsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.ListMetadata, ctx, x => true);
-                var fetchFeedGeneratorsTask = ImportCarIncrementalAsync(profile.Profile.Plc, RepositoryImportKind.FeedGenerators, ctx, x => true);
+                var fetchListsTask = EnsureHaveCollectionAsync(profile.Profile.Plc, RepositoryImportKind.ListMetadata, ctx);
+                var fetchFeedGeneratorsTask = EnsureHaveCollectionAsync(profile.Profile.Plc, RepositoryImportKind.FeedGenerators, ctx);
                 fetchListsTask.GetAwaiter().OnCompleted(() =>
                 {
                     if (fetchListsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
@@ -3891,9 +3891,9 @@ namespace AppViewLite
         private async Task ImportLowPriorityCollectionsForRegisteredUserAsync(AppViewLiteUserContext userContext, RequestContext ctx)
         {
 
-            ImportCarIncrementalAsync(userContext.Plc, Models.RepositoryImportKind.Blocks, ctx, ignoreIfPrevious: x => true).FireAndForget();
+            EnsureHaveCollectionAsync(userContext.Plc, Models.RepositoryImportKind.Blocks, ctx).FireAndForget();
 
-            await ImportCarIncrementalAsync(userContext.Plc, Models.RepositoryImportKind.BlocklistSubscriptions, ctx, ignoreIfPrevious: x => true);
+            await EnsureHaveCollectionAsync(userContext.Plc, Models.RepositoryImportKind.BlocklistSubscriptions, ctx);
             var blocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(userContext.Plc), ctx)
                 .Select(x => x.Actor)
                 .Distinct();
@@ -3902,14 +3902,31 @@ namespace AppViewLite
             {
                 try
                 {
-                    await ImportCarIncrementalAsync(blocklistAuthor, RepositoryImportKind.ListMetadata, ctx, x => true);
-                    await ImportCarIncrementalAsync(blocklistAuthor, RepositoryImportKind.ListEntries, ctx, x => true);
+                    await EnsureHaveCollectionAsync(blocklistAuthor, RepositoryImportKind.ListMetadata, ctx);
+                    await EnsureHaveCollectionAsync(blocklistAuthor, RepositoryImportKind.ListEntries, ctx);
                 }
                 catch (Exception ex)
                 {
                     LogNonCriticalException("Could not import blocklist used by registed user.", ex);
                 }
             }
+        }
+
+
+        public static bool RepositoryImportKindIncludesCollection(RepositoryImportKind importKind, RepositoryImportKind collection)
+        {
+            if (importKind == RepositoryImportKind.CAR) return true;
+            return importKind == collection;
+        }
+
+        public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx)
+        {
+            if (WithRelationshipsLock(rels =>
+            {
+                return rels.GetRepositoryImports(plc).Any(x => RepositoryImportKindIncludesCollection(x.Kind, kind));
+            }, ctx))
+                return null;
+            return await ImportCarIncrementalAsync(plc, kind, ctx, ignoreIfPrevious: x => true);
         }
 
         public static string? TryGetSessionIdFromCookie(string? cookie, out string? unverifiedDid)

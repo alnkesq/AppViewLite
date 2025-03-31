@@ -1185,6 +1185,9 @@ function onInitialLoad() {
                 closeCurrentMenu();
                 return;
             }
+            if (currentlyOpenMenu.contains(target)) { 
+                closeCurrentMenu();
+            }
         }
 
         if (fastNavigateIfLink(e))

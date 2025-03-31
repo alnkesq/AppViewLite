@@ -1405,8 +1405,72 @@ namespace AppViewLite
             }
 
             thread.AddRange(otherReplyGroups.OrderByDescending(x => x[0].LikeCount).ThenByDescending(x => x[0].Date).SelectMany(x => x));
+
+
             await EnrichAsync(thread.ToArray(), ctx, focalPostAuthor: focalPostId.Author);
+
+            Task.Run(() =>
+            {
+                HashSet<Plc> wantFollowersFor = new();
+                if (focalPost?.RootPostId is { } rootPostId)
+                {
+                    WithRelationshipsLock(rels =>
+                    {
+                        var threadgate = rels.TryGetThreadgate(rootPostId);
+                        if (threadgate != null && threadgate.AllowlistedOnly)
+                        {
+                            if (threadgate.AllowFollowing)
+                            {
+                                wantFollowersFor.Add(rootPostId.Author);
+                            }
+                            if (threadgate.AllowFollowers)
+                            {
+                                wantFollowersFor.AddRange(thread.Select(x => x.AuthorId).Where(x => x != rootPostId.Author));
+                            }
+                        }
+                    }, ctx);
+                }
+                var nonUrgentCtx = RequestContext.ToNonUrgent(ctx);
+
+                EnsureHaveCollectionsAsync(wantFollowersFor, RepositoryImportKind.Follows, nonUrgentCtx).FireAndForget();
+                EnsureHaveBlocksForPostsAsync(thread, nonUrgentCtx).FireAndForget();
+
+            }).FireAndForget(); // It would take too much time to wait
+
             return new(thread.ToArray(), nextContinuation);
+        }
+
+        public Task EnsureHaveBlocksForPostsAsync(List<BlueskyPost> thread, RequestContext ctx)
+        {
+            var users = thread.Select(x => x.AuthorId).Concat(thread.Where(x => x.QuotedPost != null).Select(x => x.QuotedPost!.AuthorId)).ToArray();
+            return EnsureHaveBlocksForUsersAsync(users, ctx);
+        }
+        public async Task EnsureHaveBlocksForUsersAsync(Plc[] users, RequestContext ctx)
+        {
+            var tasks = users.Distinct().Select(x => EnsureHaveBlocksForUserAsync(x, ctx)).ToArray();
+            await Task.WhenAll(tasks);
+        }
+        public async Task EnsureHaveBlocksForUserAsync(Plc user, RequestContext ctx)
+        {
+            var subscriptionsTasks = EnsureHaveCollectionAsync(user, RepositoryImportKind.BlocklistSubscriptions, ctx);
+            var blockTask = EnsureHaveCollectionAsync(user, RepositoryImportKind.Blocks, ctx);
+            await subscriptionsTasks;
+
+            var subscribedBlocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(user), ctx)
+                .Select(x => x.Actor)
+                .Distinct();
+
+            var tasksToAwait = new List<Task>()
+            {
+                blockTask,
+            };
+            foreach (var blocklistAuthor in subscribedBlocklistAuthors)
+            {
+                tasksToAwait.Add(EnsureHaveCollectionAsync(blocklistAuthor, RepositoryImportKind.ListMetadata, ctx));
+                tasksToAwait.Add(EnsureHaveCollectionAsync(blocklistAuthor, RepositoryImportKind.ListEntries, ctx));
+            }
+
+            await Task.WhenAll(tasksToAwait);
         }
 
         public BlueskyPost GetSinglePost(string did, string rkey, RequestContext ctx)
@@ -1716,6 +1780,7 @@ namespace AppViewLite
             if (hasListsOrFeedsTask != null)
                 await hasListsOrFeedsTask;
             profile.RssFeedInfo = rssFeedInfo;
+            Task.Run(() => EnsureHaveBlocksForUserAsync(profile.Profile.Plc, RequestContext.ToNonUrgent(ctx))).FireAndForget();
             return profile;
         }
         public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)
@@ -3890,26 +3955,7 @@ namespace AppViewLite
 
         private async Task ImportLowPriorityCollectionsForRegisteredUserAsync(AppViewLiteUserContext userContext, RequestContext ctx)
         {
-
-            EnsureHaveCollectionAsync(userContext.Plc, Models.RepositoryImportKind.Blocks, ctx).FireAndForget();
-
-            await EnsureHaveCollectionAsync(userContext.Plc, Models.RepositoryImportKind.BlocklistSubscriptions, ctx);
-            var blocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(userContext.Plc), ctx)
-                .Select(x => x.Actor)
-                .Distinct();
-
-            foreach (var blocklistAuthor in blocklistAuthors)
-            {
-                try
-                {
-                    await EnsureHaveCollectionAsync(blocklistAuthor, RepositoryImportKind.ListMetadata, ctx);
-                    await EnsureHaveCollectionAsync(blocklistAuthor, RepositoryImportKind.ListEntries, ctx);
-                }
-                catch (Exception ex)
-                {
-                    LogNonCriticalException("Could not import blocklist used by registed user.", ex);
-                }
-            }
+            await EnsureHaveBlocksForUserAsync(userContext.Plc, ctx);
         }
 
 
@@ -3919,6 +3965,11 @@ namespace AppViewLite
             return importKind == collection;
         }
 
+        public Task EnsureHaveCollectionsAsync(IEnumerable<Plc> plcs, RepositoryImportKind kind, RequestContext ctx)
+        {
+            var tasks = plcs.Distinct().Select(x => EnsureHaveCollectionAsync(x, kind, ctx));
+            return Task.WhenAll(tasks);
+        }
         public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx)
         {
             if (WithRelationshipsLock(rels =>

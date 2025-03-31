@@ -2178,9 +2178,9 @@ namespace AppViewLite
             };
             return SerializeProto(proto, x => x.Dummy = true);
         }
-        internal ReadOnlySpan<byte> SerializePostgateToBytes(Postgate postgate, RequestContext ctx)
+        internal ReadOnlySpan<byte> SerializePostgateToBytes(Postgate postgate, RequestContext ctx, out BlueskyPostgate proto)
         {
-            var proto = new BlueskyPostgate
+            proto = new BlueskyPostgate
             {
                 DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
                 DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false

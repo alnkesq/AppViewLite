@@ -386,10 +386,10 @@ namespace AppViewLite
                         {
                             foreach (var hiddenReply in threadgateProto.HiddenReplies)
                             {
-                                var authorPlc = new Plc(hiddenReply.Plc);
-                                var postRkey = new Tid(hiddenReply.Tid);
-                                var now = threadGate.CreatedAt ?? postRkey.Date;
-                                relationships.AddNotificationDateInvariant(authorPlc, NotificationKind.HidYourReply, commitPlc, postRkey, ctx, now, postRkey.Date < now ? postRkey.Date : now);
+                                var replyId = hiddenReply.PostId;
+                                var replyRkey = replyId.PostRKey;
+                                var now = threadGate.CreatedAt ?? replyRkey.Date;
+                                relationships.AddNotificationDateInvariant(replyId.Author, NotificationKind.HidYourReply, commitPlc, replyRkey, ctx, now, replyRkey.Date < now ? replyRkey.Date : now);
                             }
                         }
                     }
@@ -399,7 +399,17 @@ namespace AppViewLite
                         if (postgate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
                         if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
                         if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
-                        relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate, ctx));
+                        relationships.Postgates.AddRange(new PostId(commitPlc, rkey), relationships.SerializePostgateToBytes(postgate, ctx, out var proto));
+                        if (proto.DetachedEmbeddings != null)
+                        {
+                            foreach (var detachedQuote in proto.DetachedEmbeddings)
+                            {
+                                var quoterId = detachedQuote.PostId;
+                                var quoterRkey = quoterId.PostRKey;
+                                var now = postgate.CreatedAt ?? quoterRkey.Date;
+                                relationships.AddNotificationDateInvariant(quoterId.Author, NotificationKind.DislikesYourQuote, commitPlc, quoterRkey, ctx, now, quoterRkey.Date < now ? quoterRkey.Date : now);
+                            }
+                        }
                     }
                     else if (record is Listblock listBlock)
                     {

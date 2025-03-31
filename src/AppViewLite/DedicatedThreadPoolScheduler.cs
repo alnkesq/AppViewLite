@@ -14,10 +14,12 @@ namespace AppViewLite
 
         protected override IEnumerable<Task>? GetScheduledTasks() => tasks.ToArray();
 
+        public event Action? BeforeTaskEnqueued;
         public event Action? AfterTaskProcessed;
 
         protected override void QueueTask(Task task)
         {
+            BeforeTaskEnqueued?.Invoke();
             tasks.Add(task);
         }
 

@@ -62,6 +62,18 @@ namespace AppViewLite
         {
             this.slots[CurrentSlotIndex] = value;
         }
+        public void SetMaximum(int lagBehind)
+        {
+            ref var slot = ref slots[CurrentSlotIndex];
+            while (true)
+            {
+                var prevMaximum = slot;
+                var updatedMaximum = Math.Max(lagBehind, prevMaximum);
+                if (Interlocked.CompareExchange(ref slot, updatedMaximum, prevMaximum) == updatedMaximum)
+                    return;
+            }
+        }
+
         public (float[] Buckets, TimeSpan ActualBucketDuration) GetChart(int bucketCount, TimeSpan scope, bool maximum = false)
         {
             var bucketDuration = new TimeSpan(scope.Ticks / bucketCount);

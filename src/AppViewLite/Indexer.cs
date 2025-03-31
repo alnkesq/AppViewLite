@@ -479,16 +479,12 @@ namespace AppViewLite
         {
             if (Apis.DangerousUnlockedRelationships.ShutdownRequested.IsCancellationRequested) return false;
 
-            BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
-            var received = Interlocked.Increment(ref RecordsReceived);
-            var processed = Interlocked.Read(in RecordsProcessed);
-
+            var received = Interlocked.Read(ref RecordsReceived);
+            var processed = Interlocked.Read(ref RecordsProcessed);
             var lagBehind = received - processed;
-            BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries.Set((int)lagBehind);
             if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
             {
 
-                Interlocked.Decrement(ref RecordsReceived); // we're about to fatally crash, or to throw. Task will not actually be enqueued, so undo the increment.
                 if (LagBehindErrorDropEvents)
                 {
                     lock (FirehoseLagBehindWarnLock)
@@ -1184,6 +1180,15 @@ namespace AppViewLite
         {
             var ct = apis.DangerousUnlockedRelationships.ShutdownRequestedCts.Token;
             var scheduler = new DedicatedThreadPoolScheduler(Environment.ProcessorCount, "Firehose processing thread");
+            scheduler.BeforeTaskEnqueued += () =>
+            {
+                BlueskyRelationships.FirehoseEventReceivedTimeSeries.Increment();
+                var received = Interlocked.Increment(ref RecordsReceived);
+                var processed = Interlocked.Read(in RecordsProcessed);
+
+                var lagBehind = received - processed;
+                BlueskyRelationships.FirehoseProcessingLagBehindTimeSeries.SetMaximum((int)lagBehind);
+            };
             scheduler.AfterTaskProcessed += () =>
             {
                 BlueskyRelationships.FirehoseEventProcessedTimeSeries.Increment();

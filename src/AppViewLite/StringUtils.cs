@@ -890,6 +890,13 @@ namespace AppViewLite
         }
 
         private static string UnescapeDataStringOrPlus(string s) => Uri.UnescapeDataString(s.Replace('+', ' '));
+
+        public static string? TrimTextWithEllipsis(string? text, int maxLength)
+        {
+            if (text == null) return text;
+            if (text.Length <= maxLength) return text;
+            return string.Concat(text.AsSpan(0, maxLength), "…");
+        }
     }
 }
 

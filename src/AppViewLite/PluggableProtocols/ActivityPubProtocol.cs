@@ -24,6 +24,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         private Stopwatch? RecentlyStoredProfilesLastReset;
         private HashSet<UInt128> RecentlyStoredProfiles = new();
         public static ActivityPubProtocol? Instance;
+        public ConcurrentFullEvictionSetCache<QualifiedPluggablePostId> RecentlyStoredPosts = new(50_000);
 
         public ActivityPubProtocol() : base(DidPrefix)
         {
@@ -69,13 +70,13 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         }
 
 
-        private void OnPostReceived(ActivityPubPostJson post, string relay)
+        public PostId? OnPostReceived(ActivityPubPostJson post, string relay)
         {
-            if (post.reblog != null) return;
+            if (post.reblog != null) return null;
 
             var author = ParseActivityPubUserId(post.account, post.url).Normalize();
-            if (author == default) return;
-            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(author.Instance)) return;
+            if (author == default) return null;
+            if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(author.Instance)) return null;
 
             var url = new Uri(post.url);
 
@@ -85,6 +86,8 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             var nonQualifiedPostId = NonQualifiedPluggablePostId.CreatePreferInt64(tid, postIdStr);
             var postId = new QualifiedPluggablePostId(did, nonQualifiedPostId);
+
+            if (!RecentlyStoredPosts.Add(postId)) return null;
 
             var card = post.card;
             var dom = StringUtils.ParseHtml(post.content).Body!;
@@ -117,9 +120,10 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(data.Text, ref data.Facets, customEmojis);
 
-            OnPostDiscovered(postId, null, null, data, ctx, shouldIndex: shouldIndex);
+            var corePostId = OnPostDiscovered(postId, null, null, data, ctx, shouldIndex: shouldIndex);
 
             OnProfileReceived(did, author, post.account!, url, ctx, shouldIndex, customEmojis);
+            return corePostId;
         }
 
 

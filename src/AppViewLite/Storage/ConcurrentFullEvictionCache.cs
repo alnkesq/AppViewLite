@@ -50,7 +50,7 @@ namespace AppViewLite
                 Add(key, value);
             }
         }
-        public void Add(TKey key, TValue value)
+        public bool Add(TKey key, TValue value)
         {
             var wasAdded = true;
             dict.AddOrUpdate(key, value, (key, old) =>
@@ -69,6 +69,7 @@ namespace AppViewLite
                     LastReset = Stopwatch.GetTimestamp();
                 }
             }
+            return wasAdded;
         }
 
         private long LastReset = Stopwatch.GetTimestamp();
@@ -77,6 +78,20 @@ namespace AppViewLite
         {
             if (dict.TryRemove(key, out _))
                 Interlocked.Decrement(ref approximateCount);
+        }
+    }
+
+    public class ConcurrentFullEvictionSetCache<TKey> where TKey : notnull
+    {
+        private ConcurrentFullEvictionCache<TKey, byte> inner;
+        public ConcurrentFullEvictionSetCache(int capacity)
+        {
+            this.inner = new(capacity);
+        }
+
+        public bool Add(TKey key)
+        {
+            return inner.Add(key, 0);
         }
     }
 }

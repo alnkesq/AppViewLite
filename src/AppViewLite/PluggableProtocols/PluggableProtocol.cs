@@ -30,7 +30,7 @@ namespace AppViewLite.PluggableProtocols
                 throw new ArgumentException();
         }
 
-        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, RequestContext ctx, bool shouldIndex = true, bool willOnlyRepost = false)
+        public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, RequestContext ctx, bool shouldIndex = true, bool willOnlyRepost = false, string[]? extraIndexableWords = null)
         {
             EnsureOwnDid(did);
             EnsureValidDid(did);
@@ -63,6 +63,13 @@ namespace AppViewLite.PluggableProtocols
                         rels.IndexProfileWord(word, plc);
                     }
 
+                    if (extraIndexableWords != null)
+                    {
+                        foreach (var word in extraIndexableWords)
+                        {
+                            rels.IndexProfileWord(word, plc);
+                        }
+                    }
                 }
                 if (willOnlyRepost)
                     rels.ReposterOnlyProfile.AddIfMissing(plc, 0);

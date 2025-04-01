@@ -160,7 +160,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.Description, ref proto.DescriptionFacets, customEmojis);
             StringUtils.GuessCustomEmojiFacetsNoAdjacent(proto.DisplayName, ref proto.DisplayNameFacets, customEmojis);
 
-            OnProfileDiscovered(did, proto, ctx, shouldIndex: shouldIndex);
+            OnProfileDiscovered(did, proto, ctx, shouldIndex: shouldIndex, extraIndexableWords: ["%activitypub-instance:" + author.Instance]);
 
         }
 

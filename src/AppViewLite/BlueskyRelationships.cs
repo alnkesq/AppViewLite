@@ -1320,16 +1320,11 @@ namespace AppViewLite
             return firstWord.Count != 0;
         }
 
-        [DoesNotReturn]
-        public static Exception ThrowBadEnumException<T>(T enumValue) where T : unmanaged
-        {
-            throw ThrowAssertionLite("Unexpected enum value for " + enumValue.GetType() + ": " + enumValue);
-        }
 
         [DoesNotReturn]
         public static Exception ThrowAssertionLite(string text)
         {
-            throw new Exception(text);
+            throw AssertionLiteException.Throw(text);
         }
 
         private static void PeelUntilNextCommonPost<T>((long TotalCount, List<DangerousHugeReadOnlyMemory<T>> Slices)[] words, ref T mostRecentCommonPost) where T : unmanaged, IComparable<T>
@@ -2226,10 +2221,10 @@ namespace AppViewLite
             if (protoMs.Length == 0)
             {
                 // Zero-length values are not supported in CombinedPersistentMultiDictionary
-                if (setDummyValue == null) throw BlueskyRelationships.ThrowAssertionLite("Cannot serialize zero-length-serializing protos unless setDummyValue is provided.");
+                if (setDummyValue == null) throw AssertionLiteException.Throw("Cannot serialize zero-length-serializing protos unless setDummyValue is provided.");
                 setDummyValue(proto);
                 ProtoBuf.Serializer.Serialize(protoMs, proto);
-                if (protoMs.Length == 0) BlueskyRelationships.ThrowAssertionLite("Proto is still zero bytes after setDummyValue");
+                if (protoMs.Length == 0) AssertionLiteException.Throw("Proto is still zero bytes after setDummyValue");
             }
             return protoMs.ToArray();
         }
@@ -2285,7 +2280,7 @@ namespace AppViewLite
             {
                 var members = memberChunk.AsSpan();
                 var index = members.BinarySearch(new ListEntry(member, default));
-                if (index >= 0) BlueskyRelationships.ThrowAssertionLite("Approximate item should not have been found.");
+                if (index >= 0) AssertionLiteException.Throw("Approximate item should not have been found.");
 
                 index = ~index;
 
@@ -2314,7 +2309,7 @@ namespace AppViewLite
                 if (ListBlockDeletions.ContainsKey(subscriptionId))
                     continue;
 
-                if (singleList.Count != 1) BlueskyRelationships.ThrowAssertionLite("GetSubscribedBlockLists deletion should've been SingleValue.");
+                if (singleList.Count != 1) AssertionLiteException.Throw("GetSubscribedBlockLists deletion should've been SingleValue.");
 
                 lists.Add(singleList[0]);
             }

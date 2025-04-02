@@ -62,14 +62,22 @@ namespace AppViewLite
 
         public static void LogNonCriticalException(Exception ex)
         {
+            if (IsAssertionLite(ex)) return; // Already logged at throw time
             if (IsLowImportanceException(ex))
                 LogInfo(ex.Message);
             else
                 Log(ex.ToString());
         }
 
+        private static bool IsAssertionLite(Exception ex)
+        {
+            return ex.AnyInnerException(x => x is AssertionLiteException);
+        }
+
         public static void LogNonCriticalException(string text, Exception ex)
         {
+            if (IsAssertionLite(ex)) return; // Already logged at throw time
+
             if (IsLowImportanceException(ex) || IsLowImportanceMessage(text))
                 LogInfo(text + ": " + ex.Message);
             else
@@ -85,10 +93,12 @@ namespace AppViewLite
 
         public static void LogLowImportanceException(Exception ex)
         {
+            if (IsAssertionLite(ex)) return; // Already logged at throw time
             LogInfo(ex.Message);
         }
         public static void LogLowImportanceException(string text, Exception ex)
         {
+            if (IsAssertionLite(ex)) return; // Already logged at throw time
             LogInfo(text + ": " + ex.Message);
         }
 

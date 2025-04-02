@@ -386,7 +386,7 @@ namespace AppViewLite.PluggableProtocols
             var hash = System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes(hashableData));
 
             var fakeMicros = hash % 0x80000;
-            if (fakeMicros >= 1_000_000) BlueskyRelationships.ThrowAssertionLite("fakeMicros is >= 1 million");
+            if (fakeMicros >= 1_000_000) AssertionLiteException.Throw("fakeMicros is >= 1 million");
             var fakeClock = hash >> 64 - 5;
             roundedDate = roundedDate.AddTicks((long)fakeMicros * TimeSpan.TicksPerMicrosecond);
             var tid = Tid.FromDateTime(roundedDate, (uint)fakeClock);

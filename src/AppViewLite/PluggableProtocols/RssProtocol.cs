@@ -785,7 +785,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             else
             {
-                if (customDomain) BlueskyRelationships.ThrowAssertionLite("GetTumblrPostId: custom domain but URL is " + url);
+                if (customDomain) AssertionLiteException.Throw("GetTumblrPostId: custom domain but URL is " + url);
                 tumblrBlogId = segments[0];
                 postId = long.Parse(segments[1]);
             }

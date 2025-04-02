@@ -198,7 +198,7 @@ namespace AppViewLite.Web
                     client.SendAsync("NotificationCount", notificationCount).FireAndForget();
                 },
             };
-            if (!connectionIdToCallback.TryAdd(connectionId, context)) BlueskyRelationships.ThrowAssertionLite("connectionIdToCallback already contain an item for this key.");
+            if (!connectionIdToCallback.TryAdd(connectionId, context)) AssertionLiteException.Throw("connectionIdToCallback already contain an item for this key.");
 
 
             if (userPlc != null)

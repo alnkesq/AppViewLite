@@ -397,6 +397,11 @@ namespace AppViewLite.Storage
             public ImmutableMultiDictionaryReader<TKey, TValue> Reader => ReaderHandle.Value;
 
             public SliceName SliceName => new SliceName(this.StartTime, this.EndTime, this.PruneId);
+
+            public override string ToString()
+            {
+                return SliceName + " (" + ToHumanBytes(SizeInBytes) + ")";
+            }
         }
 
         public void DisposeNoFlush()
@@ -530,7 +535,7 @@ namespace AppViewLite.Storage
             {
                 long totalBytes = 0;
                 long largestComponentBytes = 0;
-                for (int end = start + 1; end <= slices.Count; end++)
+                for (int end = start + 2; end <= slices.Count; end++)
                 {
                     var componentBytes = slices[end - 1].SizeInBytes;
                     largestComponentBytes = Math.Max(largestComponentBytes, componentBytes);
@@ -539,7 +544,7 @@ namespace AppViewLite.Storage
                     if (length < minLength) continue;
 
                     var ratioOfLargestComponent = ((double)largestComponentBytes / totalBytes);
-                    if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(totalBytes)) continue;
+                    if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(totalBytes, slices.Count)) continue;
                     var score = (1 - ratioOfLargestComponent) * Math.Log(length) / Math.Log(totalBytes);
                     candidates.Add(new CompactationCandidate(start, length, totalBytes, largestComponentBytes, score, ratioOfLargestComponent));
                 }
@@ -547,14 +552,18 @@ namespace AppViewLite.Storage
             return candidates;
         }
 
-        private static double GetMaximumRatioOfLargestSliceForCompactation(long totalSize)
+        private static double GetMaximumRatioOfLargestSliceForCompactation(long totalSize, int totalSliceCount)
         {
+            if (totalSliceCount >= 40)
+            {
+                return totalSliceCount * 0.01; // 40 slices -> 0.4; 100 slices: unacceptable, any ratio is ok (even 0.9999)
+            }
             return 1 / Math.Max(3, Math.Log10(totalSize) - 3);
         }
         private const int TargetSliceCount = 15;
         private const int MinimumCompactationCount = 6;
 
-        private void MaybeStartCompactation()
+        public void MaybeStartCompactation()
         {
             if (pendingCompactation != null) throw new InvalidOperationException();
 

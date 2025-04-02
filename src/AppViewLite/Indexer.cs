@@ -463,6 +463,13 @@ namespace AppViewLite
         public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
         {
             if (!OnFirehoseEventBeginProcessing()) return;
+
+            if (e.Record.Account is { } acct)
+            {
+                OnAccountStateChanged(acct.Did.Handler, acct.Active, acct.Status);
+                return;
+            }
+
             VerifyValidForCurrentRelay!(e.Record.Did!.ToString());
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
@@ -657,6 +664,13 @@ namespace AppViewLite
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
         {
             if (!OnFirehoseEventBeginProcessing()) return;
+
+            if (e.Message.Account is { } acct)
+            {
+                OnAccountStateChanged(acct.Did!.Handler, acct.Active, null); // TODO: pass status instead of null
+                return;
+            }
+
             var record = e.Message.Record;
             var commitAuthor = e.Message.Commit?.Repo!.Handler;
             if (commitAuthor == null) return;
@@ -673,6 +687,39 @@ namespace AppViewLite
             {
                 OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, ignoreIfDisposing: true);
             }
+        }
+
+        private void OnAccountStateChanged(string did, bool active, string? status)
+        {
+            VerifyValidForCurrentRelay!(did);
+            var ctx = RequestContext.CreateForFirehose("FirehoseAccountState");
+            var newState =
+                active ? AccountState.Active :
+                (
+                    status switch
+                    {
+                        "takendown" => AccountState.TakenDown,
+                        "suspended" => AccountState.Suspended,
+                        "deleted" => AccountState.Deleted,
+                        "deactivated" => AccountState.Deactivated,
+                        "desynchronized" => AccountState.Desynchronized,
+                        "throttled" => AccountState.Throttled,
+                        _ => AccountState.NotActive,
+                    }
+
+                );
+            WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did, ctx);
+                var prevState = rels.GetAccountState(plc);
+                if (prevState == AccountState.Unknown)
+                    prevState = AccountState.Active;
+
+                if (newState != prevState)
+                {
+                    rels.AccountStates.Add(plc, (byte)newState);
+                }
+            }, ctx);
         }
 
         private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e)

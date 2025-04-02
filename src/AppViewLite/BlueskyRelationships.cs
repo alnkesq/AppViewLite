@@ -105,6 +105,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> NostrSeenPubkeyHashes;
         public CombinedPersistentMultiDictionary<Plc, byte> ReposterOnlyProfile;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> OpenGraphData;
+        public CombinedPersistentMultiDictionary<Plc, byte> AccountStates;
 
         public ConcurrentFullEvictionCache<DuckDbUuid, Plc> DidToPlcConcurrentCache;
         public ConcurrentFullEvictionCache<Plc, string> PlcToDidConcurrentCache;
@@ -363,6 +364,7 @@ namespace AppViewLite
             NostrSeenPubkeyHashes = RegisterDictionary<DuckDbUuid, byte>("nostr-seen-pubkey-hashes", PersistentDictionaryBehavior.KeySetOnly);
             ReposterOnlyProfile = RegisterDictionary<Plc, byte>("reposter-only-profile", PersistentDictionaryBehavior.KeySetOnly);
             OpenGraphData = RegisterDictionary<DuckDbUuid, byte>("opengraph", PersistentDictionaryBehavior.PreserveOrder);
+            AccountStates = RegisterDictionary<Plc, byte>("account-state", PersistentDictionaryBehavior.SingleValue); // Enums don't implement IEquatable, so store the underlying type
 
 
 
@@ -3938,6 +3940,9 @@ namespace AppViewLite
         }
 
         public readonly static bool UseProbabilisticSets = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_PROBABILISTIC_SETS) ?? true;
+
+
+        public AccountState GetAccountState(Plc plc) => AccountStates.TryGetLatestValue(plc, out var b) ? (AccountState)b : AccountState.Unknown;
 
     }
 

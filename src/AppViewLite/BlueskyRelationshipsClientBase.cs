@@ -479,7 +479,7 @@ namespace AppViewLite
                 Thread.CurrentThread.Name = ctx.ToString() + (ctx.IsUrgent ? " [URGENT]" : null) + " (" + kind + ")";
                 return prev;
             }
-            throw new ArgumentException();
+            throw BlueskyRelationships.ThrowFatalError("Invalid SetThreadNames preference.");
         }
 
         public void WithRelationshipsWriteLock(Action<BlueskyRelationships> func, RequestContext ctx)

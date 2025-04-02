@@ -17,7 +17,7 @@ namespace AppViewLite
         }
         public LogWrapper(LogLevel exceptionMinLogLevel, LogLevel messageMinLogLevel, LogLevel messageStdErrMinLogLevel)
         {
-            if (messageStdErrMinLogLevel > messageMinLogLevel) throw new ArgumentException();
+            if (messageStdErrMinLogLevel > messageMinLogLevel) AssertionLiteException.Throw("messageStdErrMinLogLevel is more than messageMinLogLevel");
             this.exceptionMinLogLevel = exceptionMinLogLevel;
             this.messageMinLogLevel = messageMinLogLevel;
             this.messageStdErrMinLogLevel = messageStdErrMinLogLevel;

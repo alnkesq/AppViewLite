@@ -27,7 +27,7 @@ namespace AppViewLite
 
         public CarImporter(string did, DateTime probableDateOfEarliestRecord, string diskSpillDirectory)
         {
-            if (!did.StartsWith("did:", StringComparison.Ordinal)) throw new ArgumentException();
+            if (!did.StartsWith("did:", StringComparison.Ordinal)) AssertionLiteException.Throw("Bad DID passed to CarImporter: " + did);
             Did = did;
             logPrefix = "ImportCar: " + did + ": ";
             ProbableDateOfEarliestRecord = probableDateOfEarliestRecord;

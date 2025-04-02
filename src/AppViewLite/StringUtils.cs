@@ -790,7 +790,7 @@ namespace AppViewLite
             if (string.IsNullOrEmpty(continuation)) return null;
             var bytes = Base64Url.DecodeFromChars(continuation);
             if (bytes.Length != Unsafe.SizeOf<T>())
-                throw new ArgumentException();
+                throw AssertionLiteException.Throw("Unmanaged struct deserialization from string: bad length");
             return MemoryMarshal.Cast<byte, T>(bytes)[0];
         }
 

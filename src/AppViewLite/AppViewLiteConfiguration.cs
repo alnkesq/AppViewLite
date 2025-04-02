@@ -8,7 +8,7 @@ namespace AppViewLite
     {
         public static string? GetString(AppViewLiteParameter parameter)
         {
-            if (parameter == default) throw new ArgumentException();
+            if (parameter == default) throw AssertionLiteException.ThrowBadEnumException(parameter);
             return Environment.GetEnvironmentVariable(parameter.ToString());
         }
 

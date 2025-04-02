@@ -935,7 +935,7 @@ namespace AppViewLite
 
         public BlueskyPostData? StorePostInfoExceptData(Post p, PostId postId, RequestContext ctx)
         {
-            if (postId == default) throw ThrowAssertionLite("StorePostInfoExceptData postId is default");
+            if (postId == default) throw AssertionLiteException.Throw("StorePostInfoExceptData postId is default");
             if (PostData.ContainsKey(postId)) return null;
             var proto = new BlueskyPostData
             {
@@ -1267,7 +1267,7 @@ namespace AppViewLite
                 .OrderBy(x => x.TotalCount)
                 .ToArray();
 
-            if (words.Length == 0) throw ThrowAssertionLite("words.Length is zero");
+            if (words.Length == 0) throw AssertionLiteException.Throw("words.Length is zero");
 
             while (true)
             {
@@ -1314,17 +1314,10 @@ namespace AppViewLite
         {
             var firstWord = words[0].Slices;
             var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1].Equals(approxDate));
-            if (sliceIndex == -1) ThrowAssertionLite("RemoveEmptySearchSlices already empty");
+            if (sliceIndex == -1) AssertionLiteException.Throw("RemoveEmptySearchSlices already empty");
             firstWord[sliceIndex] = firstWord[sliceIndex].Slice(0, firstWord[sliceIndex].Count - 1);
             firstWord.RemoveAll(x => x.Count == 0);
             return firstWord.Count != 0;
-        }
-
-
-        [DoesNotReturn]
-        public static Exception ThrowAssertionLite(string text)
-        {
-            throw AssertionLiteException.Throw(text);
         }
 
         private static void PeelUntilNextCommonPost<T>((long TotalCount, List<DangerousHugeReadOnlyMemory<T>> Slices)[] words, ref T mostRecentCommonPost) where T : unmanaged, IComparable<T>
@@ -2053,7 +2046,7 @@ namespace AppViewLite
         }
         public PostId GetPostId(ATUri uri, RequestContext ctx)
         {
-            if (uri.Collection != Post.RecordType) throw new ArgumentException();
+            if (uri.Collection != Post.RecordType) throw new ArgumentException("GetPostId: not an app.bsky.feed.post URI");
             return GetPostId(uri.Did!.ToString(), uri.Rkey, ctx);
         }
 
@@ -2262,7 +2255,7 @@ namespace AppViewLite
             if (directKind != default) return direct;
             if (inverseKind != default) return new BlockReason(BlockReasonKind.BlockedBy, inverse.List);
 
-            throw ThrowAssertionLite("UsersHaveBlockRelationship impossible case");
+            throw AssertionLiteException.Throw("UsersHaveBlockRelationship impossible case");
         }
 
         public bool IsMemberOfList(Relationship list, Plc member)
@@ -2975,7 +2968,7 @@ namespace AppViewLite
 
         public string DeserializePds(Pds pds)
         {
-            if (pds == default) throw new ArgumentException();
+            if (pds == default) AssertionLiteException.Throw("DeserializePds: pds is default(Pds)");
             if (PdsIdToString.TryGetPreserveOrderSpanAny(pds, out var utf8))
                 return Encoding.UTF8.GetString(utf8.AsSmallSpan());
             throw new Exception("Unknown PDS id:" + pds);
@@ -3008,7 +3001,7 @@ namespace AppViewLite
 
         internal void AddHandleToDidVerification(string handle, Plc plc)
         {
-            if (string.IsNullOrEmpty(handle) || handle.Contains(':')) throw new ArgumentException();
+            if (string.IsNullOrEmpty(handle) || handle.Contains(':')) throw new ArgumentException("Handle is empty or contains colon.");
             HandleToDidVerifications.Add(StringUtils.HashUnicodeToUuid(StringUtils.NormalizeHandle(handle)), new HandleVerificationResult((ApproximateDateTime32)DateTime.UtcNow, plc));
         }
 
@@ -3019,7 +3012,7 @@ namespace AppViewLite
 
         internal static UInt128 SerializeDidPlcToUInt128(string did)
         {
-            if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) throw new ArgumentException();
+            if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) throw AssertionLiteException.Throw("Cannot serialize non-PLC DIDs as UInt128: " + did);
             if (did.Length != 32) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             var result = AtProtoS32.TryDecode128(did.Substring(8))!.Value;
             if (DeserializeDidPlcFromUInt128(result) != did) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);

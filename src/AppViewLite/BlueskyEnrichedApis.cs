@@ -2814,7 +2814,7 @@ namespace AppViewLite
 
         public async Task<ATProtocol> GetSessionProtocolAsync(RequestContext ctx)
         {
-            if (!ctx.IsLoggedIn) throw new ArgumentException();
+            if (!ctx.IsLoggedIn) throw AssertionLiteException.Throw("Cannot create own PDS client when not logged in.");
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.UserContext.PdsSession!;
             var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler, ctx);
@@ -4170,7 +4170,7 @@ namespace AppViewLite
         public async Task<(AppViewLiteSession Session, string Cookie)> LogInAsync(string handle, string password, RequestContext ctx)
         {
             var apis = BlueskyEnrichedApis.Instance;
-            if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException();
+            if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException("Empty handle or password.");
 
             var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
 

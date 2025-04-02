@@ -133,7 +133,7 @@ namespace AppViewLite
 
             void WriteChecked(uint value, int bits)
             {
-                if (value >= (1 << bits)) throw new ArgumentException();
+                if (value >= (1 << bits)) AssertionLiteException.Throw("CompressBitStream: integer is too big for maximum bit count");
                 bitstream.Write(value, bits);
             }
 

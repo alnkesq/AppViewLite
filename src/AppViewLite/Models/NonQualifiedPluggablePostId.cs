@@ -37,19 +37,19 @@ namespace AppViewLite.Models
         }
         public NonQualifiedPluggablePostId(Tid? tid, long int64)
         {
-            if (int64 <= 0) throw new ArgumentException();
+            if (int64 <= 0) throw AssertionLiteException.Throw("NonQualifiedPluggablePostId: zero or negative external Int64 id");
             this.Int64 = int64;
             this.Tid = tid ?? default;
         }
         public NonQualifiedPluggablePostId(Tid? tid, string s)
         {
-            if (string.IsNullOrEmpty(s)) throw new ArgumentException();
+            if (string.IsNullOrEmpty(s)) throw AssertionLiteException.Throw("NonQualifiedPluggablePostId: null or empty string");
             this.String = s;
             this.Tid = tid ?? default;
         }
         public NonQualifiedPluggablePostId(Tid? tid, byte[] bytes)
         {
-            if (bytes == null || bytes.Length == 0) throw new ArgumentException();
+            if (bytes == null || bytes.Length == 0) throw AssertionLiteException.Throw("NonQualifiedPluggablePostId: null or empty bytes");
             this.Bytes = bytes;
             this.Tid = tid ?? default;
         }

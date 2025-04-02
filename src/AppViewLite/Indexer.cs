@@ -715,7 +715,7 @@ namespace AppViewLite
         {
             var uri = new ATUri(label.Uri);
             if (string.IsNullOrEmpty(label.Val))
-                throw new ArgumentException();
+                throw new ArgumentException("OnLabelCreated: label is null or empty");
 
             WithRelationshipsWriteLock(rels =>
             {

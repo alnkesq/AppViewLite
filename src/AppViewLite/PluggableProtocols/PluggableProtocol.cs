@@ -16,7 +16,7 @@ namespace AppViewLite.PluggableProtocols
         public PluggableProtocol(string didPrefix)
         {
             if (didPrefix == "did:plc:" || didPrefix == "did:web:" || !Regex.IsMatch(didPrefix, @"^did:[\w\-]+:$"))
-                throw new ArgumentException();
+                AssertionLiteException.Throw("Invalid pluggable protocol DID prefix.");
             DidPrefix = didPrefix;
             Apis = null!;
         }
@@ -27,7 +27,7 @@ namespace AppViewLite.PluggableProtocols
         private void EnsureOwnDid(string did)
         {
             if (!did.StartsWith(DidPrefix, StringComparison.Ordinal))
-                throw new ArgumentException();
+                AssertionLiteException.Throw("Not pluggable protocol's own DID.");
         }
 
         public void OnProfileDiscovered(string did, BlueskyProfileBasicInfo data, RequestContext ctx, bool shouldIndex = true, bool willOnlyRepost = false, string[]? extraIndexableWords = null)

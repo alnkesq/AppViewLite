@@ -19,7 +19,7 @@ namespace AppViewLite.Models
         [SetsRequiredMembers]
         public CustomEmoji(string shortCode, string url)
         {
-            if (shortCode.Contains(':')) throw new ArgumentException();
+            if (shortCode.Contains(':')) throw new ArgumentException("CustomEmoji shortCode should not include colons.");
             this.ShortCode = shortCode;
             this.Url = url;
         }

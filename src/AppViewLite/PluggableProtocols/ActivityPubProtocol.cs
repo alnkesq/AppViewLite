@@ -509,7 +509,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             if (parts.Length == 1)
             {
                 if (defaultDomain != null) return new ActivityPubUserId(defaultDomain, parts[0]);
-                throw new ArgumentException();
+                throw new ArgumentException("Cannot parse ActivityPub user when defaultDomain is not specified: " + userAtHost);
             }
             return new ActivityPubUserId(parts[1], parts[0]);
         }

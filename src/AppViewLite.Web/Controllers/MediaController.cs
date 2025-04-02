@@ -43,7 +43,7 @@ namespace AppViewLite.Web.Controllers
                 "thumbnail.jpg" => ThumbnailSize.video_thumbnail,
                 "video.mp4" => ThumbnailSize.feed_video_blob,
                 "playlist.m3u8" => ThumbnailSize.feed_video_playlist,
-                _ => throw new ArgumentException(),
+                _ => throw new ArgumentException("Unknown video format for path suffix: " + format),
             };
             return GetThumbnail(size.ToString(), Uri.UnescapeDataString(encodedDid), cid, pds, name, ct);
 

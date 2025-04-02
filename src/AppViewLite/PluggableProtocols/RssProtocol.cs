@@ -888,9 +888,9 @@ namespace AppViewLite.PluggableProtocols.Rss
         public static string UrlToDid(Uri url)
         {
             if (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
-                throw new ArgumentException();
+                throw new ArgumentException("Only HTTP and HTTPS schemes are supported for RSS.");
             if (!url.IsDefaultPort || !string.IsNullOrEmpty(url.UserInfo))
-                throw new NotSupportedException();
+                throw new NotSupportedException("RSS feeds on custom ports or user login info are not supported.");
             return
                DidPrefix + (url.Scheme == Uri.UriSchemeHttp ? "http:" : null) + Uri.EscapeDataString(url.AbsoluteUri.AsSpan(url.Scheme.Length + 3)).Replace("_", "%5F").Replace("%2F", ":").Replace("%", "_");
         }

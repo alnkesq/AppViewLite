@@ -294,7 +294,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         private static NonQualifiedPluggablePostId GetNonQualifiedPostId(Tid tid, string id)
         {
-            if (id.Length != 64) throw new ArgumentException();
+            if (id.Length != 64) throw new ArgumentException("Nostr id should be 64 characters.");
             return new NonQualifiedPluggablePostId(tid, Convert.FromHexString(id));
         }
 

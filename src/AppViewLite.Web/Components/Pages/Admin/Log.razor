@@ -12,7 +12,7 @@
         RequestContext.EnsureAdministrator();
         Name ??= Path.GetFileName(((FileStream)LoggableBase.LogFile!.BaseStream).Name);
         LoggableBase.FlushLog();
-        if (!Regex.IsMatch(Name, @"^[\w\-_]+\.log$")) throw new ArgumentException();
+        if (!Regex.IsMatch(Name, @"^[\w\-_]+\.log$")) throw new ArgumentException("Invalid log file name.");
     }
 }
 

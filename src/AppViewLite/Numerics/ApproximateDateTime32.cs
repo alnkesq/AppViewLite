@@ -16,7 +16,7 @@ namespace AppViewLite.Numerics
         public static explicit operator ApproximateDateTime32(DateTime d)
         {
             if (d < MinValueAsDateTime) throw new UnexpectedFirehoseDataException("Dates before 2023 are not supported: " + d);
-            if (d > MaxValueAsDateTime) throw new ArgumentOutOfRangeException();
+            if (d > MaxValueAsDateTime) throw new ArgumentOutOfRangeException("Date is too much into the future for ApproximateDateTime32");
             var v = (d - BaseTime).Ticks / TickDuration.Ticks;
             return new ApproximateDateTime32((uint)v);
         }

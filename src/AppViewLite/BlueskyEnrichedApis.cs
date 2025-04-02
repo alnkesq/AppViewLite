@@ -1505,7 +1505,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 30);
             var feedGenInfo = did != null ? await GetFeedGeneratorAsync(did, rkey!, ctx) : null;
-            if (customEndpoint == null && !feedGenInfo!.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException();
+            if (customEndpoint == null && !feedGenInfo!.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException("Only did:web: feed implementations are supported.");
 
             var proxyViaPds = ctx.IsLoggedIn && customEndpoint == null;
 

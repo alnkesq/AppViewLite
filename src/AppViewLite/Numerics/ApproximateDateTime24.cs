@@ -16,8 +16,8 @@ namespace AppViewLite.Numerics
         public static implicit operator DateTime(ApproximateDateTime24 d) => BaseTime + new TimeSpan(TickDuration.Ticks * d.Value);
         public static explicit operator ApproximateDateTime24(DateTime d)
         {
-            if (d < MinValueAsDateTime) throw new ArgumentOutOfRangeException();
-            if (d > MaxValueAsDateTime) throw new ArgumentOutOfRangeException();
+            if (d < MinValueAsDateTime) throw new ArgumentOutOfRangeException("Dates before 2023 are not supported.");
+            if (d > MaxValueAsDateTime) throw new ArgumentOutOfRangeException("Date is too new for ApproximateDateTime24");
             var v = (d - BaseTime).Ticks / TickDuration.Ticks;
             return new ApproximateDateTime24((UInt24)v);
         }

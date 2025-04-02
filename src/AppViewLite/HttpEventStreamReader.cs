@@ -34,9 +34,9 @@ namespace AppViewLite
                     return evt;
                 }
                 var colon = line.IndexOf(':');
-                if (colon == -1) throw new InvalidDataException();
+                if (colon == -1) throw new InvalidDataException("Missing colon in HTTP event stream");
                 var t = line.Substring(0, colon);
-                if (line[colon + 1] != ' ') throw new InvalidDataException();
+                if (line[colon + 1] != ' ') throw new InvalidDataException("Missing space after colon in HTTP event stream.");
                 var v = line.Substring(colon + 2);
                 if (t == "event") evt.Event = v;
                 else if (t == "data") evt.Data = v;

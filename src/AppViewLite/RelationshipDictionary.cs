@@ -350,9 +350,7 @@ namespace AppViewLite
 
         private static bool ContainsRelationship(ReadOnlySpan<Relationship> relationships, Relationship rel)
         {
-            var contains = ContainsRelationshipBinarySearch(relationships, rel);
-            //if (contains != relationships.Contains(rel)) throw new Exception();
-            return contains;
+            return ContainsRelationshipBinarySearch(relationships, rel);
         }
         private static bool ContainsRelationshipBinarySearch(ReadOnlySpan<Relationship> relationships, Relationship rel)
         {

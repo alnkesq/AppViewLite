@@ -51,7 +51,7 @@ namespace AppViewLite.Models
 
         public byte[] SerializeToBytes()
         {
-            if (Pds != null) throw new InvalidOperationException();
+            if (Pds != null) throw new InvalidOperationException("DidDocProto.SerializeToBytes: Pds should already be interned.");
 
             using var ms = new MemoryStream();
             using var bw = new BinaryWriter(ms);

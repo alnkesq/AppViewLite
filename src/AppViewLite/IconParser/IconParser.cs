@@ -15,7 +15,7 @@ namespace AppViewLite.IconParser
         {
             using var br = new BinaryReader(new MemoryStream(ico));
             var iconDir = br.ReadUnmanaged<IconDir>();
-            if (iconDir.Type != IconFileType.ICO) throw new NotSupportedException();
+            if (iconDir.Type != IconFileType.ICO) throw new NotSupportedException("Not an ICO file.");
             var entries = new List<IconDirEntry>();
             return Enumerable.Range(0, iconDir.Count).Select(x =>
             {

@@ -1460,7 +1460,7 @@ namespace AppViewLite
                 //var roundtrip = DeserializePostData(slim, proto.PostId);
                 //Compress(roundtrip);
                 //if (!SimpleJoin.AreProtosEqual(proto, roundtrip))
-                //    throw new Exception();
+                //    throw new Exception("Bad roundtrip for SerializePostData");
                 return slim;
             }
 
@@ -2726,7 +2726,7 @@ namespace AppViewLite
 
         public void GlobalFlush()
         {
-            if (IsReadOnly) throw new InvalidOperationException();
+            if (IsReadOnly) throw new InvalidOperationException("Cannot GlobalFlush when IsReadOnly.");
             foreach (var table in disposables)
             {
                 table.Flush(false);
@@ -3652,7 +3652,7 @@ namespace AppViewLite
         private readonly static TimeSpan PruningInterval = TimeSpan.FromDays(AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PRUNE_INTERVAL_DAYS) ?? 10);
         public void Prune()
         {
-            if (IsReadOnly) throw new InvalidOperationException();
+            if (IsReadOnly) throw new InvalidOperationException("Cannot Prune when IsReadOnly.");
             AppViewLitePruningContext? pruningContext = null;
 
             AssertHasWriteLock();

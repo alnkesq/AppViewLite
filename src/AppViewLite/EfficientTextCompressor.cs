@@ -88,7 +88,7 @@ namespace AppViewLite
             var bitstream = new BitStream<ArrayByteStream>(new ArrayByteStream(bytes));
 
             var stepCount = BitStreamStepCount;
-            if (stepCount != 2) throw new NotImplementedException();
+            if (stepCount != 2) throw new NotImplementedException("Only BitStreamStepCount is supported.");
 
             var result = new List<int>();
             while (true)

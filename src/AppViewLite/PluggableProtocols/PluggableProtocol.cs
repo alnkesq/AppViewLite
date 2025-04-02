@@ -102,7 +102,7 @@ namespace AppViewLite.PluggableProtocols
             EnsureOwnDid(reposterDid);
             EnsureValidDid(reposterDid);
             var tid = (GetPostIdWithCorrectTid(qualifiedPostId, ctx) ?? default).Tid;
-            if (tid == default) throw new ArgumentNullException();
+            if (tid == default) throw new ArgumentNullException("Pluggable repost with unavailable Tid");
             BlueskyRelationships.EnsureNotExcessivelyFutureDate(tid);
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(reposterDid)) return;
@@ -428,7 +428,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize, CancellationToken ct)
         {
-            throw new NotSupportedException();
+            throw new NotSupportedException("This pluggable protocol does not support blob retrieval.");
         }
 
         public virtual bool ShouldUseM3u8ForVideo(string did, byte[] cid) => false;

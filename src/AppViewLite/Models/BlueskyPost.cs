@@ -123,7 +123,7 @@ namespace AppViewLite.Models
 
                     PostBlockReasonKind.HiddenReply => "This reply was hidden by the thread author.",
                     PostBlockReasonKind.NotAllowlistedReply => "The thread author limited who can reply.",
-                    _ => throw new NotSupportedException(),
+                    _ => throw AssertionLiteException.ThrowBadEnumException(PostBlockReason),
                 };
             }
 

@@ -23,7 +23,7 @@ namespace AppViewLite.Storage
         //private static void Return(AlignedNativeArena arena)
         //{
         //    if (arena.Alignment == 512) Pool512.Return(new AlignedArena512(arena));
-        //    else throw new ArgumentException();
+        //    else throw new ArgumentException("Cannot return arena of wrong alignement");
         //}
 
 

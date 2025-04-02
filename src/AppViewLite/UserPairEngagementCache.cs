@@ -33,7 +33,7 @@ namespace AppViewLite
 
         public override void LoadFromOriginalSlice(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo slice)
         {
-            throw new NotSupportedException();
+            AssertionLiteException.Throw("LoadFromOriginalSlice not supported for UserPairEngagementCache");
         }
 
         public override bool IsAlreadyMaterialized(string cachePath)

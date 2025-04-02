@@ -19,7 +19,7 @@
                 PrivateFollowFlags.MuteTextualPosts => "textual posts by",
                 PrivateFollowFlags.MuteAllPosts => "posts by",
 
-                _ => throw new NotSupportedException()
+                _ => throw AssertionLiteException.ThrowBadEnumException(Flag),
             };
         }
     }

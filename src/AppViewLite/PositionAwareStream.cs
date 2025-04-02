@@ -22,13 +22,13 @@ namespace AppViewLite
 
         public override bool CanWrite => false;
 
-        public override long Length => throw new NotSupportedException();
+        public override long Length => throw new NotSupportedException("PositionAwareStream does not support get_Length");
 
-        public override long Position { get => position; set => throw new NotSupportedException(); }
+        public override long Position { get => position; set => throw new NotSupportedException("PositionAwareStream does not support set_Position"); }
 
         public override void Flush()
         {
-            throw new NotSupportedException();
+            throw new NotSupportedException("PositionAwareStream does not support Flush.");
         }
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -40,17 +40,17 @@ namespace AppViewLite
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            throw new NotSupportedException();
+            throw new NotSupportedException("PositionAwareStream does not support Seek.");
         }
 
         public override void SetLength(long value)
         {
-            throw new NotSupportedException();
+            throw new NotSupportedException("PositionAwareStream does not support SetLength.");
         }
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new NotSupportedException();
+            throw new NotSupportedException("PositionAwareStream does not support Write.");
         }
 
         public override int Read(Span<byte> buffer)

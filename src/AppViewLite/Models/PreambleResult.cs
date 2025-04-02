@@ -22,7 +22,7 @@ namespace AppViewLite.Models
         {
             get
             {
-                if (!succeeded) throw new InvalidOperationException();
+                if (!succeeded) throw new InvalidOperationException("PreambleResult did not succeed using only the readonly replica.");
                 return value;
             }
         }

@@ -24,6 +24,24 @@ namespace AppViewLite
             { "nudity", new BlueskyLabelData("Non-sexual Nudity", "E.g. artistic nudes.") },
             { "graphic-media", new BlueskyLabelData("Graphic Media", "Explicit or potentially disturbing media.", BlueskyLabelSeverity.Alert) },
         }.ToFrozenDictionary(x => BlueskyRelationships.HashLabelName(x.Key), x => x.Value);
+
+        public static string? GetErrorForAccountState(AccountState accountState)
+        {
+            return accountState switch
+            {
+                AccountState.Unknown => null,
+                AccountState.Active => null,
+                AccountState.NotActive => "This account is deactivated/deleted, or was taken down by their PDS.",
+                AccountState.TakenDown => "This account was taken down by their PDS.",
+                AccountState.Suspended => "This account was suspended by their PDS.",
+                AccountState.Deleted => "This user deleted their account.",
+                AccountState.Deactivated => "This user deactivated their account.",
+                AccountState.Desynchronized => "This account is desynchronized.", // what does it mean?
+                AccountState.Throttled => "This account is throttled.",
+                AccountState.DisabledByAppViewLiteAdministrativeRules => "This account is not displayed because of administrative rules on the current AppViewLite instance.",
+                _ => accountState.ToString(),
+            };
+        }
     }
 }
 

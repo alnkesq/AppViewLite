@@ -76,6 +76,9 @@ namespace AppViewLite.Models
 
         public PrivateFollow? PrivateFollow;
 
+        public bool IsActive => BlueskyRelationships.IsAccountActive(AccountState);
+        public AccountState AccountState;
+
         public string FollowRKeyForAttribute => IsFollowedBySelf?.ToString() ?? (HasPrivateFollowFlag(PrivateFollowFlags.PrivateFollow) ? "x" : "-");
         public string BlockRKeyForAttribute => IsBlockedBySelf?.ToString() ?? "-";
         public int FollowsYouForAttribute => FollowsYou ? 1 : 0;

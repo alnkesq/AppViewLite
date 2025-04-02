@@ -19,6 +19,7 @@ namespace AppViewLite.Models
         Deactivated = 14,
         Desynchronized = 15,
         Throttled = 16,
+        DisabledByAppViewLiteAdministrativeRules = 17,
     }
 }
 

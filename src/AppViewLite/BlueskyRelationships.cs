@@ -1800,7 +1800,12 @@ namespace AppViewLite
             var d = TryGetPostData(id);
             if (d == null) return default;
             if (d.InReplyToPlc == null) return (d, null);
-            return (d, GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true));
+            var profile = GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true);
+            if (!profile.IsActive)
+            {
+                d = CloneWithError(d, profile.BasicData!.Error!);
+            }
+            return (d, profile);
 
         }
 
@@ -1822,18 +1827,23 @@ namespace AppViewLite
 
             if (isDeleted)
             {
-                return new BlueskyPostData
-                {
-                    Deleted = true,
-                    Error = "This post was deleted.",
-                    RootPostPlc = proto?.RootPostPlc,
-                    RootPostRKey = proto?.RootPostRKey,
-                    InReplyToPlc = proto?.InReplyToPlc,
-                    InReplyToRKey = proto?.InReplyToRKey,
-                };
+                return CloneWithError(proto, "This post was deleted.");
             }
 
             return proto;
+        }
+
+        public static BlueskyPostData CloneWithError(BlueskyPostData? proto, string error)
+        {
+            return new BlueskyPostData
+            {
+                Deleted = true,
+                Error = error,
+                RootPostPlc = proto?.RootPostPlc,
+                RootPostRKey = proto?.RootPostRKey,
+                InReplyToPlc = proto?.InReplyToPlc,
+                InReplyToRKey = proto?.InReplyToRKey,
+            };
         }
 
         internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false)
@@ -1949,11 +1959,17 @@ namespace AppViewLite
 
             possibleHandle = MaybeBridgyHandleToFediHandle(possibleHandle);
 
+            var accountState = GetAccountState(plc);
             if (isBlockedByAdministrativeRule)
+            {
+                accountState = AccountState.DisabledByAppViewLiteAdministrativeRules;
+            }
+
+            if (!IsAccountActive(accountState))
             {
                 basic = new BlueskyProfileBasicInfo
                 {
-                    Error = "This DID or domain is blocked by administrative rules."
+                    Error = DefaultLabels.GetErrorForAccountState(accountState)
                 };
             }
 
@@ -1967,6 +1983,7 @@ namespace AppViewLite
 
             var result = new BlueskyProfile()
             {
+                AccountState = accountState,
                 PlcId = plc.PlcValue,
                 Did = did,
                 BasicData = basic,
@@ -3943,6 +3960,11 @@ namespace AppViewLite
 
 
         public AccountState GetAccountState(Plc plc) => AccountStates.TryGetLatestValue(plc, out var b) ? (AccountState)b : AccountState.Unknown;
+        public bool IsAccountActive(Plc plc) => IsAccountActive(GetAccountState(plc));
+        public static bool IsAccountActive(AccountState state) => state is AccountState.Unknown or AccountState.Active;
+
+
+        public Versioned<T> AsVersioned<T>(T value) => new(value, Version);
 
     }
 

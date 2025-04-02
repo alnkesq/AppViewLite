@@ -123,7 +123,7 @@
         </div>
 
         <div class="profile-follow-area" data-profiledid="@SimpleProfile.Did" data-followrkey="@SimpleProfile.FollowRKeyForAttribute" data-blockrkey="@SimpleProfile.BlockRKeyForAttribute" data-followsyou="@SimpleProfile.FollowsYouForAttribute">
-            @if (RequestContext.IsLoggedIn && SimpleProfile.Plc != RequestContext.LoggedInUser && SimpleProfile.BlockReason == default)
+            @if (RequestContext.IsLoggedIn && SimpleProfile.Plc != RequestContext.LoggedInUser && SimpleProfile.BlockReason == default && SimpleProfile.IsActive)
             {
                 <FollowButton Profile="@SimpleProfile" />
             }
@@ -329,13 +329,23 @@
         </div>
 
 
-        @if (ShowLabels)
+        @if(SimpleProfile.IsActive)
         {
-            <ListList Lists="LabelerLabels" NextContinuation="@NextContinuation" ShowModerator="false" />
+            @if (ShowLabels)
+            {
+                <ListList Lists="LabelerLabels" NextContinuation="@NextContinuation" ShowModerator="false" />
+            }
+            else
+            {
+                <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowMediaOnly" />
+            }
+
         }
         else
         {
-            <PostList Posts="@Posts" NextContinuation="@NextContinuation" ShowAsGrid="@ShowMediaOnly" />
+            <div class="profile-account-error main-padding">
+                @DefaultLabels.GetErrorForAccountState(SimpleProfile.AccountState)
+            </div>
         }
 
         @if (pluggableExternalUrl != null)

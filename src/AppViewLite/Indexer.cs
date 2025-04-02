@@ -693,33 +693,7 @@ namespace AppViewLite
         {
             VerifyValidForCurrentRelay!(did);
             var ctx = RequestContext.CreateForFirehose("FirehoseAccountState");
-            var newState =
-                active ? AccountState.Active :
-                (
-                    status switch
-                    {
-                        "takendown" => AccountState.TakenDown,
-                        "suspended" => AccountState.Suspended,
-                        "deleted" => AccountState.Deleted,
-                        "deactivated" => AccountState.Deactivated,
-                        "desynchronized" => AccountState.Desynchronized,
-                        "throttled" => AccountState.Throttled,
-                        _ => AccountState.NotActive,
-                    }
-
-                );
-            WithRelationshipsWriteLock(rels =>
-            {
-                var plc = rels.SerializeDid(did, ctx);
-                var prevState = rels.GetAccountState(plc);
-                if (prevState == AccountState.Unknown)
-                    prevState = AccountState.Active;
-
-                if (newState != prevState)
-                {
-                    rels.AccountStates.Add(plc, (byte)newState);
-                }
-            }, ctx);
+            Apis.SetAccountState(did, active, status, ctx);
         }
 
         private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e)

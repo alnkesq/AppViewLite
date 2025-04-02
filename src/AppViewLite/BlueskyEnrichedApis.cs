@@ -33,6 +33,7 @@ using System.Security.Cryptography;
 using AppViewLite.PluggableProtocols;
 using System.Collections.Frozen;
 using AppViewLite.Storage;
+using FishyFlip.Lexicon.Com.Atproto.Sync;
 
 namespace AppViewLite
 {
@@ -57,6 +58,7 @@ namespace AppViewLite
             });
             FetchAndStoreLabelerServiceMetadataDict = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
             FetchAndStoreProfileDict = new(FetchAndStoreProfileCoreAsync);
+            FetchAccountStateFromPdsDict = new(FetchAccountStateFromPdsCoreAsync);
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
@@ -115,6 +117,13 @@ namespace AppViewLite
             primarySecondaryPair.relationshipsUnlocked.NotificationGenerated += Relationships_NotificationGenerated;
         }
 
+        private async Task<Versioned<AccountState>> FetchAccountStateFromPdsCoreAsync(string did, RequestContext ctx)
+        {
+            using var protocol = await CreateProtocolForDidAsync(did, ctx);
+            var response = (await protocol.GetRepoStatusAsync(new ATDid(did))).HandleResult()!;
+            return SetAccountState(did, response.Active, response.Status, ctx);
+        }
+
         private async Task<long> FetchOpenGraphDictCoreAsync(string url, RequestContext ctx)
         {
             var urlHash = StringUtils.HashUnicodeToUuid(url);
@@ -166,6 +175,7 @@ namespace AppViewLite
         public TaskDictionary<(Plc Plc, string Did), RequestContext, Versioned<DidDocProto>> FetchAndStoreDidDocNoOverrideDict;
         public TaskDictionary<string, RequestContext, (long MinVersion, IReadOnlyList<LabelId> Labels)> FetchAndStoreLabelerServiceMetadataDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreProfileDict;
+        public TaskDictionary<string, RequestContext, Versioned<AccountState>> FetchAccountStateFromPdsDict;
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreOpenGraphDict;
@@ -1022,6 +1032,10 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
 
+            var profile = await GetProfileAsync(did, ctx);
+            if (!profile.IsActive)
+                return new();
+
             var defaultContinuation = new ProfilePostsContinuation(
                 includePosts ? Tid.MaxValue : default,
                 includeReposts ? Tid.MaxValue : default,
@@ -1749,6 +1763,21 @@ namespace AppViewLite
             {
                 rssFeedInfo = await AppViewLite.PluggableProtocols.Rss.RssProtocol.Instance!.MaybeRefreshFeedAsync(did, ctx);
             }
+
+            if (WithRelationshipsLockForDid(did, (plc, rels) => !rels.IsAccountActive(plc), ctx))
+            {
+                // double check from the PDS, in case we missed reactivation events.
+                try
+                {
+                    var accountState = await FetchAccountStateFromPdsDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
+                    accountState.BumpMinimumVersion(ctx);
+                }
+                catch (Exception ex)
+                {
+                    LogNonCriticalException("Could not check with PDS if account is actually still deactivated", ex);
+                }
+            }
+
             var profile = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetFullProfile(plc, ctx, followersYouFollowToLoad), ctx);
 
             Task? hasListsOrFeedsTask = null;
@@ -3990,10 +4019,12 @@ namespace AppViewLite
             var tasks = plcs.Distinct().Select(x => EnsureHaveCollectionAsync(x, kind, ctx));
             return Task.WhenAll(tasks);
         }
-        public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, bool slowImport = false)
+        public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, bool slowImport = false, bool ignoreIfDeactivated = true)
         {
             if (WithRelationshipsLock(rels =>
             {
+                if (ignoreIfDeactivated && !rels.IsAccountActive(plc))
+                    return true;
                 return rels.HaveCollectionForUser(plc, kind);
             }, ctx))
                 return null;
@@ -4470,6 +4501,47 @@ namespace AppViewLite
             }, ctx);
             await EnrichAsync(page.Select(x => x.BlueskyProfile!).ToArray(), ctx);
             return (page.Take(limit).ToArray(), page.Length <= limit ? null : StringUtils.SerializeToString(page[^1].BlueskyProfile!.Plc));
+        }
+
+
+        public Versioned<AccountState> SetAccountState(string did, bool active, string? status, RequestContext ctx)
+        {
+            var newState =
+                active ? AccountState.Active :
+                (
+                    status switch
+                    {
+                        "takendown" => AccountState.TakenDown,
+                        "suspended" => AccountState.Suspended,
+                        "deleted" => AccountState.Deleted,
+                        "deactivated" => AccountState.Deactivated,
+                        "desynchronized" => AccountState.Desynchronized,
+                        "throttled" => AccountState.Throttled,
+                        _ => AccountState.NotActive,
+                    }
+
+                );
+
+            if (newState == AccountState.Active)
+            {
+                var prevActive = WithRelationshipsLockForDid(did, (plc, rels) => rels.AsVersioned(rels.IsAccountActive(plc)), ctx);
+                if (prevActive.Value)
+                    return new(newState, prevActive.MinVersion);
+            }
+
+            return WithRelationshipsWriteLock(rels =>
+            {
+                var plc = rels.SerializeDid(did, ctx);
+                var prevState = rels.GetAccountState(plc);
+                if (prevState == AccountState.Unknown)
+                    prevState = AccountState.Active;
+
+                if (newState != prevState)
+                {
+                    rels.AccountStates.Add(plc, (byte)newState);
+                }
+                return rels.AsVersioned(newState);
+            }, ctx);
         }
     }
 }

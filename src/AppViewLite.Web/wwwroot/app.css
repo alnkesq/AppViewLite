@@ -1876,11 +1876,15 @@ h1 .profile-badge img{
     margin-top: 10px;
 }
 
-.rss-fetch-error {
+.rss-fetch-error, .profile-account-error {
     margin-top: 20px;
     color: rgb(201, 0, 0);
     font-weight: bold;
 }
+.profile-account-error {
+    text-align: center;
+}
+
 .debug-table{
 
     border-collapse: collapse;

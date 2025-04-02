@@ -3145,7 +3145,7 @@ namespace AppViewLite
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
                 if (!exists)
                 {
-                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey));
+                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc) == default;
                 }
                 return result;
             },

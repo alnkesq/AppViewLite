@@ -132,12 +132,12 @@ namespace AppViewLite
                     var ee = e[i];
                     var compressedPath = Encoding.UTF8.GetString(ee["k"].GetByteString());
                     var prev = ee["p"].AsInt32();
-                    if (prev > buf.Length) throw new Exception();
+                    if (prev > buf.Length) BlueskyRelationships.ThrowAssertionLite("CAR: p is beyond previous buffer");
                     buf.Length = prev;
                     buf.Append(compressedPath);
                     var path = buf.ToString();
                     var val = ee["v"].GetByteString();
-                    if (val[0] != 0) throw new Exception();
+                    if (val[0] != 0) throw BlueskyRelationships.ThrowAssertionLite("CAR: v is not zero");
                     var valCid = Cid.Read(val.AsSpan(1).ToArray());
                     var bak = valCid.ToArray();
                     var slash = path.IndexOf('/');

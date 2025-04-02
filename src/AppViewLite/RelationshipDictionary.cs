@@ -194,7 +194,7 @@ namespace AppViewLite
                 var span = chunk.AsSpan();
 
                 var z = span.BinarySearch(new Relationship(actor, default));
-                if (z >= 0) throw new Exception();
+                if (z >= 0) BlueskyRelationships.ThrowAssertionLite("Approximate item should not have been found.");
                 var indexOfNextLargest = ~z;
 
                 if (indexOfNextLargest == span.Length) continue;
@@ -357,7 +357,7 @@ namespace AppViewLite
         private static bool ContainsRelationshipBinarySearch(ReadOnlySpan<Relationship> relationships, Relationship rel)
         {
             var z = relationships.BinarySearch(new Relationship(rel.Actor, default));
-            if (z >= 0) throw new Exception();
+            if (z >= 0) BlueskyRelationships.ThrowAssertionLite("Approximate item should not have been found.");
             var indexOfNextLargest = ~z;
 
             if (indexOfNextLargest == relationships.Length) return false;

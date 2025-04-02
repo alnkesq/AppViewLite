@@ -132,7 +132,7 @@ namespace AppViewLite.Web.Controllers
 
                 shortDidCut = Math.Min(shortDidCut, shortDid.Length);
 
-                if (shortDid.ContainsAny('/', '\\')) throw new Exception();
+                if (shortDid.ContainsAny('/', '\\')) throw new ArgumentException("shortDid cannot contain slashes.");
                 var escapedPart1 = EscapeDidForFileSystem(shortDid.Slice(0, shortDidCut));
                 var escapedPart2 = EscapeDidForFileSystem(shortDid.Slice(shortDidCut));
 

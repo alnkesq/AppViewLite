@@ -30,7 +30,7 @@ namespace AppViewLite.Web.ApiCompat
             var thread = (await apis.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, default, null, ctx)).Posts;
 
             var focalPostIndex = thread.ToList().FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
-            if (focalPostIndex == -1) throw new Exception();
+            if (focalPostIndex == -1) BlueskyRelationships.ThrowAssertionLite("focalPostIndex is -1");
             var rootPost = thread[0];
 
             ThreadViewPost? tvp = null;

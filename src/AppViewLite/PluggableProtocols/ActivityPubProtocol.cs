@@ -344,8 +344,8 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private static void EnsureValidUserName(string userName)
         {
-            if (string.IsNullOrEmpty(userName)) throw new Exception();
-            if (userName.AsSpan().ContainsAnyExcept(ValidUserNameChars)) throw new Exception();
+            if (string.IsNullOrEmpty(userName)) throw new Exception("Null or empty ActivityPub username.");
+            if (userName.AsSpan().ContainsAnyExcept(ValidUserNameChars)) throw new Exception("Not a valid ActivityPub username: " + userName);
         }
 
         public readonly static SearchValues<char> ValidUserNameChars = SearchValues.Create("0123456789abcdefghijklmnopqrstuvwxyz.-_");
@@ -400,7 +400,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             {
                 if (id.StartsWith("npub", StringComparison.Ordinal)) return default;
                 if (author.nostr != null) return default;
-                throw new Exception();
+                throw new ArgumentException("Cannot parse ActivityPub fqn username " + author.fqn);
             }
             return ActivityPubUserId.Parse(id, hostFromAuthorUrl);
         }

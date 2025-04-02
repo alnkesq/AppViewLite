@@ -828,7 +828,7 @@ namespace AppViewLite
                         searchSession.AlreadyProcessed[p.PostId] = new CachedSearchResult(null, -1);
                     }
                 }
-                else throw new Exception();
+                else BlueskyRelationships.ThrowAssertionLite("SearchTopPostsAsync: cursor pageIndex not within boundary");
             }
             if (tryAgainAlreadyProcessed)
             {
@@ -3440,7 +3440,7 @@ namespace AppViewLite
                     
                 }, ctx);
             }
-            if (plc == default) throw new Exception();
+            if (plc == default) throw BlueskyRelationships.ThrowAssertionLite("ResolveHandleAsync plc is still default(Plc)");
             var didDoc = WithRelationshipsLock(rels =>
             {
                 return rels.TryGetLatestDidDoc(plc);

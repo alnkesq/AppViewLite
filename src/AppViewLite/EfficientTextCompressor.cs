@@ -103,7 +103,7 @@ namespace AppViewLite
                     {
                         if (remaining == 0) break;
                         var rest = bitstream.Read32(remaining);
-                        if (rest != 0) throw new Exception();
+                        if (rest != 0) BlueskyRelationships.ThrowAssertionLite("Could not decompress bitstream, rest != 0");
                         break;
                     }
                     num = bitstream.Read32(Step1);

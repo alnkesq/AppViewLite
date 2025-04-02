@@ -950,7 +950,7 @@ namespace AppViewLite
                     }
                     x.TrustedDid = BlueskyRelationships.DeserializeDidPlcFromUInt128(Unsafe.BitCast<DuckDbUuid, UInt128>(x.PlcAsUInt128));
                     var delta = x.Date - prevDate.Value;
-                    if (delta < TimeSpan.Zero) throw new Exception();
+                    if (delta < TimeSpan.Zero) throw BlueskyRelationships.ThrowAssertionLite("Negative time delta in parquet PLC bundle import");
 
                     if (checkGaps)
                     {

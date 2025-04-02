@@ -935,7 +935,7 @@ namespace AppViewLite
 
         public BlueskyPostData? StorePostInfoExceptData(Post p, PostId postId, RequestContext ctx)
         {
-            if (postId == default) throw new Exception();
+            if (postId == default) throw ThrowAssertionLite("StorePostInfoExceptData postId is default");
             if (PostData.ContainsKey(postId)) return null;
             var proto = new BlueskyPostData
             {
@@ -1267,7 +1267,7 @@ namespace AppViewLite
                 .OrderBy(x => x.TotalCount)
                 .ToArray();
 
-            if (words.Length == 0) throw new Exception();
+            if (words.Length == 0) throw ThrowAssertionLite("words.Length is zero");
 
             while (true)
             {
@@ -1314,10 +1314,22 @@ namespace AppViewLite
         {
             var firstWord = words[0].Slices;
             var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1].Equals(approxDate));
-            if (sliceIndex == -1) throw new Exception();
+            if (sliceIndex == -1) ThrowAssertionLite("RemoveEmptySearchSlices already empty");
             firstWord[sliceIndex] = firstWord[sliceIndex].Slice(0, firstWord[sliceIndex].Count - 1);
             firstWord.RemoveAll(x => x.Count == 0);
             return firstWord.Count != 0;
+        }
+
+        [DoesNotReturn]
+        public static Exception ThrowBadEnumException<T>(T enumValue) where T : unmanaged
+        {
+            throw ThrowAssertionLite("Unexpected enum value for " + enumValue.GetType() + ": " + enumValue);
+        }
+
+        [DoesNotReturn]
+        public static Exception ThrowAssertionLite(string text)
+        {
+            throw new Exception(text);
         }
 
         private static void PeelUntilNextCommonPost<T>((long TotalCount, List<DangerousHugeReadOnlyMemory<T>> Slices)[] words, ref T mostRecentCommonPost) where T : unmanaged, IComparable<T>
@@ -2214,10 +2226,10 @@ namespace AppViewLite
             if (protoMs.Length == 0)
             {
                 // Zero-length values are not supported in CombinedPersistentMultiDictionary
-                if (setDummyValue == null) throw new Exception("Cannot serialize zero-length-serializing protos unless setDummyValue is provided.");
+                if (setDummyValue == null) throw BlueskyRelationships.ThrowAssertionLite("Cannot serialize zero-length-serializing protos unless setDummyValue is provided.");
                 setDummyValue(proto);
                 ProtoBuf.Serializer.Serialize(protoMs, proto);
-                if (protoMs.Length == 0) throw new Exception();
+                if (protoMs.Length == 0) BlueskyRelationships.ThrowAssertionLite("Proto is still zero bytes after setDummyValue");
             }
             return protoMs.ToArray();
         }
@@ -2255,7 +2267,7 @@ namespace AppViewLite
             if (directKind != default) return direct;
             if (inverseKind != default) return new BlockReason(BlockReasonKind.BlockedBy, inverse.List);
 
-            throw new Exception();
+            throw ThrowAssertionLite("UsersHaveBlockRelationship impossible case");
         }
 
         public bool IsMemberOfList(Relationship list, Plc member)
@@ -2273,7 +2285,7 @@ namespace AppViewLite
             {
                 var members = memberChunk.AsSpan();
                 var index = members.BinarySearch(new ListEntry(member, default));
-                if (index >= 0) throw new Exception();
+                if (index >= 0) BlueskyRelationships.ThrowAssertionLite("Approximate item should not have been found.");
 
                 index = ~index;
 
@@ -2302,7 +2314,7 @@ namespace AppViewLite
                 if (ListBlockDeletions.ContainsKey(subscriptionId))
                     continue;
 
-                if (singleList.Count != 1) throw new Exception(); // it's a SingleValue
+                if (singleList.Count != 1) BlueskyRelationships.ThrowAssertionLite("GetSubscribedBlockLists deletion should've been SingleValue.");
 
                 lists.Add(singleList[0]);
             }

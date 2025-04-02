@@ -43,7 +43,7 @@ namespace AppViewLite
                     NotificationKind.AddedYouToAList => "added you to a list",
                     NotificationKind.HidYourReply => "hid your reply",
                     NotificationKind.DetachedYourQuotePost => "detached your quote",
-                    _ => throw new Exception()
+                    _ => throw BlueskyRelationships.ThrowBadEnumException(Kind)
                 };
             }
         }

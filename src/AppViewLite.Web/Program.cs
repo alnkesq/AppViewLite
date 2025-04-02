@@ -119,6 +119,20 @@ namespace AppViewLite.Web
             }
             app.UseForwardedHeaders();
 
+            app.Use(async (context, next) =>
+            {
+                if (!(context.Request.Method is "GET" or "HEAD" or "OPTIONS") &&
+                    context.Request.Headers.TryGetValue("Sec-Fetch-Site", out var fetchSite) &&
+                    fetchSite == "cross-site")
+                {
+                    context.Response.StatusCode = 403;
+                    await context.Response.WriteAsync("Cross-site POST requests are not allowed.");
+                    return;
+                }
+
+                await next();
+            });
+
             app.UseHttpsRedirection();
 
             app.UseStatusCodePagesWithReExecute("/ErrorHttpStatus", "?code={0}");

@@ -58,7 +58,7 @@ namespace AppViewLite
             });
             FetchAndStoreLabelerServiceMetadataDict = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
             FetchAndStoreProfileDict = new(FetchAndStoreProfileCoreAsync);
-            FetchAccountStateFromPdsDict = new(FetchAccountStateFromPdsCoreAsync);
+            FetchAndStoreAccountStateFromPdsDict = new(FetchAndStoreAccountStateFromPdsCoreAsync);
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
@@ -117,7 +117,7 @@ namespace AppViewLite
             primarySecondaryPair.relationshipsUnlocked.NotificationGenerated += Relationships_NotificationGenerated;
         }
 
-        private async Task<Versioned<AccountState>> FetchAccountStateFromPdsCoreAsync(string did, RequestContext ctx)
+        private async Task<Versioned<AccountState>> FetchAndStoreAccountStateFromPdsCoreAsync(string did, RequestContext ctx)
         {
             using var protocol = await CreateProtocolForDidAsync(did, ctx);
             var response = (await protocol.GetRepoStatusAsync(new ATDid(did))).HandleResult()!;
@@ -175,7 +175,7 @@ namespace AppViewLite
         public TaskDictionary<(Plc Plc, string Did), RequestContext, Versioned<DidDocProto>> FetchAndStoreDidDocNoOverrideDict;
         public TaskDictionary<string, RequestContext, (long MinVersion, IReadOnlyList<LabelId> Labels)> FetchAndStoreLabelerServiceMetadataDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreProfileDict;
-        public TaskDictionary<string, RequestContext, Versioned<AccountState>> FetchAccountStateFromPdsDict;
+        public TaskDictionary<string, RequestContext, Versioned<AccountState>> FetchAndStoreAccountStateFromPdsDict;
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreOpenGraphDict;
@@ -1542,7 +1542,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                throw CreateExceptionMessageForExternalServerError($"The feed provider", ex);
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The feed provider", ex, did, ctx);
             }
 
             var posts = WithRelationshipsLockWithPreamble(
@@ -1573,12 +1573,12 @@ namespace AppViewLite
         }
 
 
-        private static Exception CreateExceptionMessageForExternalServerError(string subjectDisplayText, Exception ex)
+        private async Task<Exception> CreateExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, RequestContext ctx)
         {
             if (ex is PermissionException) return ex;
-            return new UnexpectedFirehoseDataException(GetExceptionMessageForExternalServerError(subjectDisplayText, ex), ex);
+            return new UnexpectedFirehoseDataException(await GetExceptionMessageForExternalServerErrorAsync(subjectDisplayText, ex, did, ctx), ex);
         }
-        private static string? GetExceptionMessageForExternalServerError(string subjectDisplayText, Exception ex)
+        private async Task<string?> GetExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, RequestContext ctx)
         {
             if (ex is ATNetworkErrorException at)
             {
@@ -1590,7 +1590,22 @@ namespace AppViewLite
                 if (string.IsNullOrEmpty(message)) return subjectDisplayText + " returned error " + at.AtError.StatusCode;
 
                 if (message == "Repo not found" || message.StartsWith("Could not find repo:", StringComparison.Ordinal))
+                {
+                    if (did != null)
+                    {
+                        try
+                        {
+                            var accountState = await FetchAndStoreAccountStateFromPdsDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
+                            if (!BlueskyRelationships.IsAccountActive(accountState.Value))
+                                return DefaultLabels.GetErrorForAccountState(accountState.Value);
+                        }
+                        catch (Exception ex2)
+                        {
+                            LogNonCriticalException(ex2);
+                        }
+                    }
                     return "This user no longer exists at the specified PDS.";
+                }
 
                 return subjectDisplayText + " returned error " + message;
             }
@@ -1769,7 +1784,7 @@ namespace AppViewLite
                 // double check from the PDS, in case we missed reactivation events.
                 try
                 {
-                    var accountState = await FetchAccountStateFromPdsDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
+                    var accountState = await FetchAndStoreAccountStateFromPdsDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
                     accountState.BumpMinimumVersion(ctx);
                 }
                 catch (Exception ex)
@@ -3101,7 +3116,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                throw CreateExceptionMessageForExternalServerError($"The PDS of this user", ex);
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, ctx);
             }
 
         }
@@ -3115,7 +3130,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                throw CreateExceptionMessageForExternalServerError($"The PDS of this user", ex);
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, ctx);
             }
 
         }
@@ -3418,8 +3433,11 @@ namespace AppViewLite
                 (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
                 {
                     var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
-                    var did = lastVerification.Plc != default ? rels.GetDid(lastVerification.Plc) : null;
-                    return (lastVerification.VerificationDate, lastVerification.Plc, did);
+                    
+                    BlueskyRelationships.Assert(lastVerification.Plc != default);
+
+                    return (lastVerification.VerificationDate, lastVerification.Plc, rels.GetDid(lastVerification.Plc));
+                    
                 }, ctx);
             }
             if (plc == default) throw new Exception();

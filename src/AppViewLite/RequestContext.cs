@@ -108,7 +108,6 @@ namespace AppViewLite
 
         public static RequestContext CreateForTaskDictionary(RequestContext originalCtx, bool possiblyUrgent = false)
         {
-            if (originalCtx.IsUrgent) { }
             return new RequestContext()
             {
                 Session = null!,

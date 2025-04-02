@@ -88,7 +88,8 @@ namespace AppViewLite
         {
             return
                 text.Contains("Failed to deserialize ATWebSocketRecord", StringComparison.Ordinal) ||
-                text.Contains(@"""kind"":""commit"",""commit"":{""rev"":""");
+                text.Contains(@"""kind"":""commit"",""commit"":{""rev"":""") ||
+                text.EndsWith("}}", StringComparison.Ordinal); // JSON dumps from FishyFlip
         }
 
         public static void LogLowImportanceException(Exception ex)

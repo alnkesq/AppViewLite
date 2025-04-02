@@ -1777,7 +1777,8 @@ namespace AppViewLite
             if (hasListsOrFeedsTask != null)
                 await hasListsOrFeedsTask;
             profile.RssFeedInfo = rssFeedInfo;
-            Task.Run(() => EnsureHaveBlocksForUserAsync(profile.Profile.Plc, RequestContext.ToNonUrgent(ctx))).FireAndForget();
+            if (profile.Profile.PluggableProtocol == null)
+                Task.Run(() => EnsureHaveBlocksForUserAsync(profile.Profile.Plc, RequestContext.ToNonUrgent(ctx))).FireAndForget();
             return profile;
         }
         public async Task<BlueskyProfile> GetProfileAsync(string did, RequestContext ctx)
@@ -2568,13 +2569,19 @@ namespace AppViewLite
                 RepositoryImportEntry? previousImport = null;
                 bool isRegisteredUser = false;
                 string? did = null;
+                var isNativeAtProto = true;
                 WithRelationshipsLock(rels =>
                 {
                     did = rels.GetDid(plc);
+                    if (!BlueskyRelationships.IsNativeAtProtoDid(did))
+                    {
+                        isNativeAtProto = false;
+                        return;
+                    }
                     isRegisteredUser = rels.IsRegisteredForNotifications(plc);
                     previousImport = rels.GetRepositoryImports(plc).Where(x => x.Kind == kind).MaxBy(x => (x.LastRevOrTid, x.StartDate));
                 }, ctx);
-
+                if (!isNativeAtProto) return null;
                 if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
                     return previousImport;
 

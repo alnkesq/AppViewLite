@@ -93,6 +93,8 @@ namespace AppViewLite
         {
             return inner.Add(key, 0);
         }
+
+        public bool Contains(TKey key) => inner.Dictionary.ContainsKey(key);
     }
 }
 

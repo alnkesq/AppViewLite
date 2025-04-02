@@ -142,10 +142,10 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         }
 
-        private string GetApiPrefix(string host) => "https://" + HostConfiguration[host].ApiHost;
-        private string GetImagePrefix(string host) => "https://" + HostConfiguration[host].ImageHost;
-        private string GetApiPrefix(YotsubaBoardId boardId) => GetApiPrefix(boardId.Host) + "/" + boardId.BoardName;
-        private string GetImagePrefix(YotsubaBoardId boardId) => GetImagePrefix(boardId.Host) + "/" + boardId.BoardName;
+        public string GetApiPrefix(string host) => "https://" + HostConfiguration[host].ApiHost;
+        public string GetImagePrefix(string host) => "https://" + HostConfiguration[host].ImageHost;
+        public string GetApiPrefix(YotsubaBoardId boardId) => GetApiPrefix(boardId.Host) + "/" + boardId.BoardName;
+        public string GetImagePrefix(YotsubaBoardId boardId) => GetImagePrefix(boardId.Host) + "/" + boardId.BoardName;
 
 
         private DateTime IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread, RequestContext ctx)

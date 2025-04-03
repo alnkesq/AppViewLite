@@ -63,7 +63,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 ## Building and running
 - Install [.NET 9](https://dotnet.microsoft.com/en-us/download)
 - `cd src/AppViewLite.Web`
-- `dotnet run -c Release`
+- `dotnet run -c Release -- --allow-new-database`
 
 Optionally, you can set [various configuration settings](https://github.com/alnkesq/AppViewLite/blob/main/docs/Configuration.md), including  `APPVIEWLITE_DIRECTORY` to specify where the data should be stored.
 

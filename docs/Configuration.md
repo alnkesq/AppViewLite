@@ -8,6 +8,7 @@ Each of these options can be specified (by descending priority):
 ## Main settings
 
 * `APPVIEWLITE_DIRECTORY`: Where to store the data. Defaults to `~/BskyAppViewLiteData`
+* `APPVIEWLITE_ADDITIONAL_DIRECTORIES`: Optional additional data directories (perhaps stored on different volumes) that complement `APPVIEWLITE_DIRECTORY`. When AppViewLite needs to read a file, it will first check if it exists in `APPVIEWLITE_DIRECTORY`, if it doesn't exist there, it will check the corresponding subfolders of each additional directory (if any files are missing altogether, AppViewLite will refuse to start). You can manually move large files or directories from the main `APPVIEWLITE_DIRECTORY` (for example, stored on fast solid storage) to an additional data directory (for example, stored on larger but slower rotating drives). Moving files requires scheduled downtime.
 * `APPVIEWLITE_PLC_DIRECTORY_BUNDLE`: Path to an optional parquet file for quick bootstraping of the PLC directory data.
 * `APPVIEWLITE_WIKIDATA_VERIFICATION`: Path to an optional parquet file with the official websites of the entities on Wikidata.
 * `APPVIEWLITE_BADGE_OVERRIDE_PATH`: Path to an optional text file with badge overrides (format: `didOrHandle,badgeKind[,url[,tooltipDescription]]`) where `badgeKind` can be `verified-generic`, `verified-organization`, `verified-government` or `none`. Will be live-reloaded if it changes.
@@ -20,6 +21,7 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exits during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
 * `APPVIEWLITE_ADMINISTRATIVE_DIDS`: List of DIDs that, when logged in, can perform privileged operations. Defaults to none. You can use `*` for local development.
 * `APPVIEWLITE_CONFIGURATION`: Path to an env file that will be loaded into the environment at startup. Prior environment variables take the precendence.
+* `APPVIEWLITE_ALLOW_NEW_DATABASE`: Allows AppViewLite to start a new database / empty checkpoint, if no `checkpoints/*.pb` files exist. Defaults to `0`. This is a safer default than `1`, because if no checkpoints were found for whatever reason, AppViewLite would otherwise start from scratch, and it would soon garbage collect all your previous data slices.
 
 ## Storage (low level configuration)
 * `APPVIEWLITE_USE_READONLY_REPLICA`: If enabled, most requests will be served from a readonly snapshot of the database (so that we don't have to wait for any current write lock to complete). Defaults to `1`.

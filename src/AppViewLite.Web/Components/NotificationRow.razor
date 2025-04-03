@@ -122,8 +122,7 @@
                         break;
                     }
                 }
-                <text></text>
-                @Notification.KindDisplayText
+                @(" " + Notification.KindDisplayText)
 
 
                 <span class="notification-date">&nbsp;·&nbsp;@StringUtils.ToHumanDate(Notification.LatestDate)</span>
@@ -155,7 +154,8 @@
             }
             else
             {
-                @Notification.KindDisplayText
+                @(" " + Notification.KindDisplayText)
+                
             }
             <span class="notification-date">&nbsp;·&nbsp;@StringUtils.ToHumanDate(Notification.LatestDate)</span>
 

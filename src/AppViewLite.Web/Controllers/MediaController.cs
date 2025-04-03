@@ -1,6 +1,7 @@
 using AppViewLite.Models;
 using Ipfs;
 using Microsoft.AspNetCore.Mvc;
+using AppViewLite.Storage;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -142,7 +143,7 @@ namespace AppViewLite.Web.Controllers
                 var filename = escapedPart2 + "_" + cid + ext;
                 if (filename.Length + 4 >= 255)
                     filename = escapedPart2 + "_-" + Base32.ToBase32(System.Security.Cryptography.SHA256.HashData(Base32.FromBase32(cid))) + ext;
-                var cachePath = Path.Combine(cacheDirectory, sizeEnum.ToString(), escapedPart1, filename);
+                var cachePath = CombinedPersistentMultiDictionary.ToPhysicalPath(Path.Combine(cacheDirectory, sizeEnum.ToString(), escapedPart1, filename));
 
 
                 if (!System.IO.File.Exists(cachePath))

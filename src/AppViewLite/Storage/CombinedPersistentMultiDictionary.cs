@@ -533,20 +533,22 @@ namespace AppViewLite.Storage
             var candidates = new List<CompactationCandidate>();
             for (int start = 0; start < slices.Count; start++)
             {
-                long totalBytes = 0;
+                long compactationBytes = 0;
                 long largestComponentBytes = 0;
-                for (int end = start + 2; end <= slices.Count; end++)
+                for (int end = start + 1; end <= slices.Count; end++) // do not "optimize" this into a start + 2 (totalBytes accumulator)
                 {
                     var componentBytes = slices[end - 1].SizeInBytes;
                     largestComponentBytes = Math.Max(largestComponentBytes, componentBytes);
-                    totalBytes += componentBytes;
+                    compactationBytes += componentBytes;
                     var length = end - start;
                     if (length < minLength) continue;
 
-                    var ratioOfLargestComponent = ((double)largestComponentBytes / totalBytes);
-                    if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(totalBytes, slices.Count)) continue;
-                    var score = (1 - ratioOfLargestComponent) * Math.Log(length) / Math.Log(totalBytes);
-                    candidates.Add(new CompactationCandidate(start, length, totalBytes, largestComponentBytes, score, ratioOfLargestComponent));
+                    var ratioOfLargestComponent = ((double)largestComponentBytes / compactationBytes);
+                    if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(compactationBytes, slices.Count)) continue;
+                    var z = slices.Slice(start, length);
+                    Assert(z.Sum(x => x.SizeInBytes) == compactationBytes);
+                    var score = (1 - ratioOfLargestComponent) * Math.Log(length) / Math.Log(compactationBytes);
+                    candidates.Add(new CompactationCandidate(start, length, compactationBytes, largestComponentBytes, score, ratioOfLargestComponent));
                 }
             }
             return candidates;

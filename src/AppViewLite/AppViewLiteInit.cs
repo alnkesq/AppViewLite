@@ -51,8 +51,8 @@ namespace AppViewLite
             BlueskyRelationships.CreateTimeSeries();
             var relationships = new BlueskyRelationships(
                 dataDirectory,
-                AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false);
-            relationships.RootDirectoriesToGcCollect = [dataDirectory, ..additionalDirectories];
+                AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false,
+                [dataDirectory, ..additionalDirectories]);
 
             relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(relationships);

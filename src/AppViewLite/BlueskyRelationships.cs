@@ -238,9 +238,10 @@ namespace AppViewLite
         }
 #nullable restore
 
-        public BlueskyRelationships(string basedir, bool isReadOnly)
+        public BlueskyRelationships(string basedir, bool isReadOnly, string[] rootDirectoriesToGcCollect)
             : this(isReadOnly)
         {
+            this.RootDirectoriesToGcCollect = rootDirectoriesToGcCollect;
             ApproximateLikeCountCache = new(128 * 1024);
             ReplicaOnlyApproximateLikeCountCache = new(128 * 1024);
             DidToPlcConcurrentCache = new(512 * 1024);
@@ -621,12 +622,15 @@ namespace AppViewLite
 
         }
 
+        public event Action? BeforeCaptureCheckpoint;
+
         private void CaptureCheckpoint()
         {
             if (IsReadOnly) return;
             try
             {
                 Log("Capturing checkpoint");
+                BeforeCaptureCheckpoint?.Invoke();
                 loadedCheckpoint.Tables ??= new();
                 foreach (var table in disposables)
                 {

@@ -14,7 +14,7 @@ namespace AppViewLite.Storage
             {
                 for (int i = 0; i < columnCount; i++)
                 {
-                    cols.Add(new MemoryMappedFileSlim(pathPrefix + ".col" + i + ".dat", randomAccess: true));
+                    cols.Add(new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true));
                 }
             }
             catch

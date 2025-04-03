@@ -48,7 +48,8 @@ namespace AppViewLite
 
         public static string GetDataDirectory()
         {
-            return GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData");
+            var path = GetString(AppViewLiteParameter.APPVIEWLITE_DIRECTORY) ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "BskyAppViewLiteData");
+            return Path.TrimEndingDirectorySeparator(path);
         }
 
         public static void ReadEnvAndArgs(string[] args)
@@ -161,6 +162,7 @@ namespace AppViewLite
         APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS,
         APPVIEWLITE_CONFIGURATION,
         APPVIEWLITE_DIRECT_IO_PRINT_READS,
+        APPVIEWLITE_ADDITIONAL_DIRECTORIES,
     }
 }
 

@@ -135,13 +135,6 @@ namespace AppViewLite
         }
 
 
-        public BlueskyRelationships()
-            : this(
-                  AppViewLiteConfiguration.GetDataDirectory(),
-                  AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false)
-        {
-        }
-
         public string BaseDirectory { get; }
         private FileStream? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
@@ -713,35 +706,39 @@ namespace AppViewLite
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
                 .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()));
-            foreach (var table in keep)
+            foreach (var rootOrAdditionalDirectory in RootDirectoriesToGcCollect)
             {
-                foreach (var file in new DirectoryInfo(Path.Combine(BaseDirectory, table.TableName)).EnumerateFiles())
+                foreach (var table in keep)
                 {
-                    var name = file.Name;
-                    if (name.EndsWith(".tmp", StringComparison.Ordinal))
+                    foreach (var file in new DirectoryInfo(Path.Combine(rootOrAdditionalDirectory, table.TableName)).EnumerateFiles())
                     {
-                        if (allowTempFileDeletion) file.Delete();
-                        else continue; // might be a parallel compactation
-                    }
-
-                    var dot = name.IndexOf('.');
-                    if (dot != -1) name = name.Substring(0, dot);
-
-                    var sliceName = SliceName.ParseBaseName(name);
-                    if (!table.SlicesToKeep.Contains(sliceName))
-                    {
-                        LogInfo("Deleting obsolete slice: " + file.FullName);
-                        try
+                        var name = file.Name;
+                        if (name.EndsWith(".tmp", StringComparison.Ordinal))
                         {
-                            file.Delete();
+                            if (allowTempFileDeletion) file.Delete();
+                            else continue; // might be a parallel compactation
                         }
-                        catch (Exception ex)
+
+                        var dot = name.IndexOf('.');
+                        if (dot != -1) name = name.Substring(0, dot);
+
+                        var sliceName = SliceName.ParseBaseName(name);
+                        if (!table.SlicesToKeep.Contains(sliceName))
                         {
-                            LogNonCriticalException($"Deletion of old slice {file.FullName} failed", ex);
+                            LogInfo("Deleting obsolete slice: " + file.FullName);
+                            try
+                            {
+                                file.Delete();
+                            }
+                            catch (Exception ex)
+                            {
+                                LogNonCriticalException($"Deletion of old slice {file.FullName} failed", ex);
+                            }
                         }
                     }
                 }
             }
+            
 
             var checkpointsToKeepHashset = checkpointsToKeep.Select(x => x.Name).ToHashSet();
             foreach (var checkpoint in allCheckpoints)

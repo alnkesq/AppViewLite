@@ -64,9 +64,10 @@ namespace AppViewLite.Storage
 
             if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)
             {
-                var keyCachePath = pathPrefix + ".keys" + KeyCountPerPage + ".cache";
+                var keyCachePath = CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".keys" + KeyCountPerPage + ".cache");
                 if (!File.Exists(keyCachePath))
                 {
+                    Directory.CreateDirectory(Path.GetDirectoryName(keyCachePath)!);
                     CombinedPersistentMultiDictionary.Log("Materializing cache " + keyCachePath);
                     using (var cacheStream = new FileStream(keyCachePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
                     {

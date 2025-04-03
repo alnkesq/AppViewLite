@@ -184,6 +184,7 @@ namespace AppViewLite.Storage
         public static bool UseDirectIo = true;
         public static int DiskSectorSize = 512;
         public static bool PrintDirectIoReads;
+        public static Func<string, string> ToPhysicalPath = x => x;
         public static ConcurrentDictionary<string, long> DirectIoReadStats = new();
 
         public static void Log(string text)
@@ -629,7 +630,7 @@ namespace AppViewLite.Storage
                         {
                             for (int i = 0; i < input.Reader.ColumnCount; i++)
                             {
-                                File.Delete(input.Reader.PathPrefix + ".col" + i + ".dat");
+                                File.Delete(ToPhysicalPath(input.Reader.PathPrefix + ".col" + i + ".dat"));
                             }
                         }
                         NotifyCachesSliceRemoved(groupStart);

@@ -6,10 +6,6 @@ namespace AppViewLite.Storage
 {
     public static class DirectIo
     {
-        public static SafeFileHandle Open(string path)
-        {
-            return MemoryMappedFileSlim.OpenFile(path, fileOptions: MemoryMappedFileSlim.NoBuffering | System.IO.FileOptions.RandomAccess);
-        }
 
         public unsafe static NativeMemoryRange ReadAligned(SafeFileHandle handle, long fileOffset, int length, AlignedNativeArena arena)
         {

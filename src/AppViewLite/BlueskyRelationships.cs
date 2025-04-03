@@ -261,6 +261,8 @@ namespace AppViewLite
             var checkpointsDir = new DirectoryInfo(basedir + "/checkpoints");
             checkpointsDir.Create();
             var latestCheckpoint = checkpointsDir.EnumerateFiles("*.pb").MaxBy(x => (DateTime?)x.LastWriteTimeUtc);
+            if (latestCheckpoint == null && !AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ALLOW_NEW_DATABASE).GetValueOrDefault())
+                throw new Exception("A checkpoint file to load was not found. Specify --allow-new-database to create a new database.");
             loadedCheckpoint = latestCheckpoint != null ? DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(latestCheckpoint.FullName)) : new GlobalCheckpoint();
             checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray());
 

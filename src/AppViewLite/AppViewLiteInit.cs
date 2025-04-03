@@ -18,6 +18,17 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
             var additionalDirectories = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ADDITIONAL_DIRECTORIES) ?? [];
+
+            foreach (var additional in additionalDirectories)
+            {
+                var checkpoints = Path.Combine(additional, "checkpoints");
+                if (Directory.Exists(checkpoints))
+                {
+                    if (Directory.EnumerateFiles(checkpoints, "*.pb").Any())
+                        BlueskyRelationships.ThrowFatalError("Checkpoint files must only exist in $APPVIEWLITE_DIRECTORY, not in $APPVIEWLITE_ADDITIONAL_DIRECTORIES.");
+                }
+            }
+
             var dataDirectory = AppViewLiteConfiguration.GetDataDirectory();
             CombinedPersistentMultiDictionary.ToPhysicalPath = path =>
             {

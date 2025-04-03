@@ -716,7 +716,9 @@ namespace AppViewLite
             {
                 foreach (var table in keep)
                 {
-                    foreach (var file in new DirectoryInfo(Path.Combine(rootOrAdditionalDirectory, table.TableName)).EnumerateFiles())
+                    var directory = new DirectoryInfo(Path.Combine(rootOrAdditionalDirectory, table.TableName));
+                    if (!directory.Exists) continue;
+                    foreach (var file in directory.EnumerateFiles())
                     {
                         var name = file.Name;
                         if (name.EndsWith(".tmp", StringComparison.Ordinal))

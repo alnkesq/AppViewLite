@@ -13,35 +13,12 @@ namespace AppViewLite.Web
 {
     public static class Program
     {
-        private static BlueskyRelationships Relationships = null!;
-
-
-        public static bool ListenToFirehose;
-
-        public static BlueskyEnrichedApis Apis => BlueskyEnrichedApis.Instance;
 
         public static async Task Main(string[] args)
         {
-            AppViewLiteConfiguration.ReadEnvAndArgs(args);
-            LoggableBase.Initialize();
-            CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
-            CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
-            CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
-            ListenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
-            BlueskyRelationships.CreateTimeSeries();
-            Relationships = new();
-            Relationships.MaybeEnterWriteLockAndPrune();
-            var primarySecondaryPair = new PrimarySecondaryPair(Relationships);
-            var apis = new BlueskyEnrichedApis(primarySecondaryPair);
-            Indexer.InitializeFirehoseThreadpool(apis);
-
-            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));
-            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Nostr.NostrProtocol));
-            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Yotsuba.YotsubaProtocol));
-            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.HackerNews.HackerNewsProtocol));
-            apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.Rss.RssProtocol)); // lowest priority for TryGetDidOrLocalPathFromUrlAsync
-
-            BlueskyEnrichedApis.Instance = apis;
+            var apis = AppViewLiteInit.Init(args);
+            var relationships = apis.DangerousUnlockedRelationships;
+            var listenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
             var builder = WebApplication.CreateBuilder(args);
             // Add services to the container.
             builder.Logging.ClearProviders();
@@ -102,7 +79,7 @@ namespace AppViewLite.Web
                 }
             };
 #endif
-            app.Lifetime.ApplicationStopping.Register(Relationships.NotifyShutdownRequested);
+            app.Lifetime.ApplicationStopping.Register(relationships.NotifyShutdownRequested);
 
 
 
@@ -159,7 +136,7 @@ namespace AppViewLite.Web
                         if (ctx.Request.Method == "GET" && ctx.Request.Headers["sec-fetch-dest"].FirstOrDefault() != "empty")
                         {
                             // the refresh token will expire soon. require a new login to avoid broken POST/like later.
-                            Apis.LogOut(reqCtx.Session.SessionToken!, reqCtx.Session.Did!, reqCtx);
+                            apis.LogOut(reqCtx.Session.SessionToken!, reqCtx.Session.Did!, reqCtx);
                             ctx.Response.Redirect("/login?return=" + Uri.EscapeDataString(ctx.Request.GetEncodedPathAndQuery()));
                             return;
                         }
@@ -214,13 +191,13 @@ namespace AppViewLite.Web
             app.MapHub<AppViewLiteHub>("/api/live-updates");
             app.MapControllers();
 
-            if (ListenToFirehose && !Relationships.IsReadOnly)
+            if (listenToFirehose && !relationships.IsReadOnly)
             {
 
 
 
                 await Task.Delay(1000);
-                app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", Relationships.BaseDirectory);
+                app.Logger.LogInformation("Indexing the firehose to {0}... (press CTRL+C to stop indexing)", relationships.BaseDirectory);
 
                 var firehoses = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ??
                     [
@@ -284,13 +261,13 @@ namespace AppViewLite.Web
 
                 foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)
                 {
-                    Task.Run(() => pluggableProtocol.DiscoverAsync(Relationships.ShutdownRequested)).FireAndForget();
+                    Task.Run(() => pluggableProtocol.DiscoverAsync(relationships.ShutdownRequested)).FireAndForget();
                 }
 
             }
 
 
-            if ((AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_PLC_DIRECTORY) ?? true) && !Relationships.IsReadOnly)
+            if ((AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_PLC_DIRECTORY) ?? true) && !relationships.IsReadOnly)
             {
                 Task.Run(async () =>
                 {
@@ -327,7 +304,7 @@ namespace AppViewLite.Web
 
         public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
         {
-            return Apis.TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
+            return BlueskyEnrichedApis.Instance.TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
         }
 
         public static string? TryGetSessionCookie(HttpContext? httpContext)

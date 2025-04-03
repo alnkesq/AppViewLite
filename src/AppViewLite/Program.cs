@@ -9,23 +9,17 @@ namespace AppViewLite
     {
         static async Task Main(string[] args)
         {
-            AppViewLiteConfiguration.ReadEnvAndArgs(args);
-            LoggableBase.Initialize();
-            using var relationships = new BlueskyRelationships();
-            BlueskyRelationships.CreateTimeSeries();
-            using var primarySecondaryPair = new PrimarySecondaryPair(relationships);
-            var apis = new BlueskyEnrichedApis(primarySecondaryPair);
-            Indexer.InitializeFirehoseThreadpool(apis);
+            var apis = AppViewLiteInit.Init(args);
+
             Console.CancelKeyPress += (s, e) =>
             {
-
-                relationships.NotifyShutdownRequested();
+                BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.NotifyShutdownRequested();
                 Environment.Exit(0);
             };
 
             var indexer = new Indexer(apis);
-            LoggableBase.Log("Indexing the firehose to " + relationships.BaseDirectory + "...");
-            LoggableBase.Log("NOTE: If you want to use the Web UI, run AppViewLite.Web instead.");
+            LoggableBase.Log("You're running the AppViewLite firehose listener WITHOUT the AppViewLite server.");
+            LoggableBase.Log("If you want to use the Web UI, run AppViewLite.Web instead.");
             LoggableBase.Log("Press CTRL+C to stop indexing...");
             //indexer.RetrievePlcDirectoryLoopAsync().FireAndForget();
             indexer.VerifyValidForCurrentRelay = x => { };

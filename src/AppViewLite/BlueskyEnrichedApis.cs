@@ -62,6 +62,7 @@ namespace AppViewLite
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
+            HandleToDidAndStoreDict = new(HandleToDidAndStoreCoreAsync);
             CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, extraArgs.Ctx, extraArgs.SlowImport));
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
@@ -179,6 +180,7 @@ namespace AppViewLite
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreOpenGraphDict;
+        public TaskDictionary<string, RequestContext, Versioned<string>> HandleToDidAndStoreDict;
 
         public Task<long> FetchAndStoreOpenGraphAsync(Uri url, RequestContext ctx) => FetchAndStoreOpenGraphDict.GetValueAsync(url.AbsoluteUri, RequestContext.CreateForTaskDictionary(ctx));
 
@@ -3435,11 +3437,12 @@ namespace AppViewLite
 
             if (forceRefresh || plc == default || (DateTime.UtcNow - handleToDidVerificationDate) > HandleToDidMaxStale)
             {
-                await HandleToDidCoreAsync(handle, ctx);
+                var versioned = await HandleToDidAndStoreDict.GetValueAsync(handle, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
+                versioned.BumpMinimumVersion(ctx);
                 (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
                 {
-                    var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
-                    
+                    if (!rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var lastVerification))
+                        BlueskyRelationships.ThrowFatalError("Entry was not added to HandleToDidVerifications");
                     BlueskyRelationships.Assert(lastVerification.Plc != default);
 
                     return (lastVerification.VerificationDate, lastVerification.Plc, rels.GetDid(lastVerification.Plc));
@@ -3523,7 +3526,7 @@ namespace AppViewLite
         private readonly static bool DnsUseHttps = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_DNS_OVER_HTTPS) ?? true;
 
 
-        private async Task<string> HandleToDidCoreAsync(string handle, RequestContext ctx)
+        private async Task<Versioned<string>> HandleToDidAndStoreCoreAsync(string handle, RequestContext ctx)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(handle);
 
@@ -3556,23 +3559,23 @@ namespace AppViewLite
                     {
                         var did = record.Substring(4);
                         EnsureValidDid(did);
-                        WithRelationshipsWriteLock(rels =>
+                        return WithRelationshipsWriteLock(rels =>
                         {
                             rels.IndexHandle(handle, did, ctx);
                             rels.AddHandleToDidVerification(handle, rels.SerializeDid(did, ctx));
+                            return rels.AsVersioned(did);
                         }, ctx);
-                        return did;
                     }
                 }
 
                 var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did")).Trim();
                 EnsureValidDid(s);
-                WithRelationshipsWriteLock(rels =>
+                return WithRelationshipsWriteLock(rels =>
                 {
                     rels.IndexHandle(handle, s, ctx);
                     rels.AddHandleToDidVerification(handle, rels.SerializeDid(s, ctx));
+                    return rels.AsVersioned(s);
                 }, ctx);
-                return s;
             }
             catch
             {

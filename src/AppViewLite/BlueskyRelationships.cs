@@ -3971,6 +3971,9 @@ namespace AppViewLite
 
         public Versioned<T> AsVersioned<T>(T value) => new(value, Version);
 
+
+        internal readonly string[] RootDirectoriesToGcCollect;
+
     }
 
 

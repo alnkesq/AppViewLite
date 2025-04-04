@@ -152,7 +152,10 @@
 
 
                     <button actionkind="copyProfileUrl" class="menu-item">Copy profile URL</button>
-                    <a href="/search?q=from:@(SimpleProfile.HandleIsUncertain || SimpleProfile.PossibleHandle == null ? SimpleProfile.Did : SimpleProfile.PossibleHandle)%20" class="menu-item">Search posts…</a>
+                    @if (SimpleProfile.IsActive)
+                    {
+                        <a href="/search?q=from:@(SimpleProfile.HandleIsUncertain || SimpleProfile.PossibleHandle == null ? SimpleProfile.Did : SimpleProfile.PossibleHandle)%20" class="menu-item">Search posts…</a>
+                    }
                     @if(SimpleProfile.PluggableProtocol == null)
                     {
                         <a href="@SimpleProfile.BaseUrl/member-of" class="menu-item menu-item-advanced">Show list memberships</a>

@@ -13,6 +13,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Collections.Concurrent;
 using DuckDbSharp.Bindings;
+using System.Threading;
 
 namespace AppViewLite.Storage
 {
@@ -53,6 +54,8 @@ namespace AppViewLite.Storage
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
         public PersistentDictionaryBehavior Behavior => behavior;
+
+        internal readonly static SemaphoreSlim CompactationSemaphore = new SemaphoreSlim(1);
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
 
@@ -583,6 +586,7 @@ namespace AppViewLite.Storage
 
         }
 
+
         private void StartCompactation(int groupStart, int groupLength, CompactationCandidate compactationCandidate)
         {
             if (groupLength <= 1) return;
@@ -608,11 +612,16 @@ namespace AppViewLite.Storage
             {
                 try
                 {
+                    CompactationSemaphore.Wait();
                     Compact(inputSlices, writer, OnCompactation);
                 }
                 catch (Exception ex)
                 {
                     CombinedPersistentMultiDictionary.Abort(ex);
+                }
+                finally
+                {
+                    CompactationSemaphore.Release();
                 }
                 sw.Stop();
 

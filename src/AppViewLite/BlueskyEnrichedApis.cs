@@ -50,7 +50,7 @@ namespace AppViewLite
         {
             RunHandleVerificationDict = new(async (handle, ctx) =>
             {
-                return new(await ResolveHandleAsync(handle, ctx: ctx), ctx.MinVersion);
+                return new(await ResolveHandleAsync(handle, ctx: ctx, allowUnendorsed: false), ctx.MinVersion);
             });
             FetchAndStoreDidDocNoOverrideDict = new(async (pair, anyCtx) =>
             {
@@ -3376,7 +3376,7 @@ namespace AppViewLite
                 handle += "@" + activityPubInstance;
             return ResolveHandleAsync(handle, ctx);
         }
-        public async Task<string> ResolveHandleAsync(string handle, RequestContext ctx, bool forceRefresh = false)
+        public async Task<string> ResolveHandleAsync(string handle, RequestContext ctx, bool forceRefresh = false, bool allowUnendorsed = true)
         {
 
             handle = StringUtils.NormalizeHandle(handle);
@@ -3475,7 +3475,16 @@ namespace AppViewLite
 
 
                 if ("did:web:" + handle != did)
+                {
+                    // oldhandle.example => did:plc:123456 => newhandle.example
+                    // oldhandle.example is NOT in diddoc.
+                    // we don't know if did:plc:123456 endorses being referred to as oldhandle.example
+                    // but at least we can provide a redirect (bsky.app does the same)
+
+                    if (allowUnendorsed)
+                        return did!;
                     throw new UnexpectedFirehoseDataException($"Bidirectional handle verification failed: {handle} => {did} => {didDoc.Handle}");
+                }
             }
 
             foreach (var extraHandle in didDoc.AllHandlesAndDomains)
@@ -3828,7 +3837,7 @@ namespace AppViewLite
 
             try
             {
-                var resolved = await ResolveHandleAsync(possibleHandle, ctx);
+                var resolved = await ResolveHandleAsync(possibleHandle, ctx, allowUnendorsed: false);
                 return resolved;
             }
             catch
@@ -4186,7 +4195,7 @@ namespace AppViewLite
 
             var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
 
-            var did = await apis.ResolveHandleAsync(handle, ctx);
+            var did = await apis.ResolveHandleAsync(handle, ctx, allowUnendorsed: false);
             var atSession = isReadOnly ? null : await apis.LoginToPdsAsync(did, password, ctx);
 
 

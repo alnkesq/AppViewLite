@@ -88,7 +88,11 @@ var liveUpdatesConnection = null;
 var liveUpdatesConnectionFuture = (async () => {
 
 
-    var connection = new signalR.HubConnectionBuilder().withUrl("/api/live-updates").withAutomaticReconnect().build();
+    var connection = new signalR.HubConnectionBuilder()
+        .withUrl("/api/live-updates")
+        .configureLogging(signalR.LogLevel.Information) 
+        .withAutomaticReconnect()
+        .build();
     connection.on('PostEngagementChanged', (stats, ownRelationship) => {
         //console.log('PostEngagementChanged: ');
         for (const postElement of document.querySelectorAll(getPostSelector(stats.did, stats.rKey))) {
@@ -934,6 +938,9 @@ function enableMenuFocus() {
 
 function onInitialLoad() {
     if (isNoLayout) return;
+    window.addEventListener('beforeunload', e => {
+        console.log('beforeunload event triggered.')
+    });
     window.addEventListener('popstate', e => {
         var popped = historyStack.pop();
         if (popped != location.href) { 

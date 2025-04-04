@@ -3100,7 +3100,10 @@ namespace AppViewLite
             var response = await ListRecordsAsync(did, Listitem.RecordType, limit, cursor: continuation, ctx);
             var members = WithRelationshipsUpgradableLock(rels =>
             {
-                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler, ctx), ctx)).ToArray();
+                return response!.Records!.TrySelect(x =>
+                {
+                    return rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler, ctx), ctx);
+                }).ToArray();
             }, ctx);
             await EnrichAsync(members, ctx);
             return (list, members, response.Cursor);
@@ -3315,7 +3318,7 @@ namespace AppViewLite
             var response = await ListRecordsAsync(did, List.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var lists = WithRelationshipsLockForDid(did, (plc, rels) =>
             {
-                return response!.Records!.Select(x =>
+                return response!.Records!.TrySelect(x =>
                 {
                     var listId = new Models.Relationship(plc, Tid.Parse(x.Uri.Rkey));
                     return rels.GetList(listId, BlueskyRelationships.ListToProto((List)x.Value), ctx: ctx);

@@ -530,7 +530,7 @@ namespace AppViewLite
                 {
                     var element = (IElement)node;
                     var tagName = element.TagName;
-                    var isBlockElement = tagName is "P" or "DIV" or "BLOCKQUOTE" or "LI";
+                    var isBlockElement = tagName is "P" or "DIV" or "BLOCKQUOTE" or "LI" or "IFRAME";
                     if (isBlockElement && !omitBlockElementNewLine) AppendNewLineIfNecessary();
 
                     if (tagName == "LI")
@@ -548,6 +548,13 @@ namespace AppViewLite
                     var facet = getFacet(element);
                     if (facet != null)
                     {
+                        if (element.TagName == "IFRAME" && facet.Link != null)
+                        {
+                            startIndex = utf8length;
+                            AppendText(facet.Link);
+                            facet.SameLinkAsText = true;
+                            facet.Link = null;
+                        }
                         facet.Start = startIndex;
                         facet.Length = utf8length - startIndex;
                         facets.Add(facet);
@@ -616,6 +623,7 @@ namespace AppViewLite
         }
 
         public static Uri? TryParseUri(string? uri) => Uri.TryCreate(uri, UriKind.Absolute, out var url) ? url : null;
+        public static Uri? TryParseUri(Uri? baseUrl, string? uri) => baseUrl != null ? (Uri.TryCreate(baseUrl, uri, out var url) ? url : null) : TryParseUri(uri);
 
         public static string? GetFileName(this Uri url)
         {
@@ -688,8 +696,8 @@ namespace AppViewLite
                 var link = element.GetAttribute("href");
                 if (!string.IsNullOrEmpty(link) && link != "#")
                 {
-                    Uri? url;
-                    if (baseUrl != null ? Uri.TryCreate(link, UriKind.Absolute, out url) : Uri.TryCreate(baseUrl, link, out url))
+                    var url = TryParseUri(baseUrl, link);
+                    if (url != null)
                     {
                         link = url.ToString();
                         FacetData facet;
@@ -716,16 +724,24 @@ namespace AppViewLite
 
             }
 
+            if (element.TagName == "IFRAME")
+            {
+                var src = StringUtils.TryParseUri(baseUrl, element.GetAttribute("src"));
+                if (src != null)
+                {
+                    return new FacetData { Link = EmbedUrlToFullUrl(src).ToString() };
+                }
+            }
+
             if (includeInlineImages)
             {
                 if (element.TagName == "IMG")
                 {
-                    var src = element.GetAttribute("src");
-                    Uri? url;
-                    if (baseUrl != null ? Uri.TryCreate(src, UriKind.Absolute, out url) : Uri.TryCreate(baseUrl, src, out url))
-                    {
-                        return new FacetData { InlineImageUrl = src };
-                    }
+                    var src = StringUtils.TryParseUri(baseUrl, element.GetAttribute("src"));
+
+                    if (src != null)
+                        return new FacetData { InlineImageUrl = src.AbsoluteUri };
+
                 }
             }
 
@@ -739,6 +755,17 @@ namespace AppViewLite
                 return new FacetData { Bold = true };
             }
             return null;
+        }
+
+        private static Uri EmbedUrlToFullUrl(Uri src)
+        {
+            if (src.HasHostSuffix("youtube.com"))
+            {
+                var segments = src.GetSegments();
+                if (segments.Length >= 2 && segments[0] == "embed")
+                    return new Uri("https://www.youtube.com/watch?v=" + segments[1]);
+            }
+            return src;
         }
 
         internal static IHtmlElement AsWrappedTextNode(string text)
@@ -869,7 +896,7 @@ namespace AppViewLite
             var location = response.Headers.Location;
             if (location == null) return null;
             var originalUrl = response.RequestMessage!.RequestUri!;
-            if (!location.IsAbsoluteUri) 
+            if (!location.IsAbsoluteUri)
                 location = new Uri(originalUrl, location);
             if (forbidLoop && originalUrl.AbsoluteUri == location.AbsoluteUri)
                 throw new UnexpectedFirehoseDataException("The server returned a redirect to the same page.");

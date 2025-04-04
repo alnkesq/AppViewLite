@@ -55,6 +55,10 @@ namespace AppViewLite.Models
                             }
                         }
                     }
+                    else if (BlueskyEnrichedApis.IsQuickBackfillCollection(Kind))
+                    {
+                        return $"Downloading: {InsertedRecordCount} records";
+                    }
                     else
                     {
                         if (TotalRecords == 0)
@@ -94,6 +98,7 @@ namespace AppViewLite.Models
         FeedGenerators,
         Threadgates,
         Postgates,
+        FollowersBskyAppBackfill,
     }
 
 }

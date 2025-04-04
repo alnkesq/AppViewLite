@@ -63,7 +63,7 @@ namespace AppViewLite
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
             HandleToDidAndStoreDict = new(HandleToDidAndStoreCoreAsync);
-            CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, extraArgs.Ctx, extraArgs.SlowImport));
+            CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, ctx: extraArgs.Ctx, authenticatedCtx: extraArgs.AuthenticatedCtx, extraArgs.SlowImport));
             DidDocOverrides = new ReloadableFile<DidDocOverridesConfiguration>(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_DID_DOC_OVERRIDES), path =>
             {
                 var config = DidDocOverridesConfiguration.ReadFromFile(path);
@@ -2610,6 +2610,11 @@ namespace AppViewLite
 
         public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default, bool slowImport = false)
         {
+            if (IsQuickBackfillCollection(kind))
+            { 
+                if(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE) == "-")
+                    throw new Exception("Quick reverse backfill is not enabled.");
+            }
             async Task<RepositoryImportEntry?> CoreAsync()
             {
                 RepositoryImportEntry? previousImport = null;
@@ -2631,7 +2636,8 @@ namespace AppViewLite
                 if (previousImport != null && ignoreIfPrevious != null && ignoreIfPrevious(previousImport))
                     return previousImport;
 
-                var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, slowImport, RequestContext.CreateForTaskDictionary(ctx)));
+                RequestContext? authenticatedCtx = ctx.IsLoggedIn && ctx.UserContext.Plc == plc ? ctx : null;
+                var result = await CarImportDict.GetValueAsync((plc, kind, incremental), (previousImport, did!, isRegisteredUser, slowImport, AuthenticatedCtx: authenticatedCtx, Ctx: RequestContext.CreateForTaskDictionary(ctx)));
                 ctx.BumpMinimumVersion(result.MinVersion);
                 return result;
             }
@@ -2644,7 +2650,7 @@ namespace AppViewLite
             
         }
 
-        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx, bool slowImport)
+        private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx, RequestContext? authenticatedCtx, bool slowImport)
         {
             var startDate = DateTime.UtcNow;
             var summary = new RepositoryImportEntry
@@ -2682,6 +2688,18 @@ namespace AppViewLite
                     {
                         exception = ex;
                         lastTid = default;
+                    }
+                }
+                else if (kind == RepositoryImportKind.FollowersBskyAppBackfill)
+                {
+                    try
+                    {
+                        lastTid = await indexer.ImportFollowersBackfillAsync(did, authenticatedCtx, since, ctx, progress, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        lastTid = default;
+                        exception = ex;
                     }
                 }
                 else
@@ -2758,7 +2776,7 @@ namespace AppViewLite
             return tid;
         }
 
-        private async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
+        public async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
         {
             var session = ctx.Session;
             using var sessionProtocol = await GetSessionProtocolAsync(ctx);
@@ -2837,6 +2855,21 @@ namespace AppViewLite
             if (!BlueskyRelationships.IsNativeAtProtoDid(did)) return null;
             return await CreateProtocolForDidAsync(did, ctx)!;
         }
+        public ATProtocol CreateQuickBackfillProtocol()
+        {
+            var instance = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE) ?? "https://public.api.bsky.app";
+            if (instance == "-") throw new Exception("Quick reverse backfill is not enabled.");
+            return CreateUnauthenticatedProtocol(new Uri(instance));
+        }
+
+        public ATProtocol CreateUnauthenticatedProtocol(Uri instanceUrl)
+        {
+            var builder = new ATProtocolBuilder()
+                .WithInstanceUrl(instanceUrl)
+                .WithLogger(CreateClientAtProtocolLogger());
+            return builder.Build();
+        }
+
         public async Task<ATProtocol> CreateProtocolForDidAsync(string did, RequestContext ctx)
         {
             var diddoc = await GetDidDocAsync(did, ctx);
@@ -2846,17 +2879,22 @@ namespace AppViewLite
             if (pds == null) throw new UnexpectedFirehoseDataException("No PDS is specified in the DID doc of this user.");
             var builder = new ATProtocolBuilder()
                 .WithInstanceUrl(new Uri(pds))
-                .WithLogger(new LogWrapper(Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Information)
-                {
-                    IsLowImportanceException = x => x.AnyInnerException(x => x is HttpRequestException),
-                    IsLowImportanceMessage = x => x.StartsWith("ATError:", StringComparison.Ordinal)
-                });
+                .WithLogger(CreateClientAtProtocolLogger());
             var dict = new Dictionary<ATDid, Uri>
             {
                 { new ATDid(did), new Uri(pds) }
             };
             builder.WithATDidCache(dict);
             return builder.Build();
+        }
+
+        private static LogWrapper CreateClientAtProtocolLogger()
+        {
+            return new LogWrapper(Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Information)
+            {
+                IsLowImportanceException = x => x.AnyInnerException(x => x is HttpRequestException),
+                IsLowImportanceMessage = x => x.StartsWith("ATError:", StringComparison.Ordinal)
+            };
         }
 
         public async Task<Tid> CreateFollowAsync(string did, RequestContext ctx)
@@ -3796,7 +3834,7 @@ namespace AppViewLite
             return result;
         }
 
-        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, bool SlowImport, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
+        public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, bool SlowImport, RequestContext? AuthenticatedCtx, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
 
@@ -4007,7 +4045,6 @@ namespace AppViewLite
             }
             userContext.PrivateProfile!.MuteRules ??= [];
 
-
             // asynchronous part
             await EnrichAsync([userContext.Profile], ctx);
 
@@ -4044,19 +4081,23 @@ namespace AppViewLite
         private async Task ImportLowPriorityCollectionsForRegisteredUserAsync(AppViewLiteUserContext userContext, RequestContext ctx)
         {
             await EnsureHaveBlocksForUserAsync(userContext.Plc, ctx);
+            await EnsureHaveCollectionAsync(userContext.Plc, RepositoryImportKind.FollowersBskyAppBackfill, ctx);
         }
 
 
+        public static bool IsQuickBackfillCollection(RepositoryImportKind kind) => kind is RepositoryImportKind.FollowersBskyAppBackfill;
         public static bool RepositoryImportKindIncludesCollection(RepositoryImportKind importKind, RepositoryImportKind collection)
         {
-            if (importKind == RepositoryImportKind.CAR) return true;
+            if (importKind == RepositoryImportKind.CAR && !IsQuickBackfillCollection(collection)) return true;
             return importKind == collection;
         }
 
         public Task EnsureHaveCollectionsAsync(IEnumerable<Plc> plcs, RepositoryImportKind kind, RequestContext ctx)
         {
-            var tasks = plcs.Distinct().Select(x => EnsureHaveCollectionAsync(x, kind, ctx));
-            return Task.WhenAll(tasks);
+            return Parallel.ForEachAsync(plcs.Distinct(), new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (plc, ct) =>
+            {
+                await EnsureHaveCollectionAsync(plc, kind, ctx);
+            });
         }
         public async Task<RepositoryImportEntry?> EnsureHaveCollectionAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, bool slowImport = false, bool ignoreIfDeactivated = true)
         {
@@ -4107,6 +4148,7 @@ namespace AppViewLite
                         LastSeen = now,
                         LoginDate = sessionProto.LogInDate,
                     };
+                    temporaryCtx.Session = session;
                     apis.OnSessionCreatedOrRestoredAsync(session.UserContext, temporaryCtx).FireAndForget();
                     SessionDictionary[sessionId] = session;
                 }

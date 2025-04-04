@@ -180,7 +180,7 @@ namespace AppViewLite
 
                 Plc subjectPlc = default;
                 bool relationshipIsAbsent = false;
-                
+
                 if (record is Like like && like.Subject!.Uri.Collection == Post.RecordType)
                 {
                     subjectPlc = rels.TrySerializeDidMaybeReadOnly(like.Subject!.Uri.Did!.Handler, ctx);
@@ -238,7 +238,7 @@ namespace AppViewLite
                             var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false, null);
                             approxActorCount++; // this dict is only written here, while holding the write lock.
                             var primaryLikeCountCache = relationships.ApproximateLikeCountCache;
-                                
+
                             if (approxActorCount >= int.MaxValue)
                                 primaryLikeCountCache.Remove(postId);
                             else
@@ -250,7 +250,7 @@ namespace AppViewLite
                             {
                                 if (approxActorCount >= int.MaxValue)
                                     replicaLikeCountCache.Remove(postId);
-                                else 
+                                else
                                     replicaLikeCountCache[postId] = (int)approxActorCount;
                             }
 
@@ -503,7 +503,7 @@ namespace AppViewLite
                             LastDropEventsWarningPrint.Restart();
                         }
 
-                        
+
                     }
 
                     return false;
@@ -529,7 +529,7 @@ namespace AppViewLite
                             LastLagBehindWarningPrint.Restart();
                         }
                     }
-                    
+
                 }
             }
             return true;
@@ -1177,14 +1177,6 @@ namespace AppViewLite
         }
 
 
-
-        private static string LimitLength(string handle)
-        {
-            if (handle.Length > 100) handle = string.Concat(handle.AsSpan(0, 50), "...");
-            return handle;
-        }
-
-
         public static TaskFactory? FirehoseThreadpoolTaskFactory;
 
         private readonly static long LagBehindWarnIntervalMs = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS) ?? 500;
@@ -1229,6 +1221,131 @@ namespace AppViewLite
             {
                 return await Indexer.FirehoseThreadpoolTaskFactory.StartNew(() => func()).Unwrap();
             }
+        }
+
+        internal async Task<Tid> ImportFollowersBackfillAsync(string did, RequestContext? authenticatedCtx, Tid previousRecentmostFollow, RequestContext ctx, Action<CarImportProgress> progress, CancellationToken ct)
+        {
+            // Three strategies:
+            // 1) did == Logged in user: look at the rkey in followers[].viewer.followedBy (fastest), then double check with follower's PDS if followee's PDS can't be trusted to be honest
+            // 2) did != Logged in user: request with limit=1. The cursor will be the rkey that we're looking for. Rude, but perhaps not worse than fetching all the PDS follow collections (mostly also hosted on bsky infra)
+            // 3) did != Logged in user (not enabled by default): Schedule a fetch of all the follows of the alleged followers, so we find their follow rkeys.
+
+            Tid? recentmostFollow = null;
+
+            string? cursor = null;
+            var done = false;
+            var followRkeysToCheck = new List<(string Did, Tid FollowRkey)>();
+            var fetchFolloweesForProfiles = new List<string>();
+
+            Tid? prevFollowRkey = null;
+            var recordCount = 0;
+            var onePerPage = authenticatedCtx == null;
+            while (!done)
+            {
+                Func<ATProtocol, Task<(GetFollowersOutput Response, bool Trusted)>> protocolFunc = async protocol =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var response = (await protocol.GetFollowersAsync(new ATDid(did), onePerPage ? 1 : 100, cursor, ct)).HandleResult()!;
+                    return (response, PdsIsTrustedToProvideRealBackreferences(protocol));
+                };
+
+                var (response, isTrustedPds) = authenticatedCtx != null ? await Apis.PerformPdsActionAsync(protocolFunc, authenticatedCtx) : await protocolFunc(Apis.CreateQuickBackfillProtocol());
+                cursor = response.Cursor;
+                if (cursor == null) break;
+
+                if (onePerPage)
+                    await Task.Delay(1500, ct); // bsky rate limit is 3000 requests per 5 minutes (we could technically do 10 reqs per second)
+
+                foreach (var follower in response.Followers)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var followerDid = follower.Did.Handler;
+
+
+                    var followRkeyString =
+                        follower.Viewer?.FollowedBy?.Rkey ??
+                        (onePerPage && response.Followers.Count == 1 ? response.Cursor : null);
+
+                    if (followRkeyString != null)
+                    {
+                        var followRkey = Tid.Parse(followRkeyString);
+                        if (prevFollowRkey != null && prevFollowRkey.Value.CompareTo(followRkey) < 0)
+                            throw new Exception("The server returned followers that were not sorted by follow rkey.");
+                        if (previousRecentmostFollow != default && followRkey.CompareTo(previousRecentmostFollow) >= 0)
+                        {
+                            done = true;
+                            break;
+                        }
+                        recordCount++;
+                        progress(new CarImportProgress(0, 0, recordCount, recordCount, default));
+                        recentmostFollow ??= followRkey;
+                        if (isTrustedPds)
+                        {
+                            OnRecordCreated(follower.Did.Handler, Follow.RecordType + "/" + followRkey, new Follow
+                            {
+                                Subject = new ATDid(did)
+                            }, ctx: ctx, isRepositoryImport: true);
+                        }
+                        else
+                        {
+                            followRkeysToCheck.Add((followerDid, followRkey));
+                        }
+                        prevFollowRkey = followRkey;
+                    }
+                    else if (authenticatedCtx != null)
+                    {
+                        // probably can't happen
+                    }
+                    else
+                    {
+                        recordCount++;
+                        progress(new CarImportProgress(0, 0, recordCount, recordCount, default));
+                        fetchFolloweesForProfiles.Add(followerDid);
+                    }
+                }
+
+            }
+
+            if (followRkeysToCheck.Count != 0)
+            {
+                followRkeysToCheck = WithRelationshipsLockForDids(followRkeysToCheck.Select(x => x.Did).ToArray(), (_, rels) =>
+                {
+                    var followeePlc = rels.SerializeDid(did, ctx);
+                    return followRkeysToCheck.Where(x =>
+                    {
+                        var followerPlc = rels.SerializeDid(x.Did, ctx);
+                        return !rels.Follows.creations.Contains(followeePlc, new Relationship(followerPlc, x.FollowRkey));
+                    }).ToList();
+                }, ctx);
+                await Parallel.ForEachAsync(followRkeysToCheck, new ParallelOptions() { MaxDegreeOfParallelism = 1, CancellationToken = ct }, async (x, ct) =>
+                {
+                    try
+                    {
+                        //Console.Error.WriteLine($"Checking follower PDS ({x.Did}) for alleged followee ({did}), rkey: {x.FollowRkey.ToString()}");
+
+                        var follow = (Follow)(await Apis.GetRecordAsync(x.Did, Follow.RecordType, x.FollowRkey.ToString()!, ctx, ct)).Value;
+                        OnRecordCreated(x.Did, Follow.RecordType + "/" + x.FollowRkey.ToString(), follow, ctx: ctx, isRepositoryImport: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogNonCriticalException($"  Could not verify with follower PDS that alleged follower ({x.Did}) returned by untrusted followee PDS ({did}) is actually real. Rkey: " + x.FollowRkey, ex);
+                    }
+                });
+            }
+
+            if (fetchFolloweesForProfiles.Count != 0)
+            {
+                var plcs = Apis.WithRelationshipsLockForDids(fetchFolloweesForProfiles.ToArray(), (plcs, rels) => plcs, ctx);
+                await Apis.EnsureHaveCollectionsAsync(plcs, RepositoryImportKind.Follows, ctx);
+            }
+
+            return recentmostFollow ?? previousRecentmostFollow;
+
+        }
+
+        private static bool PdsIsTrustedToProvideRealBackreferences(ATProtocol url)
+        {
+            return url.Options.Url.HasHostSuffix("bsky.app") || url.Options.Url.HasHostSuffix("host.bsky.network");
         }
     }
     internal record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);

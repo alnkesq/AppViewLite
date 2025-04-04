@@ -1748,9 +1748,9 @@ namespace AppViewLite
 
         private static void MaybePropagateAdministrativeBlockToPost(BlueskyPost post)
         {
-            if (post.Author.IsBlockedByAdministrativeRule)
+            if (!IsAccountActive(post.Author.AccountState))
             {
-                post.Data = new BlueskyPostData { Error = post.Author.BasicData!.Error };
+                post.Data = CloneWithError(post.Data, post.Author.BasicData!.Error!);
             }
             if (post.Author.IsMediaBlockedByAdministrativeRule && post.Data != null)
             {

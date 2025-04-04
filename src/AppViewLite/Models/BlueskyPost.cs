@@ -239,6 +239,10 @@ namespace AppViewLite.Models
             this.LateOpenGraphData = openGraphData;
             Data!.ExternalTitle = openGraphData.ExternalTitle;
             Data.ExternalDescription = openGraphData.ExternalDescription;
+            if (Data.ExternalTitle != null && Data.Text != null && Data.ExternalTitle.Contains(Data.Text, StringComparison.InvariantCultureIgnoreCase))
+            {
+                Data.Text = null;
+            }
             // Image requires different blob resolution, so it's handled separately.
         }
 

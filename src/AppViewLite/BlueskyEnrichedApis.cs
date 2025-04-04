@@ -3363,10 +3363,16 @@ namespace AppViewLite
             }
             return await ResolveHandleAsync(handleOrUrl, ctx);
         }
-        public async Task<string> ResolveHandleAsync(string handle, RequestContext ctx, string? activityPubInstance = null, bool forceRefresh = false, CancellationToken ct = default)
+
+        public Task<string> ResolveHandleAsync(string handle, RequestContext ctx, string? activityPubInstance)
         {
+
             if (activityPubInstance != null)
                 handle += "@" + activityPubInstance;
+            return ResolveHandleAsync(handle, ctx);
+        }
+        public async Task<string> ResolveHandleAsync(string handle, RequestContext ctx, bool forceRefresh = false)
+        {
 
             handle = StringUtils.NormalizeHandle(handle);
             if (handle.StartsWith('@')) handle = handle.Substring(1);
@@ -3429,7 +3435,7 @@ namespace AppViewLite
 
             if (forceRefresh || plc == default || (DateTime.UtcNow - handleToDidVerificationDate) > HandleToDidMaxStale)
             {
-                await HandleToDidCoreAsync(handle, ctx, ct);
+                await HandleToDidCoreAsync(handle, ctx);
                 (handleToDidVerificationDate, plc, did) = WithRelationshipsLock(rels =>
                 {
                     var lastVerification = rels.HandleToDidVerifications.TryGetLatestValue(handleUuid, out var r) ? r : default;
@@ -3458,7 +3464,7 @@ namespace AppViewLite
             {
                 if (!forceRefresh)
                 {
-                    return await ResolveHandleAsync(handle, forceRefresh: true, ct: ct, ctx: ctx);
+                    return await ResolveHandleAsync(handle, forceRefresh: true, ctx: ctx);
                 }
 
 
@@ -3517,7 +3523,7 @@ namespace AppViewLite
         private readonly static bool DnsUseHttps = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_DNS_OVER_HTTPS) ?? true;
 
 
-        private async Task<string> HandleToDidCoreAsync(string handle, RequestContext ctx, CancellationToken ct)
+        private async Task<string> HandleToDidCoreAsync(string handle, RequestContext ctx)
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(handle);
 
@@ -3534,14 +3540,14 @@ namespace AppViewLite
                         using var request = new HttpRequestMessage(HttpMethod.Get, "https://" + DnsForTxtResolution + "/dns-query?name=_atproto." + Uri.EscapeDataString(handle) + "&type=TXT");
                         request.Headers.Accept.Clear();
                         request.Headers.Accept.ParseAdd("application/dns-json");
-                        using var response = await DefaultHttpClient.SendAsync(request, ct);
-                        var result = await response.Content.ReadFromJsonAsync<DnsOverHttpsResponse>(ct);
+                        using var response = await DefaultHttpClient.SendAsync(request);
+                        var result = await response.Content.ReadFromJsonAsync<DnsOverHttpsResponse>();
                         record = result!.Answer?.Where(x => x.type == 16).Select(x => Regex.Match(x.data, @"did=[^\\""]+").Value?.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x));
                     }
                     else
                     {
                         var lookup = new LookupClient(System.Net.IPAddress.Parse(DnsForTxtResolution), 53);
-                        var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT, cancellationToken: ct);
+                        var result = await lookup.QueryAsync("_atproto." + handle, QueryType.TXT);
                         record = result.Answers.TxtRecords()
                             .Select(x => x.Text.Select(x => x.Trim()).FirstOrDefault(x => !string.IsNullOrEmpty(x)))
                             .FirstOrDefault(x => x != null && x.StartsWith("did=", StringComparison.Ordinal));
@@ -3559,7 +3565,7 @@ namespace AppViewLite
                     }
                 }
 
-                var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did", ct)).Trim();
+                var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did")).Trim();
                 EnsureValidDid(s);
                 WithRelationshipsWriteLock(rels =>
                 {

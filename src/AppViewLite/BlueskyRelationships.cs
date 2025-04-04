@@ -1723,6 +1723,8 @@ namespace AppViewLite
         {
             var post = GetPostWithoutData(id, ctx);
             (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id, ctx);
+            MaybePropagateAdministrativeBlockToPost(post);
+
             if (post.Data != null)
             {
                 if (post.Data.PluggableReplyCount != null)
@@ -1746,9 +1748,9 @@ namespace AppViewLite
             return post;
         }
 
-        private static void MaybePropagateAdministrativeBlockToPost(BlueskyPost post)
+        public static void MaybePropagateAdministrativeBlockToPost(BlueskyPost post)
         {
-            if (!IsAccountActive(post.Author.AccountState))
+            if (!post.Author.IsActive)
             {
                 post.Data = CloneWithError(post.Data, post.Author.BasicData!.Error!);
             }
@@ -1805,12 +1807,8 @@ namespace AppViewLite
             var d = TryGetPostData(id);
             if (d == null) return default;
             if (d.InReplyToPlc == null) return (d, null);
-            var profile = GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true);
-            if (!profile.IsActive)
-            {
-                d = CloneWithError(d, profile.BasicData!.Error!);
-            }
-            return (d, profile);
+            var inReplyTo = GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true);
+            return (d, inReplyTo);
 
         }
 

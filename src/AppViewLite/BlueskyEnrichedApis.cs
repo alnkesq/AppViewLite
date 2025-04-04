@@ -540,6 +540,8 @@ namespace AppViewLite
                     (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey, ctx), ctx);
                 }
 
+                BlueskyRelationships.MaybePropagateAdministrativeBlockToPost(post);
+
                 if (loadQuotes)
                 {
                     rels.PopulateQuotedPost(post, ctx);

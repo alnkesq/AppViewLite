@@ -560,7 +560,7 @@ namespace AppViewLite.Storage
 
         private static double GetMaximumRatioOfLargestSliceForCompactation(long totalSize, int totalSliceCount)
         {
-            if (totalSliceCount >= 40)
+            if (totalSliceCount >= 60)
             {
                 return totalSliceCount * 0.01; // 40 slices -> 0.4; 100 slices: unacceptable, any ratio is ok (even 0.9999)
             }

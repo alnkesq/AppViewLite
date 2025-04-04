@@ -22,6 +22,7 @@
         <ErrorContent Context="exception">
             <AppViewLite.Web.Components.Layout.MainLayout>
                 <Body>
+                    <PageTitle>AppViewLite</PageTitle>
                     <div class="page-error" data-islogouterror="@(exception.AnyInnerException(x => x is LoggedOutException) ? 1 : 0)">
                         ❌
                         @Program.GetExceptionDisplayText(exception)

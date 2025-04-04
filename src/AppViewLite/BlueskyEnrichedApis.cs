@@ -1424,7 +1424,7 @@ namespace AppViewLite
 
             Task.Run(() =>
             {
-                HashSet<Plc> wantFollowersFor = new();
+                HashSet<Plc> wantFollowsFor = new();
                 if (focalPost?.RootPostId is { } rootPostId)
                 {
                     WithRelationshipsLock(rels =>
@@ -1434,13 +1434,13 @@ namespace AppViewLite
                         {
                             if (threadgate.AllowFollowing)
                             {
-                                wantFollowersFor.Add(rootPostId.Author);
+                                wantFollowsFor.Add(rootPostId.Author);
                             }
                             if (threadgate.AllowFollowers)
                             {
                                 foreach (var item in thread.Select(x => x.AuthorId).Where(x => x != rootPostId.Author))
                                 {
-                                    wantFollowersFor.Add(item);
+                                    wantFollowsFor.Add(item);
                                 }
                             }
                         }
@@ -1448,7 +1448,7 @@ namespace AppViewLite
                 }
                 var nonUrgentCtx = RequestContext.ToNonUrgent(ctx);
 
-                EnsureHaveCollectionsAsync(wantFollowersFor, RepositoryImportKind.Follows, nonUrgentCtx).FireAndForget();
+                EnsureHaveCollectionsAsync(wantFollowsFor, RepositoryImportKind.Follows, nonUrgentCtx).FireAndForget();
                 EnsureHaveBlocksForPostsAsync(thread, nonUrgentCtx).FireAndForget();
 
             }).FireAndForget(); // It would take too much time to wait

@@ -491,7 +491,7 @@ namespace AppViewLite
             var response = await ListRecordsAsync(did, Follow.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var following = WithRelationshipsUpgradableLock(rels =>
             {
-                return response!.Records!.Select(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler, ctx))).ToArray();
+                return response!.Records!.TrySelect(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler, ctx))).ToArray();
             }, ctx);
             await EnrichAsync(following, ctx);
             return (following, response.Records.Count > limit ? response!.Cursor : null);
@@ -3338,7 +3338,7 @@ namespace AppViewLite
             var feeds = WithRelationshipsUpgradableLock(rels =>
             {
                 var plc = rels.SerializeDid(did, ctx);
-                return response!.Records!.Select(x =>
+                return response!.Records!.TrySelect(x =>
                 {
                     var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);
                     if (!rels.FeedGenerators.ContainsKey(feedId))

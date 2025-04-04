@@ -129,11 +129,11 @@ namespace AppViewLite
                     }
                     else if (collection == Threadgate.RecordType)
                     {
-                        relationships.ThreadgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
+                        relationships.Threadgates.AddRange(new PostId(commitPlc, rel.RelationshipRKey), relationships.SerializeThreadgateToBytes(new Threadgate(), ctx, out _));
                     }
                     else if (collection == Postgate.RecordType)
                     {
-                        relationships.PostgateDeletions.Add(new PostId(rel.Actor, rel.RelationshipRKey), deletionDate);
+                        relationships.Postgates.AddRange(new PostId(commitPlc, rel.RelationshipRKey), relationships.SerializePostgateToBytes(new Postgate(), ctx, out _));
                     }
                     else if (collection == Listblock.RecordType)
                     {

@@ -58,9 +58,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
         public CombinedPersistentMultiDictionary<PostId, byte> Threadgates;
-        public CombinedPersistentMultiDictionary<PostId, DateTime> ThreadgateDeletions;
         public CombinedPersistentMultiDictionary<PostId, byte> Postgates;
-        public CombinedPersistentMultiDictionary<PostId, DateTime> PostgateDeletions;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, PostId> DirectReplies;
@@ -313,10 +311,7 @@ namespace AppViewLite
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
 
             Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder);
-            ThreadgateDeletions = RegisterDictionary<PostId, DateTime>("threadgate-deletion", PersistentDictionaryBehavior.SingleValue);
-
             Postgates = RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder);
-            PostgateDeletions = RegisterDictionary<PostId, DateTime>("postgate-deletion", PersistentDictionaryBehavior.SingleValue);
 
             ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);

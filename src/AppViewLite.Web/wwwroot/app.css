@@ -727,7 +727,7 @@ ul {
 }
 
 
-.post-error {
+.post-error, .profile-row-error {
     color: gray;
     font-style: italic;
 }

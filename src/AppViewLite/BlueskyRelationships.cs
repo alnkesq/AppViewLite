@@ -3313,7 +3313,7 @@ namespace AppViewLite
                 profile.IsFollowedBySelf = followRel.RelationshipRKey;
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
-            profile.FollowsYou = ctx.IsLoggedIn && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
+            profile.FollowsYou = ctx.IsLoggedIn && profile.IsActive && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);
             profile.Labels = GetProfileLabels(profile.Plc, ctx.NeedsLabels).Select(x => (BlueskyModerationBase)GetLabel(x, ctx)).Concat(ctx.LabelSubscriptions.Where(x => x.ListRKey != 0).Select(x =>
             {
                 var listId = new Models.Relationship(new Plc(x.LabelerPlc), new Tid(x.ListRKey));

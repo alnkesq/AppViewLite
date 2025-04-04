@@ -50,6 +50,11 @@
         <TextWithFacets Text="@Profile.BasicData?.Description" Facets="@GuessedFacets"></TextWithFacets>
     </div>
 
+    @if (!Profile.IsActive)
+    {
+        <div class="profile-row-error profile-indented">[@(Profile.BasicData!.Error)]</div>
+    }
+
     <LabelBadges Labels="@Profile.Labels" ExtraClass="profile-indented" />
 
     @if (RequestContext.IsLoggedIn && Profile.Plc != RequestContext.LoggedInUser && Profile.BlockReason == default)

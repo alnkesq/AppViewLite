@@ -936,6 +936,21 @@ function enableMenuFocus() {
     }
 }
 
+function recurseOnceWhereVisible(node, f) { 
+    while (node) { 
+        node = f(node);
+        if (node && node.offsetParent)
+            return node;
+    }
+    return null;
+}
+function recurseUntilVisible(node, f) { 
+    while (node && !node.offsetParent) { 
+        node = f(node);
+    }
+    return node;
+}
+
 function onInitialLoad() {
     if (isNoLayout) return;
     window.addEventListener('beforeunload', e => {
@@ -997,21 +1012,23 @@ function onInitialLoad() {
             var currentMenuItem = document.activeElement;
             if (currentMenuItem && (currentMenuItem.classList.contains('menu-item') || currentMenuItem.classList.contains('search-form-suggestion'))) {
                 enableMenuFocus();
+
                 if (e.key == 'ArrowUp') {
-                    
-                    if (currentMenuItem.previousElementSibling) {
-                        currentMenuItem.previousElementSibling.focus();
+                    let previous = recurseOnceWhereVisible(currentMenuItem, x => x.previousElementSibling);
+                    if (previous) {
+                        previous.focus();
                     } else {
                         if (currentMenuItem.classList.contains('search-form-suggestion')) document.querySelector('#search-box').focus();
-                        else currentMenuItem.parentElement.lastElementChild.focus();
+                        else recurseUntilVisible(currentMenuItem.parentElement.lastElementChild, x => x.previousElementSibling).focus();
                     }
                     e.preventDefault();
                     return;
                 } else if (e.key == 'ArrowDown') {
-                    if (currentMenuItem.nextElementSibling) {
-                        currentMenuItem.nextElementSibling.focus();
+                    let next = recurseOnceWhereVisible(currentMenuItem, x => x.nextElementSibling);
+                    if (next) {
+                        next.focus();
                     } else {
-                        currentMenuItem.parentElement.firstElementChild.focus();
+                        recurseUntilVisible(currentMenuItem.parentElement.firstElementChild, x => x.nextElementSibling).focus();
                     }
                     e.preventDefault();
                     return;

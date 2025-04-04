@@ -62,7 +62,7 @@ function updateHandlesForDid(did) {
     }
     if (handle) {
         for (const a of document.querySelectorAll("a[href*='/@" + did + "']")) { 
-            a.dataset.href = replaceDidUrlWithHandle(a.dataset.href, did, handle);
+            a.href = replaceDidUrlWithHandle(a.href, did, handle);
         }
         for (const a of document.querySelectorAll("a[data-theaterurl*='/@" + did + "']")) { 
             a.dataset.theaterurl = replaceDidUrlWithHandle(a.dataset.theaterurl, did, handle);
@@ -74,7 +74,7 @@ function updateHandlesForDid(did) {
 }
 
 function replaceDidUrlWithHandle(href, did, handle) { 
-    var url = new URL(href);
+    var url = href.startsWith('/') ? new URL(window.location.origin + href) : new URL(href);
     if (url.origin == location.origin) { 
         var segments = url.pathname.split('/');
         if (segments[1] == '@' + did) { 

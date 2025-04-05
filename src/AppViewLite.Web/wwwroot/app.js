@@ -1488,7 +1488,9 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
             setPostStats(postElement, count, 'likes', 'like', 'likes');
             if (isNativeDid(did))
                 setActionStats(postElement, count, 'like');
-            postElement.querySelector('.post-action-bar-button-like')?.classList.toggle('post-action-bar-button-checked', have);
+            var likeButton = postElement.querySelector('.post-action-bar-button-like');
+            if (likeButton)
+                likeButton.classList.toggle('post-action-bar-button-checked', have);
         });
 }
 
@@ -1504,9 +1506,14 @@ function getOrCreateBookmarkToggler(did, postRkey, postElement) {
         },
         async (bookmarkRkey) => (await httpPost('DeletePostBookmark', { bookmarkRkey: bookmarkRkey, postDid: did, postRkey: postRkey })),
         (count, have) => { 
-            if (!isNativeDid(did))
-                postElement.querySelector('.post-action-bar-button-like')?.classList.toggle('post-action-bar-button-checked', have);
-            postElement.querySelector('.menu-item[actionkind="toggleBookmark"]')?.textContent = have ? 'Remove bookmark' : 'Add bookmark';
+            
+            var likeButton = postElement.querySelector('.post-action-bar-button-like');
+            if (likeButton)
+                likeButton.classList.toggle('post-action-bar-button-checked', have);
+
+            var toggleBookmarkMenuItem = postElement.querySelector('.menu-item[actionkind="toggleBookmark"]');
+            if (toggleBookmarkMenuItem)
+                toggleBookmarkMenuItem.textContent = have ? 'Remove bookmark' : 'Add bookmark';
         });
 }
 
@@ -1528,8 +1535,12 @@ function getOrCreateRepostToggler(did, rkey, postElement) {
             setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
             setPostStats(postElement, quoteCount, 'quotes', 'quote', 'quotes');
             setActionStats(postElement, count + quoteCount, 'repost');
-            postElement.querySelector('.post-action-bar-button-repost')?.classList.toggle('post-action-bar-button-checked', have);
-            postElement.querySelector('.post-toggle-repost-menu-item')?.textContent = have ? 'Undo repost' : 'Repost'
+            var repostButton = postElement.querySelector('.post-action-bar-button-repost');
+            if (repostButton)
+                repostButton.classList.toggle('post-action-bar-button-checked', have);
+            var repostMenuItem = postElement.querySelector('.post-toggle-repost-menu-item');
+            if (repostMenuItem)
+                repostMenuItem.textContent = have ? 'Undo repost' : 'Repost'
         });
 }
 

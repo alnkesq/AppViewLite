@@ -1895,6 +1895,9 @@ document.addEventListener('error', e => {
         img.style.width = '48px';
         img.style.height = '48px';
     }
+    if (img.tagName == 'IMG' && img.classList.contains('post-external-preview-image')) { 
+        img.classList.add('display-none')
+    }
 }, true);
 
 function emojify(target = document.body) {

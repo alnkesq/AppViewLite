@@ -96,6 +96,7 @@ var liveUpdatesConnectionFuture = (async () => {
     connection.on('PostEngagementChanged', (stats, ownRelationship) => {
         //console.log('PostEngagementChanged: ');
         for (const postElement of document.querySelectorAll(getPostSelector(stats.did, stats.rKey))) {
+
             var likeToggler = getOrCreateLikeToggler(stats.did, stats.rKey, postElement);
             likeToggler.applyLiveUpdate(stats.likeCount, ownRelationship?.likeRkey);
 
@@ -1444,6 +1445,7 @@ async function httpGet(method, args) {
 }
 
 function animateReplaceContent(b, formattedNumber) { 
+    if (!b) return;
     if (b.textContent == formattedNumber) return;
     b.style.opacity = 0;
     setTimeout(() => {
@@ -1461,7 +1463,8 @@ function setPostStats(postElement, actorCount, kind, singular, plural) {
     animateReplaceContent(b, formatEngagementCount(actorCount));
     text.replaceWith(document.createTextNode(' ' + (actorCount == 1 ? singular : plural)));
     var allStats = postElement.querySelector('.post-focal-stats');
-    allStats.classList.toggle('display-none', [...allStats.children].every(x => x.classList.contains('display-none')));
+    if (allStats)
+        allStats.classList.toggle('display-none', [...allStats.children].every(x => x.classList.contains('display-none')));
 }
 function setActionStats(postElement, actorCount, kind) { 
     animateReplaceContent(postElement.querySelector('.post-action-bar-button-' + kind + ' span'), actorCount ? formatEngagementCount(actorCount) : '');
@@ -1485,7 +1488,7 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
             setPostStats(postElement, count, 'likes', 'like', 'likes');
             if (isNativeDid(did))
                 setActionStats(postElement, count, 'like');
-            postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
+            postElement.querySelector('.post-action-bar-button-like')?.classList.toggle('post-action-bar-button-checked', have);
         });
 }
 
@@ -1502,8 +1505,8 @@ function getOrCreateBookmarkToggler(did, postRkey, postElement) {
         async (bookmarkRkey) => (await httpPost('DeletePostBookmark', { bookmarkRkey: bookmarkRkey, postDid: did, postRkey: postRkey })),
         (count, have) => { 
             if (!isNativeDid(did))
-                postElement.querySelector('.post-action-bar-button-like').classList.toggle('post-action-bar-button-checked', have);
-            postElement.querySelector('.menu-item[actionkind="toggleBookmark"]').textContent = have ? 'Remove bookmark' : 'Add bookmark';
+                postElement.querySelector('.post-action-bar-button-like')?.classList.toggle('post-action-bar-button-checked', have);
+            postElement.querySelector('.menu-item[actionkind="toggleBookmark"]')?.textContent = have ? 'Remove bookmark' : 'Add bookmark';
         });
 }
 
@@ -1525,8 +1528,8 @@ function getOrCreateRepostToggler(did, rkey, postElement) {
             setPostStats(postElement, count, 'reposts', 'repost', 'reposts');
             setPostStats(postElement, quoteCount, 'quotes', 'quote', 'quotes');
             setActionStats(postElement, count + quoteCount, 'repost');
-            postElement.querySelector('.post-action-bar-button-repost').classList.toggle('post-action-bar-button-checked', have);
-            postElement.querySelector('.post-toggle-repost-menu-item').textContent = have ? 'Undo repost' : 'Repost'
+            postElement.querySelector('.post-action-bar-button-repost')?.classList.toggle('post-action-bar-button-checked', have);
+            postElement.querySelector('.post-toggle-repost-menu-item')?.textContent = have ? 'Undo repost' : 'Repost'
         });
 }
 

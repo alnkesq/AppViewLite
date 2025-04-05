@@ -282,7 +282,7 @@ namespace AppViewLite.PluggableProtocols
             return true;
         }
 
-        private bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId postId)
+        public bool StoreTidIfNotReversible(BlueskyRelationships rels, ref QualifiedPluggablePostId postId)
         {
             var reversedTid = TryGetTidFromPostId(new QualifiedPluggablePostId(postId.Did, postId.PostId.CloneWithoutTid())) ?? default;
             if (reversedTid != default)

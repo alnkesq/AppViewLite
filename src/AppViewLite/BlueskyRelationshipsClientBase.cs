@@ -291,6 +291,10 @@ namespace AppViewLite
                 }
                 else
                 {
+                    // We want a lock on primary since that's where urgentReadTasks expect to be run from
+                    // Setting AllowStale to false is important because by the time we are here, a new up to date replica could now satisfy the required version
+                    ctx.AllowStale = false; 
+
                     WithRelationshipsLock(rels =>
                     {
                         RunPendingUrgentReadTasks(invoker);
@@ -337,6 +341,8 @@ namespace AppViewLite
 
         private void RunPendingUrgentReadTasks(object? invoker = null)
         {
+            relationshipsUnlocked.AssertCanRead();
+
             while (primarySecondaryPair.urgentReadTasks.TryDequeue(out var urgentTask))
             {
                 using var _ = BlueskyRelationshipsClientBase.CreateNormalPriorityScope();
@@ -353,6 +359,8 @@ namespace AppViewLite
         }
         private void RunPendingUrgentWriteTasks(object? invoker = null)
         {
+            relationshipsUnlocked.AssertHasWriteLock();
+
             while (primarySecondaryPair.urgentWriteTasks.TryDequeue(out var urgentTask))
             {
                 using var _ = BlueskyRelationshipsClientBase.CreateNormalPriorityScope();

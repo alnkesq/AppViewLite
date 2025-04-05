@@ -445,7 +445,7 @@ namespace AppViewLite
 #nullable disable
                 ctx.SendSignalrAsync("HandleVerificationResult", did, BlueskyRelationships.MaybeBridgyHandleToFediHandle(k));
 #nullable restore
-            }).FireAndForget();
+            }).FireAndForgetLowImportance();
         }
 
 

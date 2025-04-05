@@ -16,41 +16,59 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
     public class YotsubaProtocol : PluggableProtocol
     {
 
-        private readonly Dictionary<string, (string ImageHost, string ApiHost)> HostConfiguration;
+        private readonly Dictionary<string, (string CatalogUrlFormatter, string ThreadUrlFormatter, string ThumbnailUrlFormatter, string? BoardsJsonUrl, YotsubaBoardMetadataJson[]? BoardsFromConfig)> HostConfiguration;
+        private static string? NormalizeNull(string? s) => string.IsNullOrEmpty(s) ? null : s;
         public YotsubaProtocol() : base("did:yotsuba:")
         {
             HostConfiguration = (
                 AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_YOTSUBA_HOSTS) ?? [])
                 .Select(x =>
                 {
-                    var parts = x.Split('/');
-                    var host = parts[0];
-                    var imageHost = parts[1];
-                    var apiHost = parts[2];
+                    var mainParts = x.Split('+', StringSplitOptions.TrimEntries);
 
-                    return (host, Configuration: (string.IsNullOrEmpty(imageHost) ? host : imageHost, string.IsNullOrEmpty(apiHost) ? host : apiHost));
+                    var host = mainParts[0];
+                    string ToAbsolute(string url) => new Uri(new Uri("https://" + host), url).ToString(); // minimal escaping to preserve {0}
+
+
+
+                    var catalogUrlFormatter = ToAbsolute(NormalizeNull(mainParts.ElementAtOrDefault(1)) ?? "/{0}/catalog.json");
+                    var threadUrlFormatter = ToAbsolute(NormalizeNull(mainParts.ElementAtOrDefault(2)) ?? "/{0}/res/{1}.html");
+                    var thumbnailUrlFormatter = ToAbsolute(NormalizeNull(mainParts.ElementAtOrDefault(3)) ?? "/{0}/thumb/{1}.png");
+                    var boardsJsonOrBoards = NormalizeNull(mainParts.ElementAtOrDefault(4)) ?? "/boards.json";
+
+
+                    var parsedBoards = boardsJsonOrBoards.StartsWith('/') || boardsJsonOrBoards.StartsWith("https://", StringComparison.Ordinal) || boardsJsonOrBoards.StartsWith("http://", StringComparison.Ordinal) ? null : boardsJsonOrBoards.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(x =>
+                    {
+                        var parts = x.Split('(', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        if (parts.Length == 1) return new YotsubaBoardMetadataJson() { board = x };
+                        else return new YotsubaBoardMetadataJson() { board = parts[0], title = parts[1].TrimEnd(')').Trim() };
+                    }).ToArray();
+                    var boardsJsonUrl = parsedBoards != null ? null : boardsJsonOrBoards;
+
+                    return (host, Configuration: (catalogUrlFormatter, threadUrlFormatter, thumbnailUrlFormatter, parsedBoards == null ? ToAbsolute(boardsJsonOrBoards) : null, parsedBoards));
                 }).ToDictionary(x => x.host, x => x.Configuration);
         }
 
         public override Task DiscoverAsync(CancellationToken ct)
         {
-            foreach (var host in HostConfiguration.Keys)
+            foreach (var host in HostConfiguration)
             {
-                DiscoverFromHostAsync(host, ct).FireAndForget();
+                DiscoverFromHostAsync(host.Key, host.Value.BoardsFromConfig, ct).FireAndForget();
             }
 
             return Task.CompletedTask;
         }
 
-        private async Task DiscoverFromHostAsync(string host, CancellationToken ct)
+        private async Task DiscoverFromHostAsync(string host, YotsubaBoardMetadataJson[]? boardsFromConfig, CancellationToken ct)
         {
 
             await Task.Delay(TimeSpan.FromMinutes(1), ct);
 
             var ctx = RequestContext.CreateForFirehose("Yotsuba:" + host);
-            var boards = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaBoardMetadataResponseJson>(GetApiPrefix(host) + "/boards.json", JsonOptions, ct);
 
-            foreach (var board in boards!.boards)
+            var boards = boardsFromConfig ?? (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaBoardMetadataResponseJson>(HostConfiguration[host].BoardsJsonUrl, JsonOptions, ct))!.boards;
+
+            foreach (var board in boards)
             {
                 var displayHost = host;
                 if (displayHost.StartsWith("boards.", StringComparison.Ordinal))
@@ -71,7 +89,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
                 OnProfileDiscovered(did, new BlueskyProfileBasicInfo
                 {
-                    DisplayName = "/" + boardId.BoardName + "/ - " + board.title,
+                    DisplayName = "/" + boardId.BoardName + "/" + (board.title != null ? " - " + board.title : null),
                     Description = description.Text,
                     DescriptionFacets = description.Facets,
                     HasExplicitFacets = true,
@@ -107,14 +125,14 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
             }
         }
-        private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions() { IncludeFields = true, PropertyNameCaseInsensitive = true };
+        private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions() { IncludeFields = true, PropertyNameCaseInsensitive = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString };
         private LruCache<(YotsubaBoardId Board, long PostId), int> LastObservedReplyCount = new(32 * 1024);
         private async Task<double> BoardIterationAsync(YotsubaBoardId boardId, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             var ctx = RequestContext.CreateForFirehose("Yotsuba:" + boardId.Host);
 
-            var threadPages = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaThreadPageJson[]>(GetApiPrefix(boardId) + "/catalog.json", JsonOptions, ct);
+            var threadPages = await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaThreadPageJson[]>(string.Format(HostConfiguration[boardId.Host].CatalogUrlFormatter, boardId.BoardName), JsonOptions, ct);
             var boardDid = ToDid(boardId);
             var plc = Apis.WithRelationshipsUpgradableLock(rels => rels.SerializeDid(boardDid, ctx), ctx);
             var postDates = new List<DateTime>();
@@ -142,10 +160,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
         }
 
-        public string GetApiPrefix(string host) => "https://" + HostConfiguration[host].ApiHost;
-        public string GetImagePrefix(string host) => "https://" + HostConfiguration[host].ImageHost;
-        public string GetApiPrefix(YotsubaBoardId boardId) => GetApiPrefix(boardId.Host) + "/" + boardId.BoardName;
-        public string GetImagePrefix(YotsubaBoardId boardId) => GetImagePrefix(boardId.Host) + "/" + boardId.BoardName;
+        private string GetThumbnailUrl(YotsubaBoardId boardId, string imageId) => string.Format(HostConfiguration[boardId.Host].ThumbnailUrlFormatter, boardId.BoardName, imageId);
 
 
         private DateTime IndexThread(Plc plc, YotsubaBoardId boardId, YotsubaCatalogThreadJson thread, RequestContext ctx)
@@ -192,7 +207,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 Facets = body.Facets,
                 Media = [new BlueskyMediaData
                 {
-                    Cid = Encoding.UTF8.GetBytes(thread.Tim + thread.Ext),
+                    Cid = Encoding.UTF8.GetBytes(thread.TimObject.Deserialize<object>() + thread.Ext),
                     IsVideo = thread.Ext is ".webm" or ".mp4"
                 }],
                 PluggableReplyCount = replyCount,
@@ -247,11 +262,13 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 image.IsFavIcon = true;
                 return image;
             }
-            if (preferredSize is ThumbnailSize.feed_thumbnail or ThumbnailSize.video_thumbnail)
-            {
-                imageId = Path.GetFileNameWithoutExtension(imageId) + "s.jpg";
-            }
-            var url = $"{GetImagePrefix(board)}/{imageId}";
+            //if (preferredSize is ThumbnailSize.feed_thumbnail or ThumbnailSize.video_thumbnail)
+            //{
+            //    imageId = Path.GetFileNameWithoutExtension(imageId) + "s.jpg";
+            //}
+            var baseName = Path.GetFileNameWithoutExtension(imageId);
+
+            var url = GetThumbnailUrl(board, baseName);
             return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), ct: ct);
         }
 
@@ -275,7 +292,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         {
             if (!postId.HasExternalIdentifier) return null;
             var board = GetBoardIdFromDid(postId.Did);
-            return "https://" + board.Host + "/" + board.BoardName + "/thread/" + postId.PostId.AsString;
+            return string.Format(HostConfiguration[board.Host].ThreadUrlFormatter, board.BoardName, postId.PostId.AsString);
         }
 
         public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)

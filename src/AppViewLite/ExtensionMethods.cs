@@ -23,6 +23,20 @@ namespace AppViewLite
                     {
                         return;
                     }
+                    LoggableBase.LogNonCriticalException(t.Exception);
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+        public static void FireAndForgetLowImportance(this Task task)
+        {
+            task.ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    if (t.Exception.InnerException is OperationCanceledException)
+                    {
+                        return;
+                    }
                     LoggableBase.LogLowImportanceException(t.Exception);
                 }
             }, TaskContinuationOptions.OnlyOnFaulted);

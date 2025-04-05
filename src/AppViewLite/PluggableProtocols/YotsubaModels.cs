@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace AppViewLite.PluggableProtocols.Yotsuba
@@ -36,7 +38,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         [ProtoMember(21)] public string SemanticUrl;
         [ProtoMember(22)] public long Sticky;
         [ProtoMember(23)] public string Sub;
-        [ProtoMember(24)] public long Tim;
+        [ProtoMember(24)][JsonIgnore] public long Tim;
         [ProtoMember(25)] public long Time;
         [ProtoMember(26)] public long TnH;
         [ProtoMember(27)] public long TnW;
@@ -62,7 +64,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         [ProtoMember(44)] public string Email;
         [ProtoMember(45)] public string Embed;
         [ProtoMember(46)] public long? Locked;
-        [ProtoMember(47)] public string TimString;
+        [ProtoMember(47)][JsonIgnore] public string TimString;
         [ProtoMember(48)] public YotsubaExtraFileJson[] ExtraFiles;
 
 
@@ -72,6 +74,8 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         [ProtoMember(51)] public string BanMsg;
         [ProtoMember(52)] public YotsubaExtraFileJson[] Files;
         [ProtoMember(53)] public long UniqueIps;
+
+        [JsonPropertyName("tim")] public JsonValue TimObject;
     }
     [ProtoContract]
     public class YotsubaExtraFileJson

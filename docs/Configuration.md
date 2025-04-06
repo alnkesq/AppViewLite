@@ -22,6 +22,7 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_ADMINISTRATIVE_DIDS`: List of DIDs that, when logged in, can perform privileged operations. Defaults to none. You can use `*` for local development.
 * `APPVIEWLITE_CONFIGURATION`: Path to an env file that will be loaded into the environment at startup. Prior environment variables take the precendence.
 * `APPVIEWLITE_ALLOW_NEW_DATABASE`: Allows AppViewLite to start a new database / empty checkpoint, if no `checkpoints/*.pb` files exist. Defaults to `0`. This is a safer default than `1`, because if no checkpoints were found for whatever reason, AppViewLite would otherwise start from scratch, and it would soon garbage collect all your previous data slices.
+* `APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE`: An appview that can be used to quickly bootstrap the list of followers of a user without first downloading the whole network. Defaults to `https://public.api.bsky.app`, can be disabled with `-`
 
 ## Storage (low level configuration)
 * `APPVIEWLITE_USE_READONLY_REPLICA`: If enabled, most requests will be served from a readonly snapshot of the database (so that we don't have to wait for any current write lock to complete). Defaults to `1`.
@@ -76,7 +77,16 @@ You can however enable additional protocols:
 * `APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS`: listens to the specified ActivityPub relays. Example: `fedi.buzz`. Defaults to none.
 
 ### Yotsuba (Imageboards)
-* `APPVIEWLITE_YOTSUBA_HOSTS`: retrieves threads from the specified imageboards, optionally specifying API and image hosts. Example: `boards.4chan.org/i.4cdn.org/a.4cdn.org`. Defaults to none.
+* `APPVIEWLITE_YOTSUBA_HOSTS`: retrieves threads from the specified imageboards. It's a comma-separated list of imageboards, each one composed of `+`-separated parameters: `HOST+CATALOG_URL_TEMPLATE+THREAD_URL_TEMPLATE+THUMB_URL_TEMPLATE+BOARDS_JSON_URL_OR_HARDCODED_BOARDS` where:
+   * `HOST` is the domain of the imageboard
+   * `CATALOG_URL_TEMPLATE` is the URL (even relative) of `catalog.json` (with `{0}` board placeholder). Defaults to `/{0}/catalog.json`
+   * `THREAD_URL_TEMPLATE` is the URL (even relative) of a thread  (with `{0}` board placeholder and `{1}` thread ID placeholder). Defaults to `/{0}/res/{1}.html`
+   * `THUMB_URL_TEMPLATE` is the URL (even relative) of thumbnails (with `{0}` board placeholder and `{1}` image ID placeholder). Defaults to `/{0}/thumb/{1}.png`
+   * `BOARDS_JSON_URL_OR_HARDCODED_BOARDS` is either the URL (even relative) of `/boards.json`, or a `/`-separated list of boards, optionally specifying a display name within brackets. Defaults to `/boards.json`, but be aware that many ViChan boards don't support this API endpoint, so you'll have to hardcode the list of boards as shown below. Make sure not to add combined virtual boards that aggregate from multiple boards, because images won'work.
+
+Examples:
+* 4chan: `boards.4chan.org+https://a.4cdn.org/{0}/catalog.json+https://boards.4chan.org/{0}/thread/{1}+https://i.4cdn.org/{0}/{1}s.jpg+https://a.4cdn.org/boards.json`
+* LainChan (ViChan): `lainchan.org++++λ(Programming)/Δ(Do It Yourself)/sec(Security)/Ω(Technology)/inter(Games and Interactive Media)/lit(Literature)/music(Musical and Audible Media)/vis(Visual Media)/hum(Humanity)/drug(Drugs 3.0)/zzz(Consciousness and Dreams)/layer(layer)/q(Questions and Complaints)/r(Random)`
 
 ### Nostr
 * `APPVIEWLITE_LISTEN_NOSTR_RELAYS`: Listens to the specified Nostr relays. Example: `nos.lol,bostr.bitcointxoko.com`. Defaults to none.

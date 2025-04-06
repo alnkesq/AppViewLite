@@ -1489,7 +1489,7 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
             if (isNativeDid(did))
                 setActionStats(postElement, count, 'like');
             var likeButton = postElement.querySelector('.post-action-bar-button-like');
-            if (likeButton)
+            if (likeButton && postElement.dataset.usebookmarkbutton == '0')
                 likeButton.classList.toggle('post-action-bar-button-checked', have);
         });
 }
@@ -1508,7 +1508,7 @@ function getOrCreateBookmarkToggler(did, postRkey, postElement) {
         (count, have) => { 
             
             var likeButton = postElement.querySelector('.post-action-bar-button-like');
-            if (likeButton)
+            if (likeButton && postElement.dataset.usebookmarkbutton == '1')
                 likeButton.classList.toggle('post-action-bar-button-checked', have);
 
             var toggleBookmarkMenuItem = postElement.querySelector('.menu-item[actionkind="toggleBookmark"]');

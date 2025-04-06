@@ -35,8 +35,8 @@ namespace AppViewLite
                 }
             }
         }
-        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = false && Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC) ?? 2000);
-        private readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = false && Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ) ?? 4000);
+        public readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = false && Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC) ?? 2000);
+        public readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = false && Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ) ?? 4000);
 
         public void MaybeUpdateReadOnlyReplicaOnExplicitRead(long minVersion, bool alreadyHoldsLock)
         {

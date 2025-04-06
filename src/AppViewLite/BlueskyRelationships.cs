@@ -3563,7 +3563,18 @@ namespace AppViewLite
 
         public readonly static TimeSpan BalancedFeedMaximumAge = TimeSpan.FromDays(2);
 
+
         public IEnumerable<UserRecentPostWithScore> GetRecentPopularPosts(Plc plc, bool couldBePluggablePost)
+        {
+            var result = GetRecentPopularPostsEvenVeryRecent(plc, couldBePluggablePost);
+            if (couldBePluggablePost)
+            {
+                var threshold = Tid.FromDateTime(DateTime.UtcNow - PrimarySecondaryPair.ReadOnlyReplicaMaxStalenessOnExplicitRead - TimeSpan.FromSeconds(10));
+                return result.Where(x => x.RKey.CompareTo(threshold) < 0);
+            };
+            return result;
+        }
+        private IEnumerable<UserRecentPostWithScore> GetRecentPopularPostsEvenVeryRecent(Plc plc, bool couldBePluggablePost)
         {
             while (true)
             {

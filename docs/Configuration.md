@@ -86,7 +86,7 @@ You can however enable additional protocols:
 
 Examples:
 * 4chan: `boards.4chan.org+https://a.4cdn.org/{0}/catalog.json+https://boards.4chan.org/{0}/thread/{1}+https://i.4cdn.org/{0}/{1}s.jpg+https://a.4cdn.org/boards.json`
-* LainChan (ViChan): `lainchan.org++++λ(Programming)/Δ(Do It Yourself)/sec(Security)/Ω(Technology)/inter(Games and Interactive Media)/lit(Literature)/music(Musical and Audible Media)/vis(Visual Media)/hum(Humanity)/drug(Drugs 3.0)/zzz(Consciousness and Dreams)/layer(layer)/q(Questions and Complaints)/r(Random)`
+* LainChan (ViChan): `lainchan.org++++λ(Programming)/Δ(Do It Yourself)/sec(Security)/r(Random)`
 
 ### Nostr
 * `APPVIEWLITE_LISTEN_NOSTR_RELAYS`: Listens to the specified Nostr relays. Example: `nos.lol,bostr.bitcointxoko.com`. Defaults to none.

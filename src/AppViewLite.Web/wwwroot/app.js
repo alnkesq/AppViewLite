@@ -84,6 +84,19 @@ function replaceDidUrlWithHandle(href, did, handle) {
     return href;
 }
 
+
+
+class CustomSignalrReconnectPolicy {
+    constructor() {
+        this._retryDelays = [0, 2000, 5000, 10000, 20000];
+    }
+    nextRetryDelayInMilliseconds(retryContext) {
+        var r = this._retryDelays[retryContext.previousRetryCount];
+        if (r === null) return 30000;
+        return r;
+    }
+}
+
 var liveUpdatesConnection = null;
 var liveUpdatesConnectionFuture = (async () => {
 
@@ -91,7 +104,7 @@ var liveUpdatesConnectionFuture = (async () => {
     var connection = new signalR.HubConnectionBuilder()
         .withUrl("/api/live-updates")
         .configureLogging(signalR.LogLevel.Information) 
-        .withAutomaticReconnect()
+        .withAutomaticReconnect(new CustomSignalrReconnectPolicy())
         .build();
     connection.on('PostEngagementChanged', (stats, ownRelationship) => {
         //console.log('PostEngagementChanged: ');
@@ -152,10 +165,25 @@ var liveUpdatesConnectionFuture = (async () => {
         updateSearchAutoComplete();
 
     });
-    liveUpdatesConnection = connection;
 
-    if(!isNoLayout)
-        await connection.start();
+    if (!isNoLayout) { 
+        var retryCount = 0;
+        var retryPolicy = new CustomSignalrReconnectPolicy();
+        while (true) {
+            try {
+                await connection.start();
+                break;
+            } catch (e) { 
+                console.error(e);
+            }
+            var delayMs = retryPolicy.nextRetryDelayInMilliseconds({ previousRetryCount: retryCount })
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            retryCount++;
+        }
+
+    }
+
+    liveUpdatesConnection = connection;
     return connection;
 })();
 
@@ -482,6 +510,34 @@ function getTextIncludingEmojis(node) {
     }
 }
 
+
+async function safeSignalrInvoke(methodName, ...args) { 
+    const start = Date.now();
+    var didLogErrorOnce = false;
+    while (true) { 
+        try {
+            await Promise.race(liveUpdatesConnectionFuture, await new Promise(resolve => setTimeout(resolve, 3000)));
+            var connection = liveUpdatesConnection
+            if (connection == null) throw 'The initial socket connection has not completed yet.'
+            var result = await connection.invoke(methodName, ...args);
+            if (didLogErrorOnce) { 
+                console.log('SignalR invocation reattempt of ' + methodName + ' now succeeded after ' + (Date.now() - start) / 1000 + ' seconds');
+            }
+            return result;
+        } catch (e) { 
+            if (connection && connection.state == 'Connected') throw e; // User code error, not a websocket problem
+            if (Date.now() - start > 300000) {
+                throw new Error('SignalR invocation reattempts have not succeeded yet for ' + methodName + ', giving up: ' + e);
+            }
+            if (!didLogErrorOnce)
+                console.error('SignalR invocation of ' + methodName + ' failed because the socket is not connected. Will keep retrying. ' + e)
+            didLogErrorOnce = true;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+    
+}
+
 async function recordPostEngagement(postElement, kind) { 
     var quoterPost = postElement.parentElement.closest('.post');
     if (quoterPost)
@@ -490,8 +546,7 @@ async function recordPostEngagement(postElement, kind) {
     if (location.pathname == '/following' && !kind.includes('SeenInFollowingFeed')) { 
         kind += ',SeenInFollowingFeed';
     }
-    console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
-    (async () => (await liveUpdatesConnectionFuture).invoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, kind))()
+    safeSignalrInvoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, kind);
     postElement.wasMarkedAsRead = true;
 }
 
@@ -1767,7 +1822,6 @@ function formatEngagementCount(value)
 
 
 async function updateLiveSubscriptions() {
-    var connection = await liveUpdatesConnectionFuture;
     var visiblePosts = [...document.querySelectorAll('.post')].map(x => x.dataset.postdid + '/' + x.dataset.postrkey);
     var focalDid = document.querySelector('.post-list[data-focalpostdid]')?.dataset?.focalpostdid;
     if (!focalDid) focalDid = null;
@@ -1777,7 +1831,7 @@ async function updateLiveSubscriptions() {
     var toUnsubscribe = [...liveUpdatesPostIds].filter(x => !visiblePostsSet.has(x));
     liveUpdatesPostIds = visiblePostsSet;
     if (toSubscribe.length || toUnsubscribe.length) {
-        await connection.invoke('SubscribeUnsubscribePosts', toSubscribe, toUnsubscribe);
+        await safeSignalrInvoke('SubscribeUnsubscribePosts', toSubscribe, toUnsubscribe);
     }
 
     var profilesToLoad = [...document.querySelectorAll(".profile-row[data-pendingload='1']")];
@@ -1789,7 +1843,7 @@ async function updateLiveSubscriptions() {
             pendingProfileLoads.set(nodeId, new WeakRef(profile));
         }
         
-        await connection.invoke('LoadPendingProfiles', profilesToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.profiledid })))
+        await safeSignalrInvoke('LoadPendingProfiles', profilesToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.profiledid })))
     }
 
     
@@ -1803,7 +1857,7 @@ async function updateLiveSubscriptions() {
         }
         
         var sideWithQuotee = new URL(location.href).pathname.endsWith('/quotes')
-        await connection.invoke('LoadPendingPosts',
+        await safeSignalrInvoke('LoadPendingPosts',
             postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, replyChainLength: +x.dataset.replychainlength })),
             sideWithQuotee,
             focalDid
@@ -1813,7 +1867,7 @@ async function updateLiveSubscriptions() {
     var uncertainHandleDids = [...document.querySelectorAll('.handle-uncertain')].map(x => x.dataset.handledid );
     if (uncertainHandleDids.length) { 
         // necessary in case of race between EnrichAsync()/Signalr and DOM loading
-        await connection.invoke('VerifyUncertainHandlesForDids', [...new Set(uncertainHandleDids)]);
+        await safeSignalrInvoke('VerifyUncertainHandlesForDids', [...new Set(uncertainHandleDids)]);
     }
 }
 

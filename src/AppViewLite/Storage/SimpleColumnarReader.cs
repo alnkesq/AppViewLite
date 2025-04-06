@@ -43,7 +43,7 @@ namespace AppViewLite.Storage
             var byteLength = col.Length;
             if (byteLength % sizeof(T) != 0)
             {
-                throw new Exception($"Size of file should be a multiple of sizeof({typeof(T).Name}). Was this file truncated, possibly due to an impartial copy? {col.Path}");
+                throw new Exception($"Size of file should be a multiple of sizeof({typeof(T).Name}). Was this file truncated, possibly due to a partial file copy? {col.Path}");
             }
             return byteLength / sizeof(T);
         }

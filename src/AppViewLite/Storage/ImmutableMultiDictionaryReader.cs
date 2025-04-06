@@ -60,7 +60,7 @@ namespace AppViewLite.Storage
                 if (behavior == PersistentDictionaryBehavior.SingleValue)
                 {
                     if (columnarReader.GetColumnHugeSpan<TValue>(1).Length != Keys.Length)
-                        throw new Exception("Value column should have the same number of elements as the key column. Was this file truncated due to an impartial file copy? " + safeFileHandleValues.Path);
+                        throw new Exception("Value column should have the same number of elements as the key column. Was this file truncated due to a partial file copy? " + safeFileHandleValues.Path);
                 }
             }
 
@@ -70,13 +70,13 @@ namespace AppViewLite.Storage
                 this.safeFileHandleOffsets = columnarReader.GetMemoryMappedFile(2);
 
                 if (Offsets.Length != Keys.Length)
-                    throw new Exception("Offsets column should have the same number of elements as the key column. Was this file truncated due to an impartial file copy? " + safeFileHandleOffsets.Path);
+                    throw new Exception("Offsets column should have the same number of elements as the key column. Was this file truncated due to a partial file copy? " + safeFileHandleOffsets.Path);
 
                 if (Values.Length < Offsets.Length)
-                    throw new Exception("Value column should have at least as many entries as the offsets column. Was this file truncated due to an impartial file copy? " + safeFileHandleValues!.Path);
+                    throw new Exception("Value column should have at least as many entries as the offsets column. Was this file truncated due to a partial file copy? " + safeFileHandleValues!.Path);
 
                 if (Offsets.Length != 0 && Values.Length <= Offsets[Offsets.Length - 1])
-                    throw new Exception("Value column is smaller than it should be according to offsets file. Was this file truncated due to an impartial file copy? " + safeFileHandleValues!.Path);
+                    throw new Exception("Value column is smaller than it should be according to offsets file. Was this file truncated due to a partial file copy? " + safeFileHandleValues!.Path);
             }
 
             if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)

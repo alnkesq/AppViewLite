@@ -516,7 +516,7 @@ async function safeSignalrInvoke(methodName, ...args) {
     var didLogErrorOnce = false;
     while (true) { 
         try {
-            await Promise.race(liveUpdatesConnectionFuture, await new Promise(resolve => setTimeout(resolve, 3000)));
+            await Promise.race([liveUpdatesConnectionFuture, await new Promise(resolve => setTimeout(resolve, 3000))]);
             var connection = liveUpdatesConnection
             if (connection == null) throw 'The initial socket connection has not completed yet.'
             var result = await connection.invoke(methodName, ...args);

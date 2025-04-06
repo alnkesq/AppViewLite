@@ -374,7 +374,15 @@ namespace AppViewLite
 
                     if (!isRepositoryImport && !relationships.HaveCollectionForUser(commitPlc, RepositoryImportKind.ListEntries))
                     {
-                        Indexer.RunOnFirehoseProcessingThreadpool(() => Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx, slowImport: true)).FireAndForget();
+                        Indexer.RunOnFirehoseProcessingThreadpool(async () =>
+                        {
+                            var result = await Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx, slowImport: true);
+                            if (result != null && result.Error != null)
+                            {
+                                Log($"Could not fetch full ListEntries collection for " + commitAuthor + ": " + result.Error);
+                            }
+                            return result;
+                        }).FireAndForget();
                     }
                 }
                 else if (record is Threadgate threadGate)

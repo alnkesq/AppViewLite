@@ -103,6 +103,7 @@ namespace AppViewLite.Models
 
 
         [ProtoIgnore] public PostId PostId;
+
         public PostId? InReplyToPostId => InReplyToRKey != null ? new PostId(new(InReplyToPlc!.Value), new(InReplyToRKey.Value)) : null;
         public PostId RootPostId => RootPostPlc != null ? new PostId(new(RootPostPlc!.Value), new(RootPostRKey!.Value)) : PostId; // best effort for deleted posts
 

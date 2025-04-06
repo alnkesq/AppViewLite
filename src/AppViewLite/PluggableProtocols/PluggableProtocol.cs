@@ -473,13 +473,18 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual Task TryFetchProfileMetadataAsync(string did, RequestContext ctx) => Task.FromResult<BlueskyProfileBasicInfo?>(null);
 
-        public virtual bool RequiresLateOpenGraphData(BlueskyPost post)
+        protected static bool DefaultRequiresLateOpenGraphData(BlueskyPost post, bool alsoConsiderLinkFacets)
         {
             var data = post.Data;
             if (data == null) return false;
-            if (data.ExternalUrl == null) return false;
+            if (data.ExternalUrl == null && !(alsoConsiderLinkFacets && post.HasLinkFacets)) return false;
             if (data.ExternalDescription != null || data.ExternalTitle != null || data.ExternalThumbCid != null) return false;
             return true;
+        }
+
+        public virtual bool RequiresLateOpenGraphData(BlueskyPost post)
+        {
+            return DefaultRequiresLateOpenGraphData(post, alsoConsiderLinkFacets: false);
         }
 
         public virtual bool ShouldUseCompactMediaThumbnails(BlueskyPost post)

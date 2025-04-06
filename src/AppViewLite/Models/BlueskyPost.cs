@@ -239,6 +239,7 @@ namespace AppViewLite.Models
             this.LateOpenGraphData = openGraphData;
             Data!.ExternalTitle = openGraphData.ExternalTitle;
             Data.ExternalDescription = openGraphData.ExternalDescription;
+            Data.ExternalUrl = openGraphData.ExternalUrl;
             if (Data.ExternalTitle != null && Data.Text != null && Data.ExternalTitle.Contains(Data.Text, StringComparison.InvariantCultureIgnoreCase))
             {
                 Data.Text = null;
@@ -249,6 +250,9 @@ namespace AppViewLite.Models
         public bool ShouldUseCompactView;
 
         public int ReplyChainLength;
+        public string? ExternalLinkOrFirstLinkFacet => Data?.GetExternalUrls().FirstOrDefault();
+
+        public bool HasLinkFacets => Data?.Facets?.Any(x => x.IsLink) == true;
     }
 }
 

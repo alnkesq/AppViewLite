@@ -1737,7 +1737,7 @@ namespace AppViewLite
             }
             if (post.PluggableProtocol?.RequiresLateOpenGraphData(post) == true)
             {
-                post.ApplyLateOpenGraphData(GetOpenGraphData(post.Data!.ExternalUrl!));
+                post.ApplyLateOpenGraphData(GetOpenGraphData(post.ExternalLinkOrFirstLinkFacet!));
             }
             MaybePropagateAdministrativeBlockToPost(post);
             return post;
@@ -3962,6 +3962,8 @@ namespace AppViewLite
 
             // not needed
             // EfficientTextCompressor.DecompressInPlace(ref proto.ExternalUrl, ref proto.ExternalUrlBpe);
+
+            proto.ExternalUrl = externalUrl;
             return proto;
         }
 

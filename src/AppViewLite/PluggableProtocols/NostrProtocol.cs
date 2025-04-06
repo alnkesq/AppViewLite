@@ -385,6 +385,11 @@ namespace AppViewLite.PluggableProtocols.Nostr
         {
             return GetDisplayNameFromDid(profile.Did);
         }
+
+        public override bool RequiresLateOpenGraphData(BlueskyPost post)
+        {
+            return DefaultRequiresLateOpenGraphData(post, alsoConsiderLinkFacets: true);
+        }
     }
 }
 

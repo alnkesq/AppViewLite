@@ -482,6 +482,11 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return $"https://{userId.Instance}/@{userId.UserName}/followers";
         }
 
+        public override bool RequiresLateOpenGraphData(BlueskyPost post)
+        {
+            return DefaultRequiresLateOpenGraphData(post, alsoConsiderLinkFacets: true);
+        }
+
 
     }
 

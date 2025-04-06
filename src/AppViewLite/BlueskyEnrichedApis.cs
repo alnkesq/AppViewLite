@@ -637,7 +637,7 @@ namespace AppViewLite
 
                 await AwaitWithShortDeadline(Task.WhenAll(posts.Where(x => x.RequiresLateOpenGraphData).Select(async post =>
                 {
-                    var externalUrl = post.Data!.ExternalUrl!;
+                    var externalUrl = post.ExternalLinkOrFirstLinkFacet!;
                     var version = await FetchAndStoreOpenGraphDict.GetValueAsync(externalUrl, RequestContext.CreateForTaskDictionary(ctx));
                     ctx.BumpMinimumVersion(version);
                     WithRelationshipsLock(rels =>

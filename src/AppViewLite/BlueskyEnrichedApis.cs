@@ -3044,8 +3044,9 @@ namespace AppViewLite
                     .ToArray();
             }, ctx);
 
+            ctx.IncreaseTimeout(TimeSpan.FromSeconds(3000)); // no live reload for lists
             await EnrichAsync(lists, ctx);
-            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => new ListMembership(x.Moderator.Plc, x.ListId.RelationshipRKey, x.MembershipRkey!.Value).Serialize());
+            return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => new ListMembership(x.Moderator!.Plc, x.ListId.RelationshipRKey, x.MembershipRkey!.Value).Serialize());
         }
 
         private async Task<BlueskyFeedGenerator[]> EnrichAsync(BlueskyFeedGenerator[] feeds, RequestContext ctx, CancellationToken ct = default)

@@ -1581,10 +1581,10 @@ async function togglePrivateFollow(did, toggleButton, postElement) {
 
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
-        if(isNativeDid(did))
-            getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
-        else
+        if (postElement.dataset.usebookmarkbutton == '1')
             getOrCreateBookmarkToggler(did, rkey, postElement).toggleIfNotBusyAsync();
+        else
+            getOrCreateLikeToggler(did, rkey, postElement).toggleIfNotBusyAsync();
         invalidateLikesPages();
     },
     toggleRepost: async function (did, rkey, postElement) { 

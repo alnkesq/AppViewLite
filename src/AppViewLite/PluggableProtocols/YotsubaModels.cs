@@ -26,36 +26,36 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         [ProtoMember(9)] public long H;
         [ProtoMember(10)] public long Imagelimit;
         [ProtoMember(11)] public long Images;
-        [ProtoMember(12)] public long LastModified;
+        [ProtoMember(12)][JsonPropertyName("last_modified")] public long LastModified;
         [ProtoMember(13)] public string Md5;
         [ProtoMember(14)] public string Name;
         [ProtoMember(15)] public long No;
         [ProtoMember(16)][DuckDbIgnore] public string Now;
-        [ProtoMember(17)] public long OmittedImages;
-        [ProtoMember(18)] public long OmittedPosts;
+        [ProtoMember(17)][JsonPropertyName("omitted_images")] public long OmittedImages;
+        [ProtoMember(18)][JsonPropertyName("omitted_posts")] public long OmittedPosts;
         [ProtoMember(19)] public long Replies;
         [ProtoMember(20)] public long Resto;
-        [ProtoMember(21)] public string SemanticUrl;
+        [ProtoMember(21)][JsonPropertyName("semantic_url")] public string SemanticUrl;
         [ProtoMember(22)] public long Sticky;
         [ProtoMember(23)] public string Sub;
         [ProtoMember(24)][JsonIgnore] public long Tim;
         [ProtoMember(25)] public long Time;
-        [ProtoMember(26)] public long TnH;
-        [ProtoMember(27)] public long TnW;
+        [ProtoMember(26)][JsonPropertyName("tn_h")] public long TnH;
+        [ProtoMember(27)][JsonPropertyName("tn_w")] public long TnW;
         [ProtoMember(28)] public string Trip;
         [ProtoMember(29)] public long W;
         [ProtoMember(30)] public string Board;
         [ProtoMember(31)][DuckDbIgnore] public string Key;
         [ProtoMember(32)] public long LastSeenInCatalog;
-        [ProtoMember(33)] public string BoardFlag;
+        [ProtoMember(33)][JsonPropertyName("board_flag")] public string BoardFlag;
         [ProtoMember(34)] public string Country;
-        [ProtoMember(35)] public string CountryName;
-        [ProtoMember(36)] public long CustomSpoiler;
-        [ProtoMember(37)] public string FlagName;
+        [ProtoMember(35)][JsonPropertyName("country_name")] public string CountryName;
+        [ProtoMember(36)][JsonPropertyName("custom_spoiler")] public long CustomSpoiler;
+        [ProtoMember(37)][JsonPropertyName("flag_name")] public string FlagName;
         [ProtoMember(38)] public string Id;
-        [ProtoMember(39)] public long MImg;
+        [ProtoMember(39)][JsonPropertyName("m_img")] public long MImg;
         [ProtoMember(40)] public long Since4Pass;
-        [ProtoMember(41)] public long StickyCap;
+        [ProtoMember(41)][JsonPropertyName("sticky_cap")] public long StickyCap;
         [ProtoMember(42)] public long Spoiler;
 
 
@@ -65,13 +65,13 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         [ProtoMember(45)] public string Embed;
         [ProtoMember(46)] public long? Locked;
         [ProtoMember(47)][JsonIgnore] public string TimString;
-        [ProtoMember(48)] public YotsubaExtraFileJson[] ExtraFiles;
+        [ProtoMember(48)][JsonPropertyName("extra_files")] public YotsubaExtraFileJson[] ExtraFiles;
 
 
 
         [ProtoMember(49)][JsonIgnore] public long? CyclicalString;
-        [ProtoMember(50)] public string WarningMsg;
-        [ProtoMember(51)] public string BanMsg;
+        [ProtoMember(50)][JsonPropertyName("warning_msg")] public string WarningMsg;
+        [ProtoMember(51)][JsonPropertyName("ban_msg")] public string BanMsg;
         [ProtoMember(52)] public YotsubaExtraFileJson[] Files;
         [ProtoMember(53)] public long UniqueIps;
 

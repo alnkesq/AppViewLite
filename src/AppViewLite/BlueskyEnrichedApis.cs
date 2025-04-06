@@ -505,7 +505,8 @@ namespace AppViewLite
         }
 
 
-        private readonly static FrozenSet<string> ExternalDomainsAlwaysCompactView = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS) ?? []).ToFrozenSet();
+        public readonly static FrozenSet<string> ExternalDomainsAlwaysCompactView = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS) ?? []).ToFrozenSet();
+        public readonly static FrozenSet<string> ExternalDomainsNoAutoPreview = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_EXTERNAL_PREVIEW_DISABLE_AUTOMATIC_FOR_DOMAINS) ?? []).ToFrozenSet();
 
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
@@ -601,7 +602,7 @@ namespace AppViewLite
 
                 if (post.HasExternalThumbnailBestGuess)
                 {
-                    var domain = StringUtils.TryParseUri(post.Data!.ExternalUrl)?.GetDomainTrimWww();
+                    var domain = StringUtils.TryParseUri(post.ExternalLinkOrFirstLinkFacet!)?.GetDomainTrimWww();
                     if (domain != null && ExternalDomainsAlwaysCompactView.Contains(domain))
                         post.ShouldUseCompactView = true;
                 }

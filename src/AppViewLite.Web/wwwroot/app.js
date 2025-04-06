@@ -546,6 +546,7 @@ async function recordPostEngagement(postElement, kind) {
     if (location.pathname == '/following' && !kind.includes('SeenInFollowingFeed')) { 
         kind += ',SeenInFollowingFeed';
     }
+    console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
     safeSignalrInvoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, kind);
     postElement.wasMarkedAsRead = true;
 }

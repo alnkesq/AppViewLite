@@ -60,7 +60,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
 
 
-        [ProtoMember(43)] public long? Cyclical;
+        [ProtoMember(43)][JsonIgnore] public long? Cyclical;
         [ProtoMember(44)] public string Email;
         [ProtoMember(45)] public string Embed;
         [ProtoMember(46)] public long? Locked;
@@ -69,13 +69,14 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
 
 
-        [ProtoMember(49)] public long? CyclicalString;
+        [ProtoMember(49)][JsonIgnore] public long? CyclicalString;
         [ProtoMember(50)] public string WarningMsg;
         [ProtoMember(51)] public string BanMsg;
         [ProtoMember(52)] public YotsubaExtraFileJson[] Files;
         [ProtoMember(53)] public long UniqueIps;
 
         [JsonPropertyName("tim")] public JsonValue TimObject;
+        [JsonPropertyName("cyclical")] public JsonValue CyclicalObject;
     }
     [ProtoContract]
     public class YotsubaExtraFileJson

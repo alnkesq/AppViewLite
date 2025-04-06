@@ -201,15 +201,29 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var bodyHtml = subject != null && comment != null ? ConcatenateSubjectAndComment(subject, comment) : (subject ?? comment);
             var body = ParseHtml(bodyHtml, boardId);
 
+            var media = new List<BlueskyMediaData>();
+            if (thread.TimObject != null && !(thread.TimObject.GetValueKind() is JsonValueKind.Null or JsonValueKind.Undefined))
+            {
+                media.Add(new BlueskyMediaData
+                {
+                    Cid = Encoding.UTF8.GetBytes(thread.TimObject.Deserialize<object>() + thread.Ext),
+                    IsVideo = thread.Ext is ".webm" or ".mp4"
+                });
+            }
+            var files = (thread.ExtraFiles ?? []).Concat(thread.Files ?? []);
+            foreach (var file in files)
+            {
+                media.Add(new BlueskyMediaData
+                {
+                    Cid = Encoding.UTF8.GetBytes(file.Tim + file.Ext),
+                    IsVideo = file.Ext is ".webm" or ".mp4"
+                });
+            }
             var threadData = new BlueskyPostData
             {
                 Text = body.Text,
                 Facets = body.Facets,
-                Media = [new BlueskyMediaData
-                {
-                    Cid = Encoding.UTF8.GetBytes(thread.TimObject.Deserialize<object>() + thread.Ext),
-                    IsVideo = thread.Ext is ".webm" or ".mp4"
-                }],
+                Media = media.ToArray(),
                 PluggableReplyCount = replyCount,
                 PluggableLikeCount = replyCount,
             };

@@ -1,6 +1,7 @@
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace AppViewLite.Storage
 {
@@ -37,8 +38,13 @@ namespace AppViewLite.Storage
             }
         }
 
-        private unsafe static long ByteLengthToElementCount<T>(long byteLength) where T : unmanaged
+        private static unsafe long ByteLengthToElementCount<T>(MemoryMappedFileSlim col) where T : unmanaged
         {
+            var byteLength = col.Length;
+            if (byteLength % sizeof(T) != 0)
+            {
+                throw new Exception($"Size of file should be a multiple of sizeof({typeof(T).Name}). Was this file truncated, possibly due to an impartial copy? {col.Path}");
+            }
             return byteLength / sizeof(T);
         }
 
@@ -47,25 +53,25 @@ namespace AppViewLite.Storage
         {
             var col = columns[index];
             col.EnsureValid();
-            return new HugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col.Length));
+            return new HugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col));
         }
         public unsafe DangerousHugeReadOnlyMemory<T> GetColumnDangerousHugeMemory<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new DangerousHugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col.Length));
+            return new DangerousHugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col));
         }
         public unsafe HugeReadOnlySpan<T> GetColumnHugeSpan<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new HugeReadOnlySpan<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col.Length));
+            return new HugeReadOnlySpan<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col));
         }
         public unsafe ReadOnlySpan<T> GetColumnSpan<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new ReadOnlySpan<T>((T*)col.Pointer, checked((int)ByteLengthToElementCount<T>(col.Length)));
+            return new ReadOnlySpan<T>((T*)col.Pointer, checked((int)ByteLengthToElementCount<T>(col)));
         }
     }
 }

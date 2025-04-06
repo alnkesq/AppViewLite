@@ -39,7 +39,7 @@ namespace AppViewLite.Storage
         }
 
 
-        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null)
+        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null, bool allowEmpty = false)
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
@@ -51,15 +51,32 @@ namespace AppViewLite.Storage
 
             this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
             this.safeFileHandleKeys = columnarReader.GetMemoryMappedFile(0);
+
+            if (!allowEmpty && Keys.Length == 0) throw new Exception("Keys column is an empty file: " + safeFileHandleKeys.Length);
+
             if (HasValues)
             {
                 this.safeFileHandleValues = columnarReader.GetMemoryMappedFile(1);
+                if (behavior == PersistentDictionaryBehavior.SingleValue)
+                {
+                    if (columnarReader.GetColumnHugeSpan<TValue>(1).Length != Keys.Length)
+                        throw new Exception("Value column should have the same number of elements as the key column. Was this file truncated due to an impartial file copy? " + safeFileHandleValues.Path);
+                }
             }
 
             if (HasOffsets)
             {
                 this.Offsets = columnarReader.GetColumnHugeMemory<UInt48>(2);
                 this.safeFileHandleOffsets = columnarReader.GetMemoryMappedFile(2);
+
+                if (Offsets.Length != Keys.Length)
+                    throw new Exception("Offsets column should have the same number of elements as the key column. Was this file truncated due to an impartial file copy? " + safeFileHandleOffsets.Path);
+
+                if (Values.Length < Offsets.Length)
+                    throw new Exception("Value column should have at least as many entries as the offsets column. Was this file truncated due to an impartial file copy? " + safeFileHandleValues!.Path);
+
+                if (Offsets.Length != 0 && Values.Length <= Offsets[Offsets.Length - 1])
+                    throw new Exception("Value column is smaller than it should be according to offsets file. Was this file truncated due to an impartial file copy? " + safeFileHandleValues!.Path);
             }
 
             if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)

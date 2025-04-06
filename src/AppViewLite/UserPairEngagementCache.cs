@@ -25,7 +25,7 @@ namespace AppViewLite
 
         public override void LoadCacheFile(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo originalSlice, string cachePath, int sliceIndex)
         {
-            var cache = new ImmutableMultiDictionaryReader<Plc, UserEngagementStats>(cachePath, PersistentDictionaryBehavior.SortedValues);
+            var cache = new ImmutableMultiDictionaryReader<Plc, UserEngagementStats>(cachePath, PersistentDictionaryBehavior.SortedValues, allowEmpty: true);
             cacheSlices.Insert(sliceIndex, (originalSlice.SliceName, cache));
             BumpVersion();
         }

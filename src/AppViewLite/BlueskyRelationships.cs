@@ -2084,10 +2084,17 @@ namespace AppViewLite
             var myFollowees = RegisteredUserToFollowees
                 .GetValuesSorted(loggedInUser)
                 .DistinctByAssumingOrderedInputLatest(x => x.Member);
-            var followers = Follows.GetRelationshipsSorted(plc, default).Select(x => x.Actor).DistinctAssumingOrderedInput();
 
-            return SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x.Member, followers, x => x)
-                .Where(x => x.Left != default && x.Right != default && !Follows.IsDeleted(new Relationship(loggedInUser, x.Left.ListItemRKey)))
+            var followerChunks = Follows.creations.GetValuesChunked(plc).ToArray();
+            var totalFollowers = followerChunks.Sum(x => x.Length);
+            var followers =
+                SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(followerChunks.Select(x => x.AsEnumerable()).ToArray(), x => x)
+                .DistinctByAssumingOrderedInputLatest(x => x.Actor);
+
+            var joined = SimpleJoin.JoinPresortedAndUnique(myFollowees, x => x.Member, followers, x => x.Actor);
+
+            return joined
+                .Where(x => x.Left != default && x.Right != default && !Follows.IsDeleted(new Relationship(loggedInUser, x.Left.ListItemRKey)) && !Follows.IsDeleted(x.Right))
                 .Select(x => x.Key)
                 .ToArray();
         }

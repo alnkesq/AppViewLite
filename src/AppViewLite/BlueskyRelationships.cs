@@ -136,6 +136,7 @@ namespace AppViewLite
         public string BaseDirectory { get; }
         private FileStream? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
+        private Dictionary<string, FirehoseCursor>? firehoseCursors;
         private GlobalCheckpoint loadedCheckpoint;
 
         private T Register<T>(T r) where T : ICheckpointable
@@ -264,7 +265,7 @@ namespace AppViewLite
                 throw new Exception("A checkpoint file to load was not found. Specify --allow-new-database to create a new database.");
             loadedCheckpoint = latestCheckpoint != null ? DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(latestCheckpoint.FullName)) : new GlobalCheckpoint();
             checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray());
-
+            firehoseCursors = loadedCheckpoint?.FirehoseCursors?.ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
 
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
             PlcToDidPlc = RegisterDictionary<Plc, UInt128>("plc-to-did-plc", PersistentDictionaryBehavior.SingleValue);
@@ -627,6 +628,7 @@ namespace AppViewLite
                 Log("Capturing checkpoint");
                 BeforeCaptureCheckpoint?.Invoke();
                 loadedCheckpoint.Tables ??= new();
+                loadedCheckpoint.FirehoseCursors = firehoseCursors!.Values.ToList();
                 foreach (var table in disposables)
                 {
                     foreach (var activeSlices in table.GetActiveSlices())
@@ -4009,6 +4011,15 @@ namespace AppViewLite
 
         internal readonly string[] RootDirectoriesToGcCollect;
 
+
+
+        internal string? GetFirehoseCursorThreadSafe(string firehoseUrl)
+        {
+            lock (firehoseCursors!)
+            {
+                return firehoseCursors.TryGetValue(firehoseUrl, out var cursor) ? cursor.Cursor : null;
+            }
+        }
     }
 
 

@@ -10,6 +10,16 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public List<GlobalCheckpointTable>? Tables;
         [ProtoMember(2)] public bool Dummy;
+
+        [ProtoMember(3)] public List<FirehoseCursor>? FirehoseCursors;
+    }
+
+    [ProtoContract]
+    internal class FirehoseCursor
+    {
+        [ProtoMember(1)] public required string FirehoseUrl;
+        [ProtoMember(2)] public required string Cursor;
+        [ProtoMember(3)] public required DateTime CursorDate;
     }
 
     [ProtoContract]

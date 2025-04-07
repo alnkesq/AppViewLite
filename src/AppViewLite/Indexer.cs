@@ -477,7 +477,7 @@ namespace AppViewLite
                 OnAccountStateChanged(acct.Did.Handler, acct.Active, acct.Status);
                 return;
             }
-
+            
             VerifyValidForCurrentRelay!(e.Record.Did!.ToString());
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
@@ -558,18 +558,22 @@ namespace AppViewLite
         public static Tid GetMessageTid(SubscribeRepoMessage message, string prefix) => Tid.Parse(GetMessageRKey(message, prefix));
         public static Tid GetMessageTid(string path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
 
-
         public async Task StartListeningToJetstreamFirehose(CancellationToken ct = default)
         {
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
                 var tcs = new TaskCompletionSource();
-                using var firehose = new ATJetStreamBuilder()
+                var options = new ATJetStreamBuilder()
                     .WithInstanceUrl(FirehoseUrl)
                     .WithLogger(new LogWrapper())
-                    .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
-                    .Build();
+                    .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
+
+                if (relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri) is { } s)
+                {
+                    options.WithCursor(long.Parse(s));
+                }
+                using var firehose = options.Build();
                 using var watchdog = CreateFirehoseWatchdog(tcs);
                 ct.Register(() =>
                 {
@@ -603,7 +607,7 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeReposAsync(token: ct), (protocol, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, watchdog) =>
             {
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
@@ -614,7 +618,7 @@ namespace AppViewLite
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore(protocol => protocol.StartSubscribeLabelsAsync(token: ct), (protocol, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeLabelsAsync(cursor, token: ct), (protocol, watchdog) =>
             {
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
@@ -623,12 +627,13 @@ namespace AppViewLite
                 }, nameForDebugging);
             }, ct);
         }
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
                 var tcs = new TaskCompletionSource();
+                var cursor = relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
                 using var firehose = new ATWebSocketProtocolBuilder()
                     .WithInstanceUrl(FirehoseUrl)
                     .WithLogger(new LogWrapper())
@@ -650,7 +655,7 @@ namespace AppViewLite
                     }
                 };
                 setupHandler(firehose, watchdog);
-                await subscribeKind(firehose);
+                await subscribeKind(firehose, cursor != null ? long.Parse(cursor) : null);
                 await tcs.Task;
             }, ct);
 

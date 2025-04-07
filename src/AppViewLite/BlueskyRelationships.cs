@@ -1972,7 +1972,7 @@ namespace AppViewLite
             {
                 basic = new BlueskyProfileBasicInfo
                 {
-                    Error = DefaultLabels.GetErrorForAccountState(accountState)
+                    Error = DefaultLabels.GetErrorForAccountState(accountState, didDoc?.Pds)
                 };
             }
 

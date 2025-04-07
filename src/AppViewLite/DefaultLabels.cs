@@ -25,15 +25,28 @@ namespace AppViewLite
             { "graphic-media", new BlueskyLabelData("Graphic Media", "Explicit or potentially disturbing media.", BlueskyLabelSeverity.Alert) },
         }.ToFrozenDictionary(x => BlueskyRelationships.HashLabelName(x.Key), x => x.Value);
 
-        public static string? GetErrorForAccountState(AccountState accountState)
+        public static string? GetErrorForAccountState(AccountState accountState, string? pds)
         {
+            string? pdsSuffix = null;
+            if (pds != null)
+            {
+                var pdsUri = new Uri(pds);
+                if (pdsUri.HasHostSuffix("host.bsky.network"))
+                {
+                    pdsSuffix = " (Bluesky PBC)";
+                }
+                else
+                {
+                    pdsSuffix = " (" + StringUtils.GetDisplayHost(pdsUri) + ")";
+                }
+            }
             return accountState switch
             {
                 AccountState.Unknown => null,
                 AccountState.Active => null,
-                AccountState.NotActive => "This account is deactivated/deleted, or was taken down by their PDS.",
-                AccountState.TakenDown => "This account was taken down by their PDS.",
-                AccountState.Suspended => "This account was suspended by their PDS.",
+                AccountState.NotActive => $"This account is deactivated/deleted, or was taken down by their PDS{pdsSuffix}.",
+                AccountState.TakenDown => $"This account was taken down by their PDS{pdsSuffix}.",
+                AccountState.Suspended => $"This account was suspended by their PDS{pdsSuffix}.",
                 AccountState.Deleted => "This user deleted their account.",
                 AccountState.Deactivated => "This user deactivated their account.",
                 AccountState.Desynchronized => "This account is desynchronized.", // what does it mean?

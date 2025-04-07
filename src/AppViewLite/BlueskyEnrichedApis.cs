@@ -1548,7 +1548,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                throw await CreateExceptionMessageForExternalServerErrorAsync($"The feed provider", ex, did, ctx);
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The feed provider", ex, did, null, ctx);
             }
 
             var posts = WithRelationshipsLockWithPreamble(
@@ -1579,12 +1579,12 @@ namespace AppViewLite
         }
 
 
-        private async Task<Exception> CreateExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, RequestContext ctx)
+        private async Task<Exception> CreateExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, string? pds, RequestContext ctx)
         {
             if (ex is PermissionException) return ex;
-            return new UnexpectedFirehoseDataException(await GetExceptionMessageForExternalServerErrorAsync(subjectDisplayText, ex, did, ctx), ex);
+            return new UnexpectedFirehoseDataException(await GetExceptionMessageForExternalServerErrorAsync(subjectDisplayText, ex, did, pds, ctx), ex);
         }
-        private async Task<string?> GetExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, RequestContext ctx)
+        private async Task<string?> GetExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, string? pds, RequestContext ctx)
         {
             if (ex is ATNetworkErrorException at)
             {
@@ -1603,7 +1603,7 @@ namespace AppViewLite
                         {
                             var accountState = await FetchAndStoreAccountStateFromPdsDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
                             if (!BlueskyRelationships.IsAccountActive(accountState.Value))
-                                return DefaultLabels.GetErrorForAccountState(accountState.Value);
+                                return DefaultLabels.GetErrorForAccountState(accountState.Value, pds);
                         }
                         catch (Exception ex2)
                         {
@@ -3164,9 +3164,14 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, ctx);
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, GetPds(proto), ctx);
             }
 
+        }
+
+        private static string? GetPds(ATProtocol proto)
+        {
+            return proto.Options.Url.AbsoluteUri;
         }
 
         public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
@@ -3178,7 +3183,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, ctx);
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, GetPds(proto), ctx);
             }
 
         }

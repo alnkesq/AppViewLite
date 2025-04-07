@@ -24,7 +24,7 @@ namespace AppViewLite
         public event Action? AfterTaskProcessed;
         private volatile BlockingCollection<Task>? pauseBuffer;
 
-        private long uncompletedSuspendableTasks;
+        private long UncompletedSuspendableTasks;
 
         [ThreadStatic] private static bool notifyTaskAboutToBeEnqueuedCanBeSuspended;
         internal static void NotifyTaskAboutToBeEnqueuedCanBeSuspended()
@@ -64,7 +64,7 @@ namespace AppViewLite
 
             if (canBeSuspended)
             {
-                Interlocked.Increment(ref uncompletedSuspendableTasks);
+                Interlocked.Increment(ref UncompletedSuspendableTasks);
                 tasksSuspendable.Add(task);
             }
             else
@@ -125,7 +125,7 @@ namespace AppViewLite
                 {
                     // suspendable
                     TryExecuteTask(task!);
-                    Interlocked.Decrement(ref uncompletedSuspendableTasks);
+                    Interlocked.Decrement(ref UncompletedSuspendableTasks);
                     AfterTaskProcessed?.Invoke();
 
                 }
@@ -141,7 +141,7 @@ namespace AppViewLite
             var delayMs = 1;
             while (true)
             {
-                var remaining = Interlocked.Read(ref uncompletedSuspendableTasks);
+                var remaining = Interlocked.Read(ref UncompletedSuspendableTasks);
                 LoggableBase.Log($"Draining firehose scheduler, remaining: {remaining}, waiting {(remaining == 0 ? 0 : delayMs)} ms, pause buffer: {pauseBuffer.Count}");
                 if (remaining == 0) break;
 
@@ -153,7 +153,7 @@ namespace AppViewLite
             return () =>
             {
                 LoggableBase.Log("Resuming firehose scheduler");
-                BlueskyRelationships.Assert(uncompletedSuspendableTasks == 0);
+                BlueskyRelationships.Assert(UncompletedSuspendableTasks == 0);
                 BlueskyRelationships.Assert(tasksSuspendable.Count == 0);
                 var p = pauseBuffer;
                 pauseBuffer = null;
@@ -175,6 +175,7 @@ namespace AppViewLite
                 PendingNonSuspendableTasks = tasksNonSuspendable.Count,
                 PendingSuspendableTasks = tasksSuspendable.Count,
                 PauseBuffer = pauseBuffer?.Count,
+                UncompletedSuspendableTasks,
             };
         }
     }

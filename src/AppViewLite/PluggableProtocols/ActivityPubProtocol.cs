@@ -36,6 +36,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         {
             foreach (var relay in AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LISTEN_ACTIVITYPUB_RELAYS) ?? [])
             {
+                if (relay == "-") continue;
                 RetryInfiniteLoopAsync(ct => ListenActivityPubRelay(relay, ct), ct).FireAndForget();
             }
             return Task.CompletedTask;

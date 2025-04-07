@@ -22,6 +22,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         {
             HostConfiguration = (
                 AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_YOTSUBA_HOSTS) ?? [])
+                .Where(x => x != "-")
                 .Select(x =>
                 {
                     var mainParts = x.Split('+', StringSplitOptions.TrimEntries);

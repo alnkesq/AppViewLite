@@ -207,6 +207,7 @@ namespace AppViewLite.Web
 
                 foreach (var firehose in firehoses)
                 {
+                    if (firehose == "-") continue;
                     bool isJetStream;
                     string firehoseUrl;
 

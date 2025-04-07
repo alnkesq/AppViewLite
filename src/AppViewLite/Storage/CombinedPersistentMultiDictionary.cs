@@ -59,6 +59,7 @@ namespace AppViewLite.Storage
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
 
+        public abstract Task? HasPendingCompactationNotReadyForCommitYet { get; }
         public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             if (TryGetSpan(enumerable, out var span))
@@ -1033,6 +1034,7 @@ namespace AppViewLite.Storage
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
         private Task<Action>? pendingCompactation;
 
+        public override Task? HasPendingCompactationNotReadyForCommitYet => pendingCompactation != null && !pendingCompactation.IsCompleted ? pendingCompactation : null;
         private void MaybeCommitPendingCompactation(bool forceWait = false)
         {
             try

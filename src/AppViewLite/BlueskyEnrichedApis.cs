@@ -4649,14 +4649,28 @@ namespace AppViewLite
         {
             DrainAndCaptureFirehoseCursors();
 
-            var ctx = RequestContext.CreateForFirehose(reason);
-            WithRelationshipsWriteLock(rels =>
+            while (true)
             {
-                Log("Global periodic flush...");
-                LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
-                rels.GlobalFlushWithoutFirehoseCursorCapture();
-                LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
-            }, ctx);
+                var ctx = RequestContext.CreateForFirehose(reason);
+                var retryLater = WithRelationshipsWriteLock(rels =>
+                {
+                    var f = rels.AllMultidictionaries.Select(x => (Table: x, Compactation: x.HasPendingCompactationNotReadyForCommitYet)).FirstOrDefault(x => x.Compactation != null);
+                    if (f.Compactation != null)
+                    {
+                        Log($"Global flush requested, but one of the tables ({f.Table.Name}) is performing a compactation. Postponing the flush in order to avoid a sync wait while holding the primary lock.");
+                        return f.Compactation;
+                    }
+                    Log("Global periodic flush...");
+                    LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
+                    rels.GlobalFlushWithoutFirehoseCursorCapture();
+                    LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
+                    return null;
+                }, ctx);
+
+                if (retryLater == null) break;
+
+                retryLater.GetAwaiter().GetResult();
+            }
         }
 
         internal void DrainAndCaptureFirehoseCursors()

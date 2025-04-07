@@ -488,7 +488,7 @@ namespace AppViewLite
                 OnRecordDeleted(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, ignoreIfDisposing: true);
             }
 
-            BumpLargestSeenFirehoseCursor(e.Record.TimeUs!.Value);
+            BumpLargestSeenFirehoseCursor(e.Record.TimeUs!.Value, DateTime.UnixEpoch.AddMicroseconds(e.Record.TimeUs.Value));
         }
 
         private bool OnFirehoseEventBeginProcessing()
@@ -573,9 +573,10 @@ namespace AppViewLite
                         .WithLogger(new LogWrapper())
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
 
-                    if (relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri) is { } s)
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    if(this.currentFirehoseCursor.CommittedCursor != null)
                     {
-                        options.WithCursor(long.Parse(s));
+                        options.WithCursor(long.Parse(currentFirehoseCursor.CommittedCursor));
                     }
                     using var firehose = options.Build();
                     using var watchdog = CreateFirehoseWatchdog(tcs);
@@ -644,7 +645,7 @@ namespace AppViewLite
         private void CaptureFirehoseCursor()
         {
             if (largestSeenFirehoseCursor == 0) return;
-            relationshipsUnlocked.SetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri, largestSeenFirehoseCursor.ToString());
+            currentFirehoseCursor.CommittedCursor = largestSeenFirehoseCursor.ToString();
         }
 
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
@@ -657,7 +658,7 @@ namespace AppViewLite
                 try
                 {
                     var tcs = new TaskCompletionSource();
-                    var cursor = relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
                     using var firehose = new ATWebSocketProtocolBuilder()
                         .WithInstanceUrl(FirehoseUrl)
                         .WithLogger(new LogWrapper())
@@ -679,7 +680,7 @@ namespace AppViewLite
                         }
                     };
                     setupHandler(firehose, watchdog);
-                    await subscribeKind(firehose, cursor != null ? long.Parse(cursor) : null);
+                    await subscribeKind(firehose, currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null);
                     await tcs.Task;
                 }
                 finally
@@ -708,7 +709,7 @@ namespace AppViewLite
 
         private long largestSeenFirehoseCursor;
 
-        private void BumpLargestSeenFirehoseCursor(long cursor)
+        private void BumpLargestSeenFirehoseCursor(long cursor, DateTime eventDate)
         {
             while (true)
             {
@@ -717,7 +718,10 @@ namespace AppViewLite
 
                 Interlocked.CompareExchange(ref largestSeenFirehoseCursor, cursor, oldCursor);
             }
+            currentFirehoseCursor.LastSeenEventDate = eventDate;
         }
+
+        internal FirehoseCursor currentFirehoseCursor;
 
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
         {
@@ -747,7 +751,7 @@ namespace AppViewLite
             }
 
             var seq = e.Message.Commit!.Seq;
-            BumpLargestSeenFirehoseCursor(seq);
+            BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time ?? default);
         }
 
         private void OnAccountStateChanged(string did, bool active, string? status)

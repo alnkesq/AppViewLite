@@ -13,10 +13,12 @@ namespace AppViewLite
     {
 
 
-        private readonly BlockingCollection<(Task Task, bool Suspendable)> tasks = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 20_000);
+        private readonly BlockingCollection<Task> tasksSuspendable = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 20_000);
+        private readonly BlockingCollection<Task> tasksNonSuspendable = new();
+
         private readonly List<Thread> threads;
 
-        protected override IEnumerable<Task>? GetScheduledTasks() => tasks.Select(x => x.Task).ToArray();
+        protected override IEnumerable<Task>? GetScheduledTasks() => tasksNonSuspendable.Concat(tasksSuspendable).ToArray();
 
         public event Action? BeforeTaskEnqueued;
         public event Action? AfterTaskProcessed;
@@ -61,8 +63,14 @@ namespace AppViewLite
             }
 
             if (canBeSuspended)
+            {
                 Interlocked.Increment(ref uncompletedSuspendableTasks);
-            tasks.Add((task, canBeSuspended));
+                tasksSuspendable.Add(task);
+            }
+            else
+            {
+                tasksNonSuspendable.Add(task);
+            }
 
         }
 
@@ -70,7 +78,8 @@ namespace AppViewLite
 
         public void Dispose()
         {
-            tasks.CompleteAdding();
+            tasksNonSuspendable.CompleteAdding();
+            tasksSuspendable.CompleteAdding();
             foreach (var thread in threads)
             {
                 thread.Join();
@@ -97,14 +106,30 @@ namespace AppViewLite
         private void ThreadWorker()
         {
             using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
-            foreach (var task in tasks.GetConsumingEnumerable())
+            while (true)
             {
+                var index = BlockingCollection<Task>.TryTakeFromAny([tasksNonSuspendable, tasksSuspendable], out var task, Timeout.Infinite);
+                if (index == -1)
+                {
+                    BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted && tasksSuspendable.IsAddingCompleted);
+                    return;
+                }
+                if (index == 0)
+                {
+                    // non suspendable
+                    TryExecuteTask(task!); 
+                    AfterTaskProcessed?.Invoke();
 
-                TryExecuteTask(task.Task);
-                if (task.Suspendable)
+                }
+                else if (index == 1)
+                {
+                    // suspendable
+                    TryExecuteTask(task!);
                     Interlocked.Decrement(ref uncompletedSuspendableTasks);
+                    AfterTaskProcessed?.Invoke();
 
-                AfterTaskProcessed?.Invoke();
+                }
+                else BlueskyRelationships.ThrowFatalError("Invalid index returned by TryTakeFromAny");
             }
         }
 
@@ -124,12 +149,12 @@ namespace AppViewLite
                 delayMs += Math.Max(1, delayMs / 4);
                 delayMs = Math.Min(delayMs, 500);
             }
-            BlueskyRelationships.Assert(!tasks.Any(x => x.Suspendable));
+            BlueskyRelationships.Assert(tasksSuspendable.Count == 0);
             return () =>
             {
                 LoggableBase.Log("Resuming firehose scheduler");
                 BlueskyRelationships.Assert(uncompletedSuspendableTasks == 0);
-                BlueskyRelationships.Assert(!tasks.Any(x => x.Suspendable));
+                BlueskyRelationships.Assert(tasksSuspendable.Count == 0);
                 var p = pauseBuffer;
                 pauseBuffer = null;
                 p.CompleteAdding();
@@ -143,7 +168,15 @@ namespace AppViewLite
             };
         }
 
-
+        public object GetCountersThreadSafe()
+        {
+            return new
+            {
+                PendingNonSuspendableTasks = tasksNonSuspendable.Count,
+                PendingSuspendableTasks = tasksSuspendable.Count,
+                PauseBuffer = pauseBuffer?.Count,
+            };
+        }
     }
 
 

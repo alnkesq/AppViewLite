@@ -3882,6 +3882,26 @@ namespace AppViewLite
 
         public object GetCountersThreadSafe()
         {
+
+            return new
+            {
+                this.AvoidFlushes,
+                checkpointToLoad = this.checkpointToLoad?.Count,
+                DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
+                this.PlcDirectoryStaleness,
+                this.PlcDirectorySyncDate,
+                PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
+                registerForNotificationsCache = this.registerForNotificationsCache.Count,
+                ReplicaAge = this.ReplicaAge?.Elapsed,
+                ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
+                UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
+                this.Version,
+ 
+            };
+        }
+
+        public object GetCountersThreadSafePrimaryOnly()
+        {
             FirehoseCursor[]? firehoseCursors = null;
             if (IsPrimary)
             {
@@ -3892,25 +3912,13 @@ namespace AppViewLite
             }
             return new
             {
-                this.AvoidFlushes,
-                checkpointToLoad = this.checkpointToLoad?.Count,
-                DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
-                this.PlcDirectoryStaleness,
-                this.PlcDirectorySyncDate,
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
-                PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
-                registerForNotificationsCache = this.registerForNotificationsCache.Count,
-                this.ReplicaAge?.Elapsed,
-                ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
-                UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
-                this.Version,
-
-                DidToPlcConcurrentCache = IsPrimary ? this.DidToPlcConcurrentCache.GetCounters() : null,
-                ApproximateLikeCountCache = IsPrimary ? this.ApproximateLikeCountCache.GetCounters() : null,
-                ReplicaOnlyApproximateLikeCountCache = IsPrimary ? this.ReplicaOnlyApproximateLikeCountCache.GetCounters() : null,
-                PlcToDidConcurrentCache = IsPrimary ? this.PlcToDidConcurrentCache.GetCounters() : null,
-                Caches = this.IsPrimary ? this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value) : null,
+                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
+                ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
+                ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache.GetCounters(),
+                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
+                Caches = this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value),
                 FirehoseCursorsAsOfLastFlush = firehoseCursors,
             };
         }
@@ -4008,20 +4016,19 @@ namespace AppViewLite
 
 
 
-        internal string? GetFirehoseCursorThreadSafe(string firehoseUrl)
+        internal FirehoseCursor GetOrCreateFirehoseCursorThreadSafe(string firehoseUrl)
         {
             lock (firehoseCursors!)
             {
-                return firehoseCursors.TryGetValue(firehoseUrl, out var cursor) ? cursor.Cursor : null;
+                if (!firehoseCursors.TryGetValue(firehoseUrl, out var cursor))
+                {
+                    cursor = new FirehoseCursor { FirehoseUrl = firehoseUrl };
+                    firehoseCursors.Add(firehoseUrl, cursor);
+                }
+                return cursor;
             }
         }
-        internal void SetFirehoseCursorThreadSafe(string firehoseUrl, string cursor)
-        {
-            lock (firehoseCursors!)
-            {
-                firehoseCursors[firehoseUrl] = new FirehoseCursor { Cursor = cursor, CursorDate = DateTime.UtcNow, FirehoseUrl = firehoseUrl };
-            }
-        }
+    
     }
 
 

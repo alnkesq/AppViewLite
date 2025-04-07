@@ -18,8 +18,12 @@ namespace AppViewLite.Models
     internal class FirehoseCursor
     {
         [ProtoMember(1)] public required string FirehoseUrl { get; set; }
-        [ProtoMember(2)] public required string Cursor { get; set; }
-        [ProtoMember(3)] public required DateTime CursorDate { get; set; }
+        [ProtoMember(2)] public string? CommittedCursor { get; set; }
+        [ProtoMember(3)] public DateTime CursorCommitDate { get; set; }
+
+        [ProtoMember(4)] public DateTime LastSeenEventDate { get; set; } // not necessarily processed yet, only for display/debug purposes.
+
+        public TimeSpan? LagBehind => LastSeenEventDate != default ? DateTime.UtcNow - LastSeenEventDate : null;
     }
 
     [ProtoContract]

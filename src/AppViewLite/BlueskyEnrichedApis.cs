@@ -4629,6 +4629,46 @@ namespace AppViewLite
                 return rels.AsVersioned(newState);
             }, ctx);
         }
+
+
+        
+
+        private readonly int GlobalPeriodicFlushSeconds = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS) ?? 600;
+        public async Task RunGlobalPeriodicFlushLoopAsync()
+        {
+            var ct = ShutdownRequested;
+            while (true)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(GlobalPeriodicFlushSeconds), ct);
+                GlobalFlush("GlobalPeriodicFlush");
+            }
+        }
+
+        private Lock globalFlushWithFirehoseCursorCaptureLock = new();
+        public void GlobalFlush(string reason)
+        {
+            DrainAndCaptureFirehoseCursors();
+
+            var ctx = RequestContext.CreateForFirehose(reason);
+            WithRelationshipsWriteLock(rels =>
+            {
+                Log("Global periodic flush...");
+                LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
+                rels.GlobalFlushWithoutFirehoseCursorCapture();
+                LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
+            }, ctx);
+        }
+
+        internal void DrainAndCaptureFirehoseCursors()
+        {
+            lock (globalFlushWithFirehoseCursorCaptureLock)
+            {
+                Log("Draining firehose threadpool...");
+                var resume = Indexer.FirehoseThreadpool!.PauseAndDrain();
+                Indexer.CaptureFirehoseCursors?.Invoke();
+                resume();
+            }
+        }
     }
 }
 

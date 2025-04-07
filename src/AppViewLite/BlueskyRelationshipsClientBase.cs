@@ -417,7 +417,6 @@ namespace AppViewLite
                 begin = PerformanceSnapshot.Capture();
                 SetupArena();
                 var result = func(relationshipsUnlocked);
-                relationshipsUnlocked.MaybeGlobalFlush();
                 primarySecondaryPair.MaybeUpdateReadOnlyReplicaOpportunistic(0, alreadyHoldsLock: true);
                 return result;
             }
@@ -634,6 +633,8 @@ namespace AppViewLite
         public static ThreadPriorityScope CreateIngestionThreadPriorityScope() => new ThreadPriorityScope(ThreadPriority.BelowNormal);
         public static ThreadPriorityScope CreateNormalPriorityScope() => new ThreadPriorityScope(ThreadPriority.Normal);
 
+
+        public CancellationToken ShutdownRequested => relationshipsUnlocked.ShutdownRequested;
     }
 
     public enum LockKind

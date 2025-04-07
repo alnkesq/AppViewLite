@@ -360,7 +360,7 @@ namespace AppViewLite.PluggableProtocols
 
         public static async Task RetryInfiniteLoopAsync(Func<CancellationToken, Task> attempt, CancellationToken ct, TimeSpan? intervalBetweenRetries = null)
         {
-
+            // This method must not throw, but CAN exit cleanly on CancellationToken.IsCancellationRequested (due to CaptureFirehoseCursors -= CaptureFirehoseCursor in callers)
             while (true)
             {
                 try

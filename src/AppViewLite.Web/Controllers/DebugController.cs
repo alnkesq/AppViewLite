@@ -58,7 +58,7 @@ namespace AppViewLite.Web.Controllers
         {
             ctx.EnsureAdministrator();
 
-            apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), ctx);
+            apis.GlobalFlush("GlobalFlushAdminApiCall");
         }
 
 

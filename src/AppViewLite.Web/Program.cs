@@ -268,6 +268,8 @@ namespace AppViewLite.Web
             }
 
 
+            apis.RunGlobalPeriodicFlushLoopAsync().FireAndForget();
+
             if ((AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_PLC_DIRECTORY) ?? true) && !relationships.IsReadOnly)
             {
                 Task.Run(async () =>

@@ -35,7 +35,6 @@ namespace AppViewLite
         public long Version = 1;
         public int ManagedThreadIdWithWriteLock;
         public int ForbidUpgrades;
-        private Stopwatch lastGlobalFlush = Stopwatch.StartNew();
         public CombinedPersistentMultiDictionary<DuckDbUuid, Plc> DidHashToUserId;
         public RelationshipDictionary<PostIdTimeFirst> Likes;
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
@@ -2739,21 +2738,7 @@ namespace AppViewLite
             AppViewLiteProfiles.AddRange(userContext.LoggedInUser!.Value, SerializeProto(userContext.PrivateProfile));
         }
 
-
-        private readonly int GlobalPeriodicFlushSeconds = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS) ?? 600;
-        internal void MaybeGlobalFlush()
-        {
-            if (lastGlobalFlush.Elapsed.TotalSeconds > GlobalPeriodicFlushSeconds)
-            {
-                if (IsReadOnly) return;
-                Log("Global periodic flush...");
-                LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
-                GlobalFlush();
-                LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
-            }
-        }
-
-        public void GlobalFlush()
+        public void GlobalFlushWithoutFirehoseCursorCapture()
         {
             if (IsReadOnly) throw new InvalidOperationException("Cannot GlobalFlush when IsReadOnly.");
             foreach (var table in disposables)
@@ -2761,7 +2746,6 @@ namespace AppViewLite
                 table.Flush(false);
             }
             CaptureCheckpoint();
-            lastGlobalFlush.Restart();
         }
 
         public SubscriptionDictionary<PostId, LiveNotificationDelegate> PostLiveSubscribersThreadSafe = new();
@@ -3704,7 +3688,7 @@ namespace AppViewLite
             }
 
             if (anythingPruned)
-                GlobalFlush();
+                GlobalFlushWithoutFirehoseCursorCapture();
             else
                 Log("Nothing to prune.");
         }
@@ -3899,7 +3883,6 @@ namespace AppViewLite
                 this.AvoidFlushes,
                 checkpointToLoad = this.checkpointToLoad?.Count,
                 DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
-                lastGlobalFlush = this.lastGlobalFlush.Elapsed,
                 this.PlcDirectoryStaleness,
                 this.PlcDirectorySyncDate,
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
@@ -4018,6 +4001,13 @@ namespace AppViewLite
             lock (firehoseCursors!)
             {
                 return firehoseCursors.TryGetValue(firehoseUrl, out var cursor) ? cursor.Cursor : null;
+            }
+        }
+        internal void SetFirehoseCursorThreadSafe(string firehoseUrl, string cursor)
+        {
+            lock (firehoseCursors!)
+            {
+                firehoseCursors[firehoseUrl] = new FirehoseCursor { Cursor = cursor, CursorDate = DateTime.UtcNow, FirehoseUrl = firehoseUrl };
             }
         }
     }

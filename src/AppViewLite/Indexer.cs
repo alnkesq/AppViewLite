@@ -36,6 +36,8 @@ namespace AppViewLite
             this.Apis = apis;
         }
 
+        internal static Action? CaptureFirehoseCursors;
+
         public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false, RequestContext? ctx = null)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
@@ -141,8 +143,6 @@ namespace AppViewLite
                     }
                     //else LogInfo("Deletion of unknown object type: " + collection);
                 }
-
-                relationships.MaybeGlobalFlush();
             }), ctx);
         }
 
@@ -435,7 +435,6 @@ namespace AppViewLite
                     relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
                 }
                 //else LogInfo("Creation of unknown object type: " + path);
-                relationships.MaybeGlobalFlush();
             }, ctx);
 
             if (continueOutsideLock != null)
@@ -488,11 +487,13 @@ namespace AppViewLite
             {
                 OnRecordDeleted(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, ignoreIfDisposing: true);
             }
+
+            BumpLargestSeenFirehoseCursor(e.Record.TimeUs!.Value);
         }
 
         private bool OnFirehoseEventBeginProcessing()
         {
-            if (Apis.DangerousUnlockedRelationships.ShutdownRequested.IsCancellationRequested) return false;
+            if (Apis.ShutdownRequested.IsCancellationRequested) return false;
 
             var received = Interlocked.Read(ref RecordsReceived);
             var processed = Interlocked.Read(ref RecordsProcessed);
@@ -518,7 +519,7 @@ namespace AppViewLite
                 }
                 else
                 {
-                    Apis.WithRelationshipsWriteLock(rels => rels.GlobalFlush(), RequestContext.CreateForFirehose("FlushBeforeLagBehindExit"));
+                    Apis.GlobalFlush("FlushBeforeLagBehindExit");
                     BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
                 }
             }
@@ -561,47 +562,57 @@ namespace AppViewLite
         public async Task StartListeningToJetstreamFirehose(CancellationToken ct = default)
         {
             await Task.Yield();
+            CaptureFirehoseCursors += CaptureFirehoseCursor;
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                var tcs = new TaskCompletionSource();
-                var options = new ATJetStreamBuilder()
-                    .WithInstanceUrl(FirehoseUrl)
-                    .WithLogger(new LogWrapper())
-                    .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
+                try
+                {
+                    var tcs = new TaskCompletionSource();
+                    var options = new ATJetStreamBuilder()
+                        .WithInstanceUrl(FirehoseUrl)
+                        .WithLogger(new LogWrapper())
+                        .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
 
-                if (relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri) is { } s)
-                {
-                    options.WithCursor(long.Parse(s));
-                }
-                using var firehose = options.Build();
-                using var watchdog = CreateFirehoseWatchdog(tcs);
-                ct.Register(() =>
-                {
-                    tcs.TrySetCanceled();
-                    firehose.Dispose();
-                });
-                firehose.OnConnectionUpdated += (_, e) =>
-                {
-                    if (ct.IsCancellationRequested) return;
-
-                    if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                    if (relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri) is { } s)
                     {
-                        tcs.TrySetException(new UnexpectedFirehoseDataException("Firehose is in state: " + e.State));
+                        options.WithCursor(long.Parse(s));
                     }
-                };
-                firehose.OnRecordReceived += (s, e) =>
-                {
-                    // Called from a Task.Run(() => ...) by the firehose socket reader
-                    TryProcessRecord(() =>
+                    using var firehose = options.Build();
+                    using var watchdog = CreateFirehoseWatchdog(tcs);
+                    ct.Register(() =>
                     {
-                        OnJetStreamEvent(e);
-                        watchdog?.Kick();
-                    }, e.Record.Did?.Handler);
-                };
-                await firehose.ConnectAsync(token: ct);
-                await tcs.Task;
+                        tcs.TrySetCanceled();
+                        firehose.Dispose();
+                    });
+                    firehose.OnConnectionUpdated += (_, e) =>
+                    {
+                        if (ct.IsCancellationRequested) return;
+
+                        if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                        {
+                            tcs.TrySetException(new UnexpectedFirehoseDataException("Firehose is in state: " + e.State));
+                        }
+                    };
+                    firehose.OnRawMessageReceived += (s, e) => DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                    firehose.OnRecordReceived += (s, e) =>
+                    {
+                        // Called from a Task.Run(() => ...) by the firehose socket reader
+                        TryProcessRecord(() =>
+                        {
+                            OnJetStreamEvent(e);
+                            watchdog?.Kick();
+                        }, e.Record.Did?.Handler);
+                    };
+                    await firehose.ConnectAsync(token: ct);
+                    await tcs.Task;
+                }
+                finally
+                {
+                    Apis.DrainAndCaptureFirehoseCursors();
+                }
             }, ct);
 
+            CaptureFirehoseCursors -= CaptureFirehoseCursor;
         }
 
 
@@ -609,6 +620,7 @@ namespace AppViewLite
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, watchdog) =>
             {
+                protocol.OnMessageReceived += (s, e) => DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnRepoFirehoseEvent(s, e);
@@ -627,38 +639,54 @@ namespace AppViewLite
                 }, nameForDebugging);
             }, ct);
         }
+
+        private void CaptureFirehoseCursor()
+        {
+            if (largestSeenFirehoseCursor == 0) return;
+            relationshipsUnlocked.SetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri, largestSeenFirehoseCursor.ToString());
+        }
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
+            CaptureFirehoseCursors += CaptureFirehoseCursor;
+
             await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
             {
-                var tcs = new TaskCompletionSource();
-                var cursor = relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
-                using var firehose = new ATWebSocketProtocolBuilder()
-                    .WithInstanceUrl(FirehoseUrl)
-                    .WithLogger(new LogWrapper())
-                    .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
-                    .Build();
-                using var watchdog = CreateFirehoseWatchdog(tcs);
-                ct.Register(() =>
+                try
                 {
-                    tcs.TrySetCanceled();
-                    firehose.Dispose();
-                });
-                firehose.OnConnectionUpdated += (_, e) =>
-                {
-                    if (ct.IsCancellationRequested) return;
-
-                    if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                    var tcs = new TaskCompletionSource();
+                    var cursor = relationshipsUnlocked.GetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    using var firehose = new ATWebSocketProtocolBuilder()
+                        .WithInstanceUrl(FirehoseUrl)
+                        .WithLogger(new LogWrapper())
+                        .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
+                        .Build();
+                    using var watchdog = CreateFirehoseWatchdog(tcs);
+                    ct.Register(() =>
                     {
-                        tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
-                    }
-                };
-                setupHandler(firehose, watchdog);
-                await subscribeKind(firehose, cursor != null ? long.Parse(cursor) : null);
-                await tcs.Task;
+                        tcs.TrySetCanceled();
+                        firehose.Dispose();
+                    });
+                    firehose.OnConnectionUpdated += (_, e) =>
+                    {
+                        if (ct.IsCancellationRequested) return;
+
+                        if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
+                        {
+                            tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
+                        }
+                    };
+                    setupHandler(firehose, watchdog);
+                    await subscribeKind(firehose, cursor != null ? long.Parse(cursor) : null);
+                    await tcs.Task;
+                }
+                finally
+                {
+                    Apis.DrainAndCaptureFirehoseCursors();
+                }
             }, ct);
 
+            CaptureFirehoseCursors -= CaptureFirehoseCursor;
         }
 
         private Watchdog? CreateFirehoseWatchdog(TaskCompletionSource tcs)
@@ -672,6 +700,20 @@ namespace AppViewLite
                 File.AppendAllText(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/firehose-watchdog.txt", DateTime.UtcNow.ToString("O") + " " + FirehoseUrl + "\n");
                 tcs.TrySetException(new Exception("Firehose watchdog"));
             });
+        }
+
+
+        private long largestSeenFirehoseCursor;
+
+        private void BumpLargestSeenFirehoseCursor(long cursor)
+        {
+            while (true)
+            {
+                var oldCursor = this.largestSeenFirehoseCursor;
+                if (oldCursor >= cursor) break;
+
+                Interlocked.CompareExchange(ref largestSeenFirehoseCursor, cursor, oldCursor);
+            }
         }
 
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
@@ -700,6 +742,9 @@ namespace AppViewLite
             {
                 OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, ignoreIfDisposing: true);
             }
+
+            var seq = e.Message.Commit!.Seq;
+            BumpLargestSeenFirehoseCursor(seq);
         }
 
         private void OnAccountStateChanged(string did, bool active, string? status)
@@ -1190,6 +1235,7 @@ namespace AppViewLite
         }
 
 
+        public static DedicatedThreadPoolScheduler? FirehoseThreadpool;
         public static TaskFactory? FirehoseThreadpoolTaskFactory;
 
         private readonly static long LagBehindWarnIntervalMs = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS) ?? 500;
@@ -1220,6 +1266,7 @@ namespace AppViewLite
                 BlueskyRelationships.FirehoseEventProcessedTimeSeries.Increment();
                 Interlocked.Increment(ref RecordsProcessed);
             };
+            FirehoseThreadpool = scheduler;
             FirehoseThreadpoolTaskFactory = new TaskFactory(scheduler);
         }
 

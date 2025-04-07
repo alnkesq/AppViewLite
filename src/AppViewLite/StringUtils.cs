@@ -924,6 +924,23 @@ namespace AppViewLite
             if (text.Length <= maxLength) return text;
             return string.Concat(text.AsSpan(0, maxLength), "…");
         }
+
+        public static string GetExceptionDisplayText(Exception exception)
+        {
+            if (exception is HttpRequestException ex)
+            {
+                if (ex.HttpRequestError != default)
+                    return $"Could not fetch the resource: {ex.HttpRequestError}";
+                if (ex.StatusCode != null)
+                    return $"Could not fetch the resource: HTTP {(int)ex.StatusCode} {ex.StatusCode}";
+            }
+            var message = exception.Message;
+            if (string.IsNullOrEmpty(message))
+            {
+                message = "Error: " + exception.GetType().Name;
+            }
+            return message;
+        }
     }
 }
 

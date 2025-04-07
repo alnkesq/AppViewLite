@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using Ipfs;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using AppViewLite.Storage;
 using SixLabors.ImageSharp;
@@ -8,6 +9,7 @@ using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
 using System;
 using System.Buffers;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 
@@ -53,6 +55,30 @@ namespace AppViewLite.Web.Controllers
         [Route("/img/{size}/plain/{did}/{cid}@jpeg")]
         [HttpGet]
         public async Task GetThumbnail(string size, string did, string cid, [FromQuery] string? pds, [FromQuery] string? name, CancellationToken ct)
+        {
+            try
+            {
+                await GetThumbnailCore(size, did, cid, pds, name, ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                var text = StringUtils.GetExceptionDisplayText(ex);
+                LoggableBase.Log($"Could not serve {size} for {did}: {text}");
+                if (ex is HttpRequestException httpEx && httpEx.StatusCode != null && httpEx.StatusCode >= (HttpStatusCode)400)
+                {
+                    Response.StatusCode = (int)httpEx.StatusCode.Value;
+                }
+                else
+                {
+                    Response.StatusCode = 500;
+                }
+                await Response.WriteAsync(text, ct);
+                
+            }
+        }
+
+        
+        private async Task GetThumbnailCore(string size, string did, string cid, [FromQuery] string? pds, [FromQuery] string? name, CancellationToken ct)
         {
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
             var sizeEnum = Enum.Parse<ThumbnailSize>(size);

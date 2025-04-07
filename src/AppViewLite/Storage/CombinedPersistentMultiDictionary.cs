@@ -1040,6 +1040,7 @@ namespace AppViewLite.Storage
                 if (pendingCompactation == null) return;
                 if (forceWait)
                 {
+                    Log("Synchronously waiting for pending compactation to complete, because forceWait=true");
                     pendingCompactation.GetAwaiter().GetResult();
                 }
                 if (!pendingCompactation.IsCompleted)

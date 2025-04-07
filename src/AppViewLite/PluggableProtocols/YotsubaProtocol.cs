@@ -361,6 +361,8 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
     public record struct YotsubaBoardId(string Host, string BoardName)
     {
         public Uri BaseUrl => new Uri("https://" + Host + "/" + BoardName);
+
+        public override string ToString() => BaseUrl.ToString();
     }
 
 

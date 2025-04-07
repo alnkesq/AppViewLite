@@ -2138,12 +2138,7 @@ namespace AppViewLite
 
         public CancellationTokenSource ShutdownRequestedCts = new CancellationTokenSource();
         public CancellationToken ShutdownRequested => ShutdownRequestedCts.Token;
-        public void NotifyShutdownRequested()
-        {
-            ShutdownRequestedCts.Cancel();
-            Dispose();
-            FlushLog();
-        }
+
 
         internal IEnumerable<BlueskyPost> GetFirehosePosts(CombinedPersistentMultiDictionary<PostIdTimeFirst, byte>.SliceInfo slice, PostIdTimeFirst? maxPostIdExlusive, DateTime now, RequestContext? ctx = null)
         {

@@ -13,7 +13,7 @@ namespace AppViewLite
 
             Console.CancelKeyPress += (s, e) =>
             {
-                BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.NotifyShutdownRequested();
+                BlueskyEnrichedApis.Instance.NotifyShutdownRequested();
                 Environment.Exit(0);
             };
 

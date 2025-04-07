@@ -4647,6 +4647,17 @@ namespace AppViewLite
         }
 
         private Lock globalFlushWithFirehoseCursorCaptureLock = new();
+
+        public void NotifyShutdownRequested()
+        {
+            
+            if (relationshipsUnlocked.ShutdownRequested.IsCancellationRequested) return;
+            relationshipsUnlocked.ShutdownRequestedCts.Cancel();
+            DrainAndCaptureFirehoseCursors();
+            primarySecondaryPair.Dispose();
+            FlushLog();
+        }
+
         public void GlobalFlush(string reason)
         {
             DrainAndCaptureFirehoseCursors();

@@ -79,7 +79,7 @@ namespace AppViewLite.Web
                 }
             };
 #endif
-            app.Lifetime.ApplicationStopping.Register(relationships.NotifyShutdownRequested);
+            app.Lifetime.ApplicationStopping.Register(apis.NotifyShutdownRequested);
 
 
 

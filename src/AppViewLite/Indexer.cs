@@ -608,7 +608,8 @@ namespace AppViewLite
                 }
                 finally
                 {
-                    Apis.DrainAndCaptureFirehoseCursors();
+                    if (!ShutdownRequested.IsCancellationRequested) 
+                        Apis.DrainAndCaptureFirehoseCursors();
                 }
             }, ct);
 
@@ -645,6 +646,7 @@ namespace AppViewLite
             if (largestSeenFirehoseCursor == 0) return;
             relationshipsUnlocked.SetFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri, largestSeenFirehoseCursor.ToString());
         }
+
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
         {
             await Task.Yield();
@@ -682,7 +684,8 @@ namespace AppViewLite
                 }
                 finally
                 {
-                    Apis.DrainAndCaptureFirehoseCursors();
+                    if (!ShutdownRequested.IsCancellationRequested)
+                        Apis.DrainAndCaptureFirehoseCursors();
                 }
             }, ct);
 

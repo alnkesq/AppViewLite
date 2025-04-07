@@ -17,9 +17,9 @@ namespace AppViewLite.Models
     [ProtoContract]
     internal class FirehoseCursor
     {
-        [ProtoMember(1)] public required string FirehoseUrl;
-        [ProtoMember(2)] public required string Cursor;
-        [ProtoMember(3)] public required DateTime CursorDate;
+        [ProtoMember(1)] public required string FirehoseUrl { get; set; }
+        [ProtoMember(2)] public required string Cursor { get; set; }
+        [ProtoMember(3)] public required DateTime CursorDate { get; set; }
     }
 
     [ProtoContract]

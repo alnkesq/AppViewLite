@@ -264,7 +264,11 @@ namespace AppViewLite
                 throw new Exception("A checkpoint file to load was not found. Specify --allow-new-database to create a new database.");
             loadedCheckpoint = latestCheckpoint != null ? DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(latestCheckpoint.FullName)) : new GlobalCheckpoint();
             checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray());
-            firehoseCursors = loadedCheckpoint?.FirehoseCursors?.ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
+
+            var resetFirehoseCursors = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_RESET_FIREHOSE_CURSORS) ?? [];
+            firehoseCursors = loadedCheckpoint?.FirehoseCursors?
+                .Where(x => !resetFirehoseCursors.Contains(x.FirehoseUrl))
+                .ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
 
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
             PlcToDidPlc = RegisterDictionary<Plc, UInt128>("plc-to-did-plc", PersistentDictionaryBehavior.SingleValue);
@@ -3878,6 +3882,14 @@ namespace AppViewLite
 
         public object GetCountersThreadSafe()
         {
+            FirehoseCursor[]? firehoseCursors = null;
+            if (IsPrimary)
+            {
+                lock (this.firehoseCursors!)
+                {
+                    firehoseCursors = this.firehoseCursors.Values.ToArray();
+                }
+            }
             return new
             {
                 this.AvoidFlushes,
@@ -3899,7 +3911,7 @@ namespace AppViewLite
                 ReplicaOnlyApproximateLikeCountCache = IsPrimary ? this.ReplicaOnlyApproximateLikeCountCache.GetCounters() : null,
                 PlcToDidConcurrentCache = IsPrimary ? this.PlcToDidConcurrentCache.GetCounters() : null,
                 Caches = this.IsPrimary ? this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value) : null,
-
+                FirehoseCursorsAsOfLastFlush = firehoseCursors,
             };
         }
 

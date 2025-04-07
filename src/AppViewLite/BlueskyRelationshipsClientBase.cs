@@ -173,7 +173,7 @@ namespace AppViewLite
 
                 if (ctx.MinVersion > readOnlyReplicaRelationshipsUnlocked.Version)
                 {
-                    LogInfo("Performing read from primary for " + ctx.RequestUrl);
+                    LogInfo("Performing read from primary for " + ctx);
                     /* continue with primary instead */
                 }
                 else

@@ -574,7 +574,8 @@ namespace AppViewLite
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
 
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
-                    if(this.currentFirehoseCursor.CommittedCursor != null)
+                    Log($"Starting Firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate})");
+                    if (this.currentFirehoseCursor.CommittedCursor != null)
                     {
                         options.WithCursor(long.Parse(currentFirehoseCursor.CommittedCursor));
                     }
@@ -646,6 +647,8 @@ namespace AppViewLite
         {
             if (largestSeenFirehoseCursor == 0) return;
             currentFirehoseCursor.CommittedCursor = largestSeenFirehoseCursor.ToString();
+            currentFirehoseCursor.CursorCommitDate = DateTime.UtcNow;
+            Log($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
@@ -659,6 +662,7 @@ namespace AppViewLite
                 {
                     var tcs = new TaskCompletionSource();
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    Log($"Starting Firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate})");
                     using var firehose = new ATWebSocketProtocolBuilder()
                         .WithInstanceUrl(FirehoseUrl)
                         .WithLogger(new LogWrapper())

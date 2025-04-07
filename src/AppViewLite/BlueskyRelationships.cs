@@ -199,8 +199,8 @@ namespace AppViewLite
 
         private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null) where TTarget : unmanaged, IComparable<TTarget>
         {
-            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache, getCreationsIoPreferenceForKey) 
-            { 
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache, getCreationsIoPreferenceForKey)
+            {
                 GetVersion = () => this.Version
             });
         }
@@ -467,7 +467,7 @@ namespace AppViewLite
             Log("Loaded.");
         }
 
-        private static void Migrate<TValue>(CombinedPersistentMultiDictionary<PostIdTimeFirst, TValue> newTable, CombinedPersistentMultiDictionary<PostId, TValue> oldTable) where TValue: unmanaged, IComparable<TValue>, IEquatable<TValue>
+        private static void Migrate<TValue>(CombinedPersistentMultiDictionary<PostIdTimeFirst, TValue> newTable, CombinedPersistentMultiDictionary<PostId, TValue> oldTable) where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
             if (newTable.KeyCount != 0) return;
             Assert(newTable.Behavior == oldTable.Behavior);
@@ -741,7 +741,7 @@ namespace AppViewLite
                     }
                 }
             }
-            
+
 
             var checkpointsToKeepHashset = checkpointsToKeep.Select(x => x.Name).ToHashSet();
             foreach (var checkpoint in allCheckpoints)
@@ -2081,12 +2081,34 @@ namespace AppViewLite
 
         private Plc[] GetFollowersYouFollow(Plc plc, Plc loggedInUser)
         {
-            var myFollowees = RegisteredUserToFollowees
-                .GetValuesSorted(loggedInUser)
+            var myFolloweesChunked = RegisteredUserToFollowees.GetValuesChunked(loggedInUser).ToArray();
+            var followerChunks = Follows.creations.GetValuesChunked(plc).ToArray();
+
+            var totalMyFollowees = myFolloweesChunked.Sum(x => x.Length);
+            var totalFollowers = followerChunks.Sum(x => x.Length);
+
+            var popularityRatio = (double)totalFollowers / totalMyFollowees;
+
+            var myFollowees = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(myFolloweesChunked.Select(x => x.AsEnumerable()).ToArray(), x => x.Member)
                 .DistinctByAssumingOrderedInputLatest(x => x.Member);
 
-            var followerChunks = Follows.creations.GetValuesChunked(plc).ToArray();
-            var totalFollowers = followerChunks.Sum(x => x.Length);
+
+            if (
+                (popularityRatio > 100 || totalMyFollowees < 10) /* vibes only, not checked empirically */ &&
+                Follows.RelationshipCache != null /* too slow otherwise */)
+            {
+
+                var result = myFollowees
+                    .Where(x => Follows.HasActor(plc, x.Member, out _))
+                    .Where(x => !Follows.IsDeleted(new Relationship(x.Member, x.ListItemRKey)))
+                    .Select(x => x.Member)
+                    .ToArray();
+                return result;
+            }
+
+
+
+
             var followers =
                 SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(followerChunks.Select(x => x.AsEnumerable()).ToArray(), x => x)
                 .DistinctByAssumingOrderedInputLatest(x => x.Actor);
@@ -2345,7 +2367,7 @@ namespace AppViewLite
 
             if (date < minDate) minDate = date;
             if (HasRecentNotification(destination, kind, actor, rkey, (ApproximateDateTime32)minDate)) return;
-            AddNotification(destination, kind, actor, rkey, ctx, date); 
+            AddNotification(destination, kind, actor, rkey, ctx, date);
         }
         public void AddNotification(PostId destination, NotificationKind kind, Plc actor, RequestContext ctx, DateTime date)
         {

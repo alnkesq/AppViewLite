@@ -29,7 +29,7 @@ namespace AppViewLite
         private IReadOnlyList<CombinedPersistentMultiDictionary> _multidictionaries;
         public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries => _multidictionaries;
 
-        private RelationshipProbabilisticCache<TTarget>? relationshipCache;
+        public RelationshipProbabilisticCache<TTarget>? RelationshipCache;
 
 #nullable disable
         internal RelationshipDictionary()
@@ -52,7 +52,7 @@ namespace AppViewLite
                     )
                 { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
             }
-            this.relationshipCache = relationshipCache;
+            this.RelationshipCache = relationshipCache;
             this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null, getIoPreferenceForKey: getCreationsIoPreferenceForKey);
             this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
 
@@ -155,9 +155,9 @@ namespace AppViewLite
             }
 
             var cannotPossiblyExist = false;
-            if (relationshipCache != null)
+            if (RelationshipCache != null)
             {
-                if (!relationshipCache.PossiblyContains(target, actor))
+                if (!RelationshipCache.PossiblyContains(target, actor))
                 {
 #if true
                     return false;
@@ -442,7 +442,7 @@ namespace AppViewLite
             copy.creations = this.creations.CloneAsReadOnly();
             copy.deletions = this.deletions.CloneAsReadOnly();
             copy.deletionCounts = this.deletionCounts.CloneAsReadOnly();
-            copy.relationshipCache = this.relationshipCache; // Reads during writes are safe.
+            copy.RelationshipCache = this.RelationshipCache; // Reads during writes are safe.
             copy.relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly();
             copy.targetToApproxTarget = this.targetToApproxTarget;
             copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();

@@ -62,6 +62,12 @@ namespace AppViewLite.Web.Controllers
         }
 
 
+        [HttpGet("counters")]
+        public object GetCounters()
+        {
+            return apis.GetCountersThreadSafe(ctx);
+        }
+
 
         [HttpGet("table/{table}")]
         public object? Lookup(string table, string? key, int reverse = 0, string? start = null, int limit = 1000, string? proto = null)

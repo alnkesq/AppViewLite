@@ -50,10 +50,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     var rssToRefreshInfo = rels.RssRefreshInfos
                         .EnumerateSortedGrouped()
-                        .DistinctByAssumingOrderedInputLatest(x => x.Key);
+                        .Select(x => (Plc: x.Key, LatestRssRefreshInfo: x.ValueChunks[^1]));
 
                     var rssToFollowers = rels.RssFeedToFollowers.EnumerateSortedGrouped();
-                    var rssAll = SimpleJoin.JoinPresortedAndUnique(rssToRefreshInfo, x => x.Key, rssToFollowers, x => x.Key);
+                    var rssAll = SimpleJoin.JoinPresortedAndUnique(rssToRefreshInfo, x => x.Plc, rssToFollowers, x => x.Key);
 
                     foreach (var item in rssAll)
                     {
@@ -63,7 +63,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                         if (ScheduledRefreshes.Contains(rssPlc)) continue;
 
-                        var refreshInfo = item.Left != default ? BlueskyRelationships.DeserializeProto<RssRefreshInfo>(item.Left.ValueChunks[0].AsSmallSpan()) : new RssRefreshInfo() { FirstRefresh = DateTime.UtcNow };
+                        var refreshInfo = item.Left.LatestRssRefreshInfo.Length != 0 ? BlueskyRelationships.DeserializeProto<RssRefreshInfo>(item.Left.LatestRssRefreshInfo.AsSmallSpan()) : new RssRefreshInfo() { FirstRefresh = DateTime.UtcNow };
                         var nextRefreshTime = GetNextRefreshTime(refreshInfo);
 
                         if (nextRefreshTime != null)

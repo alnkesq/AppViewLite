@@ -267,6 +267,7 @@ namespace AppViewLite
 
             var resetFirehoseCursors = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_RESET_FIREHOSE_CURSORS) ?? [];
             firehoseCursors = loadedCheckpoint?.FirehoseCursors?
+                .Select(x => { x.MakeUtc(); return x; })
                 .Where(x => !(resetFirehoseCursors.Contains(x.FirehoseUrl) || resetFirehoseCursors.Contains("*")))
                 .ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
 

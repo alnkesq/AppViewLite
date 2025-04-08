@@ -777,6 +777,9 @@ namespace AppViewLite
                 OnLabelCreated(label.Src.Handler, label, ctx);
             }
 
+            // https://github.com/drasticactions/FishyFlip/issues/251
+            var date = e.Message.Labels!.LabelsValue.Last().Cts!.Value.ToUniversalTime();
+            this.BumpLargestSeenFirehoseCursor(e.Message!.Labels!.Seq, date);
 
         }
 

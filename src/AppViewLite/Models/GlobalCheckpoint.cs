@@ -2,6 +2,7 @@ using ProtoBuf;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace AppViewLite.Models
 {
@@ -17,13 +18,19 @@ namespace AppViewLite.Models
     [ProtoContract]
     internal class FirehoseCursor
     {
-        [ProtoMember(1)] public required string FirehoseUrl { get; set; }
-        [ProtoMember(2)] public string? CommittedCursor { get; set; }
-        [ProtoMember(3)] public DateTime CursorCommitDate { get; set; }
+        [ProtoMember(1)][JsonInclude] public required string FirehoseUrl;
+        [ProtoMember(2)][JsonInclude] public string? CommittedCursor;
+        [ProtoMember(3)][JsonInclude] public DateTime CursorCommitDate;
 
-        [ProtoMember(4)] public DateTime LastSeenEventDate { get; set; } // not necessarily processed yet, only for display/debug purposes.
+        [ProtoMember(4)][JsonInclude] public DateTime LastSeenEventDate; // not necessarily processed yet, only for display/debug purposes.
 
         public TimeSpan? LagBehind => LastSeenEventDate != default ? DateTime.UtcNow - LastSeenEventDate : null;
+
+        internal void MakeUtc()
+        {
+            ExtensionMethods.MakeUtc(ref CursorCommitDate);
+            ExtensionMethods.MakeUtc(ref LastSeenEventDate);
+        }
     }
 
     [ProtoContract]

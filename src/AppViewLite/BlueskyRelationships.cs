@@ -2063,6 +2063,11 @@ namespace AppViewLite
             return Follows.GetRelationshipsSorted(plc, continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
         }
 
+        public BlueskyProfile[] GetBlockedBy(Plc plc, Relationship continuation, int limit)
+        {
+            return Blocks.GetRelationshipsSorted(plc, continuation).Take(limit).Select(x => GetProfile(x.Actor, x.RelationshipRKey)).ToArray();
+        }
+
         public BlueskyFullProfile GetFullProfile(Plc plc, RequestContext ctx, int followersYouFollowToLoad)
         {
             return new BlueskyFullProfile

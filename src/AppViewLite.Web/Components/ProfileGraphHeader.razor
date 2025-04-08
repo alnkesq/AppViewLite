@@ -3,6 +3,8 @@
     [Parameter] required public string Did { get; set; }
 
     [Parameter] required public string ProfileBaseUrl { get; set; }
+
+    [Parameter] public bool Dark { get; set; }
 }
 
 <div class="top-spacer-mobile"></div>
@@ -11,15 +13,24 @@
 <div class="tabbed-lists-header">
     <div class="tabbed-lists-header-inner">
 
-        <NavLink draggable="false" href="@(ProfileBaseUrl + "/following")">Following</NavLink>
-        @if (RequestContext.IsLoggedIn && RequestContext.Session.Did == Did)
+        @if (Dark)
         {
-            <NavLink draggable="false" href="@(ProfileBaseUrl + "/following-private")">Following (private)</NavLink>
+            <NavLink draggable="false" href="@(ProfileBaseUrl + "/blocking")">Blocking</NavLink>
+            <NavLink draggable="false" href="@(ProfileBaseUrl + "/blocked-by")">Blockers</NavLink>
+            <NavLink draggable="false" href="@(ProfileBaseUrl + "/member-of")">List memberships</NavLink>
         }
-        <NavLink draggable="false" href="@(ProfileBaseUrl + "/followers")">Followers</NavLink>
-        @if (RequestContext.IsLoggedIn)
+        else
         {
-            <NavLink draggable="false" href="@(ProfileBaseUrl + "/known-followers")">@(RequestContext.IsLoggedIn && Did == RequestContext.Session.Did ? "Mutuals" : "Followers you know")</NavLink>
+            <NavLink draggable="false" href="@(ProfileBaseUrl + "/following")">Following</NavLink>
+            @if (RequestContext.IsLoggedIn && RequestContext.Session.Did == Did)
+            {
+                <NavLink draggable="false" href="@(ProfileBaseUrl + "/following-private")">Following (private)</NavLink>
+            }
+            <NavLink draggable="false" href="@(ProfileBaseUrl + "/followers")">Followers</NavLink>
+            @if (RequestContext.IsLoggedIn)
+            {
+                <NavLink draggable="false" href="@(ProfileBaseUrl + "/known-followers")">@(RequestContext.IsLoggedIn && Did == RequestContext.Session.Did ? "Mutuals" : "Followers you know")</NavLink>
+            }
         }
     </div>
 </div>

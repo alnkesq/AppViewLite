@@ -1,0 +1,22 @@
+@page "/@{did}/blocked-by"
+@page "/@{did}@{activityPubInstance}/blocked-by"
+@inherits ProfileComponentBase
+
+@code {
+    private BlueskyProfile[] BlockedBy = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        (BlockedBy, NextContinuation) = await Apis.GetBlockedByAsync(Did, Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>Blocked by</PageTitle>
+
+<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" Did="@Did" Dark="true" />
+
+<ProfileList Profiles="BlockedBy" NextContinuation="@NextContinuation" EmptyListText="No blockers were indexed." />
+

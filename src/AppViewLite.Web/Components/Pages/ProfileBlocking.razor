@@ -1,0 +1,22 @@
+@page "/@{did}/blocking"
+@page "/@{did}@{activityPubInstance}/blocking"
+@inherits ProfileComponentBase
+
+@code {
+    private BlueskyProfile[] Blocking = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        (Blocking, NextContinuation) = await Apis.GetBlockingAsync(Did, Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>Blocking</PageTitle>
+
+<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" Did="@Did" Dark="true" />
+
+<ProfileList Profiles="Blocking" NextContinuation="@NextContinuation" EmptyListText="Not blocking anyone." />
+

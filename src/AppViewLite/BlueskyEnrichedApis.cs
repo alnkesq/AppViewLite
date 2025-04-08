@@ -496,6 +496,18 @@ namespace AppViewLite
             await EnrichAsync(following, ctx);
             return (following, response.Records.Count > limit ? response!.Cursor : null);
         }
+
+        public async Task<ProfilesAndContinuation> GetBlockingAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 50);
+            var response = await ListRecordsAsync(did, Block.RecordType, limit: limit + 1, cursor: continuation, ctx);
+            var following = WithRelationshipsUpgradableLock(rels =>
+            {
+                return response!.Records!.TrySelect(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Block)x.Value!).Subject!.Handler, ctx))).ToArray();
+            }, ctx);
+            await EnrichAsync(following, ctx);
+            return (following, response.Records.Count > limit ? response!.Cursor : null);
+        }
         public async Task<ProfilesAndContinuation> GetFollowersYouFollowAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 50);
@@ -1741,6 +1753,17 @@ namespace AppViewLite
             await EnrichAsync(profiles, ctx);
             return (profiles, nextContinuation);
         }
+
+        public async Task<ProfilesAndContinuation> GetBlockedByAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 50);
+            var profiles = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetBlockedBy(plc, DeserializeRelationshipContinuation(continuation), limit + 1), ctx);
+            var nextContinuation = SerializeRelationshipContinuation(profiles, limit);
+            SortByDescendingRelationshipRKey(ref profiles);
+            await EnrichAsync(profiles, ctx);
+            return (profiles, nextContinuation);
+        }
+
 
         private static void DeterministicShuffle<T>(T[] items, string seed)
         {

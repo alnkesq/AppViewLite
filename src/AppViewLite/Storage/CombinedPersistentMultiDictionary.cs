@@ -1140,7 +1140,7 @@ namespace AppViewLite.Storage
             var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (DangerousHugeReadOnlyMemory<TValue>)x.Values)));
             if (queue.GroupCount != 0)
             {
-                s = s.Append(queue.Select(x => (x.Key, Values: ToNativeArray(x.Values.ValuesSorted))));
+                s = s.Append(queue.Select(x => (x.Key, Values: ToNativeArray(x.Values.ValuesUnsorted))));
             }
             return SimpleJoin
                 .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.Key)

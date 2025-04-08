@@ -48,7 +48,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var ctx = RequestContext.CreateForFirehose("Rss");
                 Apis.WithRelationshipsLock(rels =>
                 {
-                    var rssToRefreshInfo = rels.RssRefreshInfos.EnumerateSortedGrouped();
+                    var rssToRefreshInfo = rels.RssRefreshInfos
+                        .EnumerateSortedGrouped()
+                        .DistinctByAssumingOrderedInputLatest(x => x.Key);
+
                     var rssToFollowers = rels.RssFeedToFollowers.EnumerateSortedGrouped();
                     var rssAll = SimpleJoin.JoinPresortedAndUnique(rssToRefreshInfo, x => x.Key, rssToFollowers, x => x.Key);
 

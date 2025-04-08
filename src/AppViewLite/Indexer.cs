@@ -755,7 +755,7 @@ namespace AppViewLite
             }
 
             var seq = e.Message.Commit!.Seq;
-            BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time ?? default);
+            BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time?.ToUniversalTime() ?? default);
         }
 
         private void OnAccountStateChanged(string did, bool active, string? status)

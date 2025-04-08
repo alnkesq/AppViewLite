@@ -3701,6 +3701,7 @@ namespace AppViewLite
         public static bool IsValidDomain(ReadOnlySpan<char> domain)
         {
             if (domain.IsEmpty || !domain.Contains('.')) return false; // fast path
+            if (domain.Contains('ü')) return false; // avoid frequent noisy exception while debugging
             try
             {
                 EnsureValidDomain(domain);

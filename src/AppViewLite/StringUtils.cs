@@ -672,6 +672,10 @@ namespace AppViewLite
         public static string ToHumanTimeSpan(TimeSpan ts, bool showSeconds = false, bool twoSignificantDigits = true)
         {
             string Format(double value) => twoSignificantDigits ? FormatTwoSignificantDigits(value) : ((int)value).ToString();
+            if (ts < TimeSpan.Zero && showSeconds)
+            {
+                return "-" + new TimeSpan(-ts.Ticks);
+            }
             if (showSeconds && ts.TotalMinutes < 1) return Format(Math.Max(ts.TotalSeconds, 1)) + "s";
             if (ts.TotalHours < 1) return Format(Math.Max(ts.TotalMinutes, 1)) + "m";
             if (ts.TotalDays < 1) return Format(ts.TotalHours) + "h";

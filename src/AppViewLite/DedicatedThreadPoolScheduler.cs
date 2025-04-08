@@ -25,6 +25,8 @@ namespace AppViewLite
         private volatile BlockingCollection<Task>? pauseBuffer;
 
         private long UncompletedSuspendableTasks;
+        private long TotalSuspendableTasks;
+        private long TotalNonSuspendableTasks;
 
         [ThreadStatic] private static bool notifyTaskAboutToBeEnqueuedCanBeSuspended;
         internal static void NotifyTaskAboutToBeEnqueuedCanBeSuspended()
@@ -65,10 +67,12 @@ namespace AppViewLite
             if (canBeSuspended)
             {
                 Interlocked.Increment(ref UncompletedSuspendableTasks);
+                Interlocked.Increment(ref TotalSuspendableTasks);
                 tasksSuspendable.Add(task);
             }
             else
             {
+                Interlocked.Increment(ref TotalNonSuspendableTasks);
                 tasksNonSuspendable.Add(task);
             }
 
@@ -176,6 +180,8 @@ namespace AppViewLite
                 PendingSuspendableTasks = tasksSuspendable.Count,
                 PauseBuffer = pauseBuffer?.Count,
                 UncompletedSuspendableTasks,
+                TotalSuspendableTasks,
+                TotalNonSuspendableTasks,
             };
         }
     }

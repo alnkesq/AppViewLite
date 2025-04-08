@@ -642,6 +642,7 @@ namespace AppViewLite
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeLabelsAsync(cursor, token: ct), (protocol, watchdog) =>
             {
+                protocol.OnMessageReceived += (s, e) => DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnLabelFirehoseEvent(s, e);

@@ -391,7 +391,7 @@ namespace AppViewLite.Storage
                 if (hasFirstKey)
                 {
                     var comparison = comparer.Compare(prevKey, key);
-                    if (comparison > 0) throw new Exception("Input was not sorted.");
+                    if (comparison > 0) throw new Exception("Input was not sorted. T=" + typeof(T).FullName);
                 }
                 prevKey = key;
                 hasFirstKey = true;
@@ -410,8 +410,8 @@ namespace AppViewLite.Storage
                 {
                     var comparison = comparer.Compare(prevKey, key);
                     if (comparison < 0) { /*ok*/ }
-                    else if (comparison == 0) throw new Exception($"Input contained duplicate key '{key}'.");
-                    else throw new Exception("Input was not sorted.");
+                    else if (comparison == 0) throw new Exception($"Input contained duplicate key '{key}'. T={typeof(T).FullName}");
+                    else throw new Exception("Input was not sorted. T=" + typeof(T).FullName);
                 }
                 prevKey = key;
                 hasFirstKey = true;

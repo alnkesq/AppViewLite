@@ -8,32 +8,13 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
-    internal class UserPairEngagementCache : CombinedPersistentMultiDictionary<Plc, PostEngagement>.CachedView
+    internal class UserPairEngagementCache : SlicedCacheBase<Plc, PostEngagement, ImmutableMultiDictionaryReader<Plc, UserEngagementStats>>
     {
         public override string Identifier => "user-pair-stats-2";
 
-        public override bool CanBeUsedByReplica => false;
-
-        public List<(SliceName OriginalSlice, ImmutableMultiDictionaryReader<Plc, UserEngagementStats> Cache)> cacheSlices = new();
-
-        public long Version = 1;
-
-        public override void Add(Plc key, PostEngagement value)
+        protected override ImmutableMultiDictionaryReader<Plc, UserEngagementStats> ReadCache(string cachePath)
         {
-            // No live update.
-        }
-
-        public override void LoadCacheFile(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo originalSlice, string cachePath, int sliceIndex)
-        {
-            var cache = new ImmutableMultiDictionaryReader<Plc, UserEngagementStats>(cachePath, PersistentDictionaryBehavior.SortedValues, allowEmpty: true);
-            cacheSlices.Insert(sliceIndex, (originalSlice.SliceName, cache));
-            BumpVersion();
-        }
-
-
-        public override void LoadFromOriginalSlice(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo slice)
-        {
-            AssertionLiteException.Throw("LoadFromOriginalSlice not supported for UserPairEngagementCache");
+            return new ImmutableMultiDictionaryReader<Plc, UserEngagementStats>(cachePath, PersistentDictionaryBehavior.SortedValues, allowEmpty: true);
         }
 
         public override bool IsAlreadyMaterialized(string cachePath)
@@ -69,42 +50,10 @@ namespace AppViewLite
             dest.CommitAndGetSize();
         }
 
-        public override bool ShouldPersistCacheForSlice(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo slice)
+        public override void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior)
         {
-            return true;
+            if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
         }
 
-        public override void Dispose()
-        {
-            foreach (var slice in cacheSlices)
-            {
-                slice.Cache.Dispose();
-            }
-        }
-
-        public override void OnSliceAdded(int insertedAt, CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo slice)
-        {
-            var cachePath = GetCachePathForSlice(slice);
-            MaterializeCacheFile(slice, cachePath);
-            LoadCacheFile(slice, cachePath, insertedAt);
-            BumpVersion();
-        }
-
-        public override void OnSliceRemoved(int removedAt)
-        {
-            cacheSlices[removedAt].Cache.Dispose();
-            cacheSlices.RemoveAt(removedAt);
-            BumpVersion();
-        }
-
-        private void BumpVersion()
-        {
-            Version++;
-        }
-
-        public override object? GetCounters()
-        {
-            return null;
-        }
     }
 }

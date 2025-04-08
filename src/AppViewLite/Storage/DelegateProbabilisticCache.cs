@@ -74,6 +74,11 @@ namespace AppViewLite.Storage
         {
             return probabilisticSet.GetCounters();
         }
+
+        public override void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior)
+        {
+            if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
+        }
     }
 
 }

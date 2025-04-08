@@ -270,7 +270,10 @@ namespace AppViewLite.Storage
             this.Caches = caches;
             if (caches != null)
             {
-                if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
+                foreach (var cache in caches)
+                {
+                    cache.EnsureSupportsSourceBehavior(behavior);
+                }
             }
 
             try
@@ -1608,6 +1611,8 @@ namespace AppViewLite.Storage
             public virtual void OnSliceRemoved(int removedAt) { }
             public virtual void Dispose() { }
             public abstract object? GetCounters();
+            public abstract void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior);
+
             public abstract bool CanBeUsedByReplica { get; }
         }
     }

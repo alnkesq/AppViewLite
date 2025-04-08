@@ -623,7 +623,7 @@ namespace AppViewLite
             if (currentFirehoseCursor.CommittedCursor == null)
                 Log($"Starting firehose {FirehoseUrl} at current time.");
             else
-                Log($"Starting Firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.LastSeenEventDate, showSeconds: true)} ago)");
+                Log($"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.LastSeenEventDate, showSeconds: true)} ago)");
         }
 
         public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)

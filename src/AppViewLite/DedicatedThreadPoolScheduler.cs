@@ -138,7 +138,7 @@ namespace AppViewLite
             BlueskyRelationships.Assert(pauseBuffer == null);
 
             pauseBuffer = new();
-            var delayMs = 1;
+            var delayMs = 50;
             while (true)
             {
                 var remaining = Interlocked.Read(ref UncompletedSuspendableTasks);

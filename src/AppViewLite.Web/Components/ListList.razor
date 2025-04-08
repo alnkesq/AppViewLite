@@ -7,6 +7,8 @@
 
     [Parameter] public string? NextContinuation { get; set; }
     [Parameter] public bool ShowModerator { get; set; } = true;
+    [Parameter] public string EmptyListText { get; set; } = "No lists.";
+
     private Uri? continuationUrl;
 
     protected override void OnParametersSet()
@@ -33,5 +35,5 @@
 }
 @if (Lists.Count == 0 && NextContinuation == null)
 {
-    <div class="no-results">No lists.</div>
+    <div class="no-results">@EmptyListText</div>
 }

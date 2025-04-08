@@ -3047,6 +3047,22 @@ namespace AppViewLite
 
 
 
+        public async Task<(BlueskyList[] Lists, string? NextContinuation)> GetBlocklistSubscriptionsAsync(string did, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 50);
+            var response = await ListRecordsAsync(did, Listblock.RecordType, limit: limit + 1, cursor: continuation, ctx);
+            var blocklistSubscriptions = WithRelationshipsUpgradableLock(rels =>
+            {
+                return response!.Records!.TrySelect(x =>
+                {
+                    var listblock = (Listblock)x.Value;
+                    return rels.GetList(new Models.Relationship(rels.SerializeDid(listblock.Subject!.Did!.Handler, ctx), Tid.Parse(listblock.Subject.Rkey)), ctx: ctx);
+                }).ToArray();
+            }, ctx);
+            ctx.IncreaseTimeout(TimeSpan.FromSeconds(3));
+            await EnrichAsync(blocklistSubscriptions, ctx);
+            return (blocklistSubscriptions, response.Records.Count > limit ? response!.Cursor : null);
+        }
         public async Task<(BlueskyList[] Lists, string? NextContinuation)> GetMemberOfListsAsync(string did, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit, 10);

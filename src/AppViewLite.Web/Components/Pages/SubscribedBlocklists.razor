@@ -1,0 +1,22 @@
+@page "/@{did}/blocklist-subscriptions"
+@page "/@{did}@{activityPubInstance}/blocklist-subscriptions"
+@inherits ProfileComponentBase
+
+@code {
+    private BlueskyList[] BlocklistSubscriptions = [];
+    private BlueskyProfile? Member;
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        Member = await Apis.GetProfileAsync(Did, RequestContext);
+        (BlocklistSubscriptions, NextContinuation) = await Apis.GetBlocklistSubscriptionsAsync(Did, Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>Blocklist subscriptions for @Member?.DisplayNameOrFallback</PageTitle>
+<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" Did="@Did" Dark="true" />
+<ListList Lists="BlocklistSubscriptions" NextContinuation="@NextContinuation" EmptyListText="Not blocking any lists." />
+

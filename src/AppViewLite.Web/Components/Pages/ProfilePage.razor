@@ -158,9 +158,10 @@
                     }
                     @if(SimpleProfile.PluggableProtocol == null)
                     {
-                        <a href="@SimpleProfile.BaseUrl/member-of" class="menu-item menu-item-advanced">Show list memberships</a>
                         <a href="@SimpleProfile.BaseUrl/blocking" class="menu-item menu-item-advanced">Show blocked profiles</a>
+                        <a href="@SimpleProfile.BaseUrl/blocklist-subscriptions" class="menu-item menu-item-advanced">Show blocklist subscriptions</a>
                         <a href="@SimpleProfile.BaseUrl/blocked-by" class="menu-item menu-item-advanced">Show blockers</a>
+                        <a href="@SimpleProfile.BaseUrl/member-of" class="menu-item menu-item-advanced">Show list memberships</a>
                         @if (RequestContext.IsLoggedIn && SimpleProfile.Plc == RequestContext.LoggedInUser)
                         {
                             <a href="/notifications?dark=1" class="menu-item menu-item-advanced">Show dark notifications</a>

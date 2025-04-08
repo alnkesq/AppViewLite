@@ -52,7 +52,7 @@
 
     @if (!Profile.IsActive)
     {
-        <div class="profile-row-error profile-indented">[@(Profile.BasicData!.Error)]</div>
+        <div class="profile-row-error profile-indented">[@(StringUtils.TrimFinalPeriod(Profile.BasicData!.Error!))]</div>
     }
 
     <LabelBadges Labels="@Profile.Labels" ExtraClass="profile-indented" />

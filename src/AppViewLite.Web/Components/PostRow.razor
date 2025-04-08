@@ -263,7 +263,7 @@
     @if (Post.Data == null || Post.Data.Error != null)
     {
 
-        <div class="post-error post-indented">[@(Post.Data?.Error ?? "Not loaded yet")]</div>
+        <div class="post-error post-indented">[@(StringUtils.TrimFinalPeriod(Post.Data?.Error ?? "Not loaded yet"))]</div>
     }
     <div class="post-body post-indented">
         <TextWithFacets Text="@(Post.Data?.Text)" Facets="@Post.Data?.Facets" />

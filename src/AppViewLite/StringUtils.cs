@@ -941,6 +941,8 @@ namespace AppViewLite
             }
             return message;
         }
+
+        public static string TrimFinalPeriod(string text) => text.TrimEnd('.');
     }
 }
 

@@ -761,9 +761,8 @@ namespace AppViewLite
             {
                 OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, ignoreIfDisposing: true);
             }
-
             var seq = e.Message.Commit!.Seq;
-            BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time?.ToUniversalTime() ?? default);
+            BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time!.Value);
         }
 
         private void OnAccountStateChanged(string did, bool active, string? status)
@@ -785,9 +784,7 @@ namespace AppViewLite
                 OnLabelCreated(label.Src.Handler, label, ctx);
             }
 
-            // https://github.com/drasticactions/FishyFlip/issues/251
-            var date = e.Message.Labels!.LabelsValue.Last().Cts!.Value.ToUniversalTime();
-            this.BumpLargestSeenFirehoseCursor(e.Message!.Labels!.Seq, date);
+            this.BumpLargestSeenFirehoseCursor(e.Message!.Labels!.Seq, e.Message.Labels!.LabelsValue.Last().Cts!.Value);
 
         }
 

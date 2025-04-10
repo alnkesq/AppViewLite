@@ -53,6 +53,27 @@ namespace AppViewLite
                         // Title is just the author's display name
                         result.ExternalTitle = result.ExternalDescription;
                         result.ExternalDescription = null;
+
+                        if (result.ExternalTitle != null)
+                        {
+                            var dot = result.ExternalTitle.IndexOf('·');
+                            if (dot != -1)
+                                result.ExternalTitle = result.ExternalTitle.Substring(dot + 1).Trim(); // trims the "💬 1  🔁 2  ❤️ 3 ·" prefix 
+                        }
+
+                        if (result.ExternalThumbnailUrl != null) 
+                        {
+                            var thumbUrl = new Uri(result.ExternalThumbnailUrl);
+                            if (thumbUrl.HasHostSuffix("media.tumblr.com"))
+                            {
+                                var segments = thumbUrl.GetSegments();
+                                var size = segments.ElementAtOrDefault(2);
+                                if (size!.Contains("128x128"))
+                                {
+                                    result.ExternalThumbnailUrl = null; // avatar thumbnail
+                                }
+                            }
+                        }
                     }
 
                     if (result.ExternalDescription == result.ExternalTitle)

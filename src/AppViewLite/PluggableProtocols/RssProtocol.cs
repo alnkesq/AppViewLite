@@ -471,7 +471,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     OnPostDiscovered(leafPostId.AsQualifiedPostId, null, null, new BlueskyPostData
                     {
                         ExternalTitle = text,
-                        ExternalUrl = url!.AbsoluteUri,
+                        ExternalUrl = "https://www.tumblr.com/" + leafPostId.BlogId + "/" + leafPostId.PostId,
                     }, ctx: ctx);
                 }
                 else

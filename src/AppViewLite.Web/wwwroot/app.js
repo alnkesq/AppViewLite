@@ -236,13 +236,16 @@ function applyPageFocus() {
         }
     }
 
-    var seenNotificationId = document.querySelector('#notification-newest-id')?.dataset['newestnotification'];
+    var newestNotificationIdElement = document.querySelector('#notification-newest-id');
+    var seenNotificationId = newestNotificationIdElement?.dataset['newestnotification'];
     if (seenNotificationId) {
         var token = applyPageId;
         setTimeout(() => {
             if (applyPageId != token) return;
             document.querySelectorAll('.notification-new').forEach(x => x.classList.remove('notification-new'));
-            notificationCount = 0;
+            
+            if (+newestNotificationIdElement.dataset.dark == 0)
+                notificationCount = 0;
             updatePageTitle();
             httpPost('MarkLastSeenNotification', {
                 notificationId: seenNotificationId

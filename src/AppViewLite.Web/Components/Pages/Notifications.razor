@@ -24,7 +24,7 @@
 
 <h1>@pageTitle</h1>
 
-<div id="notification-newest-id" data-newestnotification="@newestNotification.Serialize()"></div>
+<div id="notification-newest-id" data-newestnotification="@newestNotification.Serialize()" data-dark="@(Dark ?? 0)"></div>
 @foreach (var notification in newNotifications)
 {
     <NotificationRow Notification="@notification" />

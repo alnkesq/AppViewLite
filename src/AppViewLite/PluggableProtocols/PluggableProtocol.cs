@@ -478,6 +478,8 @@ namespace AppViewLite.PluggableProtocols
         {
             var data = post.Data;
             if (data == null) return false;
+            if (data.QuotedPostId != null || (data.Media != null && data.Media.Length != 0)) return false;
+
             if (data.ExternalUrl == null && !(alsoConsiderLinkFacets && post.ExternalLinkOrFirstLinkFacet is { } facetLink && !BlueskyEnrichedApis.ExternalDomainsNoAutoPreview.Contains(StringUtils.TryParseUri(facetLink)?.GetDomainTrimWww()!))) return false;
             if (data.ExternalDescription != null || data.ExternalTitle != null || data.ExternalThumbCid != null) return false;
             return true;

@@ -32,6 +32,16 @@
                     <path style="clip-rule:evenodd;fill:currentColor;fill-rule:evenodd" d="m 7.5,6.5 c 0,-5.9999974 9,-5.9999974 9,0 0,5.999997 -9,5.999997 -9,0 z M 12,12 C 7.242,12 3.917,15.521 3.504,19.906 3.4485787,20.492977 3.9104124,21.000252 4.5,21 H 15 c -3.999998,0 -3.999998,-6 0,-6 4.570755,-0.0032 5.992377,0.38183 0.87,-2.113 C 14.739,12.32 13.435,12 12,12 Z m 9,5 c 1.333333,0 1.333333,2 0,2 -6,0 -2.011084,-0.0046 -6,0 -1.333333,0 -1.333333,-2 0,-2 z" />
                 </svg>
             }
+            else if (Notification.Kind == NotificationKind.BlockedYou)
+            {
+                <svg style="color: #B41111;" height="28" width="28" viewBox="0 0 24 24" fill="none">
+                    <path d="m 19.535323,15.203113 c 0.942808,-0.942809 2.357022,0.471405 1.414213,1.414213 -4.242641,4.242641 -1.425304,1.418799 -4.242641,4.242641 -0.942808,0.942809 -2.357022,-0.471405 -1.414213,-1.414213 z" style="color:currentColor;clip-rule:evenodd;fill:currentColor;fill-rule:evenodd;stroke-width:1.00000012" />
+                    <path d="m 20.828427,19.414214 c 0.942809,0.942808 -0.471405,2.357022 -1.414213,1.414213 -4.242641,-4.242641 -1.418799,-1.425304 -4.242641,-4.242641 -0.942809,-0.942808 0.471405,-2.357022 1.414213,-1.414213 z" style="color:currentColor;clip-rule:evenodd;fill:currentColor;fill-rule:evenodd;stroke-width:1.00000012" />
+                    <path d="M 12,12 C 7.242,12 3.917,15.521 3.504,19.906 3.4485787,20.492977 3.9104124,21.000252 4.5,21 l 9.852818,-0.03596 C 8.7777144,10.31012 24.57784,16.161839 15.87,12.887 14.739,12.32 13.435,12 12,12 Z" style="color:currentColor;clip-rule:evenodd;fill:currentColor;fill-rule:evenodd;stroke-width:1.00000012" />
+                    <path d="m 7.5,6.5 c 0,-5.9999974 9,-5.9999974 9,0 0,5.999997 -9,5.999997 -9,0 z" style="color:currentColor;clip-rule:evenodd;fill:currentColor;fill-rule:evenodd;stroke-width:1.00000012" />
+                </svg>
+
+            }
             else if (Notification.Kind is NotificationKind.HidYourReply or NotificationKind.DetachedYourQuotePost)
             {
                 <svg viewBox="0 0 24 24" style="color: #A41515" width="28" height="28">

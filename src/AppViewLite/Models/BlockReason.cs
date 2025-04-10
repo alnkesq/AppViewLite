@@ -114,6 +114,8 @@ namespace AppViewLite.Models
             }
             else if (subjects == BlockSubjects.QuoterAndAuthor)
             {
+                // We're siding with the quoter (following feed).
+                // The quoted user is blurred.
                 if (List != default)
                 {
                     return Kind switch
@@ -128,15 +130,17 @@ namespace AppViewLite.Models
                 {
                     return Kind switch
                     {
-                        BlockReasonKind.BlockedBy => "This user blocks the person quoting this.",
-                        BlockReasonKind.Blocks => "The person quoting this blocks this user.",
-                        BlockReasonKind.MutualBlock => "This user and the person quoting this block each other.",
+                        BlockReasonKind.BlockedBy => "This user blocks the quoter.",
+                        BlockReasonKind.Blocks => "Blocked by the quoter.",
+                        BlockReasonKind.MutualBlock => "These two users block each other.",
                         _ => throw AssertionLiteException.ThrowBadEnumException(Kind),
                     };
                 }
             }
             else if (subjects == BlockSubjects.QuoteeAndAuthor)
             {
+                // We're siding with the quotee (list quotes).
+                // The quoter is blurred.
                 if (List != default)
                 {
                     return Kind switch
@@ -151,9 +155,9 @@ namespace AppViewLite.Models
                 {
                     return Kind switch
                     {
-                        BlockReasonKind.BlockedBy => "The quoted user blocks this person.",
-                        BlockReasonKind.Blocks => "The quoted user is blocked by this person.",
-                        BlockReasonKind.MutualBlock => "This user and the person being quoted block each other.",
+                        BlockReasonKind.BlockedBy => "Blocked by the quoted user.",
+                        BlockReasonKind.Blocks => "This user blocks the quoted user.",
+                        BlockReasonKind.MutualBlock => "These two users block each other.",
                         _ => throw AssertionLiteException.ThrowBadEnumException(Kind),
                     };
                 }

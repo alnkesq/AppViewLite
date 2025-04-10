@@ -744,7 +744,7 @@ async function fetchOrReusePageAsync(href, token) {
     }
 }
 
-function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) { 
+async function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) { 
     if (href.startsWith('/')) href = location.origin + href;
     if (!href.startsWith(window.location.origin + '/')) { 
         window.location.href = href;
@@ -766,7 +766,7 @@ function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
         historyStack.push(location.href);
         window.history.pushState(null, null, href);
     }
-    applyPage(href, preferRefresh, scrollToTop);
+    await applyPage(href, preferRefresh, scrollToTop);
 }
 
 function getViewportHeight() { 
@@ -1638,6 +1638,39 @@ async function togglePrivateFollow(did, toggleButton, postElement) {
     invalidateFollowingPages();
 }
 
+async function postToScreenshotBlob(postElement) {
+    document.documentElement.classList.add('force-blue-link-accent-color');
+    try {
+    /**@type {HTMLCanvasElement}*/ var canvas = await html2canvas(postElement, {
+        imageTimeout: 2000,
+        backgroundColor: window.getComputedStyle(document.documentElement).backgroundColor
+    });
+    } finally { 
+        document.documentElement.classList.remove('force-blue-link-accent-color');
+    }
+    
+    return await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+}
+
+
+async function composeWithScreenshot(postElement) {
+    var screenshotBlob = await postToScreenshotBlob(postElement);
+    await fastNavigateTo('/compose');
+    clearFileUploads();
+    var postText = getPostText(postElement);
+    var authorHandleElement = postElement.querySelector('.handle-generic');
+    var authorHandle = authorHandleElement.textContent;
+    if (!authorHandleElement.classList.contains('handle-without-at-prefix')) { 
+        authorHandle = '@' + authorHandle;
+    }
+    var authorHandlePrefix = authorHandle + ': ';
+    if (postText) {
+        await composeAddFile(new File([screenshotBlob], 'image.png'), authorHandlePrefix + postText);
+    } else {
+        await composeAddFile(new File([screenshotBlob], 'image.png'));
+    }
+}
+
 var postActions = {
     toggleLike: async function (did, rkey, postElement) { 
         if (postElement.dataset.usebookmarkbutton == '1')
@@ -1650,18 +1683,17 @@ var postActions = {
         if (isNativeDid(did)) {
             getOrCreateRepostToggler(did, rkey, postElement).toggleIfNotBusyAsync();
         } else { 
-            var originalText = getPostText(postElement);
-            var url = getPostPreferredUrl(postElement);
-            var text = (originalText ? "\"" + originalText + "\"\n" : "\n") + (url ? url : '')
-            fastNavigateTo('/compose?text=' + encodeURIComponent(text.trim()));
+            composeWithScreenshot(postElement);
         }
         
     },
-    composeReply: async function (did, rkey) { 
-        fastNavigateTo(`/compose?replyDid=${did}&replyRkey=${rkey}`)
+    composeReply: async function (did, rkey, postElement) {
+        if (isNativeDid(did)) fastNavigateTo(`/compose?replyDid=${did}&replyRkey=${rkey}`);
+        else composeWithScreenshot(postElement);
     },
-    composeQuote: async function (did, rkey) { 
-        fastNavigateTo(`/compose?quoteDid=${did}&quoteRkey=${rkey}`)
+    composeQuote: async function (did, rkey, postElement) { 
+        if (isNativeDid(did)) fastNavigateTo(`/compose?quoteDid=${did}&quoteRkey=${rkey}`);
+        else composeWithScreenshot(postElement);
     },
     viewOnBluesky: async function (did, rkey) { 
         window.open(`https://bsky.app/profile/${did}/post/${rkey}`);

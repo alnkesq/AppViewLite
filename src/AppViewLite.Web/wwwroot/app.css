@@ -122,6 +122,10 @@ html {
     --default-user-avatar: url('/assets/colorized/default-user-avatar-Gray.svg');
 }
 
+.force-blue-link-accent-color {
+    --blue-link: var(--accent) !important; /* html2canvas doesn't support color-mix and throws */   
+}
+
 /* If you update these colors, also update colorize.ps1 and run it. */
 
 

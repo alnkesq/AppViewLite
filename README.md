@@ -28,13 +28,13 @@ This AppView runs independently of the main `bsky.app` APIs.
 ## Implementation status
 | Feature                     | AppViewLite (read) | AppViewLite (edit)  | bsky.app 
 | --------                    | -------            | -------             | -------  
-| Posts                       |  ✅                |⚠️ Text only        |✅
+| Posts                       |  ✅                |✅                  |✅
 | Likes, bookmarks, reposts                       |  ✅                |✅                  |⚠️ No bookmarks
 | Profile pages               |  ✅                |                  |⚠️ No likes list
 | Follows                     |  ✅                |✅                  |⚠️ No private follows
 | Search                      |  ✅                |✅                  |⚠️ No media search
 | Media grid view             |  ✅                |                   |⛔
-| Video download              |  ✅                |                   |⛔
+| Video                       |  ✅ + download support               |⛔               |✅
 | Notifications               |  ✅                |                  |✅
 | Feeds                       |  ✅                |                  |✅
 | Built-in feed: Recent       |  ✅                |                  |✅

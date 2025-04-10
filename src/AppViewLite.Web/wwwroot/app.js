@@ -1960,6 +1960,13 @@ document.addEventListener('play', e => {
 }, true);
 
 
+document.addEventListener('submit', e => {
+    var target = e.target;
+    if (target.classList.contains('compose-form')) {
+        // can't have both @onsubmit and onsubmit in razor
+        composeOnSubmit(target, e);
+    }
+}, true);
 
 document.addEventListener('error', e => {
     var img = e.target;
@@ -1972,6 +1979,165 @@ document.addEventListener('error', e => {
     }
 }, true);
 
+
+document.addEventListener('dragover', e => {
+    var dropZone = document.getElementById('upload-drop-zone');
+    if (dropZone) { 
+        e.preventDefault();
+        document.getElementById('upload-drop-zone').classList.add('dragover');
+    }
+});
+
+document.addEventListener('dragleave', e => {
+    var dropZone = document.getElementById('upload-drop-zone');
+    if (dropZone) { 
+        document.getElementById('upload-drop-zone').classList.remove('dragover');
+    }
+});
+
+async function composeUploadChange(e) { 
+    await composeAddFiles(e.target.files);
+}
+
+document.addEventListener('drop', async e => {
+    var dropZone = document.getElementById('upload-drop-zone');
+    if (dropZone) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        await composeAddFiles(e.dataTransfer.files);
+    }
+});
+document.addEventListener('paste', (e) => {
+    if (document.getElementById('upload-drop-zone')) {
+        if (e.clipboardData.files.length > 0) {
+            composeAddFiles(e.clipboardData.files);
+        }
+    }
+});
+
+
+async function hashArrayBuffer(buffer) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
+
+/**@type {File[]}*/ var filesToUpload = [];
+var didWarnFileFormat = false;
+
+async function composeAddFile(/**@type {File}*/ file, altText) { 
+    
+    var nameParts = file.name.split('.');
+    var ext = nameParts[nameParts.length - 1].toLowerCase();
+    if (['jpg', 'jpeg', 'jpe', 'png', 'webp', 'jfif', 'gif', 'avif', 'bmp'].includes(ext)) {
+        /* ok */
+    } else if (['mp4', 'webm', 'mkv', 'mpg', 'mov', 'avi', 'wmv'].includes(ext)) {
+        if (!didWarnFileFormat) alert('Video upload is not currently supported.');
+        didWarnFileFormat = true;
+        return;
+    } else { 
+        if (!didWarnFileFormat) alert('Unsupported file type.');
+        didWarnFileFormat = true;
+        return;
+    }
+    var arrayBuffer = await file.arrayBuffer();
+    try {
+        file.hashForDeduplication = await hashArrayBuffer(arrayBuffer);
+        if (filesToUpload.some(x => x.hashForDeduplication == file.hashForDeduplication)) return;
+    } catch(e) { 
+        // only available in secure contexts
+    }
+    filesToUpload.push(file);
+    const li = document.createElement('li');
+    li.classList.add('upload-file-entry')
+    const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+    const url = URL.createObjectURL(blob);
+    const img = document.createElement('img');
+    img.src = url;
+    file.blobUrlToRevoke = url;
+
+    var thumbContainer = document.createElement('div');
+    thumbContainer.classList.add('upload-thumb-container')
+    var thumbLink = document.createElement('a');
+    thumbLink.href = url;
+    thumbLink.target = '_blank';
+    thumbLink.appendChild(img);
+    thumbContainer.appendChild(thumbLink);
+    var removeButton = document.createElement('button');
+    removeButton.textContent = '×';
+    removeButton.addEventListener('click', e => {
+        filesToUpload = filesToUpload.filter(x => x != file);
+        li.remove();
+        URL.revokeObjectURL(url);
+        e.preventDefault();
+    });
+    thumbContainer.appendChild(removeButton);
+    var altTextArea = document.createElement('textarea');
+    altTextArea.placeholder = 'Alt text'
+    altTextArea.value = altText ?? '';
+    altTextArea.maxLength = ALT_TEXT_MAX_GRAPHEMES; // actual grapheme check is done later
+    file.altTextArea = altTextArea;
+    li.appendChild(thumbContainer);
+    li.appendChild(altTextArea)
+    
+    document.getElementById('upload-file-list').appendChild(li);
+}
+
+async function composeAddFiles(/**@type {FileList}*/ files) {
+    didWarnFileFormat = false;
+    for (let i = 0; i < files.length; i++) {
+        if (filesToUpload.length >= 4) {
+            alert('A post can include a maximum of 4 images.');
+            break;
+        }
+        var file = files[i];
+        await composeAddFile(file);
+    }
+}
+
+var ALT_TEXT_MAX_GRAPHEMES = 2000;
+
+
+async function composeOnSubmit(formElement, e) { 
+    e.preventDefault();
+    const formData = new FormData(formElement);
+    formData.delete('Model.Files');
+    formData.delete('Model.AltTexts');
+    for (const file of filesToUpload) {
+        formData.append('Model.Files', file);
+        if (countGraphemes(file.altTextArea.value) > ALT_TEXT_MAX_GRAPHEMES)
+            alert('Alt text is too long.')
+        formData.append('Model.AltTexts', file.altTextArea.value);
+    }
+
+    try {
+        const response = await fetch(location.href, {
+            method: 'POST',
+            body: formData
+        });
+        if (!response.ok) throw 'HTTP ' + response.status;
+        var responseHtml = await response.text();
+        var responseDom = parseHtmlAsWrapper(responseHtml);
+        var error = responseDom.querySelector('.page-error');
+        if (error) throw error.textContent.replace('❌', '').trim();
+        console.log(responseHtml);
+        var postUrl = response.url;
+        if (!postUrl || postUrl == location.href) throw 'Could not create post.';
+        clearFileUploads();
+        fastNavigateTo(postUrl);
+    } catch (e) { 
+        alert(e);
+    }
+}
+
+function clearFileUploads() { 
+    for (const file of filesToUpload) {
+        URL.revokeObjectURL(file.blobUrlToRevoke);
+    }
+    filesToUpload = [];
+    document.getElementById('upload-file-list').innerHTML = '';
+}
 function emojify(target = document.body) {
     twemoji.parse(target);
 }

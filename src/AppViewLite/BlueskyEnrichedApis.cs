@@ -34,6 +34,7 @@ using AppViewLite.PluggableProtocols;
 using System.Collections.Frozen;
 using AppViewLite.Storage;
 using FishyFlip.Lexicon.Com.Atproto.Sync;
+using System.IO;
 
 namespace AppViewLite
 {
@@ -2638,8 +2639,8 @@ namespace AppViewLite
         public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default, bool slowImport = false)
         {
             if (IsQuickBackfillCollection(kind))
-            { 
-                if(AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE) == "-")
+            {
+                if (AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE) == "-")
                     throw new Exception("Quick reverse backfill is not enabled.");
             }
             async Task<RepositoryImportEntry?> CoreAsync()
@@ -2674,7 +2675,7 @@ namespace AppViewLite
                 return await Indexer.RunOnFirehoseProcessingThreadpool(CoreAsync);
             }
             return await CoreAsync();
-            
+
         }
 
         private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx, RequestContext? authenticatedCtx, bool slowImport)
@@ -2998,8 +2999,10 @@ namespace AppViewLite
             indexer.OnRecordDeleted(ctx.UserContext.Did!, collection + "/" + rkey, ctx: ctx);
         }
 
-        public async Task<Tid> CreatePostAsync(string text, PostIdString? inReplyTo, PostIdString? quotedPost, RequestContext ctx)
+        public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, RequestContext ctx, CancellationToken ct = default)
         {
+            if (string.IsNullOrEmpty(text)) text = null;
+            var embedRecord = quotedPost != null ? new EmbedRecord((await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef) : null;
             ReplyRefDef? replyRefDef = null;
             if (inReplyTo != null)
             {
@@ -3010,15 +3013,58 @@ namespace AppViewLite
                     Root = inReplyToRef.Record.Reply?.Root ?? inReplyToRef.StrongRef,
                 };
             }
-            ATObject? embed = null;
-            if (quotedPost != null)
+
+            var processedAttachments = new List<Image>();
+            foreach (var attachment in attachments)
             {
-                embed = new EmbedRecord
+                var processedImage = await ImageUploadProcessor.ProcessAsync(attachment.UploadedBytes, ct);
+                var processedContentType = "image/webp";
+
+                var response = await PerformPdsActionAsync(async protocol =>
                 {
-                    Record = (await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef,
-                };
+                    var streamContent = new StreamContent(processedImage.ProcessedBytes);
+                    streamContent.Headers.ContentType = new(processedContentType);
+                    var response = (await protocol.UploadBlobAsync(streamContent, ct)).HandleResult()!;
+                    return response;
+                }, ctx);
+                processedAttachments.Add(new Image
+                {
+                    Alt = string.IsNullOrWhiteSpace(attachment.AltText) ? string.Empty : attachment.AltText.Trim(),
+                    AspectRatio = new AspectRatio
+                    {
+                        Height = processedImage.Height,
+                        Width = processedImage.Width,
+                    },
+                    ImageValue = new Blob
+                    {
+                        MimeType = processedContentType,
+                        Size = (int)processedImage.ProcessedBytes.Length,
+                        Ref = response.Blob.Ref,
+                    },
+                });
             }
-            return await CreateRecordAsync(new Post { Text = text, Reply = replyRefDef, Embed = embed, CreatedAt = UtcNowMillis() }, ctx);
+
+
+            var embedImages = processedAttachments.Count != 0 ? new EmbedImages(processedAttachments) : null;
+
+            ATObject? embed = null;
+            if (embedImages != null && embedRecord != null)
+            {
+                embed = new RecordWithMedia(embedRecord, embedImages);
+            }
+            else
+            {
+                embed = (ATObject?)embedRecord ?? embedImages;
+            }
+
+            var postRecord = new Post
+            {
+                Text = text,
+                Reply = replyRefDef,
+                Embed = embed,
+                CreatedAt = UtcNowMillis()
+            };
+            return await CreateRecordAsync(postRecord, ctx);
         }
 
         private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post, RequestContext ctx)
@@ -3536,7 +3582,7 @@ namespace AppViewLite
                     BlueskyRelationships.Assert(lastVerification.Plc != default);
 
                     return (lastVerification.VerificationDate, lastVerification.Plc, rels.GetDid(lastVerification.Plc));
-                    
+
                 }, ctx);
             }
             if (plc == default) throw AssertionLiteException.Throw("ResolveHandleAsync plc is still default(Plc)");
@@ -4588,7 +4634,7 @@ namespace AppViewLite
                 CarDownloadSemaphore = CarDownloadSemaphore.CurrentCount,
                 Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
                 Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
-                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(), 
+                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
                 UserContext = ctx.IsLoggedIn ? ctx.UserContext.GetCountersThreadSafe() : null,
                 DedicatedThreadPoolScheduler = Indexer.FirehoseThreadpool!.GetCountersThreadSafe(),
                 DirectIoReadStatsTotalKeys = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col0")).Sum(x => x.Value),
@@ -4612,7 +4658,7 @@ namespace AppViewLite
                 var u = new Uri(url);
                 return GetImageThumbnailUrl("host:" + u.Host, Encoding.UTF8.GetBytes(u.PathAndQuery), null);
             }
-            
+
             return null;
         }
 
@@ -4678,7 +4724,7 @@ namespace AppViewLite
         }
 
 
-        
+
 
         private readonly int GlobalPeriodicFlushSeconds = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS) ?? 600;
         public async Task RunGlobalPeriodicFlushLoopAsync()
@@ -4695,7 +4741,7 @@ namespace AppViewLite
 
         public void NotifyShutdownRequested()
         {
-            
+
             if (relationshipsUnlocked.ShutdownRequested.IsCancellationRequested) return;
             relationshipsUnlocked.ShutdownRequestedCts.Cancel();
             DrainAndCaptureFirehoseCursors();

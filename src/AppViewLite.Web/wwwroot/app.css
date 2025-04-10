@@ -2082,3 +2082,58 @@ input[type=radio], input[type=checkbox]{
     color: gray;
     font-size: 9pt;
 }
+
+#upload-drop-zone {
+    width: 100%;
+    opacity: 0.5;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1em;
+    cursor: pointer;
+    text-align: center;
+    box-sizing: border-box;
+}
+#upload-drop-zone.dragover {
+    background-color: #eef;
+}
+
+.upload-thumb-container {
+    position: relative;
+    display: inline-block;
+    min-height: 100px;
+    max-width: 200px;
+}
+
+.upload-thumb-container img {
+    object-fit: contain;
+    aspect-ratio: 1;
+    display: block;
+    width: 100%;
+}
+
+.upload-thumb-container button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    margin: 0;
+    border-radius: 200px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    background: rgba(190, 190, 190, 0.8);
+    color: black;
+    font-weight: bold;
+}
+.upload-file-entry {
+    display: flex;
+    margin-bottom: 5px;
+}
+.upload-file-entry textarea {
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 10pt;
+    flex-grow: 1;
+    margin-left: 10px;
+}

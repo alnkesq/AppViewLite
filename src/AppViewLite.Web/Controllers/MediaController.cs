@@ -73,11 +73,11 @@ namespace AppViewLite.Web.Controllers
                     Response.StatusCode = 500;
                 }
                 await Response.WriteAsync(text, ct);
-                
+
             }
         }
 
-        
+
         private async Task GetThumbnailCore(string size, string did, string cid, [FromQuery] string? pds, [FromQuery] string? name, CancellationToken ct)
         {
             if (!Enabled) throw new Exception("Image serving is not enabled on this server.");
@@ -310,9 +310,9 @@ namespace AppViewLite.Web.Controllers
                     return (null, bytes, blob.FileNameForDownload);
                 }
 
-                if (!StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
+                if (!ImageUploadProcessor.StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
                 Image<Rgba32> image;
-                if (bytes.AsSpan().StartsWith(Magic_ICO))
+                if (bytes.AsSpan().StartsWith(ImageUploadProcessor.Magic_ICO))
                     image = IconParser.IconUtils.LoadLargestImage(bytes);
                 else
                 {
@@ -597,25 +597,7 @@ namespace AppViewLite.Web.Controllers
             }
         }
 
-        private static ReadOnlySpan<byte> Magic_JPG => [0xff, 0xd8, 0xff];
-        private static ReadOnlySpan<byte> Magic_PNG => [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-        private static ReadOnlySpan<byte> Magic_RIFF => "RIFF"u8;
-        private static ReadOnlySpan<byte> Magic_WEBP => [0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38];
-        private static ReadOnlySpan<byte> Magic_GIF87a => "GIF87a"u8;
-        private static ReadOnlySpan<byte> Magic_GIF89a => "GIF89a"u8;
-        private static ReadOnlySpan<byte> Magic_ICO => "\x00\x00\x01\x00"u8;
-        private static bool StartsWithAllowlistedMagicNumber(ReadOnlySpan<byte> bytes)
-        {
-            return
-                bytes.StartsWith(Magic_JPG) ||
-                bytes.StartsWith(Magic_PNG) ||
-                bytes.StartsWith(Magic_WEBP) ||
-                bytes.StartsWith(Magic_GIF87a) ||
-                bytes.StartsWith(Magic_GIF89a) ||
-                bytes.StartsWith(Magic_ICO) ||
-                (bytes.StartsWith(Magic_RIFF) && bytes.Slice(8).StartsWith(Magic_WEBP))
-                ;
-        }
+
 
         private readonly static byte[] DefaultRssIconSvg =
             """

@@ -341,7 +341,7 @@ namespace AppViewLite
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterRelationshipDictionary<RelationshipHashedRKey>("feed-generator-like-2", GetApproxRkeyHash24);
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
-            DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) => 
+            DidDocs = RegisterDictionary<Plc, byte>("did-doc-5", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) => 
             {
                 var diddoc = DidDocProto.DeserializeFromBytes(diddocBytes.AsSmallSpan(), onlyIfProtobufEncoding: true /* labeler can only exist in protobuf encoding */);
                 if (diddoc == null) return default;
@@ -349,7 +349,7 @@ namespace AppViewLite
                 return (plc, Encoding.UTF8.GetBytes(diddoc.AtProtoLabeler));
             })], cachesAreMandatory: true);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
-            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-2", PersistentDictionaryBehavior.KeySetOnly);
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-5", PersistentDictionaryBehavior.KeySetOnly);
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications", getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");

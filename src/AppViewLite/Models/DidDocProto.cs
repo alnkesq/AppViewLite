@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
+using System.Text;
 
 namespace AppViewLite.Models
 {
@@ -95,13 +96,13 @@ namespace AppViewLite.Models
                 if (CustomDomain != null)
                 {
                     format |= DidDocEncoding.HasCustomDomain;
-                    bw.Write(BlueskyRelationships.CompressBpe(CustomDomain)!);
+                    bw.Write(Encoding.UTF8.GetBytes(CustomDomain)!);
                 }
                 else if (BskySocialUserName != null)
                 {
                     format |= DidDocEncoding.HasBskySocialUserName;
 
-                    bw.Write(BlueskyRelationships.CompressBpe(BskySocialUserName)!);
+                    bw.Write(Encoding.UTF8.GetBytes(BskySocialUserName)!);
 
                 }
             }
@@ -135,12 +136,12 @@ namespace AppViewLite.Models
             if ((format & DidDocEncoding.HasCustomDomain) != 0)
             {
                 var length = (int)(bytes.Length - br.BaseStream.Position);
-                result.CustomDomain = BlueskyRelationships.DecompressBpe(br.ReadBytes(length));
+                result.CustomDomain = Encoding.UTF8.GetString(br.ReadBytes(length));
             }
             if ((format & DidDocEncoding.HasBskySocialUserName) != 0)
             {
                 var length = (int)(bytes.Length - br.BaseStream.Position);
-                result.BskySocialUserName = BlueskyRelationships.DecompressBpe(br.ReadBytes(length));
+                result.BskySocialUserName = Encoding.UTF8.GetString(br.ReadBytes(length));
             }
 
             return result;

@@ -166,7 +166,7 @@ namespace AppViewLite
 
             // We capture a new replica only due to age (very rare, since ReadOnlyReplicaMaxStalenessOnExplicitRead >> ReadOnlyReplicaMaxStalenessOpportunistic),
             // not due to version. If version is not sufficient, it's probably cheaper to use the primary than copying the whole queue.
-            primarySecondaryPair.MaybeUpdateReadOnlyReplicaOnExplicitRead(minVersion: 0, alreadyHoldsLock: false);
+            primarySecondaryPair.MaybeUpdateReadOnlyReplicaOnExplicitRead(minVersion: 0);
 
             if (ctx.AllowStale && readOnlyReplicaRelationshipsUnlocked != null)
             {
@@ -405,6 +405,7 @@ namespace AppViewLite
             if (SetThreadNames != 0) Thread.CurrentThread.Name = "[HOLDS WRITE LOCK] " + Thread.CurrentThread.Name;
             relationshipsUnlocked.ManagedThreadIdWithWriteLock = Environment.CurrentManagedThreadId;
             PerformanceSnapshot begin = default;
+            T result;
             try
             {
                 relationshipsUnlocked.Version++;
@@ -416,9 +417,7 @@ namespace AppViewLite
 
                 begin = PerformanceSnapshot.Capture();
                 SetupArena();
-                var result = func(relationshipsUnlocked);
-                primarySecondaryPair.MaybeUpdateReadOnlyReplicaOpportunistic(0, alreadyHoldsLock: true);
-                return result;
+                result = func(relationshipsUnlocked);
             }
             finally
             {
@@ -429,6 +428,10 @@ namespace AppViewLite
 
                 MaybeLogLongLockUsage(begin, LockKind.PrimaryWrite, ctx);
             }
+
+
+            primarySecondaryPair.MaybeUpdateReadOnlyReplicaOpportunistic(0);
+            return result;
         }
 
         public T WithRelationshipsUpgradableLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx)

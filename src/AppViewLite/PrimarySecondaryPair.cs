@@ -20,7 +20,6 @@ namespace AppViewLite
         public PrimarySecondaryPair(BlueskyRelationships primary)
         {
             this.relationshipsUnlocked = primary;
-            this.relationshipsUnlocked.BeforeExitingLockUpgrade += (_, _) => MaybeUpdateReadOnlyReplica(0, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock: true);
 
             if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_USE_READONLY_REPLICA) ?? true)
             {
@@ -38,17 +37,18 @@ namespace AppViewLite
         public readonly static TimeSpan ReadOnlyReplicaMaxStalenessOpportunistic = false && Debugger.IsAttached ? TimeSpan.FromHours(1) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC) ?? 2000);
         public readonly static TimeSpan ReadOnlyReplicaMaxStalenessOnExplicitRead = false && Debugger.IsAttached ? TimeSpan.FromHours(2) : TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_MAX_READONLY_STALENESS_MS_EXPLICIT_READ) ?? 4000);
 
-        public void MaybeUpdateReadOnlyReplicaOnExplicitRead(long minVersion, bool alreadyHoldsLock)
+        public void MaybeUpdateReadOnlyReplicaOnExplicitRead(long minVersion)
         {
-            MaybeUpdateReadOnlyReplica(minVersion, ReadOnlyReplicaMaxStalenessOnExplicitRead, alreadyHoldsLock);
+            MaybeUpdateReadOnlyReplica(minVersion, ReadOnlyReplicaMaxStalenessOnExplicitRead);
         }
-        public void MaybeUpdateReadOnlyReplicaOpportunistic(long minVersion, bool alreadyHoldsLock)
+        public void MaybeUpdateReadOnlyReplicaOpportunistic(long minVersion)
         {
-            MaybeUpdateReadOnlyReplica(minVersion, ReadOnlyReplicaMaxStalenessOpportunistic, alreadyHoldsLock);
+            MaybeUpdateReadOnlyReplica(minVersion, ReadOnlyReplicaMaxStalenessOpportunistic);
         }
 
-        public void MaybeUpdateReadOnlyReplica(long minVersion, TimeSpan maxStaleness, bool alreadyHoldsLock)
+        public void MaybeUpdateReadOnlyReplica(long minVersion, TimeSpan maxStaleness)
         {
+            // Must NOT hold lock (we take it ourselves, otherwise deadlock between the two locks)   
             var oldReplica = readOnlyReplicaRelationshipsUnlocked;
             if (oldReplica == null) return;
 
@@ -58,7 +58,7 @@ namespace AppViewLite
             {
                 lock (buildNewReadOnlyReplicaLock)
                 {
-                    if (!alreadyHoldsLock) relationshipsUnlocked.Lock.EnterReadLock();
+                    relationshipsUnlocked.Lock.EnterReadLock();
                     try
                     {
                         relationshipsUnlocked.EnsureNotDisposed();
@@ -74,7 +74,7 @@ namespace AppViewLite
                     }
                     finally
                     {
-                        if (!alreadyHoldsLock) relationshipsUnlocked.Lock.ExitReadLock();
+                        relationshipsUnlocked.Lock.ExitReadLock();
                     }
                 }
             }

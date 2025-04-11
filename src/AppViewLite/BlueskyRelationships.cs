@@ -878,9 +878,7 @@ namespace AppViewLite
                 {
                     Version++;
                     ctx.BumpMinimumVersion(Version);
-
                     value();
-                    BeforeExitingLockUpgrade?.Invoke(this, EventArgs.Empty);
                 }
                 finally
                 {
@@ -889,7 +887,6 @@ namespace AppViewLite
             }
         }
 
-        public event EventHandler BeforeExitingLockUpgrade;
 
         public static PostId GetPostId(Plc Plc, string rkey)
         {

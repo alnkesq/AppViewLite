@@ -2141,3 +2141,8 @@ input[type=radio], input[type=checkbox]{
     flex-grow: 1;
     margin-left: 10px;
 }
+
+.profile-join-date {
+    color: var(--light-text);
+    margin-top: 5px;
+}

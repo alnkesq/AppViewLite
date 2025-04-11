@@ -295,6 +295,13 @@
             </a>
         }
 
+        @if (SimpleProfile.DidDoc?.EarliestDateApprox16 is { } earliestDate)
+        {
+            <div class="profile-join-date main-padding">
+                <text>Joined </text>
+                @(((DateTime)new AppViewLite.Numerics.ApproximateDateTime16(earliestDate)).ToString("MMMM yyyy"))
+            </div>
+        }
 
         <LabelBadges Labels="@SimpleProfile.Labels" ExtraClass="profile-labels main-padding" />
 

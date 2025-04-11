@@ -1017,9 +1017,22 @@ namespace AppViewLite
                 parquetFileOrDirectory += "/*.parquet";
                 checkGaps = true;
             }
-            var rows = mem.Execute<DidDocProto>($"from '{parquetFileOrDirectory}' where Date >= ?", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
-                .Select(x =>
+            Log($"Incremental PLC directory bundle import since {prevDate?.ToString() ?? "beginning"}...");
+            var rows = mem.Execute<PlcDirectoryBundleParquetRow>($"from '{parquetFileOrDirectory}' where Date >= ?", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                .Select(row =>
                 {
+                    var x = new DidDocProto
+                    {
+                        PlcAsUInt128 = row.PlcAsUInt128,
+                        EarliestDateApprox16 = row.EarliestDateApprox16,
+                        BskySocialUserName = row.BskySocialUserName,
+                        CustomDomain = row.CustomDomain,
+                        Pds = row.Pds,
+                        MultipleHandles = row.MultipleHandles,
+                        OtherUrls = row.OtherUrls,
+                        AtProtoLabeler = row.AtProtoLabeler,
+                        Date = row.Date!.Value,
+                    };
                     if (prevDate == null)
                     {
                         if (checkGaps && x.Date > new DateTime(2022, 11, 18)) throw new Exception("PLC directory should start at 2022-11-17");
@@ -1083,6 +1096,13 @@ namespace AppViewLite
                             }
 
                             var plc = rels.SerializeDid(entry.TrustedDid!, ctx);
+                            var prev = rels.TryGetLatestDidDoc(plc);
+                            if (entry.EarliestDateApprox16 == null && entry.Date != default)
+                                entry.EarliestDateApprox16 = (entry.Date < ApproximateDateTime16.MinValueAsDateTime ? ApproximateDateTime16.MinValue : ((ApproximateDateTime16)entry.Date)).Value;
+                            if (prev != null && prev.EarliestDateApprox16 < entry.EarliestDateApprox16)
+                            {
+                                entry.EarliestDateApprox16 = prev.EarliestDateApprox16;
+                            }
                             rels.CompressDidDoc(entry);
                             rels.DidDocs.AddRange(plc, entry.SerializeToBytes());
 

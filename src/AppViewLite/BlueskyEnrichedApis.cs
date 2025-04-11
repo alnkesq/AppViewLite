@@ -3644,6 +3644,13 @@ namespace AppViewLite
             didDoc.Date = DateTime.UtcNow;
             return WithRelationshipsWriteLock(rels =>
             {
+                var prev = rels.TryGetLatestDidDoc(plc);
+                // /did:plc:xxxx and /did:plc:xxxx/data endpoints don't return dates, only /did:plc/log/audit does.
+                // let's not bother fetching earliest date from plc.directory, it will be overwritten once the plc directory is fully synced.
+                if (prev != null)
+                {
+                    didDoc.EarliestDateApprox16 = prev.EarliestDateApprox16;
+                }
                 rels.CompressDidDoc(didDoc);
                 rels.DidDocs.AddRange(plc, didDoc.SerializeToBytes());
                 return rels.TryGetLatestDidDoc(plc)!;

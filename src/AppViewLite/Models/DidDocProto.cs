@@ -24,6 +24,7 @@ namespace AppViewLite.Models
         [DuckDbInclude] public DuckDbUuid PlcAsUInt128;
         [ProtoMember(9)] public string[]? OtherUrls;
         [ProtoMember(10)] public string? AtProtoLabeler;
+        [ProtoMember(11)] public ushort? EarliestDateApprox16;
 
         public bool IsSpam =>
 
@@ -86,6 +87,11 @@ namespace AppViewLite.Models
                     format |= DidDocEncoding.HasPds;
                     bw.Write7BitEncodedInt(PdsId.Value);
                 }
+                if (EarliestDateApprox16 != null)
+                {
+                    format |= DidDocEncoding.HasEarliestDate;
+                    bw.Write(EarliestDateApprox16.Value);
+                }
                 if (CustomDomain != null)
                 {
                     format |= DidDocEncoding.HasCustomDomain;
@@ -121,6 +127,10 @@ namespace AppViewLite.Models
             {
                 result.PdsId = br.Read7BitEncodedInt();
             }
+            if ((format & DidDocEncoding.HasEarliestDate) != 0)
+            {
+                result.EarliestDateApprox16 = br.ReadUInt16();
+            }
             if ((format & DidDocEncoding.HasCustomDomain) != 0)
             {
                 var length = (int)(bytes.Length - br.BaseStream.Position);
@@ -143,6 +153,7 @@ namespace AppViewLite.Models
             HasBskySocialUserName = 1,
             HasCustomDomain = 2,
             HasPds = 4,
+            HasEarliestDate = 8,
 
             Proto = HasBskySocialUserName | DidDocEncoding.HasCustomDomain,
         }

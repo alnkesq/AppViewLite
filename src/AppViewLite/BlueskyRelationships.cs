@@ -348,7 +348,7 @@ namespace AppViewLite
                 return (plc, Encoding.UTF8.GetBytes(diddoc.AtProtoLabeler));
             })], cachesAreMandatory: true);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
-            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory", PersistentDictionaryBehavior.KeySetOnly);
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-2", PersistentDictionaryBehavior.KeySetOnly);
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications", getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");

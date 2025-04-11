@@ -1108,6 +1108,7 @@ namespace AppViewLite
             {
                 await foreach (var entry in sortedEntries)
                 {
+                    if (entry.IsSpam) continue;
                     entries.Add(entry);
                     lastRetrievedDidDoc = entry.Date;
 

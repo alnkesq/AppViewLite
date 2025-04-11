@@ -3159,9 +3159,11 @@ namespace AppViewLite
             return KnownMirrorsToIgnore.ContainsKey(hash);
         }
 
-        public ((Plc Plc, bool IsPrivate)[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
+        public ((Plc Plc, bool IsPrivate)[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, BlueskyRelationships, Tid> IsStillFollowedGetRkey, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
-            var stillFollowedResult = new Dictionary<Plc, bool>();
+            var StillPrivateFollowed = Tid.MaxValue;
+
+            var stillFollowedResult = new Dictionary<Plc, Tid>();
             var possibleFollows = new Dictionary<Plc, Tid>();
             foreach (var item in RegisteredUserToFollowees.GetValuesUnsorted(ctx.LoggedInUser))
             {
@@ -3175,22 +3177,38 @@ namespace AppViewLite
                     possibleFollows[item.Key] = default;
             }
 
-            return (possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray(), (plc, rels) =>
+            Tid IsStillFollowedGetRkey(Plc plc, BlueskyRelationships rels)
             {
-                if (plc == default) return true;
+                var perContextCache = ctx.IsStillFollowedCached;
+                if (perContextCache != null)
+                {
+                    return perContextCache.GetOrAdd(plc, plc => IsStillFollowedGetRkeyCore(plc, rels));
+                }
+                else
+                {
+                    return IsStillFollowedGetRkeyCore(plc, rels);
+                }
+            }
+            Tid IsStillFollowedGetRkeyCore(Plc plc, BlueskyRelationships rels)
+            {
+
+                if (plc == default) return StillPrivateFollowed; // Simply means nothing to filter (e.g. root post, no parent to check for followship)
 
                 // Callers can assume that this lambda is SAFE to reuse across re-locks (must not capture DangerousHugeReadOnlyMemorys)
 
-                if (!possibleFollows.TryGetValue(plc, out var rkey)) return false;
-                if (rkey == default) return true; // private follow
+                if (!possibleFollows.TryGetValue(plc, out var rkey)) return default;
+                if (rkey == default) return StillPrivateFollowed; // private follow
 
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
                 if (!exists)
                 {
-                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc) == default;
+                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc) == default ? rkey : default;
                 }
                 return result;
-            },
+
+            }
+
+            return (possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray(), (plc, rels) => IsStillFollowedGetRkey(plc, rels) != default, IsStillFollowedGetRkey,
             plc =>
             {
                 if (plc == default) return true;
@@ -3199,7 +3217,7 @@ namespace AppViewLite
                 if (rkey == default) return true; // private follow
 
                 if (stillFollowedResult.TryGetValue(plc, out var result))
-                    return result;
+                    return result != default;
 
                 return true; // we don't know, assume yes
             }
@@ -3329,8 +3347,20 @@ namespace AppViewLite
 
         public void PopulateViewerFlags(BlueskyProfile profile, RequestContext ctx)
         {
-            if (ctx.IsLoggedIn && Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
-                profile.IsFollowedBySelf = followRel.RelationshipRKey;
+            if (ctx.IsLoggedIn)
+            {
+                if (ctx.IsStillFollowedCached?.TryGetValue(profile.Plc, out var followRkey) == true)
+                {
+                    if (followRkey != Tid.MaxValue) // MaxValue means private follow
+                        profile.IsFollowedBySelf = followRkey;
+                }
+                else
+                {
+                    if (Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
+                        profile.IsFollowedBySelf = followRel.RelationshipRKey;
+                }
+                    
+            }
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
             profile.FollowsYou = ctx.IsLoggedIn && profile.IsActive && Follows.HasActor(ctx.LoggedInUser, profile.Plc, out _);

@@ -1,4 +1,5 @@
 using AppViewLite.Models;
+using AppViewLite.Numerics;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
@@ -49,6 +50,7 @@ namespace AppViewLite
             SendSignalrImpl.Invoke(SignalrConnectionId, method, arguments);
         }
 
+        public ConcurrentDictionary<Plc, Tid>? IsStillFollowedCached;
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();

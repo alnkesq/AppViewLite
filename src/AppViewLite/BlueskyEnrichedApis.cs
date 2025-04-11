@@ -2077,6 +2077,7 @@ namespace AppViewLite
 
         public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
+            ctx.IsStillFollowedCached ??= new();
             EnsureLimit(ref limit, 50);
             Tid? maxTid = continuation != null ? Tid.Parse(continuation) : null;
             var alreadyReturned = new HashSet<PostId>();
@@ -2096,6 +2097,8 @@ namespace AppViewLite
 
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
+            ctx.IsStillFollowedCached ??= new();
+
             EnsureLimit(ref limit, 50);
             var scoredSampler = GetScorer(ctx);
 

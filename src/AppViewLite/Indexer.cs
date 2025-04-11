@@ -1116,11 +1116,12 @@ namespace AppViewLite
                         if (!didResumeWrites)
                             rels.AvoidFlushes--;
                     }
-
+                    rels.DidDocs.Flush(false);
+                    rels.ProfileSearchPrefix2.Flush(false);
+                    rels.ProfileSearchPrefix8.Flush(false);
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;
                 }, ctx);
-
 
                 entries.Clear();
             }
@@ -1133,7 +1134,7 @@ namespace AppViewLite
                     entries.Add(entry);
                     lastRetrievedDidDoc = entry.Date;
 
-                    if (entries.Count >= 50000)
+                    if (entries.Count >= 100_000)
                     {
                         FlushBatch();
                         await Task.Delay(500);

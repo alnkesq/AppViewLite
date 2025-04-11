@@ -343,8 +343,9 @@ namespace AppViewLite
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
             DidDocs = RegisterDictionary<Plc, byte>("did-doc-2", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) => 
             {
-                var diddoc = DidDocProto.DeserializeFromBytes(diddocBytes.AsSmallSpan());
-                if(diddoc.AtProtoLabeler == null) return default;
+                var diddoc = DidDocProto.DeserializeFromBytes(diddocBytes.AsSmallSpan(), onlyIfProtobufEncoding: true /* labeler can only exist in protobuf encoding */);
+                if (diddoc == null) return default;
+                if (diddoc.AtProtoLabeler == null) return default;
                 return (plc, Encoding.UTF8.GetBytes(diddoc.AtProtoLabeler));
             })], cachesAreMandatory: true);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
@@ -1440,16 +1441,40 @@ namespace AppViewLite
             }
         }
 
+        private readonly SizeLimitedWord8 SizeLimitedWord8_bsky = SizeLimitedWord8.Create("bsky", out _);
+        private readonly SizeLimitedWord2 SizeLimitedWord2_bsky = SizeLimitedWord2.Create("bsky");
+        private readonly SizeLimitedWord8 SizeLimitedWord8_social = SizeLimitedWord8.Create("social", out _);
+        private readonly SizeLimitedWord2 SizeLimitedWord2_social = SizeLimitedWord2.Create("social");
+
+
         internal void IndexProfileWord(string word, Plc plc)
         {
+
+            if (word == "bsky")
+            {
+                ProfileSearchPrefix8.Add(SizeLimitedWord8_bsky, plc);
+                ProfileSearchPrefix2.Add(SizeLimitedWord2_bsky, plc);
+                return;
+            }
+            if (word == "social")
+            {
+                ProfileSearchPrefix8.Add(SizeLimitedWord8_social, plc);
+                ProfileSearchPrefix2.Add(SizeLimitedWord2_social, plc);
+                return;
+            }
+
+
+            Assert(word.Length != 0);
             var hash = HashWord(word);
 
-            ProfileSearchPrefix8.Add(SizeLimitedWord8.Create(word, out var truncated), plc);
+            var wordUtf8 = Encoding.UTF8.GetBytes(word);
+
+            ProfileSearchPrefix8.Add(SizeLimitedWord8.Create(wordUtf8, out var truncated), plc);
             if (truncated)
             {
                 ProfileSearchLong.Add(hash, plc);
             }
-            ProfileSearchPrefix2.Add(SizeLimitedWord2.Create(word), plc);
+            ProfileSearchPrefix2.Add(SizeLimitedWord2.Create(wordUtf8), plc);
         }
 
         internal void StorePostInfo(PostId postId, Post p, string did, RequestContext ctx)
@@ -2037,7 +2062,7 @@ namespace AppViewLite
             if (DidDocs.TryGetPreserveOrderSpanLatest(plc, out var bytes))
             {
                 //var proto = DeserializeProto<DidDocProto>(bytes.AsSmallSpan());
-                var proto = DidDocProto.DeserializeFromBytes(bytes.AsSmallSpan());
+                var proto = DidDocProto.DeserializeFromBytes(bytes.AsSmallSpan())!;
                 DecompressDidDoc(proto);
                 return proto;
             }
@@ -2956,12 +2981,24 @@ namespace AppViewLite
         }
 
 
-        internal void CompressDidDoc(DidDocProto proto)
+        internal void CompressDidDoc(DidDocProto proto, Dictionary<string, Pds>? pdsStringToIdCache = null)
         {
             if (proto.Pds == null) return;
             var pds = proto.Pds;
 
-            var pdsId = SerializePds(pds);
+            Pds pdsId;
+            if (pdsStringToIdCache != null)
+            {
+                if (!pdsStringToIdCache.TryGetValue(proto.Pds, out pdsId))
+                {
+                    pdsId = SerializePds(proto.Pds);
+                    pdsStringToIdCache.Add(proto.Pds, pdsId);
+                }
+            }
+            else 
+            {
+                pdsId = SerializePds(pds);
+            }
             proto.PdsId = pdsId.PdsId;
             proto.Pds = null;
         }
@@ -3009,9 +3046,9 @@ namespace AppViewLite
             }
         }
 
-        internal void IndexHandle(string? handle, string did, RequestContext ctx)
+        internal void IndexHandle(string? handle, string did, RequestContext ctx, Plc plcHint = default)
         {
-            var plc = SerializeDid(did, ctx);
+            var plc = SerializeDidWithHint(did, ctx, plcHint);
             IndexHandleCore(handle, plc);
 
             if (did.StartsWith("did:web:", StringComparison.Ordinal))

@@ -112,7 +112,7 @@ namespace AppViewLite.Models
 
 
 
-        public static DidDocProto DeserializeFromBytes(ReadOnlySpan<byte> bytes)
+        public static DidDocProto? DeserializeFromBytes(ReadOnlySpan<byte> bytes, bool onlyIfProtobufEncoding = false)
         {
             using var br = new BinaryReader(new MemoryStream(bytes.ToArray()));
             var format = (DidDocEncoding)br.ReadByte();
@@ -121,6 +121,7 @@ namespace AppViewLite.Models
                 var proto = ProtoBuf.Serializer.Deserialize<DidDocProto>(br.BaseStream);
                 return proto;
             }
+            if (onlyIfProtobufEncoding) return null;
             var result = new DidDocProto();
             result.Date = Unsafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32());
             if ((format & DidDocEncoding.HasPds) != 0)

@@ -1073,6 +1073,7 @@ namespace AppViewLite
         {
             DateTime lastRetrievedDidDoc = default;
             var entries = new List<DidDocProto>();
+            var pdsCache = new Dictionary<string, Pds>();
             void FlushBatch()
             {
                 if (entries.Count == 0) return;
@@ -1103,10 +1104,10 @@ namespace AppViewLite
                             {
                                 entry.EarliestDateApprox16 = prev.EarliestDateApprox16;
                             }
-                            rels.CompressDidDoc(entry);
+                            rels.CompressDidDoc(entry, pdsCache);
                             rels.DidDocs.AddRange(plc, entry.SerializeToBytes());
 
-                            rels.IndexHandle(entry.Handle, entry.TrustedDid!, ctx);
+                            rels.IndexHandle(entry.Handle, entry.TrustedDid!, ctx, plcHint: plc);
                         }
                         LogInfo("PLC directory entries flushed.");
                     }

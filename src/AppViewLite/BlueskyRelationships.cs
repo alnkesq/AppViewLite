@@ -836,19 +836,7 @@ namespace AppViewLite
 
             WithWriteUpgrade(() =>
             {
-                plc = new Plc(checked(LastAssignedPlc.PlcValue + 1));
-                LastAssignedPlc = plc;
-
-                if (did.StartsWith("did:plc:", StringComparison.Ordinal))
-                {
-                    PlcToDidPlc.Add(plc, SerializeDidPlcToUInt128(did));
-                }
-                else
-                {
-                    PlcToDidOther.AddRange(plc, Encoding.UTF8.GetBytes(did));
-                }
-
-                DidHashToUserId.Add(hash, plc);
+                plc = AddDidPlcMappingCore(did, hash);
             }, ctx);
 
 
@@ -857,6 +845,23 @@ namespace AppViewLite
 
         }
 
+        internal Plc AddDidPlcMappingCore(string did, DuckDbUuid hash)
+        {
+            Plc plc = new Plc(checked(LastAssignedPlc.PlcValue + 1));
+            LastAssignedPlc = plc;
+
+            if (did.StartsWith("did:plc:", StringComparison.Ordinal))
+            {
+                PlcToDidPlc.Add(plc, SerializeDidPlcToUInt128(did));
+            }
+            else
+            {
+                PlcToDidOther.AddRange(plc, Encoding.UTF8.GetBytes(did));
+            }
+
+            DidHashToUserId.Add(hash, plc);
+            return plc;
+        }
 
         public bool CanUpgradeToWrite => Lock.IsWriteLockHeld || (Lock.IsUpgradeableReadLockHeld && ForbidUpgrades == 0);
 

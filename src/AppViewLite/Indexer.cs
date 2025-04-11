@@ -1080,7 +1080,15 @@ namespace AppViewLite
             {
                 if (entries.Count == 0) return;
 
-
+                var didHashes = new DuckDbUuid[entries.Count];
+                Parallel.For(0, didHashes.Length, i =>
+                {
+                    var did = entries[i].TrustedDid!;
+                    BlueskyEnrichedApis.EnsureValidDid(did);
+                    if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) AssertionLiteException.Throw("Invalid did:plc in PLC directory.");
+                    didHashes[i] = StringUtils.HashUnicodeToUuid(did);
+                });
+                
                 LogInfo("Flushing " + entries.Count + " PLC directory entries (" + lastRetrievedDidDoc.ToString("yyyy-MM-dd") + ")");
                 WithRelationshipsWriteLock(rels =>
                 {
@@ -1098,7 +1106,11 @@ namespace AppViewLite
 
                             }
 
-                            var plc = rels.SerializeDid(entry.TrustedDid!, ctx);
+                            var didHash = didHashes[index];
+                            if (!rels.DidHashToUserId.TryGetSingleValue(didHash, out var plc))
+                            {
+                                plc = rels.AddDidPlcMappingCore(entry.TrustedDid!, didHash);
+                            }
                             var prev = rels.TryGetLatestDidDoc(plc);
                             if (entry.EarliestDateApprox16 == null && entry.Date != default)
                                 entry.EarliestDateApprox16 = (entry.Date < ApproximateDateTime16.MinValueAsDateTime ? ApproximateDateTime16.MinValue : ((ApproximateDateTime16)entry.Date)).Value;

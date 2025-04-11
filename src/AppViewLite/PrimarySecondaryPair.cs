@@ -56,25 +56,26 @@ namespace AppViewLite
 
             if (!oldReplica!.IsAtLeastVersion(minVersion, maxStaleness, latestKnownVersion))
             {
-
-                if (!alreadyHoldsLock) relationshipsUnlocked.Lock.EnterReadLock();
-                try
+                lock (buildNewReadOnlyReplicaLock)
                 {
-                    relationshipsUnlocked.EnsureNotDisposed();
-
-                    lock (buildNewReadOnlyReplicaLock)
+                    if (!alreadyHoldsLock) relationshipsUnlocked.Lock.EnterReadLock();
+                    try
                     {
+                        relationshipsUnlocked.EnsureNotDisposed();
+
+
                         oldReplica = readOnlyReplicaRelationshipsUnlocked!;
                         if (!oldReplica!.IsAtLeastVersion(minVersion, maxStaleness, latestKnownVersion))
                         {
                             this.readOnlyReplicaRelationshipsUnlocked = (BlueskyRelationships)relationshipsUnlocked.CloneAsReadOnly();
                             Task.Run(() => DisposeWhenNotInUse(oldReplica));
                         }
+
                     }
-                }
-                finally
-                {
-                    if (!alreadyHoldsLock) relationshipsUnlocked.Lock.ExitReadLock();
+                    finally
+                    {
+                        if (!alreadyHoldsLock) relationshipsUnlocked.Lock.ExitReadLock();
+                    }
                 }
             }
         }

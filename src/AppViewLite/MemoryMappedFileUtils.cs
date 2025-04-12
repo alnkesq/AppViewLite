@@ -10,7 +10,7 @@ namespace AppViewLite
     {
         // timeout "${SECONDS}s" bpftrace -e 'tracepoint:exceptions:page_fault_user /pid == '$PID'/ { printf("%lx\n", args->address); }' > faults.txt
         // cp /proc/$PID/maps mmaps.txt
-        public static void PageFaultsToSlices(string pageFaultTrace, string mmaps, Func<string, string?> pathToRelativePath)
+        public static void PageFaultsToSlices(string pageFaultTrace, string mmaps, Func<string, string?> pathToRelativePath, bool statsOnly = false)
         {
             var ranges = ParseProcMmap(mmaps);
             var sliceSetToCount = new Dictionary<(string Table, string Kind), int>();
@@ -62,13 +62,16 @@ namespace AppViewLite
                     }
 
 
-
-                    //Console.Error.WriteLine(addr.ToString("x") + "  " + (ratio * 100).ToString("0.0") + "%" + "  " + StringUtils.ToHumanBytes((long)length) + "\t\t" + displayText);
+                    if (!statsOnly)
+                        Console.WriteLine(addr.ToString("x") + "  " + (ratio * 100).ToString("0.0") + "%" + "  " + StringUtils.ToHumanBytes((long)length) + "\t\t" + displayText);
                 }
             }
+
+            Console.WriteLine();
+            Console.WriteLine("================================================ Statistics per file ================================================");
             foreach (var item in sliceSetToCount.OrderByDescending(x => x.Value).Take(20))
             {
-                Console.Error.WriteLine($"{item.Key.Table,50} {item.Key.Kind,-10} {item.Value,-5}");
+                Console.WriteLine($"{(item.Key.Table ?? "(unknown)"),-100} {item.Key.Kind,-10} {item.Value,-5}");
             }
         }
 

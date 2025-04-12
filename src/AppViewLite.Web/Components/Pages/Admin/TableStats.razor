@@ -15,7 +15,7 @@
 
 <div class="main-padding">
     Total size: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OnDiskSize + x.InMemorySize)))<br>
-    Session original writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OriginalWriteBytes)))<br>
+    Session original writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OriginalWriteBytes))) (@StringUtils.ToHumanBytes(tables.Sum(x => x.InMemorySize)) buffered)<br>
     Session compactation writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.CompactationWriteBytes)))
 </div>
 

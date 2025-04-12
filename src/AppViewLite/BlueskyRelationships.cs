@@ -271,7 +271,10 @@ namespace AppViewLite
                 .Where(x => !(resetFirehoseCursors.Contains(x.FirehoseUrl) || resetFirehoseCursors.Contains("*")))
                 .ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
 
-            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-5", PersistentDictionaryBehavior.KeySetOnly);
+            PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
+            var plcDirectoryIsReasonablyUpToDate = PlcDirectoryStaleness.TotalHours < 6;
+            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap, caches: plcDirectoryIsReasonablyUpToDate ? [] : [new KeyProbabilisticCache<DuckDbUuid, Plc>(128 * 1024 * 1024, 7)]);
             PlcToDidPlc = RegisterDictionary<Plc, UInt128>("plc-to-did-plc", PersistentDictionaryBehavior.SingleValue);
             PlcToDidOther = RegisterDictionary<Plc, byte>("plc-to-did-other", PersistentDictionaryBehavior.PreserveOrder);
             PdsIdToString = RegisterDictionary<Pds, byte>("pds-id-to-string", PersistentDictionaryBehavior.PreserveOrder);
@@ -349,7 +352,6 @@ namespace AppViewLite
                 return (plc, Encoding.UTF8.GetBytes(diddoc.AtProtoLabeler));
             })], cachesAreMandatory: true);
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
-            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-5", PersistentDictionaryBehavior.KeySetOnly);
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications", getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
@@ -370,7 +372,6 @@ namespace AppViewLite
 
 
 
-            PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
             LastAssignedPlc = new Plc(Math.Max((PlcToDidOther.MaximumKey ?? default).PlcValue, (PlcToDidPlc.MaximumKey ?? default).PlcValue));
 
             registerForNotificationsCache = new();

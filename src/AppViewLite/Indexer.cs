@@ -1107,11 +1107,13 @@ namespace AppViewLite
                             }
 
                             var didHash = didHashes[index];
+                            var mightHavePreviousDidDoc = true;
                             if (!rels.DidHashToUserId.TryGetSingleValue(didHash, out var plc))
                             {
                                 plc = rels.AddDidPlcMappingCore(entry.TrustedDid!, didHash);
+                                mightHavePreviousDidDoc = false;
                             }
-                            var prev = rels.TryGetLatestDidDoc(plc);
+                            var prev = mightHavePreviousDidDoc ? rels.TryGetLatestDidDoc(plc) : null;
                             if (entry.EarliestDateApprox16 == null && entry.Date != default)
                                 entry.EarliestDateApprox16 = (entry.Date < ApproximateDateTime16.MinValueAsDateTime ? ApproximateDateTime16.MinValue : ((ApproximateDateTime16)entry.Date)).Value;
                             if (prev != null && prev.EarliestDateApprox16 < entry.EarliestDateApprox16)

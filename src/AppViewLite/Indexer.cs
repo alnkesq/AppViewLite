@@ -1154,7 +1154,7 @@ namespace AppViewLite
                     entries.Add(entry);
                     lastRetrievedDidDoc = entry.Date;
 
-                    if (entries.Count >= 100_000)
+                    if (entries.Count >= 50_000)
                     {
                         FlushBatch();
                         batchFlushes++;

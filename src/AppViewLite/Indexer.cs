@@ -1035,6 +1035,7 @@ namespace AppViewLite
                         AtProtoLabeler = row.AtProtoLabeler,
                         Date = row.Date!.Value,
                     };
+                    BlueskyRelationships.Assert(prevDate == null || x.Date >= prevDate);
                     if (prevDate == null)
                     {
                         if (checkGaps && x.Date > new DateTime(2022, 11, 18)) throw new Exception("PLC directory should start at 2022-11-17");

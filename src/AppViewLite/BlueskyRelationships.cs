@@ -271,7 +271,7 @@ namespace AppViewLite
                 .Where(x => !(resetFirehoseCursors.Contains(x.FirehoseUrl) || resetFirehoseCursors.Contains("*")))
                 .ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
 
-            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-5", PersistentDictionaryBehavior.KeySetOnly);
+            LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-6", PersistentDictionaryBehavior.KeySetOnly);
             PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
             var plcDirectoryIsReasonablyUpToDate = PlcDirectoryStaleness.TotalHours < 6;
             DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap, caches: plcDirectoryIsReasonablyUpToDate ? [] : [new KeyProbabilisticCache<DuckDbUuid, Plc>(128 * 1024 * 1024, 7)]);
@@ -344,7 +344,7 @@ namespace AppViewLite
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterRelationshipDictionary<RelationshipHashedRKey>("feed-generator-like-2", GetApproxRkeyHash24);
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
-            DidDocs = RegisterDictionary<Plc, byte>("did-doc-5", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) => 
+            DidDocs = RegisterDictionary<Plc, byte>("did-doc-6", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) => 
             {
                 var diddoc = DidDocProto.DeserializeFromBytes(diddocBytes.AsSmallSpan(), onlyIfProtobufEncoding: true /* labeler can only exist in protobuf encoding */);
                 if (diddoc == null) return default;

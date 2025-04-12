@@ -75,26 +75,7 @@ namespace AppViewLite
                     .Select(x =>
                     {
                         var section = pageToSection(x.Key);
-
-                        if (section == null)
-                        {
-                            section = "UNKNOWN";
-                        }
-                        else
-                        {
-                            section = Path.GetFileName(Path.GetDirectoryName(section))
-                                + (section switch
-                                {
-                                    _ when section.EndsWith(".col0.dat", StringComparison.Ordinal) => "_KEYS",
-                                    _ when section.EndsWith(".col1.dat", StringComparison.Ordinal) => "_VALUES",
-                                    _ when section.EndsWith(".col2.dat", StringComparison.Ordinal) => "_OFFSETS",
-                                    _ when section.EndsWith(".cache", StringComparison.Ordinal) => "_CACHE",
-                                    _ => "_UNKNOWN",
-                                });
-                        }
-
-
-                        return (Table: section, CacheMisses: x.Value);
+                        return (Table: GetMmapDisplayName(section) ?? "UNKNOWN", CacheMisses: x.Value);
                     })
                     .GroupBy(x => x.Table)
                     .Select(x => (Table: x.Key, CacheMisses: x.Sum(x => x.CacheMisses)))
@@ -103,7 +84,20 @@ namespace AppViewLite
             }
         }
 
-
+        public static string? GetMmapDisplayName(string? fileName)
+        {
+            if (fileName == null) return null;
+            fileName = Path.GetFileName(Path.GetDirectoryName(fileName))
+                + (fileName switch
+                {
+                    _ when fileName.EndsWith(".col0.dat", StringComparison.Ordinal) => "_KEYS",
+                    _ when fileName.EndsWith(".col1.dat", StringComparison.Ordinal) => "_VALUES",
+                    _ when fileName.EndsWith(".col2.dat", StringComparison.Ordinal) => "_OFFSETS",
+                    _ when fileName.EndsWith(".cache", StringComparison.Ordinal) => "_CACHE",
+                    _ => "_UNKNOWN",
+                });
+            return fileName;
+        }
     }
 }
 

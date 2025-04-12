@@ -1350,7 +1350,7 @@ namespace AppViewLite.Storage
 
                             }
 
-                            if (g.Count >= 250)
+                            if (g.Count >= 5000)
                                 Console.Error.WriteLine("Copying SortedSet of size " + g.Count);
                             // _manyValuesSorted is mutable (unlike _manyValuesPreserved), so we need to copy it.
 

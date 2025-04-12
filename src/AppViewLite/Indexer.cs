@@ -1082,6 +1082,7 @@ namespace AppViewLite
                 if (entries.Count == 0) return;
 
                 var didHashes = new DuckDbUuid[entries.Count];
+                var swHash = Stopwatch.StartNew();
                 Parallel.For(0, didHashes.Length, i =>
                 {
                     var did = entries[i].TrustedDid!;
@@ -1089,12 +1090,15 @@ namespace AppViewLite
                     if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) AssertionLiteException.Throw("Invalid did:plc in PLC directory.");
                     didHashes[i] = StringUtils.HashUnicodeToUuid(did);
                 });
-                
+                swHash.Stop();
                 LogInfo("Flushing " + entries.Count + " PLC directory entries (" + lastRetrievedDidDoc.ToString("yyyy-MM-dd") + ")");
+
+                var swWrite = new Stopwatch();
                 WithRelationshipsWriteLock(rels =>
                 {
                     rels.AvoidFlushes++; // We'll perform many writes, avoid frequent intermediate flushes.
                     var didResumeWrites = false;
+                    swWrite.Start();
                     try
                     {
                         foreach (var (index, entry) in entries.Index())
@@ -1114,6 +1118,9 @@ namespace AppViewLite
                                 plc = rels.AddDidPlcMappingCore(entry.TrustedDid!, didHash);
                                 mightHavePreviousDidDoc = false;
                             }
+                            if(index % 100 == 0)
+                                Console.Error.WriteLine("Read DidHashToUserId: " + plc);
+
                             var prev = mightHavePreviousDidDoc ? rels.TryGetLatestDidDoc(plc) : null;
                             if (entry.EarliestDateApprox16 == null && entry.Date != default)
                                 entry.EarliestDateApprox16 = (entry.Date < ApproximateDateTime16.MinValueAsDateTime ? ApproximateDateTime16.MinValue : ((ApproximateDateTime16)entry.Date)).Value;
@@ -1136,13 +1143,17 @@ namespace AppViewLite
                     rels.DidDocs.Flush(false);
                     rels.ProfileSearchPrefix2.Flush(false);
                     rels.ProfileSearchPrefix8.Flush(false);
+                    
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;
+                    swWrite.Stop();
                 }, ctx);
 
                 entries.Clear();
+                Log("Batch flushed, hashing: " + swHash.ElapsedMilliseconds + ", insertion: " + swWrite.ElapsedMilliseconds);
             }
 
+            var batchFlushes = 0;
             try
             {
                 await foreach (var entry in sortedEntries)
@@ -1154,7 +1165,7 @@ namespace AppViewLite
                     if (entries.Count >= 100_000)
                     {
                         FlushBatch();
-                        await Task.Delay(500);
+                        batchFlushes++;
                     }
                 }
             }

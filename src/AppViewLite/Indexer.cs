@@ -1018,9 +1018,9 @@ namespace AppViewLite
                 checkGaps = true;
             }
             Log($"Incremental PLC directory bundle import since {prevDate?.ToString() ?? "beginning"}...");
-            mem.ExecuteNonQuery("SET memory_limit = '1GB';");
+            mem.ExecuteNonQuery("SET memory_limit = '100MB';");
             mem.ExecuteNonQuery("SET threads = 1;");
-            var rows = mem.Execute<PlcDirectoryBundleParquetRow>($"from '{parquetFileOrDirectory}' where Date >= ?", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+            var rows = mem.ExecuteStreamed<PlcDirectoryBundleParquetRow>($"from '{parquetFileOrDirectory}' where Date >= ?", prevDate ?? new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc))
                 .Select(row =>
                 {
                     var x = new DidDocProto

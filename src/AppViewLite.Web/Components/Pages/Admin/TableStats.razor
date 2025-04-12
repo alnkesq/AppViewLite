@@ -13,6 +13,11 @@
             }, RequestContext);
 }
 
+<div class="main-padding">
+    Total size: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OnDiskSize + x.InMemorySize)))<br>
+    Session original writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OriginalWriteBytes)))<br>
+    Session compactation writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.CompactationWriteBytes)))
+</div>
 
 <table class="debug-table">
     <tr>
@@ -30,7 +35,7 @@
     </tr>
 
 
-    @foreach (var table in tables.OrderByDescending(x => x.OriginalWriteBytes + x.OriginalWriteBytes + x.InMemorySize))
+    @foreach (var table in tables.OrderByDescending(x => x.OnDiskSize + x.InMemorySize))
     {
         var averageValueCount = table.KeyCount == 0 ? 0 : (double)table.ValueCount / table.KeyCount;
         <tr>

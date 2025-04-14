@@ -1825,6 +1825,7 @@ var listActions = {
         }
         await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: null, nickname: newName });
         var titleElement = listElement.querySelector('.list-metadata-row-name a');
+        if (!titleElement && location.href.includes('/lists/')) titleElement =  document.querySelector('h1');
         if (titleElement) { 
             if (newName) {
                 titleElement.innerHTML = '';

@@ -2,9 +2,8 @@ using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Net.Http;
+using System.Net.WebSockets;
 
 namespace AppViewLite
 {
@@ -66,7 +65,44 @@ namespace AppViewLite
             if (IsLowImportanceException(ex))
                 LogInfo(ex.Message);
             else
-                Log(ex.ToString());
+                Log(ExceptionToString(ex));
+        }
+
+        private static string ExceptionToString(Exception ex)
+        {
+            var inner = ex;
+            var messages = new List<string>();
+            while (inner != null)
+            {
+                messages.Add(inner.Message);
+
+                var concise = false;
+                if (inner is HttpRequestException http)
+                {
+                    if (http.StatusCode != null)
+                    {
+                        messages.Add("HTTP " + (int)http.StatusCode + " (" + http.StatusCode + ")");
+                        concise = true;
+                    }
+                    else
+                    {
+                        concise = true;
+                    }
+                }
+
+                if (inner is WebSocketException ws)
+                {
+                    concise = true;
+                }
+
+                if (concise)
+                {
+                    return string.Join(": ", messages);
+                }
+
+                inner = inner.InnerException;
+            }
+            return ex.ToString();
         }
 
         private static bool IsAssertionLite(Exception ex)
@@ -81,7 +117,7 @@ namespace AppViewLite
             if (IsLowImportanceException(ex) || IsLowImportanceMessage(text))
                 LogInfo(text + ": " + ex.Message);
             else
-                Log(text + ": " + ex.ToString());
+                Log(text + ": " + ExceptionToString(ex));
         }
 
         public static bool IsLowImportanceMessage(string text)

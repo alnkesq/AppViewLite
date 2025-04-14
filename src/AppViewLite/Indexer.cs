@@ -564,7 +564,7 @@ namespace AppViewLite
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
-            await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
+            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.AbsoluteUri, async ct =>
             {
                 try
                 {
@@ -665,7 +665,7 @@ namespace AppViewLite
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
 
-            await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
+            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.AbsoluteUri, async ct =>
             {
                 try
                 {

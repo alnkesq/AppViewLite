@@ -15,6 +15,8 @@ namespace AppViewLite
     {
         public static void FireAndForget(this Task task)
         {
+            if (task.Status == TaskStatus.Created)
+                task.Start();
             task.ContinueWith(t =>
             {
                 if (t.IsFaulted)
@@ -29,6 +31,8 @@ namespace AppViewLite
         }
         public static void FireAndForgetLowImportance(this Task task)
         {
+            if (task.Status == TaskStatus.Created)
+                task.Start();
             task.ContinueWith(t =>
             {
                 if (t.IsFaulted)

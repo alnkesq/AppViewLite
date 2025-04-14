@@ -308,7 +308,7 @@ namespace AppViewLite.Web
                     {
                         await indexer.InitializePlcDirectoryFromBundleAsync(bundle);
                     }
-                    await PluggableProtocol.RetryInfiniteLoopAsync(async ct =>
+                    await PluggableProtocol.RetryInfiniteLoopAsync("PlcDirectory", async ct =>
                     {
                         while (true)
                         {

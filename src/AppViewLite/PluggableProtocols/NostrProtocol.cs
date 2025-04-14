@@ -32,7 +32,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             foreach (var relay in AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LISTEN_NOSTR_RELAYS) ?? [])
             {
                 if (relay == "-") continue;
-                RetryInfiniteLoopAsync(ct => ListenNostrRelayAsync(relay, ct), ct).FireAndForget();
+                RetryInfiniteLoopAsync(relay, ct => ListenNostrRelayAsync(relay, ct), ct).FireAndForget();
             }
             return Task.CompletedTask;
         }

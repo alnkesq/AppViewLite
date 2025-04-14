@@ -115,7 +115,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
                     averageThreadsPerDay /= 2;
-                    LogNonCriticalException(ex);
+                    LogNonCriticalException(boardId.BaseUrl.AbsoluteUri, ex);
                 }
 
                 var intervalDays = 0.5 / averageThreadsPerDay;

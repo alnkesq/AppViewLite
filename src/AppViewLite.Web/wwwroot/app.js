@@ -1820,7 +1820,7 @@ var listActions = {
         var newName = prompt('Choose a new name for this list:', buttonElement.dataset.nickname ?? '');
         if (newName === null) return;
         newName = newName.trim();
-        if (!newName || newnode == buttonElement.dataset.originalname) { 
+        if (!newName || newName == buttonElement.dataset.originalname) { 
             newName = '';
         }
         await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: null, nickname: newName });

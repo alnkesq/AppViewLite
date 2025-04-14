@@ -4826,9 +4826,14 @@ namespace AppViewLite
 
         public void LaunchLabelerListener(string did, string endpoint)
         {
+            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUrl) || endpointUrl.Scheme != Uri.UriSchemeHttps)
+            {
+                Log("Invalid labeler endpoint: " + endpoint);
+                return;
+            }
             var indexer = new Indexer(this)
             {
-                FirehoseUrl = new(endpoint),
+                FirehoseUrl = endpointUrl,
                 VerifyValidForCurrentRelay = labelerDidFromFirehose =>
                 {
                     if (did != labelerDidFromFirehose)

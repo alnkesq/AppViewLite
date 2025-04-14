@@ -7,7 +7,7 @@
 }
 @{
     var profileCount = Notification.Profiles?.Count ?? 0;
-    var embedFullPost = Notification.Kind is NotificationKind.MentionedYou or NotificationKind.QuotedYourPost or NotificationKind.RepliedToYourThread or NotificationKind.RepliedToYourPost;
+    var embedFullPost = Notification.Kind is NotificationKind.MentionedYou or NotificationKind.QuotedYourPost or NotificationKind.RepliedToYourThread or NotificationKind.RepliedToYourPost or NotificationKind.RepliedToADescendant;
 }
 <div class="notification @(Notification.IsNew ? "notification-new" : null)" @key="@(Notification.LatestDate.Ticks + Notification.Kind.ToString())">
     <a class="notification-background-link" href="@(Notification.Post?.BaseUrl ?? Notification.List?.BaseUrl ?? Notification.Feed?.BaseUrl ?? Notification.Profiles?.FirstOrDefault()?.HomeUrl)"></a>

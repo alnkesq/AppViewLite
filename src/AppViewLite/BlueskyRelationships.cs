@@ -1009,11 +1009,51 @@ namespace AppViewLite
                 proto.InReplyToRKey = inReplyTo.PostRKey.TidValue;
                 this.DirectReplies.Add(inReplyTo, postId);
 
-                AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx, postId.PostRKey.Date);
+                var notifiedAncestors = new HashSet<Plc>();
+                
+                var rootPostId = proto.RootPostId;
+                if (rootPostId != postId && rootPostId != inReplyTo)
+                {
+                    // Reply to a non-root post.
 
-                // Should the thread owner be notified of replies to replies to their post? Probably not.
-                // if (inReplyTo.Author != proto.RootPostId.Author)
-                //     AddNotification(proto.RootPostId.Author, NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
+                    AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx, postId.PostRKey.Date);
+                    notifiedAncestors.Add(inReplyTo.Author);
+
+                    var ancestor = inReplyTo;
+                    var iterations = 0;
+                    while (true)
+                    {
+                        if (iterations++ == 30) break;
+                        var a = TryGetPostData(ancestor, skipBpeDecompression: true, ignoreDeletions: true);
+                        if (a == null)
+                        {
+                            // We don't have all the data for all the intermediate posts.
+                            // At least let's notify the root post.
+                            if (notifiedAncestors.Add(rootPostId.Author))
+                                AddNotification(rootPostId.Author, NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
+                            break;
+                        }
+
+                        if (a.InReplyToPostId is { } nextAncestor)
+                        {
+                            ancestor = nextAncestor;
+                            var hasMoreAncestors = ancestor != rootPostId;
+                            if (notifiedAncestors.Add(ancestor.Author))
+                                AddNotification(ancestor.Author, hasMoreAncestors ? NotificationKind.RepliedToADescendant : NotificationKind.RepliedToYourThread, postId, ctx, postId.PostRKey.Date);
+                            if (!hasMoreAncestors) break;
+                        }
+                        else
+                        {
+                            Log("Retrieved ancestor is a root post, why didn't we stop earlier? Leaf: " + postId);
+                            break;
+                        }
+                    }
+                } 
+                else
+                {
+                    // Direct reply to a root post, no lookups needed.
+                    AddNotification(inReplyTo.Author, NotificationKind.RepliedToYourPost, postId, ctx, postId.PostRKey.Date);
+                }
 
             }
 
@@ -2468,7 +2508,7 @@ namespace AppViewLite
             {
                 NotificationKind.FollowedYou or NotificationKind.FollowedYouBack or NotificationKind.UnfollowedYou or NotificationKind.BlockedYou => (default, notification.Actor),
                 NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost or NotificationKind.DetachedYourQuotePost or NotificationKind.HidYourReply => (new PostId(destination, notification.RKey), notification.Actor),
-                NotificationKind.RepliedToYourPost or NotificationKind.RepliedToYourThread or NotificationKind.QuotedYourPost => (new PostId(notification.Actor, notification.RKey), notification.Actor),
+                NotificationKind.RepliedToYourPost or NotificationKind.RepliedToYourThread or NotificationKind.QuotedYourPost or NotificationKind.RepliedToADescendant => (new PostId(notification.Actor, notification.RKey), notification.Actor),
                 _ => default
             };
 

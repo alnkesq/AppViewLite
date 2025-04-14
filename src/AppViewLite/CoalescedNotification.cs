@@ -37,6 +37,7 @@ namespace AppViewLite
                     NotificationKind.QuotedYourPost => "quoted you",
                     NotificationKind.MentionedYou => "mentioned you",
                     NotificationKind.RepliedToYourPost => "replied to your post",
+                    NotificationKind.RepliedToADescendant => "replied to your post",
                     NotificationKind.RepliedToYourThread => "replied to your thread",
                     NotificationKind.BlockedYou => "blocked you",
                     NotificationKind.UnfollowedYou => "unfollowed you",

@@ -657,7 +657,7 @@ namespace AppViewLite
             if (largestSeenFirehoseCursor == 0) return;
             currentFirehoseCursor.CommittedCursor = largestSeenFirehoseCursor.ToString();
             currentFirehoseCursor.CursorCommitDate = DateTime.UtcNow;
-            Log($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
+            LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, RetryPolicy? retryPolicy, CancellationToken ct = default)

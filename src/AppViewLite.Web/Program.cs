@@ -263,10 +263,10 @@ namespace AppViewLite.Web
                             .ToArray();
                     }, RequestContext.CreateForFirehose("StartListeningToAllLabelers"));
 
-                    new Task(async () =>
+                    Indexer.RunOnFirehoseProcessingThreadpool(async () => 
                     {
                         // Approx 600 labelers
-                        var delayMsBetweenLaunch = TimeSpan.FromSeconds(30).TotalMilliseconds / Math.Max(allLabelers.Length, 1);
+                        var delayMsBetweenLaunch = TimeSpan.FromSeconds(60).TotalMilliseconds / Math.Max(allLabelers.Length, 1);
                         foreach (var labelFirehose in allLabelers.GroupBy(x => x.LabelerEndpoint))
                         {
                             var labelerDids = labelFirehose.Select(x => x.LabelerDid).ToArray();
@@ -275,6 +275,7 @@ namespace AppViewLite.Web
                             await Task.Delay((int)delayMsBetweenLaunch);
                         }
                         LoggableBase.Log("All labeler listeners were lanched.");
+                        return 0;
                     }).FireAndForget();
 
                 }

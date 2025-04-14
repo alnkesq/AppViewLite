@@ -1819,7 +1819,7 @@ var listActions = {
     setLabelerPrivateName: async function (did, listrkey, labelName, listElement, buttonElement) {
         var newName = prompt('Choose a new name for this list:', buttonElement.dataset.nickname ?? '');
         if (newName === null) return;
-        newnode = newName.trim();
+        newName = newName.trim();
         if (!newName || newnode == buttonElement.dataset.originalname) { 
             newName = '';
         }

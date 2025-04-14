@@ -6,11 +6,21 @@
 @if(Labels != null && Labels.Count != 0)
 {
     <div class="label-badge-list @ExtraClass">
-        @foreach (var label in Labels)
+        @foreach (var labelGroup in Labels.GroupBy(x => x.NicknameOrDisplayName).OrderBy(x => x.Key))
         {
-            <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + (label.Moderator != null ? "\n\n" + label.Moderator.DisplayNameOrFallback : null))">
-                @label.NicknameOrDisplayName
-            </a>
+            if (labelGroup.Count() == 1)
+            {
+                var label = labelGroup.First();
+                <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + (label.Moderator != null ? "\n\n" + label.Moderator.DisplayNameOrFallback : null))">
+                    @labelGroup.Key
+                </a>
+            }
+            else
+            {
+                <a class="label-badge" href="@labelGroup.First().BaseUrl" title="@("According to:" + string.Join(null, labelGroup.Select(x => "\n• " + x.Moderator!.DisplayNameOrFallback).Distinct().Order()))">
+                    @(labelGroup.Key + " (×" + labelGroup.Count() + ")")
+                </a>
+            }
         }
     </div>
 

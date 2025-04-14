@@ -8,6 +8,8 @@ using AppViewLite.PluggableProtocols;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.HttpOverrides;
 using AppViewLite.Storage;
+using AppViewLite.Models;
+using System.Text;
 
 namespace AppViewLite.Web
 {
@@ -243,22 +245,38 @@ namespace AppViewLite.Web
 
                 }
 
-                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES) ?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])
-                    .Select(x => x.Split('/'))
-                    .Select(x => (Endpoint: "https://" + x[0], Did: x[1]))
+                var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES)
+                    ?? ["*"])
+                    //?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])
                     .ToArray();
-                foreach (var labelFirehose in labelFirehoses)
+                if (labelFirehoses.Contains("*"))
                 {
-                    var indexer = new Indexer(apis)
+
+                    var allLabelers = apis.WithRelationshipsLock(rels =>
                     {
-                        FirehoseUrl = new(labelFirehose.Endpoint),
-                        VerifyValidForCurrentRelay = did =>
-                        {
-                            if (did != labelFirehose.Did)
-                                throw new Exception($"Ignoring label from {did} because it didn't come from {labelFirehose.Endpoint}");
-                        }
-                    };
-                    indexer.StartListeningToAtProtoFirehoseLabels(labelFirehose.Endpoint).FireAndForget();
+                        var cacheSlices = rels.DidDocs.GetCache<WhereSelectCache<Plc, byte, Plc, byte>>("labeler")!.cacheSlices;
+                        return cacheSlices
+                            .SelectMany(x => x.Cache.Enumerate().Select(x => new { LabelerPlc = x.Key, LabelerDid = rels.GetDid(x.Key), LabelerEndpoint = Encoding.UTF8.GetString(x.Values.AsSmallSpan())! }))
+                            .GroupBy(x => x.LabelerPlc)
+                            .Select(x => x.Last())
+                            .ToArray();
+                    }, RequestContext.CreateForFirehose("StartListeningToAllLabelers"));
+
+                    foreach (var labelFirehose in allLabelers.Take(10))
+                    {
+                        LoggableBase.LogInfo("Launching labeler firehose: " + labelFirehose.LabelerEndpoint + " for " + labelFirehose.LabelerDid);
+                        apis.LaunchLabelerListener(labelFirehose.LabelerDid, labelFirehose.LabelerEndpoint);
+                    }
+                }
+                else
+                {
+                    foreach (var labelFirehose in labelFirehoses
+                        .Select(x => x.Split('/'))
+                        .Select(x => (Endpoint: "https://" + x[0], Did: x[1]))
+                    )
+                    {
+                        apis.LaunchLabelerListener(labelFirehose.Did, labelFirehose.Endpoint);
+                    }
                 }
 
                 foreach (var pluggableProtocol in AppViewLite.PluggableProtocols.PluggableProtocol.RegisteredPluggableProtocols)

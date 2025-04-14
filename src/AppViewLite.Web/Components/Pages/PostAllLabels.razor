@@ -1,0 +1,24 @@
+@page "/@{did}/{rkey}/all-labels"
+@page "/@{did}@{activityPubInstance}/{rkey}/all-labels"
+@inherits ProfileComponentBase
+
+@code {
+    [Parameter] public required string RKey { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    private BlueskyModerationBase[] Labels = [];
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        Labels = (await Apis.GetAllPostLabelsAsync(Did, RKey, RequestContext)).Cast<BlueskyModerationBase>().ToArray();
+    }
+}
+
+<PageTitle>All post labels</PageTitle>
+
+<h1>All post labels</h1>
+<a href="/@("@" + Did)/@RKey" class="underline-on-hover main-padding">Back to post</a>
+
+<ListList Lists="Labels" EmptyListText="No labels were indexed for this post." />
+

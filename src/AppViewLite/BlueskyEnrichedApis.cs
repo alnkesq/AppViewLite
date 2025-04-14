@@ -38,7 +38,6 @@ using AppViewLite.PluggableProtocols;
 using System.Collections.Frozen;
 using AppViewLite.Storage;
 using FishyFlip.Lexicon.Com.Atproto.Sync;
-using System.IO;
 
 namespace AppViewLite
 {
@@ -3137,7 +3136,7 @@ namespace AppViewLite
                     .ToArray();
             }, ctx);
 
-            ctx.IncreaseTimeout(TimeSpan.FromSeconds(3000)); // no live reload for lists
+            ctx.IncreaseTimeout(TimeSpan.FromSeconds(3)); // no live reload for lists
             await EnrichAsync(lists, ctx);
             return GetPageAndNextPaginationFromLimitPlus1(lists, limit, x => new ListMembership(x.Moderator!.Plc, x.ListId.RelationshipRKey, x.MembershipRkey!.Value).Serialize());
         }
@@ -4823,6 +4822,35 @@ namespace AppViewLite
                 Indexer.CaptureFirehoseCursors?.Invoke();
                 resume();
             }
+        }
+
+        public void LaunchLabelerListener(string did, string endpoint)
+        {
+            var indexer = new Indexer(this)
+            {
+                FirehoseUrl = new(endpoint),
+                VerifyValidForCurrentRelay = labelerDidFromFirehose =>
+                {
+                    if (did != labelerDidFromFirehose)
+                        throw new Exception($"Labeler firehose {endpoint} ({did}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
+                }
+            };
+            indexer.StartListeningToAtProtoFirehoseLabels(endpoint).FireAndForget();
+        }
+
+        public async Task<BlueskyLabel[]> GetAllPostLabelsAsync(string did, string rkey, RequestContext ctx)
+        {
+            var labels = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetPostLabels(new PostId(plc, Tid.Parse(rkey))).Select(x => rels.GetLabel(x, ctx)).ToArray(), ctx);
+            ctx.IncreaseTimeout(TimeSpan.FromSeconds(3));
+            await EnrichAsync(labels, ctx);
+            return labels;
+        }
+        public async Task<BlueskyLabel[]> GetAllProfileLabelsAsync(string did, RequestContext ctx)
+        {
+            var labels = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetProfileLabels(plc).Select(x => rels.GetLabel(x, ctx)).ToArray(), ctx);
+            ctx.IncreaseTimeout(TimeSpan.FromSeconds(3));
+            await EnrichAsync(labels, ctx);
+            return labels;
         }
     }
 }

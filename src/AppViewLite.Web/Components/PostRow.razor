@@ -510,6 +510,10 @@
                             }
                         }
                     }
+                    @if (Post.PluggableProtocol == null)
+                    {
+                        <a href="@Post.BaseUrl/all-labels" class="menu-item menu-item-advanced">Show all post labels</a>
+                    }
                 </div>
                 
                 <button class="post-action-bar-button">

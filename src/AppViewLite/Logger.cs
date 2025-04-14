@@ -103,7 +103,7 @@ namespace AppViewLite
             LogInfo(text + ": " + ex.Message);
         }
 
-        internal static void LogInfo(string text)
+        public static void LogInfo(string text)
         {
             Console.Error.WriteLine(text);
         }

@@ -1,0 +1,20 @@
+@page "/@{did}/labels"
+@page "/@{did}@{activityPubInstance}/labels"
+@inherits ProfileComponentBase
+
+@code {
+    private BlueskyModerationBase[] Labels = [];
+    private BlueskyProfile? Member;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        Member = await Apis.GetProfileAsync(Did, RequestContext);
+        Labels = (await Apis.GetAllProfileLabelsAsync(Did, RequestContext)).Cast<BlueskyModerationBase>().ToArray();
+    }
+}
+
+<PageTitle>Labels for @Member?.DisplayNameOrFallback</PageTitle>
+<ProfileGraphHeader ProfileBaseUrl="@ProfileBaseUrl" Did="@Did" Dark="true" />
+<ListList Lists="Labels" EmptyListText="No labels were indexed for this profile." />
+

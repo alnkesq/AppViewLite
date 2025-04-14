@@ -1570,6 +1570,10 @@ namespace AppViewLite.Storage
         {
             return Caches?.OfType<TCache>().SingleOrDefault();
         }
+        public TCache? GetCache<TCache>(string identifier) where TCache : CachedView
+        {
+            return Caches?.OfType<TCache>().SingleOrDefault(x => x.Identifier == identifier);
+        }
 
         public override IEnumerable<(string Name, object Value)> GetCounters()
         {

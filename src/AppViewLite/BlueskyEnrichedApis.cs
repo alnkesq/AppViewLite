@@ -4824,7 +4824,7 @@ namespace AppViewLite
             }
         }
 
-        public void LaunchLabelerListener(string did, string endpoint)
+        public void LaunchLabelerListener(string[] allowedLabelerDids, string endpoint)
         {
             if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUrl) || endpointUrl.Scheme != Uri.UriSchemeHttps)
             {
@@ -4836,8 +4836,8 @@ namespace AppViewLite
                 FirehoseUrl = endpointUrl,
                 VerifyValidForCurrentRelay = labelerDidFromFirehose =>
                 {
-                    if (did != labelerDidFromFirehose)
-                        throw new Exception($"Labeler firehose {endpoint} ({did}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
+                    if (!allowedLabelerDids.Contains(labelerDidFromFirehose))
+                        throw new Exception($"Labeler firehose {endpoint} ({string.Join(", ", allowedLabelerDids)}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
                 }
             };
             indexer.StartListeningToAtProtoFirehoseLabels(endpoint).FireAndForget();

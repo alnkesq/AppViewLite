@@ -266,10 +266,11 @@ namespace AppViewLite.Web
                     {
                         // Approx 600 labelers
                         var delayMsBetweenLaunch = TimeSpan.FromSeconds(30).TotalMilliseconds / Math.Max(allLabelers.Length, 1);
-                        foreach (var labelFirehose in allLabelers)
+                        foreach (var labelFirehose in allLabelers.GroupBy(x => x.LabelerEndpoint))
                         {
-                            LoggableBase.LogInfo("Launching labeler firehose: " + labelFirehose.LabelerEndpoint + " for " + labelFirehose.LabelerDid);
-                            apis.LaunchLabelerListener(labelFirehose.LabelerDid, labelFirehose.LabelerEndpoint);
+                            var labelerDids = labelFirehose.Select(x => x.LabelerDid).ToArray();
+                            LoggableBase.LogInfo("Launching labeler firehose: " + labelFirehose.Key + " for " + string.Join(", ", labelerDids));
+                            apis.LaunchLabelerListener(labelerDids, labelFirehose.Key);
                             await Task.Delay((int)delayMsBetweenLaunch);
                         }
                         LoggableBase.Log("All labeler listeners were lanched.");

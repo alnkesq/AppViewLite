@@ -247,6 +247,7 @@ namespace AppViewLite.Web
 
                 var labelFirehoses = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_LABEL_FIREHOSES)
                     ?? ["*"])
+                    .Where(x => x != "-")
                     //?? ["mod.bsky.app/did:plc:ar7c4by46qjdydhdevvrndac"])
                     .ToArray();
                 if (labelFirehoses.Contains("*"))

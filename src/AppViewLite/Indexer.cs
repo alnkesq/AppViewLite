@@ -1166,6 +1166,7 @@ namespace AppViewLite
                     {
                         FlushBatch();
                         batchFlushes++;
+                        await Task.Delay(500);
                     }
                 }
             }

@@ -160,12 +160,16 @@ namespace AppViewLite.Web
                     did = ctx.UserContext.Did,
                     firstLogin = profile.FirstLogin,
                     sessions = profile.Sessions.Select(x => new { loginDate = x.LogInDate }).ToArray(),
+                    alwaysPreferBookmarkButton = profile.AlwaysPreferBookmarkButton,
+                    theme = profile.Theme.ToString(),
+                    accentColor = profile.AccentColor.ToString(),
                     moderationSettings = profile.LabelerSubscriptions.Select(x => new
                     {
                         labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
                         listRkey = x.ListRKey != 0 ? new Tid(x.ListRKey).ToString() : null,
                         labelName = x.ListRKey == 0 ? rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash)).Name : null,
                         behavior = x.Behavior.ToString(),
+                        privateNickname = x.OverrideDisplayName,
                     }).ToArray(),
                     bookmarks = bookmarks.Select(x => new { dateBookmarked = x.Bookmark.BookmarkRKey.Date, did = x.Did, rkey = x.Bookmark.PostId.PostRKey.ToString(), originalPostUrl = rels.GetOriginalPostUrl(x.Bookmark.PostId, x.Did) }).ToArray(),
                     perUserSettings = profile.PrivateFollows.Where(x => x.Plc != 0).Select(x => new

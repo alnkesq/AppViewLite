@@ -161,7 +161,7 @@ namespace AppViewLite
             }
 
             // These notifications can reference posts from the past that we don't have.
-            if (notification.Kind is NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost)
+            if (notification.Kind is NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost or NotificationKind.LabeledYourPost)
             {
                 var postId = new PostId(destination, notification.RKey);
                 if (!rels.PostData.ContainsKey(postId) && !rels.FailedPostLookups.ContainsKey(postId))

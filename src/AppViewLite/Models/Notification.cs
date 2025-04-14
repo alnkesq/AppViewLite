@@ -54,6 +54,8 @@ namespace AppViewLite.Models
         AddedYouToAList,
         HidYourReply,
         DetachedYourQuotePost,
+        LabeledYourPost,
+        LabeledYourProfile,
     }
 }
 

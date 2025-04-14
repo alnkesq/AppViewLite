@@ -44,6 +44,8 @@ namespace AppViewLite
                     NotificationKind.AddedYouToAList => "added you to a list",
                     NotificationKind.HidYourReply => "hid your reply",
                     NotificationKind.DetachedYourQuotePost => "detached your quote",
+                    NotificationKind.LabeledYourPost => "labeled your post",
+                    NotificationKind.LabeledYourProfile => "labeled your profile",
                     _ => throw AssertionLiteException.ThrowBadEnumException(Kind)
                 };
             }

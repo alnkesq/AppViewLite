@@ -809,12 +809,16 @@ namespace AppViewLite
                 {
                     if (uri.Collection == Post.RecordType)
                     {
-                        rels.PostLabels.Add(rels.GetPostId(uri, ctx), entry);
+                        var postId = rels.GetPostId(uri, ctx);
+                        rels.PostLabels.Add(postId, entry);
+                        rels.AddNotification(postId, NotificationKind.LabeledYourPost, entry.Labeler, ctx, entry.Date);
                     }
                 }
                 else
                 {
-                    rels.ProfileLabels.Add(rels.SerializeDid(uri.Did!.Handler, ctx), entry);
+                    var labeledUser = rels.SerializeDid(uri.Did!.Handler, ctx);
+                    rels.ProfileLabels.Add(labeledUser, entry);
+                    rels.AddNotification(labeledUser, NotificationKind.LabeledYourProfile, entry.Labeler, ctx, entry.Date);
                 }
 
 

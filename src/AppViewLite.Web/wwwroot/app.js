@@ -1824,7 +1824,18 @@ var listActions = {
             newName = '';
         }
         await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: null, nickname: newName });
-        location.reload();
+        var titleElement = listElement.querySelector('.list-metadata-row-name a');
+        if (titleElement) { 
+            if (newName) {
+                titleElement.innerHTML = '';
+                var del = document.createElement('del');
+                del.textContent = buttonElement.dataset.originalname;
+                titleElement.appendChild(del);
+                titleElement.appendChild(document.createTextNode(' ' + newName));
+            } else { 
+                titleElement.textContent = buttonElement.dataset.originalname;
+            }
+        }
     }
 }
 

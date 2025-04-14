@@ -284,7 +284,7 @@ namespace AppViewLite.Web
                         .Select(x => (Endpoint: "https://" + x[0], Did: x[1]))
                     )
                     {
-                        apis.LaunchLabelerListener(labelFirehose.Did, labelFirehose.Endpoint);
+                        apis.LaunchLabelerListener([labelFirehose.Did], labelFirehose.Endpoint);
                     }
                 }
 

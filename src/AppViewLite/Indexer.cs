@@ -812,6 +812,7 @@ namespace AppViewLite
                     {
                         var postId = rels.GetPostId(uri, ctx);
                         rels.PostLabels.Add(postId, entry);
+                        rels.LabelToPosts.Add(new LabelId(entry.Labeler, entry.KindHash), postId);
                         rels.AddNotification(postId, NotificationKind.LabeledYourPost, entry.Labeler, ctx, entry.Date);
                     }
                 }
@@ -819,6 +820,7 @@ namespace AppViewLite
                 {
                     var labeledUser = rels.SerializeDid(uri.Did!.Handler, ctx);
                     rels.ProfileLabels.Add(labeledUser, entry);
+                    rels.LabelToProfiles.Add(new LabelId(entry.Labeler, entry.KindHash), labeledUser);
                     rels.AddNotification(labeledUser, NotificationKind.LabeledYourProfile, entry.Labeler, ctx, entry.Date);
                 }
 

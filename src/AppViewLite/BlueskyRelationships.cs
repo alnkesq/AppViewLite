@@ -92,6 +92,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<DuckDbUuid, HandleVerificationResult> HandleToDidVerifications;
         public CombinedPersistentMultiDictionary<PostId, LabelEntry> PostLabels;
         public CombinedPersistentMultiDictionary<Plc, LabelEntry> ProfileLabels;
+        public CombinedPersistentMultiDictionary<LabelId, PostIdTimeFirst> LabelToPosts;
+        public CombinedPersistentMultiDictionary<LabelId, Plc> LabelToProfiles;
         public CombinedPersistentMultiDictionary<ulong, byte> LabelNames;
         public CombinedPersistentMultiDictionary<LabelId, byte> LabelData;
         public CombinedPersistentMultiDictionary<DuckDbUuid, byte> CustomEmojis;
@@ -366,6 +368,8 @@ namespace AppViewLite
 
             PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
             ProfileLabels = RegisterDictionary<Plc, LabelEntry>("profile-label");
+            LabelToPosts = RegisterDictionary<LabelId, PostIdTimeFirst>("label-to-posts");
+            LabelToProfiles = RegisterDictionary<LabelId, Plc>("label-to-profiles");
             LabelNames = RegisterDictionary<ulong, byte>("label-name", PersistentDictionaryBehavior.PreserveOrder);
             LabelData = RegisterDictionary<LabelId, byte>("label-data", PersistentDictionaryBehavior.PreserveOrder);
 

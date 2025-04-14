@@ -23,7 +23,7 @@ namespace AppViewLite
             LoggableBase.Log("Press CTRL+C to stop indexing...");
             //indexer.RetrievePlcDirectoryLoopAsync().FireAndForget();
             indexer.VerifyValidForCurrentRelay = x => { };
-            await indexer.StartListeningToAtProtoFirehoseRepos();
+            await indexer.StartListeningToAtProtoFirehoseRepos(retryPolicy: null);
         }
 
     }

@@ -358,8 +358,9 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
-        public static async Task RetryInfiniteLoopAsync(Func<CancellationToken, Task> attempt, CancellationToken ct, TimeSpan? intervalBetweenRetries = null)
+        public static async Task RetryInfiniteLoopAsync(Func<CancellationToken, Task> attempt, CancellationToken ct, RetryPolicy? retryPolicy = null)
         {
+            retryPolicy ??= RetryPolicy.CreateConstant(TimeSpan.FromSeconds(30));
             // This method must not throw, but CAN exit cleanly on CancellationToken.IsCancellationRequested (due to CaptureFirehoseCursors -= CaptureFirehoseCursor in callers)
             while (true)
             {
@@ -374,8 +375,8 @@ namespace AppViewLite.PluggableProtocols
                 catch (Exception ex)
                 {
                     LogNonCriticalException("Pluggable protocol error", ex);
+                    await Task.Delay(retryPolicy.OnException(ex));
                 }
-                await Task.Delay(intervalBetweenRetries ?? TimeSpan.FromSeconds(30), ct);
             }
         }
 
@@ -500,5 +501,6 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
     }
+
 }
 

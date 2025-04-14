@@ -241,7 +241,7 @@ namespace AppViewLite.Web
                     if (isJetStream)
                         indexer.StartListeningToJetstreamFirehose().FireAndForget();
                     else
-                        indexer.StartListeningToAtProtoFirehoseRepos().FireAndForget();
+                        indexer.StartListeningToAtProtoFirehoseRepos(retryPolicy: null).FireAndForget();
 
                 }
 
@@ -308,7 +308,7 @@ namespace AppViewLite.Web
 
                             await Task.Delay(TimeSpan.FromMinutes(20), ct);
                         }
-                    }, default, TimeSpan.FromMinutes(5));
+                    }, default, retryPolicy: RetryPolicy.CreateConstant(TimeSpan.FromMinutes(5)));
                 }).FireAndForget();
 
             }

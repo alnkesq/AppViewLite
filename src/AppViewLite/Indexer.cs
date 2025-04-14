@@ -627,7 +627,7 @@ namespace AppViewLite
                 Log($"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.LastSeenEventDate, showSeconds: true)} ago)");
         }
 
-        public Task StartListeningToAtProtoFirehoseRepos(CancellationToken ct = default)
+        public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, watchdog) =>
             {
@@ -637,7 +637,7 @@ namespace AppViewLite
                     OnRepoFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler);
-            }, ct);
+            },  retryPolicy, ct: ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
@@ -649,7 +649,7 @@ namespace AppViewLite
                     OnLabelFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, nameForDebugging);
-            }, ct);
+            }, RetryPolicy.CreateForUnreliableServer(), ct);
         }
 
         private void CaptureFirehoseCursor()
@@ -660,7 +660,7 @@ namespace AppViewLite
             Log($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -701,7 +701,7 @@ namespace AppViewLite
                     if (!ShutdownRequested.IsCancellationRequested)
                         Apis.DrainAndCaptureFirehoseCursors();
                 }
-            }, ct);
+            }, ct, retryPolicy: retryPolicy);
 
             CaptureFirehoseCursors -= CaptureFirehoseCursor;
         }
@@ -795,6 +795,7 @@ namespace AppViewLite
             if (string.IsNullOrEmpty(label.Val))
                 throw new ArgumentException("OnLabelCreated: label is null or empty");
 
+            // LogInfo("Label: " + label.Val +  " to " + label.Uri + " (from " + labeler + " via " + this.FirehoseUrl + ")");
             WithRelationshipsWriteLock(rels =>
             {
 

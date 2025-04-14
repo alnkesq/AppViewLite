@@ -241,7 +241,7 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, bool omitLabels = false, CancellationToken ct = default)
         {
             if (profiles.Length == 0) return profiles;
 
@@ -270,7 +270,8 @@ namespace AppViewLite
                 })), ctx);
             }
 
-            await EnrichAsync(profiles.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
+            if (!omitLabels)
+                await EnrichAsync(profiles.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
 
             return profiles;
         }
@@ -3172,7 +3173,7 @@ namespace AppViewLite
                 }
             }
 
-            await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx);
+            await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx, omitLabels: true /* avoid infinite recursion */);
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
@@ -3214,7 +3215,7 @@ namespace AppViewLite
 
                 })), ctx);
             }
-            await EnrichAsync(lists.Select(x => x.Moderator!).ToArray(), ctx, ct: ct);
+            await EnrichAsync(lists.Select(x => x.Moderator!).ToArray(), ctx, ct: ct, omitLabels: true /* avoid infinite recursion */);
             return lists;
         }
 

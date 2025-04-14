@@ -19,7 +19,6 @@ namespace AppViewLite
         protected readonly BlueskyRelationships relationshipsUnlocked;
         public readonly PrimarySecondaryPair primarySecondaryPair;
         protected BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked => primarySecondaryPair.readOnlyReplicaRelationshipsUnlocked;
-        private readonly bool canUseSecondary;
         public BlueskyRelationshipsClientBase(PrimarySecondaryPair primarySecondaryPair)
         {
             this.relationshipsUnlocked = primarySecondaryPair.relationshipsUnlocked;

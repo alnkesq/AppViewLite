@@ -3966,23 +3966,26 @@ namespace AppViewLite
 
         public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, bool SlowImport, RequestContext? AuthenticatedCtx, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
+        public readonly static HttpClient DefaultHttpClientNoDefaultHeaders;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
 
         static BlueskyEnrichedApis()
         {
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
+            DefaultHttpClientNoDefaultHeaders = CreateHttpClient(autoredirect: true, defaultHeaders: false);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect)
+        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true)
         {
             var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
             {
                 AllowAutoRedirect = autoredirect,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
             }, true), true);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+            if (defaultHeaders)
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
             client.Timeout = TimeSpan.FromSeconds(10);
             return client;

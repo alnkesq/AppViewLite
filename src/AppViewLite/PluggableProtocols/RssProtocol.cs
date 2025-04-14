@@ -261,7 +261,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         title = label.Split('/')[1];
                     }
                     else title = null;
-                    
+
                 }
 
 
@@ -1046,6 +1046,36 @@ namespace AppViewLite.PluggableProtocols.Rss
                 if (segment != null)
                     return $"did:rss:{segment}.tumblr.com:rss";
             }
+            if (url.HasHostSuffix("youtube.com"))
+            {
+                var segments = url.GetSegments();
+                var first = segments.FirstOrDefault();
+                if (first != null)
+                {
+                    if (first is "user" or "c" || first.StartsWith('@'))
+                    {
+                        using var request = new HttpRequestMessage(HttpMethod.Get, url.GetLeftPart(UriPartial.Path));
+                        // If we DON'T submit any User-Agent, we don't get the cookie consent interstitial.
+                        using var ytresponse = await BlueskyEnrichedApis.DefaultHttpClientNoDefaultHeaders.SendAsync(request);
+                        ytresponse.EnsureSuccessStatusCode();
+                        if (ytresponse.RequestMessage?.RequestUri?.Host.StartsWith("consent.", StringComparison.Ordinal) == true)
+                            throw AssertionLiteException.Throw("Could not resolve channel ID (cookie consent interstitial couldn't be bypassed)");
+                        var dom = StringUtils.ParseHtml(await ytresponse.Content.ReadAsStringAsync());
+                        var canonical = dom.QuerySelector("link[rel='canonical']")?.GetAttribute("href");
+                        if (canonical == null) throw AssertionLiteException.Throw("Could not resolve channel ID.");
+                        var canonicalUrlSegments = new Uri(canonical).GetSegments();
+                        if (canonicalUrlSegments.FirstOrDefault() != "channel") throw AssertionLiteException.Throw("Could not resolve channel ID (the returned rel=canonical wasn't a channel ID).");
+                        var channelId = canonicalUrlSegments[1];
+                        return UrlToDid(new Uri("https://www.youtube.com/feeds/videos.xml?channel_id=" + channelId));
+                    }
+                    else if (first == "channel")
+                    {
+                        var channelId = segments[1];
+                        return UrlToDid(new Uri("https://www.youtube.com/feeds/videos.xml?channel_id=" + channelId));
+                    }
+
+                }
+            }
 
             if (url.HasHostSuffix("reddit.com"))
             {
@@ -1120,7 +1150,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (data.ExternalUrl == null) return false;
 
             if (post.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
-            {    
+            {
                 // Reddit RSS doesn't provide description. However, keep RSS thumbnail as a fallback.
                 return true;
             }
@@ -1169,6 +1199,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("tumblr.com"))
             {
                 return url.Host;
+            }
+            if (url.HasHostSuffix("youtube.com"))
+            {
+                return "youtube.com/channel/" + url.GetQueryDictionary()["channel_id"];
             }
             return StringUtils.GetDisplayHost(url);
         }

@@ -258,19 +258,27 @@ namespace AppViewLite.Web
         [HttpPost(nameof(SetLabelerMode))]
         public void SetLabelerMode(SetLabelerModeArgs args)
         {
-            var mode = Enum.Parse<ModerationBehavior>(args.Mode);
+            ModerationBehavior? mode = args.Mode != null ? Enum.Parse<ModerationBehavior>(args.Mode) : null;
             var plc = apis.SerializeSingleDid(args.Did, ctx);
-            var subscription = new LabelerSubscription { LabelerPlc = plc.PlcValue, Behavior = mode };
+            var subscription = new LabelerSubscription { LabelerPlc = plc.PlcValue, Behavior = ModerationBehavior.None };
             if (args.ListRkey != null)
                 subscription.ListRKey = Tid.Parse(args.ListRkey).TidValue;
             else
                 subscription.LabelerNameHash = BlueskyRelationships.HashLabelName(args.LabelName!);
             lock (ctx.PrivateProfile)
             {
-                var updatedSubscriptions = ctx.PrivateProfile.LabelerSubscriptions.Where(x => !(x.LabelerPlc == subscription.LabelerPlc && x.ListRKey == subscription.ListRKey && x.LabelerNameHash == subscription.LabelerNameHash));
-                if (mode != ModerationBehavior.None)
-                    updatedSubscriptions = updatedSubscriptions.Append(subscription);
-                ctx.PrivateProfile.LabelerSubscriptions = updatedSubscriptions.ToArray();
+                subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => x.LabelerPlc == subscription.LabelerPlc && x.ListRKey == subscription.ListRKey && x.LabelerNameHash == subscription.LabelerNameHash) ?? subscription;
+
+                if (mode != null) subscription.Behavior = mode.Value;
+                if (args.Nickname != null) subscription.OverrideDisplayName = args.Nickname.Length == 0 ? null : args.Nickname;
+                if (subscription.Behavior == ModerationBehavior.None && args.Nickname == null)
+                {
+                    ctx.PrivateProfile.LabelerSubscriptions = ctx.PrivateProfile.LabelerSubscriptions.Where(x => x != subscription).ToArray();
+                }
+                else if (!ctx.PrivateProfile.LabelerSubscriptions.Contains(subscription))
+                {
+                    ctx.PrivateProfile.LabelerSubscriptions = ctx.PrivateProfile.LabelerSubscriptions.Append(subscription).ToArray();
+                }
             }
             apis.SaveAppViewLiteProfile(ctx);
         }
@@ -283,7 +291,7 @@ namespace AppViewLite.Web
         public record TogglePrivateFollowArgs(string Did, string Flag, bool NewValue);
         public record DeleteBookmarkArgs(string PostDid, string PostRkey, string BookmarkRKey);
         public record ToggleDomainMuteArgs(string Domain, bool Mute);
-        public record SetLabelerModeArgs(string Did, string? ListRkey, string? LabelName, string Mode);
+        public record SetLabelerModeArgs(string Did, string? ListRkey, string? LabelName, string? Mode, string? Nickname /*null=dont change, empty:use default*/);
     }
 }
 

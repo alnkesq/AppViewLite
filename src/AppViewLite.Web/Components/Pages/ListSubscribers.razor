@@ -1,0 +1,30 @@
+@page "/@{did}/lists/{rkey}/subscribers"
+@page "/@{did}@{activityPubInstance}/lists/{rkey}/subscribers"
+@inherits ProfileComponentBase
+
+@code {
+    [Parameter] public required string RKey { get; set; }
+    private BlueskyList? ListMetadata;
+    private BlueskyProfile[] Subscribers = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        (ListMetadata, Subscribers, NextContinuation) = await Apis.GetListSubscribersAsync(Did, RKey, Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>Subscribers of @ListMetadata?.NicknameOrDisplayName</PageTitle>
+<h1>Subscribers of <LabelerDisplayName List="@ListMetadata" /></h1>
+<div class="main-padding">List by <a href="@ListMetadata?.Moderator!.BaseUrl" class="blue-link">@ListMetadata?.Moderator!.DisplayName</a></div>
+<div class="main-padding">
+    <a href="@ListMetadata!.BaseUrl" class="blue-link">Back to list</a>
+</div>
+<div class="main-padding list-page-description">
+    @ListMetadata?.Data?.Description
+</div>
+
+<ProfileList Profiles="Subscribers" NextContinuation="@NextContinuation" EmptyListText="No subscribers were indexed." />
+

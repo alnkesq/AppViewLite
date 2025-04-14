@@ -428,6 +428,7 @@ namespace AppViewLite
                     var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler, ctx), Tid.Parse(listBlock.Subject.Rkey));
 
                     relationships.ListBlocks.Add(blockId, listId);
+                    relationships.ListSubscribers.Add(listId, blockId);
                 }
                 else if (record is Generator generator)
                 {

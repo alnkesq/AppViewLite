@@ -12,6 +12,8 @@ namespace AppViewLite
         public string? ModeratorDid;
         public BlueskyProfile? Moderator;
         public abstract string DisplayNameOrFallback { get; }
+        public string? NicknameOrDisplayName => PrivateNickname ?? DisplayNameOrFallback;
+        public string? PrivateNickname;
         public abstract string? Description { get; }
         public abstract string GetAvatarUrl(RequestContext ctx);
         public abstract string? BaseUrl { get; }

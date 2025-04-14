@@ -1811,11 +1811,21 @@ var feedActions = {
 var listActions = {
     setLabelerMode: async function (did, listrkey, labelName, listElement, buttonElement) {
         var mode = buttonElement.dataset.mode;
-        await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: mode });
+        await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: mode, nickname: null });
     
         buttonElement.parentElement.querySelectorAll('.labeler-mode').forEach(x => x.classList.remove('labeler-mode-active'));
         buttonElement.classList.add('labeler-mode-active');
     },
+    setLabelerPrivateName: async function (did, listrkey, labelName, listElement, buttonElement) {
+        var newName = prompt('Choose a new name for this list:', buttonElement.dataset.nickname ?? '');
+        if (newName === null) return;
+        newnode = newName.trim();
+        if (!newName || newnode == buttonElement.dataset.originalname) { 
+            newName = '';
+        }
+        await httpPost('SetLabelerMode', { did: did, listRkey: listrkey != '-' ? listrkey : null, labelName: labelName != '-' ? labelName : null, mode: null, nickname: newName });
+        location.reload();
+    }
 }
 
 function formatTwoSignificantDigits(displayValue) { 

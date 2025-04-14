@@ -196,6 +196,7 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public long ListRKey;
         [ProtoMember(3)] public ulong LabelerNameHash;
         [ProtoMember(4)] public required ModerationBehavior Behavior;
+        [ProtoMember(5)] public string? OverrideDisplayName;
     }
 }
 

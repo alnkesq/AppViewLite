@@ -1,9 +1,35 @@
-@code{
-    [Parameter] public required BlueskyModerationBase List { get; set; }    
+@inject RequestContext RequestContext
+@code {
+    [Parameter] public required BlueskyModerationBase List { get; set; }
+    [Parameter] public bool ShowShowMembersButton { get; set; } = true;
 }
 <div class="list-metadata-row-modes">
-    @foreach (var (mode, text) in new[] { (ModerationBehavior.None, "Disabled"), (ModerationBehavior.Badge, "Badge"), (ModerationBehavior.BlurAll, "Blur"), (ModerationBehavior.Mute, "Mute") })
+    @if (RequestContext.IsLoggedIn)
     {
-        <button actionkind="setLabelerMode" class="labeler-mode @(List.Mode == mode ? "labeler-mode-active" : null)" data-mode="@mode">@text</button>
+        foreach (var (mode, text) in new[] { (ModerationBehavior.None, "Disabled"), (ModerationBehavior.Badge, "Badge"), (ModerationBehavior.BlurAll, "Blur"), (ModerationBehavior.Mute, "Mute") })
+        {
+            <button actionkind="setLabelerMode" class="labeler-mode @(List.Mode == mode ? "labeler-mode-active" : null)" data-mode="@mode">@text</button>
+        }
     }
+    <div class="list-metadata-row-menu-button menu-button-wrapper">
+        <div class="list-menu menu">
+            @if (RequestContext.IsLoggedIn)
+            {
+                <button actionkind="setLabelerPrivateName" data-originalname="@List.DisplayNameOrFallback" data-nickname="@(List.PrivateNickname ?? List.DisplayNameOrFallback)" class="menu-item" target="_blank" rel="noreferrer">Set private nickname</button>
+            }
+            @if (List is BlueskyList)
+            {
+                if (ShowShowMembersButton)
+                {
+                    <a href="@List.BaseUrl" class="menu-item" target="_blank" rel="noreferrer">Show members</a>
+                }
+                <a href="@List.BaseUrl/subscribers" class="menu-item" target="_blank" rel="noreferrer">Show subscribers</a>
+            }
+
+        </div>
+
+        <button class="post-action-bar-button">
+            <svg fill="none" viewBox="0 0 24 24" width="20" height="20" style="pointer-events: none;"><path fill="hsl(211, 20%, 53%)" fill-rule="evenodd" clip-rule="evenodd" d="M2 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm16 0a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm-6-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"></path></svg>
+        </button>
+    </div>
 </div>

@@ -1,0 +1,13 @@
+@code{
+    [Parameter] public required BlueskyModerationBase? List { get; set; }
+}
+
+@if (List?.PrivateNickname != null)
+{
+    <del>@List.DisplayNameOrFallback</del>
+    @(" " + List.PrivateNickname)
+}
+else
+{
+    @List?.DisplayNameOrFallback
+}

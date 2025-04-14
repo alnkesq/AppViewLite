@@ -100,7 +100,7 @@ namespace AppViewLite.Models
 
             var labelBlur = AllLabels.FirstOrDefault(x => x.Mode is ModerationBehavior.BlurAll or ModerationBehavior.Mute);
             if (labelBlur != null)
-                return new BlockReasonDisplayStringAndList("[" + labelBlur.DisplayNameOrFallback + "]", labelBlur);
+                return new BlockReasonDisplayStringAndList("[" + labelBlur.NicknameOrDisplayName + "]", labelBlur);
 
             if (!isThreadView && !isQuotee && !isQuoteList) return null;
 

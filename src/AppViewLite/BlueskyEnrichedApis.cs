@@ -17,7 +17,11 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using System.Runtime.InteropServices;
 using FishyFlip.Tools;
-using FishyFlip.Lexicon.App.Bsky.Graph;
+using List = FishyFlip.Lexicon.App.Bsky.Graph.List;
+using Follow = FishyFlip.Lexicon.App.Bsky.Graph.Follow;
+using Listitem = FishyFlip.Lexicon.App.Bsky.Graph.Listitem;
+using Block = FishyFlip.Lexicon.App.Bsky.Graph.Block;
+using Listblock = FishyFlip.Lexicon.App.Bsky.Graph.Listblock;
 using DuckDbSharp.Types;
 using System.Diagnostics;
 using System.Globalization;
@@ -3163,11 +3167,13 @@ namespace AppViewLite
             {
                 foreach (var label in labels)
                 {
-                    label.Mode = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == label.Moderator.Plc && x.LabelerNameHash == label.LabelId.NameHash)?.Behavior ?? ModerationBehavior.None;
+                    var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == label.Moderator!.Plc && x.LabelerNameHash == label.LabelId.NameHash);
+                    label.Mode = subscription?.Behavior ?? ModerationBehavior.None;
+                    label.PrivateNickname = subscription?.OverrideDisplayName;
                 }
             }
 
-            await EnrichAsync(labels.Select(x => x.Moderator).ToArray(), ctx);
+            await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx);
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
@@ -3191,7 +3197,9 @@ namespace AppViewLite
             {
                 foreach (var list in lists)
                 {
-                    list.Mode = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == list.Moderator.Plc && new Tid(x.ListRKey) == list.ListId.RelationshipRKey)?.Behavior ?? ModerationBehavior.None;
+                    var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == list.Moderator!.Plc && new Tid(x.ListRKey) == list.ListId.RelationshipRKey);
+                    list.Mode = subscription?.Behavior ?? ModerationBehavior.None;
+                    list.PrivateNickname = subscription?.OverrideDisplayName;
                 }
             }
             if (!IsReadOnly)
@@ -3207,10 +3215,26 @@ namespace AppViewLite
 
                 })), ctx);
             }
-            await EnrichAsync(lists.Select(x => x.Moderator).ToArray(), ctx, ct: ct);
+            await EnrichAsync(lists.Select(x => x.Moderator!).ToArray(), ctx, ct: ct);
             return lists;
         }
 
+
+        public async Task<(BlueskyList List, BlueskyProfile[] Page, string? NextContinuation)> GetListSubscribersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit);
+            var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)), ctx);
+            var list = WithRelationshipsLock(rels => rels.GetList(listId), ctx);
+
+            await EnrichAsync([list], ctx);
+
+            Relationship? parsedContinuation = continuation != null ? Relationship.Deserialize(continuation) : null;
+            var pagePlusOne = WithRelationshipsLock(rels => rels.ListSubscribers.GetValuesSorted(listId, parsedContinuation).Where(x => !rels.ListBlockDeletions.ContainsKey(x)).Take(limit + 1).Select(x => rels.GetProfile(x.Actor, x.RelationshipRKey, ctx)).ToArray(), ctx);
+            var nextContinuation = pagePlusOne.Length > limit ? new Relationship(pagePlusOne[^2].Plc, pagePlusOne[^2].RelationshipRKey!.Value).Serialize() : null;
+            var page = pagePlusOne.Take(limit).ToArray();
+            await EnrichAsync(page, ctx);
+            return (list, page, nextContinuation);
+        }
         public async Task<(BlueskyList List, BlueskyProfile[] Page, string? NextContinuation)> GetListMembersAsync(string did, string rkey, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);

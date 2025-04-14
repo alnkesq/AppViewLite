@@ -59,6 +59,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<PostId, byte> Threadgates;
         public CombinedPersistentMultiDictionary<PostId, byte> Postgates;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
+        public CombinedPersistentMultiDictionary<Relationship, Relationship> ListSubscribers;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, PostId> DirectReplies;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, PostId> Quotes;
@@ -323,6 +324,15 @@ namespace AppViewLite
 
             ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
+            ListSubscribers = RegisterDictionary<Relationship, Relationship>("list-subscribers", PersistentDictionaryBehavior.SingleValue);
+
+            if (ListSubscribers.KeyCount == 0)
+            {
+                foreach (var item in ListBlocks.EnumerateUnsorted())
+                {
+                    ListSubscribers.Add(item.Value, item.Key);
+                }
+            }
 
             Notifications = RegisterDictionary<Plc, Notification>("notification-2");
             DarkNotifications = RegisterDictionary<Plc, Notification>("notification-dark");
@@ -1957,6 +1967,7 @@ namespace AppViewLite
 
         public BlueskyProfile GetProfile(Plc plc, Tid? relationshipRKey = null, RequestContext? ctx = null, bool canOmitDescription = false)
         {
+            if (relationshipRKey != null) ctx = null; // we cannot cache
             if (ctx?.ProfileCache?.TryGetValue(plc, out var cached) == true && (canOmitDescription || !cached.DidOmitDescription)) return cached;
             var basic = GetProfileBasicInfo(plc, canOmitDescription: canOmitDescription);
             var did = GetDid(plc);

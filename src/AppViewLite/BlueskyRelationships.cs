@@ -1937,7 +1937,7 @@ namespace AppViewLite
             };
         }
 
-        internal static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false)
+        public static BlueskyPostData DeserializePostData(ReadOnlySpan<byte> postDataCompressed, PostId postId, bool skipBpeDecompression = false)
         {
             var encoding = (PostDataEncoding)postDataCompressed[0];
             postDataCompressed = postDataCompressed.Slice(1);

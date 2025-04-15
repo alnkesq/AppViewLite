@@ -3257,8 +3257,10 @@ namespace AppViewLite
             {
                 return response!.Records!.TrySelect(x =>
                 {
-                    return rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!).Subject!.Handler, ctx), ctx);
-                }).ToArray();
+                    var listItem = (FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!;
+                    if (listItem.List!.Rkey != rkey) return null;
+                    return rels.GetProfile(rels.SerializeDid(listItem.Subject!.Handler, ctx), ctx);
+                }).WhereNonNull().ToArray();
             }, ctx);
             await EnrichAsync(members, ctx);
             return (list, members, response.Cursor);

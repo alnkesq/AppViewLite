@@ -101,6 +101,11 @@ namespace AppViewLite
                     concise = true;
                 }
 
+                if (inner is TimeoutException to)
+                {
+                    concise = true;
+                }
+
                 if (concise)
                 {
                     return string.Join(": ", messages);

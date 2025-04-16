@@ -209,7 +209,8 @@ namespace AppViewLite.Web
                 (
                     q.StartsWith("https://", StringComparison.Ordinal) ||
                     q.StartsWith("http://", StringComparison.Ordinal) ||
-                    q.StartsWith("at://", StringComparison.Ordinal)
+                    q.StartsWith("at://", StringComparison.Ordinal) ||
+                    (q.StartsWith("did:", StringComparison.Ordinal) && BlueskyEnrichedApis.IsValidDid(q))
                 );
 
             if (hasUri)

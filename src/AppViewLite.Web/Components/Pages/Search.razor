@@ -38,7 +38,8 @@
             (
                 Q.StartsWith("http://", StringComparison.Ordinal) ||
                 Q.StartsWith("https://", StringComparison.Ordinal) ||
-                Q.StartsWith("at://", StringComparison.Ordinal)))
+                Q.StartsWith("at://", StringComparison.Ordinal) ||
+                (Q.StartsWith("did:", StringComparison.Ordinal) && BlueskyEnrichedApis.IsValidDid(Q))))
         {
             Navigation.NavigateTo("/" + Q);
             return; 

@@ -637,7 +637,7 @@ namespace AppViewLite
                     OnRepoFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler);
-            },  retryPolicy, ct: ct);
+            },  retryPolicy, useApproximateFirehoseCapture: false, ct: ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
@@ -649,7 +649,7 @@ namespace AppViewLite
                     OnLabelFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, nameForDebugging);
-            }, RetryPolicy.CreateForUnreliableServer(), ct);
+            }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, ct);
         }
 
         private void CaptureFirehoseCursor()
@@ -660,7 +660,7 @@ namespace AppViewLite
             LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, RetryPolicy? retryPolicy, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -699,7 +699,13 @@ namespace AppViewLite
                 finally
                 {
                     if (!ShutdownRequested.IsCancellationRequested)
-                        Apis.DrainAndCaptureFirehoseCursors();
+                    {
+                        if (useApproximateFirehoseCapture)
+                        {
+                            CaptureFirehoseCursor();
+                        }
+                        else Apis.DrainAndCaptureFirehoseCursors();
+                    }
                 }
             }, ct, retryPolicy: retryPolicy);
 

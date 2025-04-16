@@ -947,6 +947,11 @@ namespace AppViewLite
         }
 
         public static string TrimFinalPeriod(string text) => text.TrimEnd('.');
+
+        public static string? NormalizeNull(string? value)
+        {
+            return string.IsNullOrEmpty(value) ? null : value;
+        }
     }
 }
 

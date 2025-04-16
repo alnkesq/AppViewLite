@@ -41,7 +41,7 @@ namespace AppViewLite
                     var imageUrl = GetMetaProperty(dom, "og:image");
                     var result = new OpenGraphData
                     {
-                        ExternalTitle = GetMetaProperty(dom, "og:title"),
+                        ExternalTitle = GetMetaProperty(dom, "og:title") ?? StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim()),
                         ExternalDescription = GetMetaProperty(dom, "og:description"),
                         DateFetched = DateTime.UtcNow,
                         ExternalUrl = url.AbsoluteUri,
@@ -101,8 +101,7 @@ namespace AppViewLite
         private static string? GetMetaProperty(IHtmlDocument document, string name)
         {
             var value = document.Head?.Descendants().OfType<IElement>().FirstOrDefault(x => x.TagName == "META" && x.GetAttribute("property") == name)?.GetAttribute("content")?.Trim();
-            if (string.IsNullOrEmpty(value)) return null;
-            return value;
+            return StringUtils.NormalizeNull(value);
         }
     }
 }

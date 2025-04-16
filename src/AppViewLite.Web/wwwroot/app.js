@@ -97,6 +97,15 @@ class CustomSignalrReconnectPolicy {
     }
 }
 
+function getDisplayTextForException(error) { 
+    if (error instanceof Error) {
+        if (error.message == 'NetworkError when attempting to fetch resource.' || error.message == 'Failed to fetch')
+            return 'Could not connect to the AppViewLite server.'
+        return error.message;
+    }
+    return '' + error;
+}
+
 var liveUpdatesConnection = null;
 var liveUpdatesConnectionFuture = (async () => {
 
@@ -174,7 +183,7 @@ var liveUpdatesConnectionFuture = (async () => {
                 await connection.start();
                 break;
             } catch (e) { 
-                console.error(e);
+                console.error(getDisplayTextForException(e));
             }
             var delayMs = retryPolicy.nextRetryDelayInMilliseconds({ previousRetryCount: retryCount })
             await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -530,10 +539,10 @@ async function safeSignalrInvoke(methodName, ...args) {
         } catch (e) { 
             if (connection && connection.state == 'Connected') throw e; // User code error, not a websocket problem
             if (Date.now() - start > 300000) {
-                throw new Error('SignalR invocation reattempts have not succeeded yet for ' + methodName + ', giving up: ' + e);
+                throw new Error('SignalR invocation reattempts have not succeeded yet for ' + methodName + ', giving up: ' + getDisplayTextForException(e));
             }
             if (!didLogErrorOnce)
-                console.error('SignalR invocation of ' + methodName + ' failed because the socket is not connected. Will keep retrying. ' + e)
+                console.error('SignalR invocation of ' + methodName + ' failed because the socket is not connected. Will keep retrying. ' + getDisplayTextForException(e))
             didLogErrorOnce = true;
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -953,7 +962,7 @@ async function loadNextPage(allowRetry) {
 
         var errorDetails = document.createElement('div');
         errorDetails.classList.add('pagination-button-error-details');
-        errorDetails.textContent = e || 'Unknown error.';
+        errorDetails.textContent = getDisplayTextForException(e) || 'Unknown error.';
         paginationButton.appendChild(errorDetails);
         paginationButton.querySelector('.spinner').remove();
         return;
@@ -1464,7 +1473,7 @@ class ActionStateToggler {
         } catch (e) {
             [this.haveRelationship, this.rkey, this.actorCount] = prevState;
             this.raiseChangeNotification();
-            console.error(e);
+            console.error(getDisplayTextForException(e));
         } finally { 
             this.busy = false;
         }
@@ -2190,7 +2199,7 @@ async function composeOnSubmit(formElement, e) {
         clearFileUploads();
         fastNavigateTo(postUrl);
     } catch (e) { 
-        alert(e);
+        alert(getDisplayTextForException(e));
     }
 }
 

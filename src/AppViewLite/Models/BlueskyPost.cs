@@ -237,6 +237,7 @@ namespace AppViewLite.Models
         {
             if (openGraphData == null) return;
             this.LateOpenGraphData = openGraphData;
+            if (openGraphData.ExternalTitle == null && openGraphData.ExternalThumbnailUrl == null && openGraphData.ExternalDescription == null) return;
             Data!.ExternalTitle = openGraphData.ExternalTitle;
             Data.ExternalDescription = openGraphData.ExternalDescription;
             Data.ExternalUrl = openGraphData.ExternalUrl;

@@ -1247,8 +1247,8 @@ function onInitialLoad() {
         if (e.target?.classList?.contains('post-action-bar-button') && !e.shiftKey) { 
             closeCurrentMenu();
             e.preventDefault();
-            e.target.click();
             document.body.classList.toggle('show-advanced-menu-items', true);
+            e.target.click();
             return;
         }
         var target = e.target;

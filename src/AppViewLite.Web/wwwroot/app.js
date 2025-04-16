@@ -979,6 +979,7 @@ async function loadNextPage(allowRetry) {
     }
 }
 
+var forceShowAdvancedMenuItems = 0;
 
 
 function maybeLoadNextPage() { 
@@ -1247,8 +1248,12 @@ function onInitialLoad() {
         if (e.target?.classList?.contains('post-action-bar-button') && !e.shiftKey) { 
             closeCurrentMenu();
             e.preventDefault();
-            document.body.classList.toggle('show-advanced-menu-items', true);
-            e.target.click();
+            forceShowAdvancedMenuItems++;
+            try {
+                e.target.click();
+            } finally {
+                forceShowAdvancedMenuItems--;
+            }
             return;
         }
         var target = e.target;
@@ -1265,12 +1270,15 @@ function onInitialLoad() {
         var target = e.target;
         var clickFromKeyboard = e.detail === 0;
 
+        var showAdvanced = e.shiftKey || forceShowAdvancedMenuItems;
+
         if (currentlyOpenMenu) { 
             if (currentlyOpenMenuButton.contains(target)) { 
                 closeCurrentMenu();
-                return;
+                if (!showAdvanced || document.body.classList.contains('show-advanced-menu-items'))
+                    return;
             }
-            if (currentlyOpenMenu.contains(target)) { 
+            if (currentlyOpenMenu?.contains(target)) { 
                 closeCurrentMenu();
             }
         }
@@ -1351,6 +1359,7 @@ function onInitialLoad() {
                     }
                 }
             } else {
+
                 if (actionButton == currentlyOpenMenuButton) closeCurrentMenu();
                 else {
                     var prevMenu = actionButton.previousElementSibling;
@@ -1359,7 +1368,7 @@ function onInitialLoad() {
                         currentlyOpenMenuButton = actionButton;
                         currentlyOpenMenu = prevMenu;
                         visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
-                        document.body.classList.toggle('show-advanced-menu-items', e.shiftKey);
+                        document.body.classList.toggle('show-advanced-menu-items', showAdvanced);
                         ensureMenuFullyVisible();
                         var first = currentlyOpenMenu.querySelector('a, button');
                         if (first) {

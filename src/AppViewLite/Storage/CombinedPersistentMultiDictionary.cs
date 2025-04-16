@@ -1137,14 +1137,14 @@ namespace AppViewLite.Storage
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {
             if (IsSingleValueOrKeySet) throw new InvalidOperationException();
-            var s = slices.Select(x => x.Reader.Enumerate().Select(x => (x.Key, Values: (DangerousHugeReadOnlyMemory<TValue>)x.Values)));
+            var s = slices.Select((x, sliceIndex) => x.Reader.Enumerate().Select(x => (KeyAndSliceIndex: (x.Key, sliceIndex), Values: x.Values)));
             if (queue.GroupCount != 0)
             {
-                s = s.Append(queue.Select(x => (x.Key, Values: ToNativeArray(x.Values.ValuesUnsorted))));
+                s = s.Append(queue.Select(x => ((x.Key, int.MaxValue), Values: ToNativeArray(x.Values.ValuesUnsorted))));
             }
             return SimpleJoin
-                .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.Key)
-                .GroupAssumingOrderedInput(x => x.Key)
+                .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.KeyAndSliceIndex)
+                .GroupAssumingOrderedInput(x => x.KeyAndSliceIndex.Key)
                 .Select(x =>
                 {
                     if (behavior == PersistentDictionaryBehavior.PreserveOrder)

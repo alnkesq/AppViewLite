@@ -4673,13 +4673,13 @@ namespace AppViewLite
                 CarDownloadSemaphore = CarDownloadSemaphore.CurrentCount,
                 Primary = this.relationshipsUnlocked.GetCountersThreadSafe(),
                 Secondary = this.readOnlyReplicaRelationshipsUnlocked?.GetCountersThreadSafe(),
-                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
                 UserContext = ctx.IsLoggedIn ? ctx.UserContext.GetCountersThreadSafe() : null,
                 DedicatedThreadPoolScheduler = Indexer.FirehoseThreadpool!.GetCountersThreadSafe(),
                 DirectIoReadStatsTotalKeys = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col0")).Sum(x => x.Value),
                 DirectIoReadStatsTotalOffsets = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col2")).Sum(x => x.Value),
                 DirectIoReadStatsTotalValues = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col1")).Sum(x => x.Value),
-                DirectIoReadStats = new OrderedDictionary<string, long>(CombinedPersistentMultiDictionary.DirectIoReadStats.OrderByDescending(x => x.Value).Select(x => new KeyValuePair<string, long>(x.Key.Replace(".dat", null).Replace("col0", "K").Replace("col1", "V").Replace("col2", "O"), x.Value)))
+                DirectIoReadStats = new OrderedDictionary<string, long>(CombinedPersistentMultiDictionary.DirectIoReadStats.OrderByDescending(x => x.Value).Select(x => new KeyValuePair<string, long>(x.Key.Replace(".dat", null).Replace("col0", "K").Replace("col1", "V").Replace("col2", "O"), x.Value))),
+                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
             };
         }
 

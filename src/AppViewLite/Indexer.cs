@@ -574,7 +574,9 @@ namespace AppViewLite
                         .WithLogger(new LogWrapper())
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
 
-                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);                    currentFirehoseCursor.State = FirehoseState.Starting;
+                    currentFirehoseCursor.State = FirehoseState.Starting;
+
                     LogFirehoseStartMessage(currentFirehoseCursor);
                     if (this.currentFirehoseCursor.CommittedCursor != null)
                     {
@@ -596,7 +598,11 @@ namespace AppViewLite
                             tcs.TrySetException(new UnexpectedFirehoseDataException("Firehose is in state: " + e.State));
                         }
                     };
-                    firehose.OnRawMessageReceived += (s, e) => DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                    firehose.OnRawMessageReceived += (s, e) =>
+                    {
+                        Interlocked.Increment(ref currentFirehoseCursor.ReceivedEvents);
+                        DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                    };
                     firehose.OnRecordReceived += (s, e) =>
                     {
                         // Called from a Task.Run(() => ...) by the firehose socket reader
@@ -607,7 +613,14 @@ namespace AppViewLite
                         }, e.Record.Did?.Handler);
                     };
                     await firehose.ConnectAsync(token: ct);
+                    currentFirehoseCursor.State = FirehoseState.Running;
                     await tcs.Task;
+                }
+                catch (Exception ex)
+                {
+                    currentFirehoseCursor.State = FirehoseState.Error;
+                    currentFirehoseCursor.LastException = ex;
+                    throw;
                 }
                 finally
                 {
@@ -629,9 +642,13 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, cursor, watchdog) =>
             {
-                protocol.OnMessageReceived += (s, e) => DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                protocol.OnMessageReceived += (s, e) =>
+                {
+                    Interlocked.Increment(ref cursor.ReceivedEvents);
+                    DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                };
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnRepoFirehoseEvent(s, e);
@@ -641,9 +658,13 @@ namespace AppViewLite
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeLabelsAsync(cursor, token: ct), (protocol, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeLabelsAsync(cursor, token: ct), (protocol, cursor, watchdog) =>
             {
-                protocol.OnMessageReceived += (s, e) => DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                protocol.OnMessageReceived += (s, e) =>
+                {
+                    Interlocked.Increment(ref cursor.ReceivedEvents);
+                    DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                };
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnLabelFirehoseEvent(s, e);
@@ -660,7 +681,7 @@ namespace AppViewLite
             LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -671,6 +692,8 @@ namespace AppViewLite
                 {
                     var tcs = new TaskCompletionSource();
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    currentFirehoseCursor.State = FirehoseState.Starting;
+
                     LogFirehoseStartMessage(currentFirehoseCursor);
                     using var firehose = new ATWebSocketProtocolBuilder()
                         .WithInstanceUrl(FirehoseUrl)
@@ -692,9 +715,16 @@ namespace AppViewLite
                             tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
                         }
                     };
-                    setupHandler(firehose, watchdog);
+                    setupHandler(firehose, currentFirehoseCursor, watchdog);
                     await subscribeKind(firehose, currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null);
+                    currentFirehoseCursor.State = FirehoseState.Running;
                     await tcs.Task;
+                }
+                catch (Exception ex)
+                {
+                    currentFirehoseCursor.State = FirehoseState.Error;
+                    currentFirehoseCursor.LastException = ex;
+                    throw;
                 }
                 finally
                 {

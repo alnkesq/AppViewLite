@@ -24,13 +24,24 @@ namespace AppViewLite.Models
 
         [ProtoMember(4)][JsonInclude] public DateTime LastSeenEventDate; // not necessarily processed yet, only for display/debug purposes.
 
-        public TimeSpan? LagBehind => LastSeenEventDate != default ? DateTime.UtcNow - LastSeenEventDate : null;
-
+        [JsonInclude] [JsonConverter(typeof(JsonStringEnumConverter))] public FirehoseState State;
+        [JsonIgnore] public Exception? LastException;
+        [JsonInclude] public string? LastError => LastException?.Message;
+        [JsonInclude] public TimeSpan? LagBehind => LastSeenEventDate != default ? DateTime.UtcNow - LastSeenEventDate : null;
+        [JsonInclude] public long ReceivedEvents;
         internal void MakeUtc()
         {
             ExtensionMethods.MakeUtc(ref CursorCommitDate);
             ExtensionMethods.MakeUtc(ref LastSeenEventDate);
         }
+    }
+
+    public enum FirehoseState
+    { 
+        None,
+        Starting,
+        Running,
+        Error,
     }
 
     [ProtoContract]

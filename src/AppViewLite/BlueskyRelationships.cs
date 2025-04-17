@@ -4050,7 +4050,7 @@ namespace AppViewLite
                 ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache.GetCounters(),
                 PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
                 Caches = this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value),
-                FirehoseCursorsAsOfLastFlush = firehoseCursors,
+                Firehoses = firehoseCursors,
             };
         }
 

@@ -78,7 +78,6 @@ namespace AppViewLite.Storage
                 var size = checked((int)(Unsafe.SizeOf<T>() * src.Length));
                 var ptr = arena.Allocate(size);
                 src.AsSmallSpan().CopyTo(new Span<T>(ptr, (int)src.Length));
-                Console.Error.WriteLine("ToNativeArray: " + src.Length);
                 return new DangerousHugeReadOnlyMemory<T>((T*)ptr, src.Length);
             }
 

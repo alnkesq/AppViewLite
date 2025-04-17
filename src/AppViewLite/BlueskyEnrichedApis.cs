@@ -99,7 +99,7 @@ namespace AppViewLite
                             };
                             indexer.FirehoseUrl = new Uri(newpds);
                             Log("Starting secondary firehose: " + newpds);
-                            indexer.StartListeningToAtProtoFirehoseRepos(RetryPolicy.CreateForUnreliableServer(), cts.Token).FireAndForget();
+                            indexer.StartListeningToAtProtoFirehoseRepos(RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, cts.Token).FireAndForget();
                             SecondaryFirehoses.Add(newpds, cts);
                         }
                     }

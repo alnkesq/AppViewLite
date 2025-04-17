@@ -640,7 +640,7 @@ namespace AppViewLite
                 Log($"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.LastSeenEventDate, showSeconds: true)} ago)");
         }
 
-        public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, CancellationToken ct = default)
+        public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, cursor, watchdog) =>
             {
@@ -654,7 +654,7 @@ namespace AppViewLite
                     OnRepoFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler);
-            },  retryPolicy, useApproximateFirehoseCapture: false, ct: ct);
+            },  retryPolicy, useApproximateFirehoseCapture: false, useWatchdog: useWatchdog, ct: ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
@@ -670,7 +670,7 @@ namespace AppViewLite
                     OnLabelFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, nameForDebugging);
-            }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, ct);
+            }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, useWatchdog: false, ct);
         }
 
         private void CaptureFirehoseCursor()
@@ -681,7 +681,7 @@ namespace AppViewLite
             LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, bool useWatchdog = true, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -700,10 +700,11 @@ namespace AppViewLite
                         .WithLogger(new LogWrapper())
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
                         .Build();
-                    using var watchdog = CreateFirehoseWatchdog(tcs);
+                    using var watchdog = useWatchdog ? CreateFirehoseWatchdog(tcs) : null;
                     ct.Register(() =>
                     {
                         tcs.TrySetCanceled();
+                        firehose.StopSubscriptionAsync();
                         firehose.Dispose();
                     });
                     firehose.OnConnectionUpdated += (_, e) =>

@@ -190,6 +190,7 @@ namespace AppViewLite
                     }
                     finally
                     {
+                        replica.ClearLockLocalCache();
                         ReturnArena();
                         replica.Lock.ExitReadLock();
                         MaybeLogLongLockUsage(begin2, LockKind.SecondaryRead, ctx);
@@ -228,6 +229,7 @@ namespace AppViewLite
             }
             finally
             {
+                rels.ClearLockLocalCache();
                 ReturnArena();
                 MaybeRestoreThreadName(restore);
                 rels.Lock.ExitReadLock();
@@ -270,6 +272,7 @@ namespace AppViewLite
                 }
                 finally
                 {
+                    relationshipsUnlocked.ClearLockLocalCache();
                     if (!alreadyHasArena)
                         ReturnArena();
                     MaybeLogLongLockUsage(begin, isWrite ? LockKind.PrimaryWriteUrgent : LockKind.PrimaryReadUrgent, ctx);
@@ -315,7 +318,6 @@ namespace AppViewLite
             AlignedNativeArena.ForCurrentThread = AlignedArenaPool.Get();
 
         }
-
 
 
         private static void ReturnArena()
@@ -420,6 +422,7 @@ namespace AppViewLite
             }
             finally
             {
+                relationshipsUnlocked.ClearLockLocalCache();
                 ReturnArena();
                 relationshipsUnlocked.ManagedThreadIdWithWriteLock = 0;
                 MaybeRestoreThreadName(restore);
@@ -461,6 +464,7 @@ namespace AppViewLite
             }
             finally
             {
+                relationshipsUnlocked.ClearLockLocalCache();
                 ReturnArena();
                 MaybeRestoreThreadName(restore);
                 relationshipsUnlocked.Lock.ExitUpgradeableReadLock();

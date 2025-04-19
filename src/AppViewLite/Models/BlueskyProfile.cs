@@ -12,7 +12,7 @@ namespace AppViewLite.Models
         public Plc Plc => new Plc(PlcId);
         public bool DidOmitDescription;
         public string? DisplayName => BasicData?.DisplayName;
-        internal bool PopulateViewerFlags;
+        internal bool DidPopulateViewerFlags;
         public string DisplayNameOrFallback
         {
             get

@@ -529,26 +529,7 @@ namespace AppViewLite
         {
             if (posts.Length == 0) return posts;
 
-            WithRelationshipsLock(rels =>
-            {
-                DangerousHugeReadOnlyMemory<BookmarkPostFirst>[]? userBookmarks = null;
-                DangerousHugeReadOnlyMemory<Tid>[]? userDeletedBookmarks = null;
-
-                foreach (var post in posts)
-                {
-
-                    if (ctx.IsLoggedIn)
-                    {
-                        var loggedInUser = ctx.LoggedInUser;
-                        if (rels.Likes.HasActor(post.PostId, loggedInUser, out var likeTid))
-                            post.IsLikedBySelf = likeTid.RelationshipRKey;
-                        if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
-                            post.IsRepostedBySelf = repostTid.RelationshipRKey;
-
-                        post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
-                    }
-                }
-            }, ctx);
+            
 
 
             void OnPostDataAvailable(BlueskyRelationships rels, BlueskyPost post)
@@ -631,9 +612,25 @@ namespace AppViewLite
                 }
             }
 
-
             WithRelationshipsLock(rels =>
             {
+                DangerousHugeReadOnlyMemory<BookmarkPostFirst>[]? userBookmarks = null;
+                DangerousHugeReadOnlyMemory<Tid>[]? userDeletedBookmarks = null;
+
+                foreach (var post in posts)
+                {
+
+                    if (ctx.IsLoggedIn)
+                    {
+                        var loggedInUser = ctx.LoggedInUser;
+                        if (rels.Likes.HasActor(post.PostId, loggedInUser, out var likeTid))
+                            post.IsLikedBySelf = likeTid.RelationshipRKey;
+                        if (rels.Reposts.HasActor(post.PostId, loggedInUser, out var repostTid))
+                            post.IsRepostedBySelf = repostTid.RelationshipRKey;
+
+                        post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
+                    }
+                }
 
                 foreach (var post in posts.Where(x => x.Data != null))
                 {

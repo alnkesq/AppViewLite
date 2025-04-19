@@ -425,6 +425,7 @@ namespace AppViewLite
                         if (!Lock.IsWriteLockHeld)
                             throw ThrowIncorrectLockUsageException("Cannot perform writes without holding the write lock.");
                     };
+                    item.AfterFlush += (_, _) => ClearLockLocalCache();
                 }
 
             }
@@ -627,6 +628,7 @@ namespace AppViewLite
                         CaptureCheckpoint();
                     }
                     lockFile?.Dispose();
+                    _lockLocalCaches.Dispose();
                     _disposed = true;
 
                     if (IsPrimary)
@@ -2390,6 +2392,27 @@ namespace AppViewLite
             throw AssertionLiteException.Throw("UsersHaveBlockRelationship impossible case");
         }
 
+        internal void ClearLockLocalCache()
+        {
+            _lockLocalCaches.Value = new();
+        }
+
+        private readonly ThreadLocal<LockLocalCaches> _lockLocalCaches = new();
+
+        public LockLocalCaches LockLocalCaches
+        {
+            get
+            {
+                var value = _lockLocalCaches.Value;
+                if (value == null)
+                {
+                    value = new();
+                    _lockLocalCaches.Value = value;
+                }
+                return value;
+            }
+        }
+
         public bool IsMemberOfList(Relationship list, Plc member)
         {
             if (ListItems.GetDelegateProbabilisticCache<(Relationship, Plc)>()?.PossiblyContains((list, member)) == false)
@@ -2397,11 +2420,10 @@ namespace AppViewLite
                 return false;
             }
 
-
             if (ListDeletions.ContainsKey(list))
                 return false;
 
-            foreach (var memberChunk in ListItems.GetValuesChunked(list))
+            foreach (var memberChunk in LockLocalCaches.ListMembers.GetOrFetch(list, () => ListItems.GetValuesChunked(list).ToArray()))
             {
                 var members = memberChunk.AsSpan();
                 var index = members.BinarySearch(new ListEntry(member, default));
@@ -2517,9 +2539,9 @@ namespace AppViewLite
 
 
 
-        public BlueskyNotification? RehydrateNotification(Notification notification, Plc destination, RequestContext ctx)
+        public BlueskyNotification? RehydrateNotification(Notification notification, Plc destination, RequestContext ctx, Dictionary<PostId, BlueskyPost> postCache)
         {
-            (PostId post, Plc actor) = notification.Kind switch
+            (PostId postId, Plc actor) = notification.Kind switch
             {
                 NotificationKind.FollowedYou or NotificationKind.FollowedYouBack or NotificationKind.UnfollowedYou or NotificationKind.BlockedYou or NotificationKind.LabeledYourProfile => (default, notification.Actor),
                 NotificationKind.LikedYourPost or NotificationKind.RepostedYourPost or NotificationKind.DetachedYourQuotePost or NotificationKind.HidYourReply or NotificationKind.LabeledYourPost => (new PostId(destination, notification.RKey), notification.Actor),
@@ -2533,23 +2555,31 @@ namespace AppViewLite
             {
                 feed = TryGetFeedGenerator(new RelationshipHashedRKey(destination, (ulong)notification.RKey.TidValue), ctx);
                 actor = notification.Actor;
-                post = default;
+                postId = default;
             }
             if (notification.Kind == NotificationKind.AddedYouToAList)
             {
                 list = GetList(new Relationship(notification.Actor, notification.RKey), ctx: ctx);
                 actor = notification.Actor;
-                post = default;
+                postId = default;
             }
 
-            if (post == default && actor == default && feed == null && list == null) return null;
+            if (postId == default && actor == default && feed == null && list == null) return null;
 
-
+            BlueskyPost? post = null;
+            if (postId != default)
+            {
+                if (!postCache.TryGetValue(postId, out post))
+                {
+                    post = GetPost(postId, ctx);
+                    postCache.Add(postId, post);
+                }
+            }
             return new BlueskyNotification
             {
                 EventDate = notification.EventDate,
                 Kind = notification.Kind,
-                Post = post != default ? GetPost(post, ctx) : null,
+                Post = post,
                 Profile = actor != default ? GetProfile(actor, ctx, canOmitDescription: true) : default,
                 Hidden = !IsDarkNotification(notification.Kind) && actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
@@ -2579,6 +2609,8 @@ namespace AppViewLite
             if (dark)
                 LastSeenDarkNotifications.TryGetLatestValue(user, out threshold);
 
+            var postCache = new Dictionary<PostId, BlueskyPost>();
+
             var table = GetNotificationTable(dark);
             var newNotificationsCore = table.GetValuesSortedDescending(user, threshold, null).ToArray();
 
@@ -2586,7 +2618,7 @@ namespace AppViewLite
 
             var newNotifications =
                 newNotificationsCore
-                .Select(x => RehydrateNotification(x, user, ctx))
+                .Select(x => RehydrateNotification(x, user, ctx, postCache))
                 .WhereNonNull()
                 .ToArray();
 
@@ -2599,7 +2631,7 @@ namespace AppViewLite
                 .Select(x =>
                 {
                     newestNotification ??= x;
-                    return RehydrateNotification(x, user, ctx);
+                    return RehydrateNotification(x, user, ctx, postCache);
                 })
                 .WhereNonNull()
                 .TakeWhile(x =>

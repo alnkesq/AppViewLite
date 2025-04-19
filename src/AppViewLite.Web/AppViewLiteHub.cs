@@ -153,7 +153,7 @@ namespace AppViewLite.Web
             var ctx = RequestContext;
             Plc? userPlc = ctx.IsLoggedIn ? ctx.LoggedInUser : null;
             var connectionId = Context.ConnectionId;
-      
+
             void SubmitLivePostEngagement(Versioned<PostStatsNotification> versionedNotification, Plc commitPlc)
             {
                 var notification = versionedNotification.Value;

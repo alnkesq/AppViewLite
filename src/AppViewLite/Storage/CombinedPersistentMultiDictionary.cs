@@ -1588,7 +1588,7 @@ namespace AppViewLite.Storage
 
         public KeyProbabilisticCache<TKey, TValue>? GetKeyProbabilisticCache() => this.GetCache<KeyProbabilisticCache<TKey, TValue>>();
         public KeyValueProbabilisticCache<TKey, TValue>? GetKeyValueProbabilisticCache() => this.GetCache<KeyValueProbabilisticCache<TKey, TValue>>();
-        public DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>? GetDelegateProbabilisticCache<TProbabilistcKey>() where TProbabilistcKey: unmanaged => this.GetCache<DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>>();
+        public DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>? GetDelegateProbabilisticCache<TProbabilistcKey>() where TProbabilistcKey : unmanaged => this.GetCache<DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>>();
 
         public abstract class CachedView : IDisposable
         {

@@ -148,7 +148,7 @@ namespace AppViewLite.Storage
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         public HugeReadOnlySpan<T> AsSpan() => this.Span;
-        
+
         public ReadOnlySpan<T> AsSmallSpan() => this.Span.AsSmallSpan();
 
         public ref readonly T this[long index] => ref Unsafe.AsRef(in this.ptr[index]);
@@ -220,7 +220,7 @@ namespace AppViewLite.Storage
             return new HugeSpan<T>(ref Unsafe.Add(ref ptr, (nint)start), length);
         }
 
-        public Span<T> AsSmallSpan() => MemoryMarshal.CreateSpan(ref ptr, checked((int) length));
+        public Span<T> AsSmallSpan() => MemoryMarshal.CreateSpan(ref ptr, checked((int)length));
 
         public static implicit operator HugeReadOnlySpan<T>(HugeSpan<T> span) => span.AsReadOnly();
         public HugeReadOnlySpan<T> AsReadOnly() => new HugeReadOnlySpan<T>(in ptr, length);
@@ -266,7 +266,7 @@ namespace AppViewLite.Storage
             return new HugeReadOnlySpan<T>(in Unsafe.Add(ref Unsafe.AsRef(in ptr), (nint)start), length);
         }
 
-        public ReadOnlySpan<T> AsSmallSpan() => MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in ptr), checked((int) length));
+        public ReadOnlySpan<T> AsSmallSpan() => MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in ptr), checked((int)length));
 
         public static implicit operator HugeReadOnlySpan<T>(T[]? array)
         {

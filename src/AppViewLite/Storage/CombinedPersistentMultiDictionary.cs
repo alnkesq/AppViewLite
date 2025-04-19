@@ -34,14 +34,13 @@ namespace AppViewLite.Storage
     public record struct SliceName(DateTime StartTime, DateTime EndTime, long PruneId)
     {
         public string BaseName => StartTime.Ticks + "-" + EndTime.Ticks + (PruneId != 0 ? "-" + PruneId : null);
-        public bool IsPruned => (PruneId % 2) != 0;
 
         public static SliceName ParseBaseName(string name)
         {
             var parts = name.Split('-');
             if (parts.Length == 2) return new SliceName(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), 0);
             else if (parts.Length == 3) return new SliceName(new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), long.Parse(parts[2]));
-            else throw new ArgumentException();
+            else throw new ArgumentException("Invalid slice base name: " + name);
         }
     }
 
@@ -219,6 +218,8 @@ namespace AppViewLite.Storage
 
         public abstract bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval);
 
+        public static Func<string, SliceName, bool> IsPrunedSlice = (_, s) => (s.PruneId % 2) == 1;
+
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -282,7 +283,7 @@ namespace AppViewLite.Storage
                     DeleteOldFilesOnCompactation = false;
                     foreach (var sliceName in sliceNames)
                     {
-                        if (sliceName.IsPruned) this.prunedSlices.Add(sliceName);
+                        if (IsPrunedSlice(directory, sliceName)) this.prunedSlices.Add(sliceName);
                         else
                         {
                             var s = OpenSlice(directory, sliceName, behavior, mandatory: true);
@@ -296,7 +297,7 @@ namespace AppViewLite.Storage
                     DeleteOldFilesOnCompactation = true;
                     foreach (var sliceName in Directory.EnumerateFiles(directory, "*.col0.dat").Select(x => CombinedPersistentMultiDictionary.GetSliceInterval(Path.GetFileName(x))).OrderBy(x => (x.StartTime, x.EndTime, x.PruneId)))
                     {
-                        if (sliceName.IsPruned) this.prunedSlices.Add(sliceName);
+                        if (IsPrunedSlice(directory, sliceName)) this.prunedSlices.Add(sliceName);
                         else
                         {
                             var s = OpenSlice(directory, sliceName, behavior, mandatory: false);

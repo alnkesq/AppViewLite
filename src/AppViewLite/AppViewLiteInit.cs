@@ -17,6 +17,22 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
+
+            var ignoreSlicesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IGNORE_SLICES_PATH);
+            var ignoreSlices = ignoreSlicesPath != null ? StringUtils.ReadTextFile(ignoreSlicesPath).Select(x => 
+            {
+                var parts = x.Split('/');
+                if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0 || parts[0].AsSpan().ContainsAny('/', '\\', ' ')) throw new ArgumentException("Invalid line in APPVIEWLITE_IGNORE_SLICES_PATH: " + x);
+                return (parts[0], SliceName.ParseBaseName(parts[1]));
+            }).ToHashSet() : [];
+            CombinedPersistentMultiDictionary.IsPrunedSlice = (directory, sliceName) =>
+            {
+                if ((sliceName.PruneId % 2) == 1) return true;
+                var directoryName = Path.GetFileName(directory);
+                if (ignoreSlices.Contains((directoryName, sliceName))) return true;
+                return false;
+            };
+
             var additionalDirectories = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ADDITIONAL_DIRECTORIES) ?? [];
 
             foreach (var additional in additionalDirectories)

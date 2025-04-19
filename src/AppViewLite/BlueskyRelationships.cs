@@ -2666,7 +2666,7 @@ namespace AppViewLite
         }
 
         public ConcurrentDictionary<Plc, UserRecentPostWithScore[]> UserToRecentPopularPosts = new(); // within each user, posts are sorted by rkey
-
+        public ConcurrentDictionary<Plc, RecentRepost[]> UserToRecentRepostsCache = new(); // within each user, posts are sorted by repost rkey
         public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTidExclusive)
         {
             var loggedInUser = ctx.LoggedInUser;
@@ -2733,7 +2733,7 @@ namespace AppViewLite
                     var reposter = pair.Plc;
                     BlueskyProfile? reposterProfile = null;
                     return this
-                        .EnumerateRecentReposts(reposter, minDateAsTid, maxTidExclusive)
+                        .GetRecentReposts(reposter, pair.IsPrivate)
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId, ctx);
@@ -3554,8 +3554,10 @@ namespace AppViewLite
             copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
             copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
             copy.UserToRecentPopularPosts = this.UserToRecentPopularPosts;
+            copy.UserToRecentRepostsCache = this.UserToRecentRepostsCache;
             copy.DefaultLabelSubscriptions = this.DefaultLabelSubscriptions;
             copy.PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot;
+            copy.RepostersSinceLastReplicaSnapshot = this.RepostersSinceLastReplicaSnapshot;
             copy.ApproximateLikeCountCache = this.ApproximateLikeCountCache;
             copy.ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache;
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -3573,6 +3575,7 @@ namespace AppViewLite
                 }
             }
             this.PostAuthorsSinceLastReplicaSnapshot.Clear();
+            this.RepostersSinceLastReplicaSnapshot.Clear();
             copy.ReplicaAge = Stopwatch.StartNew();
 
             // . Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + "
@@ -3772,7 +3775,17 @@ namespace AppViewLite
             {
                 var threshold = Tid.FromDateTime(DateTime.UtcNow - PrimarySecondaryPair.ReadOnlyReplicaMaxStalenessOnExplicitRead - TimeSpan.FromSeconds(10));
                 return result.Where(x => x.RKey.CompareTo(threshold) < 0);
-            };
+            }
+            return result;
+        }
+        public IEnumerable<RecentRepost> GetRecentReposts(Plc plc, bool couldBePluggablePost)
+        {
+            var result = GetRecentRepostsEvenVeryRecent(plc);
+            if (couldBePluggablePost)
+            {
+                var threshold = Tid.FromDateTime(DateTime.UtcNow - PrimarySecondaryPair.ReadOnlyReplicaMaxStalenessOnExplicitRead - TimeSpan.FromSeconds(10));
+                return result.Where(x => x.RepostRKey.CompareTo(threshold) < 0);
+            }
             return result;
         }
         private IEnumerable<UserRecentPostWithScore> GetRecentPopularPostsEvenVeryRecent(Plc plc, bool couldBePluggablePost)
@@ -3798,6 +3811,30 @@ namespace AppViewLite
                     return results;
             }
         }
+
+
+        private IEnumerable<RecentRepost> GetRecentRepostsEvenVeryRecent(Plc plc)
+        {
+            while (true)
+            {
+                if (UserToRecentRepostsCache.TryGetValue(plc, out var result))
+                    return result;
+
+                // This code usually runs on the readonly replica, which can slightly lag behind the primary.
+                // UserToRecentRepostsCache is shared across primary and replica.
+                // This means 1-2 seconds of likes might be missing from the stats of UserToRecentRepostsCache.
+                var results = GetRecentRepostsCore(plc);
+
+
+                // If this user reposted just a few seconds ago and we're in replica, we might not have complete data. Return without caching the result.
+                if (IsReplica && RepostersSinceLastReplicaSnapshot.Contains(plc))
+                    return results;
+
+                if (UserToRecentRepostsCache.TryAdd(plc, results))
+                    return results;
+            }
+        }
+
         private UserRecentPostWithScore[] GetRecentPopularPostsCore(Plc plc, bool couldBePluggablePost)
         {
             var now = DateTime.UtcNow;
@@ -3810,8 +3847,16 @@ namespace AppViewLite
                 .OrderBy(x => x.RKey)
                 .ToArray();
         }
+        private RecentRepost[] GetRecentRepostsCore(Plc plc)
+        {
+            var now = DateTime.UtcNow;
+            return UserToRecentReposts.GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(now - BalancedFeedMaximumAge), default))
+                .OrderBy(x => x.RepostRKey)
+                .ToArray();
+        }
 
         public ConcurrentSet<Plc> PostAuthorsSinceLastReplicaSnapshot = new();
+        public ConcurrentSet<Plc> RepostersSinceLastReplicaSnapshot = new();
 
         public void IncrementRecentPopularPostLikeCount(PostId postId, int incrementBy)
         {
@@ -3855,6 +3900,33 @@ namespace AppViewLite
                 //_ = updated.AssertOrderedAndUnique(x => x.RKey).Count();
 #endif
                 UserToRecentPopularPosts[author] = updated.ToArray();
+            }
+        }
+
+        public void AddRepostToRecentRepostCache(Plc reposter, RecentRepost repost)
+        {
+            RepostersSinceLastReplicaSnapshot.TryAdd(reposter);
+
+            if (UserToRecentRepostsCache.TryGetValue(reposter, out var recentReposts))
+            {
+                if (recentReposts.AsSpan().BinarySearch(repost) >= 0)
+                    return;
+                var threshold = DateTime.UtcNow - BlueskyRelationships.BalancedFeedMaximumAge;
+
+                var updated = new List<RecentRepost>();
+                foreach (var other in recentReposts)
+                {
+                    if (other.RepostRKey.Date < threshold) continue;
+                    if (repost.RepostRKey != default && repost.RepostRKey.CompareTo(other.RepostRKey) < 0)
+                    {
+                        updated.Add(repost);
+                        repost = default;
+                    }
+                    updated.Add(other);
+                }
+                if (repost.RepostRKey != default)
+                    updated.Add(repost);
+                UserToRecentRepostsCache[reposter] = updated.ToArray();
             }
         }
 
@@ -4095,6 +4167,7 @@ namespace AppViewLite
             return new
             {
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
+                RepostersSinceLastReplicaSnapshot = this.RepostersSinceLastReplicaSnapshot.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
                 DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
                 ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),

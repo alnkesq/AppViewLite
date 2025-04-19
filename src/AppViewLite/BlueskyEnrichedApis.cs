@@ -2164,9 +2164,9 @@ namespace AppViewLite
                         .Where(x => x.RKey.Date >= minDate)
                         .ToArray();
 #endif
-                    var reposts = rels.UserToRecentReposts
-                        .GetValuesUnsorted(plc, new RecentRepost(Tid.FromDateTime(minDate), default))
+                    var reposts = rels.GetRecentReposts(plc, couldBePluggablePost: pair.IsPrivate)
                         .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
+                        .Where(x => x.RepostRKey.Date >= minDate)
                         .ToArray();
 
                     if (posts.Length == 0 && reposts.Length == 0) return default;

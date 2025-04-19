@@ -319,6 +319,8 @@ namespace AppViewLite
                         if (relationships.IsRegisteredForNotifications(commitPlc))
                             relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
                     }
+
+                    relationships.AddRepostToRecentRepostCache(commitPlc, new RecentRepost(repostRKey, postId));
                 }
                 else if (record is Block b)
                 {

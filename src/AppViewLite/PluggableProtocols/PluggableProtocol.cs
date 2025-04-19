@@ -113,8 +113,9 @@ namespace AppViewLite.PluggableProtocols
                 if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(qualifiedPostId.Did)) return;
                 var reposterPlc = rels.SerializeDid(reposterDid, ctx);
                 var postId = new PostId(rels.SerializeDid(qualifiedPostId.Did, ctx), tid);
-
-                rels.UserToRecentReposts.Add(reposterPlc, new RecentRepost(Tid.FromDateTime(repostDate), postId));
+                var repost = new RecentRepost(Tid.FromDateTime(repostDate), postId);
+                rels.UserToRecentReposts.Add(reposterPlc, repost);
+                rels.AddRepostToRecentRepostCache(reposterPlc, repost);
             }, ctx);
         }
         public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, RequestContext ctx, bool shouldIndex = true, bool replyIsSemanticallyRepost = false)

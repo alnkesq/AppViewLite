@@ -2550,7 +2550,7 @@ namespace AppViewLite
                 EventDate = notification.EventDate,
                 Kind = notification.Kind,
                 Post = post != default ? GetPost(post, ctx) : null,
-                Profile = actor != default ? GetProfile(actor, ctx) : default,
+                Profile = actor != default ? GetProfile(actor, ctx, canOmitDescription: true) : default,
                 Hidden = !IsDarkNotification(notification.Kind) && actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
                 Feed = feed,
@@ -2878,7 +2878,7 @@ namespace AppViewLite
                 ListId = listId,
                 Data = listData ?? TryGetListData(listId),
                 ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()!),
-                Moderator = GetProfile(listId.Actor, ctx)
+                Moderator = GetProfile(listId.Actor, ctx, canOmitDescription: true)
             };
         }
 
@@ -2959,7 +2959,7 @@ namespace AppViewLite
                 Data = data,
                 Did = GetDid(plc),
                 RKey = rkey,
-                Author = GetProfile(plc, ctx),
+                Author = GetProfile(plc, ctx, canOmitDescription: true),
                 LikeCount = FeedGeneratorLikes.GetActorCount(new(plc, rkey)),
                 IsPinned = ctx.IsLoggedIn && ctx.PrivateProfile.FeedSubscriptions.Any(x => new Plc(x.FeedPlc) == plc && x.FeedRKey == rkey),
             };

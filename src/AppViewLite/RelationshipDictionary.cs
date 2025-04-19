@@ -36,7 +36,7 @@ namespace AppViewLite
         {
         }
 #nullable restore
-        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null)
+        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null, KeyProbabilisticCache<Relationship, DateTime>? deletionProbabilisticCache = null)
         {
             if (!BlueskyRelationships.UseProbabilisticSets)
                 relationshipCache = null;
@@ -54,7 +54,7 @@ namespace AppViewLite
             }
             this.RelationshipCache = relationshipCache;
             this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null, getIoPreferenceForKey: getCreationsIoPreferenceForKey);
-            this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue);
+            this.deletions = CreateMultiDictionary<Relationship, DateTime>("-deletion", PersistentDictionaryBehavior.SingleValue, caches: deletionProbabilisticCache != null ? [deletionProbabilisticCache] : null);
 
             this.deletionCounts = CreateMultiDictionary<TTarget, int>("-deletion-counts-2", PersistentDictionaryBehavior.SingleValue);
 

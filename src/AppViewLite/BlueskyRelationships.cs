@@ -200,9 +200,9 @@ namespace AppViewLite
             return default;
         }
 
-        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null) where TTarget : unmanaged, IComparable<TTarget>
+        private RelationshipDictionary<TTarget> RegisterRelationshipDictionary<TTarget>(string name, Func<TTarget, bool, UInt24?>? targetToApproxTarget, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null, KeyProbabilisticCache<Relationship, DateTime>? deletionProbabilisticCache = null) where TTarget : unmanaged, IComparable<TTarget>
         {
-            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache, getCreationsIoPreferenceForKey)
+            return Register(new RelationshipDictionary<TTarget>(BaseDirectory, name, checkpointToLoad!, targetToApproxTarget, relationshipCache, getCreationsIoPreferenceForKey, deletionProbabilisticCache: deletionProbabilisticCache)
             {
                 GetVersion = () => this.Version
             });

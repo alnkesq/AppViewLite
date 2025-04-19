@@ -2540,7 +2540,7 @@ namespace AppViewLite
                 Kind = notification.Kind,
                 Post = post != default ? GetPost(post, ctx) : null,
                 Profile = actor != default ? GetProfile(actor, ctx) : default,
-                Hidden = actor != default && UsersHaveBlockRelationship(destination, actor) != default,
+                Hidden = !IsDarkNotification(notification.Kind) && actor != default && UsersHaveBlockRelationship(destination, actor) != default,
                 NotificationCore = notification,
                 Feed = feed,
                 List = list,

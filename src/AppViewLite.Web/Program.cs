@@ -276,7 +276,7 @@ namespace AppViewLite.Web
                             apis.LaunchLabelerListener(labelerDids, labelFirehose.Key);
                             await Task.Delay((int)delayMsBetweenLaunch);
                         }
-                        LoggableBase.Log("All labeler listeners were lanched.");
+                        LoggableBase.Log("All labeler listeners were launched.");
                         return 0;
                     }).FireAndForget();
 

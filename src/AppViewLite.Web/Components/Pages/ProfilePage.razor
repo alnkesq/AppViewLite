@@ -164,7 +164,7 @@
                         <a href="@SimpleProfile.BaseUrl/member-of" class="menu-item menu-item-advanced">Show list memberships</a>
                         @if (RequestContext.IsLoggedIn && SimpleProfile.Plc == RequestContext.LoggedInUser)
                         {
-                            <a href="/notifications?dark=1" class="menu-item menu-item-advanced">Show dark notifications</a>
+                            <a href="/notifications?dark=1" class="menu-item menu-item-advanced" data-alwaysfocuspage="1">Show dark notifications</a>
                         }
                         <a href="@SimpleProfile.BaseUrl/indexing" class="menu-item">Index this profile…</a>
                     }

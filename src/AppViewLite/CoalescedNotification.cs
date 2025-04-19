@@ -14,7 +14,7 @@ namespace AppViewLite
         public NotificationKind Kind;
         public BlueskyPost? Post;
         public PostId PostId;
-        public List<BlueskyProfile>? Profiles;
+        public required List<BlueskyProfile> Profiles;
         public bool IsNew;
         public BlueskyFeedGenerator? Feed;
         public BlueskyList? List;
@@ -22,7 +22,7 @@ namespace AppViewLite
         public Tid ListRKey;
 
         public NotificationCoalesceKey CoalesceKey => new(PostId, Kind, FeedRKeyHash, ListRKey);
-
+        public bool ShouldEmbedFullPost => BlueskyNotification.ShouldEmbedFullPost(Kind);
         public string KindDisplayText
         {
             get

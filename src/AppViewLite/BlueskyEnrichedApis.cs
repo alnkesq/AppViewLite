@@ -1940,30 +1940,42 @@ namespace AppViewLite
                 if (raw.Hidden) continue;
                 var key = raw.CoalesceKey;
 
-                var c = coalescedList.TakeWhile(x => (x.LatestDate - raw.EventDate).TotalHours < 24).FirstOrDefault(x => x.CoalesceKey == key);
-                if (c == null)
+                bool reused = false;
+                var inspected = 0;
+                for (int i = coalescedList.Count - 1; i >= 0; i--)
                 {
-                    c = new CoalescedNotification
+                    var reuse = coalescedList[i];
+                    if ((reuse.LatestDate - raw.EventDate).TotalHours > 18) break;
+                    inspected++;
+                    if (reuse.CoalesceKey == key)
                     {
-                        PostId = key.PostId,
-                        Kind = key.Kind,
-                        FeedRKeyHash = key.FeedRKeyHash,
-                        ListRKey = key.ListRKey,
-
-                        LatestDate = raw.EventDate,
-                        Post = raw.Post,
-                        Feed = raw.Feed,
-                        List = raw.List,
-                        IsNew = areNew,
-                    };
-                    coalescedList.Add(c);
+                        if (raw.Profile != null)
+                            reuse.Profiles.Add(raw.Profile);
+                        reused = true;
+                        break;
+                    }
+                    if (inspected >= 20) break;
                 }
 
-                if (raw.Profile != null)
+                if (reused) continue;
+
+                var c = new CoalescedNotification
                 {
-                    c.Profiles ??= [];
-                    c.Profiles.Add(raw.Profile);
-                }
+                    PostId = key.PostId,
+                    Kind = key.Kind,
+                    FeedRKeyHash = key.FeedRKeyHash,
+                    ListRKey = key.ListRKey,
+
+                    LatestDate = raw.EventDate,
+                    Post = raw.Post,
+                    Feed = raw.Feed,
+                    List = raw.List,
+                    IsNew = areNew,
+                    Profiles = raw.Profile != null ? [raw.Profile] : [],
+                };
+                coalescedList.Add(c);
+
+
             }
             return coalescedList.ToArray();
         }

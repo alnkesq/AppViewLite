@@ -1807,6 +1807,17 @@ namespace AppViewLite
             return GetPost(GetPostId(uri, ctx), ctx);
         }
 
+        public bool IsThreadReplyFullyVisible(BlueskyPost post, BlueskyThreadgate? threadgate, RequestContext ctx)
+        {
+            if (post.Data is { Deleted: true }) return false;
+            if (threadgate != null)
+            {
+                if (!ThreadgateAllowsUser(post.RootPostId, threadgate, post.AuthorId)) return false;
+                if (threadgate.IsHiddenReply(post.PostId)) return false;
+            }
+            return true;
+        }
+
         public BlueskyPost GetPost(PostId id, RequestContext? ctx = null)
         {
             var post = GetPostWithoutData(id, ctx);

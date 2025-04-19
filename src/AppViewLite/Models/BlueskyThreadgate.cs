@@ -17,6 +17,11 @@ namespace AppViewLite.Models
         [ProtoMember(5)] public RelationshipProto[]? AllowLists;
         [ProtoMember(6)] public bool Dummy;
         [ProtoMember(7)] public bool AllowFollowers;
+
+        public bool IsHiddenReply(PostId postId)
+        {
+            return HiddenReplies?.Any(x => x.PostId == postId) == true;
+        }
     }
 }
 

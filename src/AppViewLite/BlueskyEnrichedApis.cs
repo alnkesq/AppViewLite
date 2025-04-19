@@ -595,7 +595,7 @@ namespace AppViewLite
                 post.Threadgate = rels.TryGetThreadgate(post.RootPostId);
                 if (post.Threadgate != null)
                 {
-                    if (post.Threadgate.HiddenReplies?.Any(x => x.PostId == post.PostId) == true)
+                    if (post.Threadgate.IsHiddenReply(post.PostId))
                     {
                         if (post.PostBlockReason == default)
                             post.PostBlockReason = PostBlockReasonKind.HiddenReply;
@@ -1398,6 +1398,8 @@ namespace AppViewLite
             PostId? parsedContinuation = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : null;
             var otherReplyGroups = WithRelationshipsLock(rels =>
             {
+                var threadgate = focalPostId.Author == focalPost.RootPostId.Author ? rels.TryGetThreadgate(focalPost.RootPostId) : null;
+
                 var groups = new List<List<BlueskyPost>>();
 
                 var otherReplies = rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x, ctx)).ToArray();
@@ -1405,24 +1407,29 @@ namespace AppViewLite
                 {
                     var group = new List<BlueskyPost>();
                     group.Add(otherReply);
-                    var lastAdded = otherReply;
-                    while (lastAdded.ReplyCount != 0)
-                    {
-                        var subReplies = rels.DirectReplies.GetValuesUnsorted(lastAdded.PostId);
-                        var bestSubReply = subReplies
-                            .Where(x => x.Author == focalPostId.Author || x.Author == otherReply.AuthorId || otherReplies.Length == 1)
-                            .Select(x => (PostId: x, LikeCount: rels.Likes.GetApproximateActorCount(x)))
-                            .OrderByDescending(x => x.PostId.Author == focalPostId.Author)
-                            .ThenByDescending(x => x.LikeCount)
-                            .ThenByDescending(x => x.PostId.PostRKey.Date)
-                            .FirstOrDefault();
-                        if (bestSubReply == default) break;
-                        lastAdded = rels.GetPost(bestSubReply.PostId, ctx);
-                        group.Add(lastAdded);
-                        if (otherReplies.Length >= 2 && group.Count >= 4) break;
-                        if (otherReplies.Length >= 3 && group.Count >= 2) break;
-                    }
                     groups.Add(group);
+
+                    if (rels.IsThreadReplyFullyVisible(otherReply, threadgate, ctx))
+                    {
+                        var lastAdded = otherReply;
+                        while (lastAdded.ReplyCount != 0)
+                        {
+                            var subReplies = rels.DirectReplies.GetValuesUnsorted(lastAdded.PostId);
+                            var bestSubReply = subReplies
+                                .Where(x => x.Author == focalPostId.Author || x.Author == otherReply.AuthorId || otherReplies.Length == 1)
+                                .Select(x => (PostId: x, LikeCount: rels.Likes.GetApproximateActorCount(x)))
+                                .OrderByDescending(x => x.PostId.Author == focalPostId.Author)
+                                .ThenByDescending(x => x.LikeCount)
+                                .ThenByDescending(x => x.PostId.PostRKey.Date)
+                                .Select(x => rels.GetPost(x.PostId, ctx))
+                                .FirstOrDefault(x => rels.IsThreadReplyFullyVisible(x, threadgate, ctx));
+                            if (bestSubReply == null) break;
+                            lastAdded = bestSubReply;
+                            group.Add(lastAdded);
+                            if (otherReplies.Length >= 2 && group.Count >= 4) break;
+                            if (otherReplies.Length >= 3 && group.Count >= 2) break;
+                        }
+                    }
                 }
 
                 return groups;

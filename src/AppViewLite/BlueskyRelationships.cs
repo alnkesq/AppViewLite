@@ -366,7 +366,7 @@ namespace AppViewLite
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications", getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
 
-            PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label");
+            PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label", caches: [new KeyProbabilisticCache<PostId, LabelEntry>(32 * 1024 * 1024, 9)]);
             ProfileLabels = RegisterDictionary<Plc, LabelEntry>("profile-label");
             LabelToPosts = RegisterDictionary<LabelId, PostIdTimeFirst>("label-to-posts");
             LabelToProfiles = RegisterDictionary<LabelId, Plc>("label-to-profiles");
@@ -3237,6 +3237,7 @@ namespace AppViewLite
         }
         public LabelId[] GetPostLabels(PostId postId, HashSet<LabelId>? onlyLabels = null)
         {
+            if (PostLabels.GetKeyProbabilisticCache()?.PossiblyContainsKey(postId) == false) return [];
             return PostLabels.GetValuesSorted(postId)
                 .GroupAssumingOrderedInput(x => x.Labeler)
                 .Select(x => x.Values[x.Values.Count - 1])

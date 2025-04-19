@@ -25,6 +25,13 @@
                 }
                 <a href="@List.BaseUrl/subscribers" class="menu-item" target="_blank" rel="noreferrer">Show subscribers</a>
             }
+            @if (List is BlueskyLabel label)
+            {
+                if (ShowShowMembersButton)
+                {
+                    <a href="@label.Moderator!.BaseUrl/labels/@label.Name/members" class="menu-item" target="_blank" rel="noreferrer">Show members</a>
+                }
+            }
 
         </div>
 

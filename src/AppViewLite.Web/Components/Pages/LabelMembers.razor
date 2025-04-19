@@ -1,0 +1,34 @@
+@page "/@{did}/labels/{shortname}/members"
+@page "/@{did}@{activityPubInstance}/labels/{shortname}/members"
+@inherits ProfileComponentBase
+
+@code {
+    [Parameter] public required string ShortName { get; set; }
+    private BlueskyLabel? LabelMetadata;
+    private BlueskyProfile[] Members = [];
+    [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
+    private string? NextContinuation;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await ResolveDidAsync();
+        (LabelMetadata, Members, NextContinuation) = await Apis.GetLabelMembersAsync(Did, ShortName, Continuation, default, RequestContext);
+    }
+}
+
+<PageTitle>@LabelMetadata?.NicknameOrDisplayName</PageTitle>
+<h1><LabelerDisplayName List="@LabelMetadata" /></h1>
+<div class="main-padding">Label by <a href="@LabelMetadata?.Moderator!.BaseUrl" class="blue-link">@LabelMetadata?.Moderator!.DisplayName</a></div>
+<div class="main-padding list-page-description">
+    @LabelMetadata?.Data?.Description
+</div>
+@if (LabelMetadata != null)
+{
+    <div class="main-padding" data-moderationdid="@LabelMetadata.ModeratorDid" data-moderationlistrkey="-" data-moderationlabelname="@LabelMetadata.Name">
+        <LabelerSubscriptionButtons List="LabelMetadata" ShowShowMembersButton="false" />
+    </div>
+}
+<br>
+<br>
+<ProfileList Profiles="Members" NextContinuation="@NextContinuation" />
+

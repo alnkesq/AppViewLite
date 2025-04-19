@@ -3265,12 +3265,31 @@ namespace AppViewLite
 
             Plc? parsedContinuation = continuation != null ? StringUtils.DeserializeFromString<Plc>(continuation) : null;
             HashSet<LabelId> labelSet = [labelId];
-            var members = WithRelationshipsLock(rels => rels.LabelToProfiles.GetValuesSorted(labelId, parsedContinuation).Distinct().Where(x => rels.GetProfileLabels(x, labelSet).Length != 0).Take(limit + 1).Select(x => rels.GetProfile(x)).ToArray(), ctx);
+            var members = WithRelationshipsLock(rels => rels.LabelToProfiles.GetValuesSortedDescending(labelId, null, parsedContinuation).Distinct().Where(x => rels.GetProfileLabels(x, labelSet).Length != 0).Take(limit + 1).Select(x => rels.GetProfile(x)).ToArray(), ctx);
             var hasMore = members.Length > limit;
             if (hasMore)
                 members = members.AsSpan(0, limit).ToArray();
             await EnrichAsync(members, ctx);
-            return (label, members, hasMore ? StringUtils.SerializeToString(members[^1].Plc) : null);
+            return (label, members, hasMore ? StringUtils.SerializeToString(members[^2].Plc) : null);
+
+        }
+
+        public async Task<(BlueskyLabel Label, BlueskyPost[] Page, string? NextContinuation)> GetLabelPostsAsync(string did, string shortname, string? continuation, int limit, RequestContext ctx)
+        {
+            EnsureLimit(ref limit, 20);
+            var labelId = WithRelationshipsLockForDid(did, (plc, rels) => new LabelId(plc, BlueskyRelationships.HashLabelName(shortname)), ctx);
+            var label = WithRelationshipsLock(rels => rels.GetLabel(labelId), ctx);
+
+            await EnrichAsync([label], ctx);
+
+            PostIdTimeFirst? parsedContinuation = continuation != null ? StringUtils.DeserializeFromString<PostIdTimeFirst>(continuation) : null;
+            HashSet<LabelId> labelSet = [labelId];
+            var posts = WithRelationshipsLock(rels => rels.LabelToPosts.GetValuesSortedDescending(labelId, null, parsedContinuation).Distinct().Where(x => rels.GetPostLabels(x, labelSet).Length != 0).Take(limit + 1).Select(x => rels.GetPost(x)).ToArray(), ctx);
+            var hasMore = posts.Length > limit;
+            if (hasMore)
+                posts = posts.AsSpan(0, limit).ToArray();
+            await EnrichAsync(posts, ctx);
+            return (label, posts, hasMore ? StringUtils.SerializeToString((PostIdTimeFirst)posts[^2].PostId) : null);
 
         }
 

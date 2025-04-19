@@ -1,18 +1,18 @@
-@page "/@{did}/labels/{shortname}/members"
-@page "/@{did}@{activityPubInstance}/labels/{shortname}/members"
+@page "/@{did}/labels/{shortname}/posts"
+@page "/@{did}@{activityPubInstance}/labels/{shortname}/posts"
 @inherits ProfileComponentBase
 
 @code {
     [Parameter] public required string ShortName { get; set; }
     private BlueskyLabel? LabelMetadata;
-    private BlueskyProfile[] Members = [];
+    private BlueskyPost[] Posts = [];
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
     private string? NextContinuation;
 
     protected override async Task OnParametersSetAsync()
     {
         await ResolveDidAsync();
-        (LabelMetadata, Members, NextContinuation) = await Apis.GetLabelMembersAsync(Did, ShortName, Continuation, default, RequestContext);
+        (LabelMetadata, Posts, NextContinuation) = await Apis.GetLabelPostsAsync(Did, ShortName, Continuation, default, RequestContext);
     }
 }
 
@@ -34,5 +34,5 @@
         <NavLink draggable="false" href="@(ProfileBaseUrl + "/labels/" + ShortName + "/members")">Labeled profiles</NavLink>
     </div>
 </div>
-<ProfileList Profiles="Members" NextContinuation="@NextContinuation" EmptyListText="No labeled profiles were indexed." />
+<PostList Posts="Posts" NextContinuation="@NextContinuation" EmptyListText="No labeled posts were indexed." />
 

@@ -167,7 +167,7 @@ namespace AppViewLite.Web
                     {
                         labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
                         listRkey = x.ListRKey != 0 ? new Tid(x.ListRKey).ToString() : null,
-                        labelName = x.ListRKey == 0 ? rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash)).Name : null,
+                        labelName = x.ListRKey == 0 ? rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash), ctx).Name : null,
                         behavior = x.Behavior.ToString(),
                         privateNickname = x.OverrideDisplayName,
                     }).ToArray(),

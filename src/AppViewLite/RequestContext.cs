@@ -84,6 +84,7 @@ namespace AppViewLite
         }
 
         public ConcurrentDictionary<Plc, BlueskyProfile>? ProfileCache;
+        public ConcurrentDictionary<LabelId, BlueskyLabel>? LabelCache;
 
         public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null, long minVersion = default)
         {
@@ -102,6 +103,7 @@ namespace AppViewLite
                 StartDate = DateTime.UtcNow,
                 MinVersion = minVersion,
                 ProfileCache = new(),
+                LabelCache = new(),
                 LabelSubscriptions = session != null && session.IsLoggedIn ? session.UserContext.PrivateProfile!.LabelerSubscriptions : BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.DefaultLabelSubscriptions
             };
             ctx.InitializeDeadlines();

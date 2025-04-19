@@ -2105,6 +2105,7 @@ namespace AppViewLite
             };
             if (ctx?.ProfileCache is { } dict)
                 dict[plc] = result;
+
             return result;
         }
 
@@ -3206,9 +3207,11 @@ namespace AppViewLite
             throw new Exception(message);
         }
         public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(label));
-        public BlueskyLabel GetLabel(LabelId x, RequestContext? ctx = null)
+        public BlueskyLabel GetLabel(LabelId x, RequestContext? ctx)
         {
-            return new BlueskyLabel
+            if (ctx == null || ctx.LabelCache == null) { }
+            if (ctx?.LabelCache?.TryGetValue(x, out var cached) == true) return cached;
+            var label = new BlueskyLabel
             {
                 LabelId = x,
                 Moderator = GetProfile(x.Labeler, ctx, canOmitDescription: true),
@@ -3216,6 +3219,8 @@ namespace AppViewLite
                 Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
                 Data = TryGetLabelData(x)
             };
+            ctx?.LabelCache?.TryAdd(x, label);
+            return label;
         }
 
         public BlueskyLabelData? TryGetLabelData(LabelId x)
@@ -3488,6 +3493,7 @@ namespace AppViewLite
             if (profile.DidPopulateViewerFlags) return;
             if (ctx.IsLoggedIn)
             {
+                profile.UserContext = ctx.UserContext;
                 if (ctx.IsStillFollowedCached?.TryGetValue(profile.Plc, out var followRkey) == true)
                 {
                     if (followRkey != Tid.MaxValue) // MaxValue means private follow

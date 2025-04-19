@@ -241,11 +241,12 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, bool omitLabels = false, CancellationToken ct = default)
+        public async Task<BlueskyProfile[]> EnrichAsync(BlueskyProfile[] profiles, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null, bool omitLabelsAndViewerFlags = false, CancellationToken ct = default)
         {
             if (profiles.Length == 0) return profiles;
 
-            PopulateViewerFlags(profiles, ctx);
+            if (!omitLabelsAndViewerFlags)
+                PopulateViewerFlags(profiles, ctx);
 
             if (!IsReadOnly)
             {
@@ -270,7 +271,7 @@ namespace AppViewLite
                 })), ctx);
             }
 
-            if (!omitLabels)
+            if (!omitLabelsAndViewerFlags)
                 await EnrichAsync(profiles.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
 
             return profiles;
@@ -630,6 +631,15 @@ namespace AppViewLite
 
                         post.IsBookmarkedBySelf = rels.TryGetLatestBookmarkForPost(post.PostId, ctx.LoggedInUser, ref userBookmarks, ref userDeletedBookmarks);
                     }
+
+                    if (loadQuotes)
+                    {
+                        rels.PopulateQuotedPost(post, ctx);
+                        if (post.QuotedPost?.InReplyToUser != null)
+                            rels.PopulateViewerFlags(post.QuotedPost?.InReplyToUser, ctx);
+                    }
+                    if (post.InReplyToUser != null)
+                        rels.PopulateViewerFlags(post.InReplyToUser, ctx);
                 }
 
                 foreach (var post in posts.Where(x => x.Data != null))
@@ -668,7 +678,7 @@ namespace AppViewLite
             }
 
             await EnrichAsync(posts.SelectMany(x => x.Labels ?? []).ToArray(), ctx);
-            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy }).WhereNonNull().ToArray(), ctx, ct: ct);
+            await EnrichAsync(posts.SelectMany(x => new[] { x.Author, x.InReplyToUser, x.RepostedBy, x.QuotedPost?.Author, x.QuotedPost?.InReplyToUser }).WhereNonNull().ToArray(), ctx, ct: ct);
 
             if (loadQuotes)
             {
@@ -1042,7 +1052,7 @@ namespace AppViewLite
             var info = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx));
             ctx.BumpMinimumVersion(info.MinVersion);
 
-            var labels = WithRelationshipsLock(rels => info.Labels.Select(x => rels.GetLabel(x)).ToArray(), ctx);
+            var labels = WithRelationshipsLock(rels => info.Labels.Select(x => rels.GetLabel(x, ctx)).ToArray(), ctx);
             await EnrichAsync(labels, ctx);
             return labels;
         }
@@ -3189,7 +3199,7 @@ namespace AppViewLite
                 }
             }
 
-            await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx, omitLabels: true /* avoid infinite recursion */);
+            await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx, omitLabelsAndViewerFlags: true /* avoid infinite recursion */);
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
@@ -3231,7 +3241,7 @@ namespace AppViewLite
 
                 })), ctx);
             }
-            await EnrichAsync(lists.Select(x => x.Moderator!).ToArray(), ctx, ct: ct, omitLabels: true /* avoid infinite recursion */);
+            await EnrichAsync(lists.Select(x => x.Moderator!).ToArray(), ctx, ct: ct, omitLabelsAndViewerFlags: true /* avoid infinite recursion */);
             return lists;
         }
 
@@ -3256,7 +3266,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 20);
             var labelId = WithRelationshipsLockForDid(did, (plc, rels) => new LabelId(plc, BlueskyRelationships.HashLabelName(shortname)), ctx);
-            var label = WithRelationshipsLock(rels => rels.GetLabel(labelId), ctx);
+            var label = WithRelationshipsLock(rels => rels.GetLabel(labelId, ctx), ctx);
 
             await EnrichAsync([label], ctx);
 
@@ -3275,7 +3285,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit, 20);
             var labelId = WithRelationshipsLockForDid(did, (plc, rels) => new LabelId(plc, BlueskyRelationships.HashLabelName(shortname)), ctx);
-            var label = WithRelationshipsLock(rels => rels.GetLabel(labelId), ctx);
+            var label = WithRelationshipsLock(rels => rels.GetLabel(labelId, ctx), ctx);
 
             await EnrichAsync([label], ctx);
 
@@ -4180,8 +4190,6 @@ namespace AppViewLite
             {
                 foreach (var profile in profiles)
                 {
-                    if (ctx.IsLoggedIn)
-                        profile.UserContext = ctx.UserContext;
                     rels.PopulateViewerFlags(profile, ctx);
                 }
             }, ctx);

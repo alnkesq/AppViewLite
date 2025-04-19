@@ -3453,6 +3453,7 @@ namespace AppViewLite
 
         public void PopulateViewerFlags(BlueskyProfile profile, RequestContext ctx)
         {
+            if (profile.DidPopulateViewerFlags) return;
             if (ctx.IsLoggedIn)
             {
                 if (ctx.IsStillFollowedCached?.TryGetValue(profile.Plc, out var followRkey) == true)
@@ -3485,6 +3486,7 @@ namespace AppViewLite
             }
             // ctx.Session is null when logging in (ourselves)
             profile.PrivateFollow = (ctx.IsLoggedIn ? ctx.UserContext.GetPrivateFollow(profile.Plc) : null) ?? new() { Plc = profile.Plc.PlcValue };
+            profile.DidPopulateViewerFlags = true;
         }
 
         public void AssertCanRead()

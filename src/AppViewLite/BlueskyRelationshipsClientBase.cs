@@ -278,7 +278,7 @@ namespace AppViewLite
 
             (isWrite ? primarySecondaryPair.urgentWriteTasks : primarySecondaryPair.urgentReadTasks).Enqueue(task);
 
-            
+
             var late = Task.Run(() =>
             {
                 if (isWrite)
@@ -292,7 +292,7 @@ namespace AppViewLite
                 {
                     // We want a lock on primary since that's where urgentReadTasks expect to be run from
                     // Setting AllowStale to false is important because by the time we are here, a new up to date replica could now satisfy the required version
-                    ctx.AllowStale = false; 
+                    ctx.AllowStale = false;
 
                     WithRelationshipsLock(rels =>
                     {
@@ -313,7 +313,7 @@ namespace AppViewLite
             BlueskyRelationships.Assert(AlignedNativeArena.ForCurrentThread == null && CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread == null);
             CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = UnalignedArenaPool.Get();
             AlignedNativeArena.ForCurrentThread = AlignedArenaPool.Get();
-            
+
         }
 
 
@@ -327,7 +327,7 @@ namespace AppViewLite
                 AlignedArenaPool.Return(alignedArena!);
                 AlignedNativeArena.ForCurrentThread = null;
             }
-       
+
             var unalignedArena = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread;
             if (unalignedArena != null)
             {

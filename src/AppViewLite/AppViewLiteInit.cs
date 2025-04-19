@@ -19,7 +19,7 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
 
             var ignoreSlicesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IGNORE_SLICES_PATH);
-            var ignoreSlices = ignoreSlicesPath != null ? StringUtils.ReadTextFile(ignoreSlicesPath).Select(x => 
+            var ignoreSlices = ignoreSlicesPath != null ? StringUtils.ReadTextFile(ignoreSlicesPath).Select(x =>
             {
                 var parts = x.Split('/');
                 if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0 || parts[0].AsSpan().ContainsAny('/', '\\', ' ')) throw new ArgumentException("Invalid line in APPVIEWLITE_IGNORE_SLICES_PATH: " + x);
@@ -48,7 +48,7 @@ namespace AppViewLite
             var dataDirectory = AppViewLiteConfiguration.GetDataDirectory();
             CombinedPersistentMultiDictionary.ToPhysicalPath = path =>
             {
-                if(Path.DirectorySeparatorChar == '\\')
+                if (Path.DirectorySeparatorChar == '\\')
                     path = path.Replace('/', '\\');
 
                 if (File.Exists(path)) return path;
@@ -68,7 +68,7 @@ namespace AppViewLite
             var relationships = new BlueskyRelationships(
                 dataDirectory,
                 AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false,
-                [dataDirectory, ..additionalDirectories]);
+                [dataDirectory, .. additionalDirectories]);
 
             relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(relationships);

@@ -92,7 +92,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
         [ProtoMember(9)] public string Md5;
         [ProtoMember(10)] public string Mime;
         [ProtoMember(11)] public string Id;
-        [ProtoMember(12)] [JsonIgnore] public bool? Spoiler;
+        [ProtoMember(12)][JsonIgnore] public bool? Spoiler;
         [ProtoMember(13)] public string Thumb_Path;
         [ProtoMember(14)] public string File_Path;
         [JsonPropertyName("spoiler")] public JsonValue SpoilerObject;

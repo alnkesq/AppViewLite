@@ -67,7 +67,7 @@ namespace AppViewLite.Storage
             if (obj.TotalAllocatedSize == (long)initialSize)
             {
                 obj.Reset();
-                return true;   
+                return true;
             }
             return false;
         }

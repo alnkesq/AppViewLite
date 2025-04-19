@@ -356,7 +356,7 @@ namespace AppViewLite
             FeedGeneratorSearch = RegisterDictionary<HashedWord, RelationshipHashedRKey>("feed-generator-search");
             FeedGeneratorLikes = RegisterRelationshipDictionary<RelationshipHashedRKey>("feed-generator-like-2", GetApproxRkeyHash24);
             FeedGeneratorDeletions = RegisterDictionary<RelationshipHashedRKey, DateTime>("feed-deletion");
-            DidDocs = RegisterDictionary<Plc, byte>("did-doc-6", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) => 
+            DidDocs = RegisterDictionary<Plc, byte>("did-doc-6", PersistentDictionaryBehavior.PreserveOrder, caches: [new WhereSelectCache<Plc, byte, Plc, byte>("labeler", PersistentDictionaryBehavior.PreserveOrder, (plc, diddocBytes) =>
             {
                 var diddoc = DidDocProto.DeserializeFromBytes(diddocBytes.AsSmallSpan(), onlyIfProtobufEncoding: true /* labeler can only exist in protobuf encoding */);
                 if (diddoc == null) return default;
@@ -1014,7 +1014,7 @@ namespace AppViewLite
                 this.DirectReplies.Add(inReplyTo, postId);
 
                 var notifiedAncestors = new HashSet<Plc>();
-                
+
                 var rootPostId = proto.RootPostId;
                 if (rootPostId != postId && rootPostId != inReplyTo)
                 {
@@ -1052,7 +1052,7 @@ namespace AppViewLite
                             break;
                         }
                     }
-                } 
+                }
                 else
                 {
                     // Direct reply to a root post, no lookups needed.
@@ -3064,7 +3064,7 @@ namespace AppViewLite
                     pdsStringToIdCache.Add(proto.Pds, pdsId);
                 }
             }
-            else 
+            else
             {
                 pdsId = SerializePds(pds);
             }
@@ -3465,7 +3465,7 @@ namespace AppViewLite
                     if (Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
                         profile.IsFollowedBySelf = followRel.RelationshipRKey;
                 }
-                    
+
             }
             profile.IsYou = profile.Plc == ctx.Session?.LoggedInUser;
             profile.BlockReason = GetBlockReason(profile.Plc, ctx);
@@ -4038,7 +4038,7 @@ namespace AppViewLite
                 ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
                 UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 this.Version,
- 
+
             };
         }
 
@@ -4170,7 +4170,7 @@ namespace AppViewLite
                 return cursor;
             }
         }
-    
+
     }
 
 

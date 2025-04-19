@@ -31,6 +31,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                     var ctx = RequestContext.CreateForFirehose("HackerNews");
 
                     var hackerNewsHomeUrl = new Uri("https://news.ycombinator.com/");
+
                     var dom = StringUtils.ParseHtml(await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(hackerNewsHomeUrl, ct));
 
 

@@ -213,7 +213,7 @@ namespace AppViewLite
                     relationship = next;
                     if (cannotPossiblyExist)
                         BlueskyRelationships.ThrowFatalError("Probabilistic filter returned false, but relationship was actually found.");
-                    
+
                     BlueskyRelationships.Assert(!certainlyDoesntExist);
                     return true;
                 }

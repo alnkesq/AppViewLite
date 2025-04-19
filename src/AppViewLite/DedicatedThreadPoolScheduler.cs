@@ -121,7 +121,7 @@ namespace AppViewLite
                 if (index == 0)
                 {
                     // non suspendable
-                    TryExecuteTask(task!); 
+                    TryExecuteTask(task!);
                     AfterTaskProcessed?.Invoke();
 
                 }

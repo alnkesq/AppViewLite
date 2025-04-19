@@ -61,7 +61,7 @@ namespace AppViewLite
                                 result.ExternalTitle = result.ExternalTitle.Substring(dot + 1).Trim(); // trims the "💬 1  🔁 2  ❤️ 3 ·" prefix 
                         }
 
-                        if (result.ExternalThumbnailUrl != null) 
+                        if (result.ExternalThumbnailUrl != null)
                         {
                             var thumbUrl = new Uri(result.ExternalThumbnailUrl);
                             if (thumbUrl.HasHostSuffix("media.tumblr.com"))

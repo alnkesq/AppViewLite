@@ -477,7 +477,7 @@ namespace AppViewLite
                 OnAccountStateChanged(acct.Did.Handler, acct.Active, acct.Status);
                 return;
             }
-            
+
             VerifyValidForCurrentRelay!(e.Record.Did!.ToString());
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
@@ -574,7 +574,7 @@ namespace AppViewLite
                         .WithLogger(new LogWrapper())
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
 
-                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);                    currentFirehoseCursor.State = FirehoseState.Starting;
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;
 
                     LogFirehoseStartMessage(currentFirehoseCursor);
@@ -624,7 +624,7 @@ namespace AppViewLite
                 }
                 finally
                 {
-                    if (!ShutdownRequested.IsCancellationRequested) 
+                    if (!ShutdownRequested.IsCancellationRequested)
                         Apis.DrainAndCaptureFirehoseCursors();
                 }
             }, ct);
@@ -654,7 +654,7 @@ namespace AppViewLite
                     OnRepoFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler);
-            },  retryPolicy, useApproximateFirehoseCapture: false, useWatchdog: useWatchdog, ct: ct);
+            }, retryPolicy, useApproximateFirehoseCapture: false, useWatchdog: useWatchdog, ct: ct);
         }
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
@@ -1182,7 +1182,7 @@ namespace AppViewLite
                     rels.DidDocs.Flush(false);
                     rels.ProfileSearchPrefix2.Flush(false);
                     rels.ProfileSearchPrefix8.Flush(false);
-                    
+
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;
                 }, ctx);

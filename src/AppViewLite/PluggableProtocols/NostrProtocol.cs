@@ -72,7 +72,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         {
             var content = e.Content;
             var kind = (NostrEventKind)e.Kind;
-            
+
             if (content?.Length >= 4 * 1024) return;
             if (e.Kind == (int)NostrEventKind.Short_Text_Note && content != null)
             {

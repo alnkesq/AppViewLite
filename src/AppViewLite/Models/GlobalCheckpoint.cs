@@ -24,7 +24,7 @@ namespace AppViewLite.Models
 
         [ProtoMember(4)][JsonInclude] public DateTime LastSeenEventDate; // not necessarily processed yet, only for display/debug purposes.
 
-        [JsonInclude] [JsonConverter(typeof(JsonStringEnumConverter))] public FirehoseState State;
+        [JsonInclude][JsonConverter(typeof(JsonStringEnumConverter))] public FirehoseState State;
         [JsonIgnore] public Exception? LastException;
         [JsonInclude] public string? LastError => LastException?.Message;
         [JsonInclude] public TimeSpan? LagBehind => LastSeenEventDate != default ? DateTime.UtcNow - LastSeenEventDate : null;
@@ -37,7 +37,7 @@ namespace AppViewLite.Models
     }
 
     public enum FirehoseState
-    { 
+    {
         None,
         Starting,
         Running,

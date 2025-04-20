@@ -331,7 +331,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
         private static bool IsFalsePositiveDomain(string host)
         {
-            return host is "medium.com" or "youtube.com";
+            return host is "medium.com" or "youtube.com" or "primal.net" or "nostrcheck.me";
         }
 
         public static string GetDid(ActivityPubUserId author)
@@ -403,7 +403,9 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 if (author.nostr != null) return default;
                 throw new ArgumentException("Cannot parse ActivityPub fqn username " + author.fqn);
             }
-            return ActivityPubUserId.Parse(id, hostFromAuthorUrl);
+            var userId = ActivityPubUserId.Parse(id, hostFromAuthorUrl);
+            if (hostFromPostUrl == "gleasonator.dev" && (userId.Instance != "gleasonator.dev" || userId.UserName.StartsWith("npub", StringComparison.Ordinal))) return default;
+            return userId;
         }
 
         protected internal override void EnsureValidDid(string did)

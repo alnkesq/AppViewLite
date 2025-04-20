@@ -3054,12 +3054,18 @@ namespace AppViewLite
                 // rootPostId.Author must follow replyAuthor
                 if (Follows.HasActor(replyAuthor, rootPostId.Author, out _))
                     return true;
+
+                if (!HaveCollectionForUser(rootPostId.Author, RepositoryImportKind.Follows))
+                    return true; // Optimistic
             }
             if (threadgate.AllowFollowers)
             {
                 // replyAuthor must follow rootPostId.Author
                 if (Follows.HasActor(rootPostId.Author, replyAuthor, out _))
                     return true;
+
+                if (!HaveCollectionForUser(replyAuthor, RepositoryImportKind.Follows))
+                    return true; // Optimistic
             }
 
             if (threadgate.AllowMentioned)

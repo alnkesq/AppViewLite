@@ -30,7 +30,7 @@ namespace AppViewLite.Models
         public bool IsSpam =>
 
             // thousands of entries every 2-3 minutes since early April 2025
-            Pds is "https://pds.trump.com" ||
+            Pds is "https://pds.trump.com" or "https://plc.surge.sh/gallery" ||
             (MultipleHandles is { Length: >= 1 } && MultipleHandles.Any(x => x.EndsWith(".a.co", StringComparison.Ordinal))) ||
             (OtherUrls is { Length: >= 1 } && OtherUrls.All(x => x.Length == 160 && !x.Contains('.'))) ||
             (Pds == null && Date >= new DateTime(2025, 3, 31, 0, 0, 0, DateTimeKind.Utc) && Date <= new DateTime(2025, 4, 3, 0, 0, 0, DateTimeKind.Utc))

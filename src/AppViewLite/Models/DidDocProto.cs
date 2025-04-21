@@ -27,14 +27,54 @@ namespace AppViewLite.Models
         [ProtoMember(10)] public string? AtProtoLabeler;
         [ProtoMember(11)] public ushort? EarliestDateApprox16;
 
-        public bool IsSpam =>
+        public int OriginalPayloadApproximateSize;
 
-            // thousands of entries every 2-3 minutes since early April 2025
-            Pds is "https://pds.trump.com" or "https://plc.surge.sh/gallery" ||
-            (MultipleHandles is { Length: >= 1 } && MultipleHandles.Any(x => x.EndsWith(".a.co", StringComparison.Ordinal))) ||
-            (OtherUrls is { Length: >= 1 } && OtherUrls.All(x => x.Length == 160 && !x.Contains('.'))) ||
-            (Pds == null && Date >= new DateTime(2025, 3, 31, 0, 0, 0, DateTimeKind.Utc) && Date <= new DateTime(2025, 4, 3, 0, 0, 0, DateTimeKind.Utc))
-         ;
+        public bool IsSpam
+        {
+            get
+            {
+                
+                // thousands of entries every 2-3 minutes since early April 2025
+                var isSpam = 
+                    Pds is "https://pds.trump.com" or "https://plc.surge.sh/gallery" ||
+                    AllHandlesAndDomains.Any(x => x != null && IsSpamHandleOrDomain(x)) ||
+                    (OtherUrls is { Length: >= 1 } && OtherUrls.Any(IsSpamOtherUrl)) ||
+                    (Pds == null && Date >= new DateTime(2025, 3, 31, 0, 0, 0, DateTimeKind.Utc) && Date <= new DateTime(2025, 4, 3, 0, 0, 0, DateTimeKind.Utc))
+                ;
+                if (!isSpam)
+                {
+                    if (OriginalPayloadApproximateSize > 200)
+                    { 
+                    
+                    }
+                }
+                return isSpam;
+            }
+        }
+
+        private static bool IsSpamOtherUrl(string url)
+        {
+            if (url.Length >= 50 && !url.AsSpan().ContainsAny(':', '.')) return true;
+
+            if (Uri.TryCreate(url, UriKind.Absolute, out var u))
+            {
+                if (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps)
+                {
+                    return IsSpamHandleOrDomain(u.Host);
+                }
+            }
+            return false;
+        }
+
+        private static bool IsSpamHandleOrDomain(string domain)
+        {
+            if (!domain.Contains('.')) return true;
+            if (domain.EndsWith(".a.co", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".flipboard.com.ap.brid.gy", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".awakari.com.ap.brid.gy", StringComparison.Ordinal)) return true;
+            if (domain.Contains('_')) return true;
+            return false;
+        }
 
         public IEnumerable<string?> AllHandlesAndDomains => [GetDomainFromPds(Pds), Handle, .. MultipleHandles ?? []];
 
@@ -42,7 +82,9 @@ namespace AppViewLite.Models
         {
             if (pds == null) return null;
             if (!pds.Contains('/')) return pds;
-            return new Uri(pds).Host;
+            var url = StringUtils.TryParseUri(pds);
+            if (url == null || url.Scheme != Uri.UriSchemeHttps) return null;
+            return url.Host;
         }
 
         public string? Handle => (CustomDomain ?? (BskySocialUserName != null ? BskySocialUserName + ".bsky.social" : null)) ?? MultipleHandles?.FirstOrDefault();

@@ -1267,12 +1267,22 @@ namespace AppViewLite
         public static DidDocProto DidDocToProto(PlcDirectoryEntry entry)
         {
             var operation = entry.operation;
-            return DidDocToProto(
+
+            var size = 0;
+            size += operation.service?.Length ?? 0;
+            size += operation.services?.atproto_labeler?.endpoint?.Length ?? 0;
+            size += operation.services?.atproto_pds?.endpoint?.Length ?? 0;
+            size += operation.handle?.Length ?? 0;
+            size += operation.alsoKnownAs?.Sum(x => x.Length) ?? 0;
+
+            var proto = DidDocToProto(
                 operation.service ?? operation.services?.atproto_pds?.endpoint,
                 operation.services?.atproto_labeler?.endpoint,
-                operation.handle != null ? ["at://" + operation.handle] : operation.alsoKnownAs,
+                operation.handle != null ? ["at://" + operation.handle] : operation.alsoKnownAs!,
                 entry.did,
                 entry.createdAt);
+            proto.OriginalPayloadApproximateSize = size;
+            return proto;
         }
 
 

@@ -1074,6 +1074,7 @@ namespace AppViewLite
                     proto.QuotedRKey = quoted.PostRKey.TidValue;
 
                     this.Quotes.Add(quoted, postId);
+                    AddNotification(quoted.Author, NotificationKind.QuotedYourPost, postId, ctx, postId.PostRKey.Date);
                     embed = null;
                 }
             }

@@ -42,13 +42,13 @@ namespace AppViewLite
                 canBeSuspended = true;
                 notifyTaskAboutToBeEnqueuedCanBeSuspended = false;
             }
-            QueueTask(task, canBeSuspended);
+            BeforeTaskEnqueued?.Invoke();
+            QueueTaskCore(task, canBeSuspended);
 
         }
-        private void QueueTask(Task task, bool canBeSuspended)
+        private void QueueTaskCore(Task task, bool canBeSuspended)
         {
 
-            BeforeTaskEnqueued?.Invoke();
             var p = pauseBuffer;
             if (p != null && canBeSuspended)
             {
@@ -165,7 +165,7 @@ namespace AppViewLite
                 var reenqueuedTasks = 0;
                 foreach (var task in p.GetConsumingEnumerable())
                 {
-                    QueueTask(task, canBeSuspended: true);
+                    QueueTaskCore(task, canBeSuspended: true);
                     reenqueuedTasks++;
                 }
                 LoggableBase.Log($"Reenqueued {reenqueuedTasks} previously paused firehose scheduler tasks.");

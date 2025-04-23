@@ -1110,7 +1110,7 @@ details:not([open]) .summary-when-open {
     font-weight: bold;
 }
 
-.notification-profile-summary img {
+.notification-profile-summary .profile-image-small {
     width: 35px;
     height: 35px;
 }
@@ -1135,7 +1135,7 @@ details:not([open]) .summary-when-open {
     padding-top: 4px;
     padding-bottom: 4px;
 }
-    .notification-profile-entry img {
+    .notification-profile-entry .profile-image-small {
         width: 35px;
         height: 35px;
     }

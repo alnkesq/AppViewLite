@@ -4883,10 +4883,10 @@ namespace AppViewLite
         {
             lock (globalFlushWithFirehoseCursorCaptureLock)
             {
-                //Log("Draining firehose threadpool...");
-                //var resume = Indexer.FirehoseThreadpool!.PauseAndDrain();
+                Log("Draining firehose threadpool...");
+                var resume = Indexer.FirehoseThreadpool!.PauseAndDrain();
                 Indexer.CaptureFirehoseCursors?.Invoke();
-                //resume();
+                resume();
             }
         }
 

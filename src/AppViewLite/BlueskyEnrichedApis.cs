@@ -1366,10 +1366,9 @@ namespace AppViewLite
 
                 var loadedBefore = 0;
                 var before = 0;
-                while (thread[0].IsReply)
+                while (thread[0].InReplyToPostId is { } inReplyToPostId)
                 {
-                    var p = thread[0];
-                    var prepend = WithRelationshipsLock(rels => rels.GetPost(p.InReplyToPostId!.Value, ctx), ctx);
+                    var prepend = WithRelationshipsLock(rels => rels.GetPost(inReplyToPostId, ctx), ctx);
                     if (before++ >= 20) break;
                     if (prepend.Data == null)
                     {

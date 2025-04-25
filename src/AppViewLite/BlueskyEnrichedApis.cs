@@ -3775,6 +3775,9 @@ namespace AppViewLite
         {
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(handle);
 
+
+            var attemptingWellKnown = false;
+
             try
             {
                 // Is it valid to have multiple TXTs listing different DIDs? bsky.app seems to support that.
@@ -3812,7 +3815,7 @@ namespace AppViewLite
                         }, ctx);
                     }
                 }
-
+                attemptingWellKnown = true;
                 var s = (await DefaultHttpClient.GetStringAsync("https://" + handle + "/.well-known/atproto-did")).Trim();
                 EnsureValidDid(s);
                 return WithRelationshipsWriteLock(rels =>
@@ -3822,13 +3825,13 @@ namespace AppViewLite
                     return rels.AsVersioned(s);
                 }, ctx);
             }
-            catch
+            catch (Exception ex)
             {
                 WithRelationshipsWriteLock(rels =>
                 {
                     rels.AddHandleToDidVerification(handle, default);
                 }, ctx);
-                throw;
+                throw new UnexpectedFirehoseDataException($"Could not resolve handle: " + (attemptingWellKnown && ex is HttpRequestException {StatusCode: { } sc } hre ? "HTTP " + (int)sc + " " + sc : ex.Message), ex);
             }
         }
 

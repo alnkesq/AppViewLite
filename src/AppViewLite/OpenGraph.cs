@@ -39,9 +39,10 @@ namespace AppViewLite
 
                     var dom = StringUtils.ParseHtml(await response.Content.ReadAsStringAsync());
                     var imageUrl = GetMetaProperty(dom, "og:image");
+                    var pageTitle = StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim());
                     var result = new OpenGraphData
                     {
-                        ExternalTitle = GetMetaProperty(dom, "og:title") ?? StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim()),
+                        ExternalTitle = GetMetaProperty(dom, "og:title") ?? pageTitle,
                         ExternalDescription = GetMetaProperty(dom, "og:description"),
                         DateFetched = DateTime.UtcNow,
                         ExternalUrl = url.AbsoluteUri,
@@ -54,11 +55,14 @@ namespace AppViewLite
                         result.ExternalTitle = result.ExternalDescription;
                         result.ExternalDescription = null;
 
+
                         if (result.ExternalTitle != null)
                         {
                             var dot = result.ExternalTitle.IndexOf('·');
                             if (dot != -1)
                                 result.ExternalTitle = result.ExternalTitle.Substring(dot + 1).Trim(); // trims the "💬 1  🔁 2  ❤️ 3 ·" prefix 
+                            else if (result.ExternalTitle.Contains("💬") && result.ExternalTitle.Contains("🔁") && result.ExternalTitle.Contains("❤️"))
+                                result.ExternalTitle = pageTitle;
                         }
 
                         if (result.ExternalThumbnailUrl != null)

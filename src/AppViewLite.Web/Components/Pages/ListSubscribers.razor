@@ -18,7 +18,7 @@
 
 <PageTitle>Subscribers of @ListMetadata?.NicknameOrDisplayName</PageTitle>
 <h1>Subscribers of <LabelerDisplayName List="@ListMetadata" /></h1>
-<div class="main-padding">List by <a href="@ListMetadata?.Moderator!.BaseUrl" class="blue-link">@ListMetadata?.Moderator!.DisplayName</a></div>
+<div class="main-padding">List by <a href="@ListMetadata?.Moderator!.BaseUrl" class="blue-link">@ListMetadata?.Moderator!.DisplayNameOrFallback</a></div>
 <div class="main-padding">
     <a href="@ListMetadata!.BaseUrl" class="blue-link">Back to list</a>
 </div>

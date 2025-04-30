@@ -18,7 +18,7 @@
 
 <PageTitle>@LabelMetadata?.NicknameOrDisplayName</PageTitle>
 <h1><LabelerDisplayName List="@LabelMetadata" /></h1>
-<div class="main-padding">Label by <a href="@LabelMetadata?.Moderator!.HomeUrl" class="blue-link">@LabelMetadata?.Moderator!.DisplayName</a></div>
+<div class="main-padding">Label by <a href="@LabelMetadata?.Moderator!.HomeUrl" class="blue-link">@LabelMetadata?.Moderator!.DisplayNameOrFallback</a></div>
 <div class="main-padding list-page-description">
     @LabelMetadata?.Data?.Description
 </div>

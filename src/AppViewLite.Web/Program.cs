@@ -1,16 +1,18 @@
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.WebUtilities;
-using AppViewLite.Web.Components;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Components.Web;
+using AppViewLite.Models;
 using AppViewLite.PluggableProtocols;
+using AppViewLite.Web.Components;
+using FishyFlip;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.WebUtilities;
 using AppViewLite.Storage;
-using AppViewLite.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Text;
-using FishyFlip;
+using System.Text.Json.Serialization;
 
 namespace AppViewLite.Web
 {
@@ -354,7 +356,21 @@ namespace AppViewLite.Web
 
         public static string? TryGetSessionCookie(HttpContext? httpContext)
         {
-            return httpContext != null && httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
+            if (httpContext == null) return null;
+            if (httpContext.Request.Path.StartsWithSegments("/xrpc"))
+            {
+                var authorization = httpContext.Request.Headers.Authorization.FirstOrDefault();
+                if (authorization != null && authorization.StartsWith("Bearer ", StringComparison.Ordinal))
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var unverifiedJwtToken = authorization.Substring(7).Trim();
+                    var parsedUnverifiedJwtToken = handler.ReadJwtToken(unverifiedJwtToken);
+                    var unverifiedDid = parsedUnverifiedJwtToken.Subject;
+                    return unverifiedJwtToken + "=" + unverifiedDid;
+                }
+                return null;
+            }
+            return httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
         }
 
         public static Uri? GetNextContinuationUrl(this NavigationManager url, string? nextContinuation)

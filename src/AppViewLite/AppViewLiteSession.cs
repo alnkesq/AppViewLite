@@ -58,6 +58,9 @@ namespace AppViewLite
 
         public AppViewLiteSessionProto? TryGetAppViewLiteSession(string? sessionId)
         {
+            if (!string.IsNullOrEmpty(PdsSession?.AccessJwt) && CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(sessionId), MemoryMarshal.AsBytes<char>(PdsSession!.AccessJwt)))
+                return PrivateProfile!.Sessions.Last();
+
             if (sessionId == null) return null;
             return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
         }

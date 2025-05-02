@@ -50,7 +50,10 @@ namespace AppViewLite.Web
         {
             return Task.FromResult(new GetPreferencesOutput
             {
-                Preferences = []
+                Preferences = [
+                    new SavedFeedsPrefV2 { Items = [new SavedFeed("3lemacgq3ne2v", "timeline", "following", pinned: true)] },
+                    new AdultContentPref { Enabled = true }
+                ]
             }.ToJsonResponse());
         }
 

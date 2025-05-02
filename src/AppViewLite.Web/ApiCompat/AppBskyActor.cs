@@ -44,6 +44,21 @@ namespace AppViewLite.Web
                 Actors = []
             }.ToJsonResponse());
         }
+
+        [HttpGet("app.bsky.actor.getPreferences")]
+        public Task<IResult> GetPreferences()
+        {
+            return Task.FromResult(new GetPreferencesOutput
+            {
+                Preferences = []
+            }.ToJsonResponse());
+        }
+
+        [HttpPost("app.bsky.actor.putPreferences")]
+        public object PutPreferences(PutPreferencesInput preferences)
+        {
+            return new object();
+        }
     }
 }
 

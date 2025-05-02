@@ -157,6 +157,17 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResponse();
         }
 
+        [HttpGet("app.bsky.feed.getTimeline")]
+        public async Task<IResult> GetTimeline(string? algorithm, int? limit, string? cursor)
+        {
+            var feed = await apis.GetBalancedFollowingFeedAsync(cursor, limit ?? default, ctx);
+            return new GetTimelineOutput
+            {
+                Cursor = feed.NextContinuation,
+                Feed = feed.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x)).ToList()
+            }.ToJsonResponse();
+        }
+
         public enum GetUserPostsFilter
         {
             None,

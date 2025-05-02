@@ -2144,7 +2144,7 @@ namespace AppViewLite
 
         public BlockReason GetBlockReason(Plc plc, RequestContext ctx)
         {
-            return ctx.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc) : default;
+            return ctx.IsLoggedIn == true ? UsersHaveBlockRelationship(ctx.LoggedInUser, plc, ctx) : default;
         }
 
         public PostId GetPostId(string did, string rkey, RequestContext ctx)
@@ -2363,21 +2363,31 @@ namespace AppViewLite
             return Blocks.HasActor(blockee, blocker, out _);
         }
 
-        public BlockReason UserBlocksUser(Plc blocker, Plc blockee)
+        public BlockReason UserBlocksUser(Plc blocker, Plc blockee, RequestContext ctx)
         {
             if (UserDirectlyBlocksUser(blocker, blockee)) return new BlockReason(BlockReasonKind.Blocks, default);
-            foreach (var subscription in GetSubscribedBlockLists(blocker))
+
+            foreach (var subscription in GetSubscribedBlockLists(blocker, ctx))
             {
                 if (IsMemberOfList(subscription, blockee)) return new BlockReason(BlockReasonKind.Blocks, subscription);
             }
             return default;
         }
 
-        public BlockReason UsersHaveBlockRelationship(Plc a, Plc b)
+        public BlockReason UsersHaveBlockRelationship(Plc a, Plc b, RequestContext ctx)
+        {
+            if (!ctx.BlockReasonCache.TryGetValue((a, b), out var result))
+            {
+                result = UsersHaveBlockRelationshipCore(a, b, ctx);
+                ctx.BlockReasonCache[(a, b)] = result;
+            }
+            return result;
+        }
+        public BlockReason UsersHaveBlockRelationshipCore(Plc a, Plc b, RequestContext ctx)
         {
             if (a == b) return default;
-            var direct = UserBlocksUser(a, b);
-            var inverse = UserBlocksUser(b, a);
+            var direct = UserBlocksUser(a, b, ctx);
+            var inverse = UserBlocksUser(b, a, ctx);
             var directKind = direct.Kind;
             var inverseKind = inverse.Kind;
 
@@ -2449,7 +2459,16 @@ namespace AppViewLite
             return false;
         }
 
-        public List<Relationship> GetSubscribedBlockLists(Plc subscriber)
+        public List<Relationship> GetSubscribedBlockLists(Plc subscriber, RequestContext ctx)
+        {
+            if (!ctx.SubscribedBlocklistsCache.TryGetValue(subscriber, out var result))
+            {
+                result = GetSubscribedBlockListsCore(subscriber);
+                ctx.SubscribedBlocklistsCache[subscriber] = result;
+            }
+            return result;
+        }
+        private List<Relationship> GetSubscribedBlockListsCore(Plc subscriber)
         {
             if (ListBlocks.GetDelegateProbabilisticCache<Plc>()?.PossiblyContains(subscriber) == false) return [];
             var lists = new List<Relationship>();
@@ -2520,7 +2539,7 @@ namespace AppViewLite
             var table = GetNotificationTable(dark);
             if (table.Contains(destination, notification)) return;
 
-            if (!dark && UsersHaveBlockRelationship(destination, actor) != default) return;
+            if (!dark && UsersHaveBlockRelationship(destination, actor, ctx) != default) return;
             table.Add(destination, notification);
             if (!dark)
                 UserNotificationSubscribersThreadSafe.MaybeFetchDataAndNotifyOutsideLock(destination, () => GetNotificationCount(destination, dark: false), (data, handler) => handler(data));
@@ -2584,7 +2603,7 @@ namespace AppViewLite
                 Kind = notification.Kind,
                 Post = post,
                 Profile = actor != default ? GetProfile(actor, ctx, canOmitDescription: true) : default,
-                Hidden = !IsDarkNotification(notification.Kind) && actor != default && UsersHaveBlockRelationship(destination, actor) != default,
+                Hidden = !IsDarkNotification(notification.Kind) && actor != default && UsersHaveBlockRelationship(destination, actor, ctx) != default,
                 NotificationCore = notification,
                 Feed = feed,
                 List = list,
@@ -3354,7 +3373,7 @@ namespace AppViewLite
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
                 if (!exists)
                 {
-                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc) == default ? rkey : default;
+                    result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc, ctx) == default ? rkey : default;
                 }
                 return result;
 

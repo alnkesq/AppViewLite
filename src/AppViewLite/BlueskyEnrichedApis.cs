@@ -558,17 +558,17 @@ namespace AppViewLite
 
                 if (focalPostAuthor != null)
                 {
-                    post.FocalAndAuthorBlockReason = rels.UsersHaveBlockRelationship(focalPostAuthor.Value, post.AuthorId);
+                    post.FocalAndAuthorBlockReason = rels.UsersHaveBlockRelationship(focalPostAuthor.Value, post.AuthorId, ctx);
                 }
 
 
                 if (post.Data?.InReplyToPostId is { Author: { } inReplyToAuthor })
                 {
-                    post.ParentAndAuthorBlockReason = rels.UsersHaveBlockRelationship(inReplyToAuthor, author);
+                    post.ParentAndAuthorBlockReason = rels.UsersHaveBlockRelationship(inReplyToAuthor, author, ctx);
 
                     if (post.RootPostId.Author != inReplyToAuthor)
                     {
-                        post.RootAndAuthorBlockReason = rels.UsersHaveBlockRelationship(post.RootPostId.Author, author);
+                        post.RootAndAuthorBlockReason = rels.UsersHaveBlockRelationship(post.RootPostId.Author, author, ctx);
                     }
                 }
 
@@ -692,8 +692,8 @@ namespace AppViewLite
                         {
                             var quoted = quoter.QuotedPost;
                             if (quoted == null) continue;
-                            if (sideWithQuotee) quoter.QuoteeAndAuthorBlockReason = rels.UsersHaveBlockRelationship(quoter.PostId.Author, quoted.PostId.Author);
-                            else quoted.QuoterAndAuthorBlockReason = rels.UsersHaveBlockRelationship(quoter.PostId.Author, quoted.PostId.Author);
+                            if (sideWithQuotee) quoter.QuoteeAndAuthorBlockReason = rels.UsersHaveBlockRelationship(quoter.PostId.Author, quoted.PostId.Author, ctx);
+                            else quoted.QuoterAndAuthorBlockReason = rels.UsersHaveBlockRelationship(quoter.PostId.Author, quoted.PostId.Author, ctx);
                             var quotedPostgate = rels.TryGetPostgate(quoted.PostId);
                             if (quotedPostgate != null)
                             {
@@ -1503,7 +1503,7 @@ namespace AppViewLite
             var blockTask = EnsureHaveCollectionAsync(user, RepositoryImportKind.Blocks, ctx);
             await subscriptionsTasks;
 
-            var subscribedBlocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(user), ctx)
+            var subscribedBlocklistAuthors = WithRelationshipsLock(rels => rels.GetSubscribedBlockLists(user, ctx), ctx)
                 .Select(x => x.Actor)
                 .Distinct();
 

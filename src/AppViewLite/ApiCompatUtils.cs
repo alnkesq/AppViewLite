@@ -102,13 +102,18 @@ namespace AppViewLite
                 CreatedAt = DummyDate,
                 Avatar = GetAvatarUrl(profile),
                 Did = new FishyFlip.Models.ATDid(profile.Did),
-                Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
+                Handle = GetHandle(profile),
                 Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
                 {
                     Muted = false,
                     BlockedBy = false,
                 },
             };
+        }
+
+        private static ATHandle GetHandle(BlueskyProfile profile)
+        {
+            return new FishyFlip.Models.ATHandle(profile.HandleIsUncertain || profile.PossibleHandle == null ? "handle.invalid" : profile.PossibleHandle);
         }
 
         private static string? GetAvatarUrl(BlueskyProfile profile)
@@ -129,7 +134,7 @@ namespace AppViewLite
                 CreatedAt = DummyDate,
                 Avatar = GetAvatarUrl(profile),
                 Did = new FishyFlip.Models.ATDid(profile.Did),
-                Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
+                Handle = GetHandle(profile),
                 Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
                 {
                     Muted = false,
@@ -147,7 +152,7 @@ namespace AppViewLite
                 CreatedAt = DummyDate,
                 Avatar = GetAvatarUrl(profile),
                 Did = new FishyFlip.Models.ATDid(profile.Did),
-                Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
+                Handle = GetHandle(profile),
                 Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
                 {
                     Muted = false,

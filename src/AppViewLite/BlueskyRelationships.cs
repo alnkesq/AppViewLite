@@ -139,7 +139,7 @@ namespace AppViewLite
         private FileStream? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
         private Dictionary<string, FirehoseCursor>? firehoseCursors;
-        private GlobalCheckpoint loadedCheckpoint;
+        private GlobalCheckpoint? loadedCheckpoint;
 
         private T Register<T>(T r) where T : ICheckpointable
         {
@@ -654,7 +654,7 @@ namespace AppViewLite
             {
                 Log("Capturing checkpoint");
                 BeforeCaptureCheckpoint?.Invoke();
-                loadedCheckpoint.Tables ??= new();
+                loadedCheckpoint!.Tables ??= new();
                 loadedCheckpoint.FirehoseCursors = firehoseCursors!.Values.ToList();
                 foreach (var table in disposables)
                 {

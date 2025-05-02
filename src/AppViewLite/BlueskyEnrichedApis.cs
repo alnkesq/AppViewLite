@@ -636,7 +636,7 @@ namespace AppViewLite
                     {
                         rels.PopulateQuotedPost(post, ctx);
                         if (post.QuotedPost?.InReplyToUser != null)
-                            rels.PopulateViewerFlags(post.QuotedPost?.InReplyToUser, ctx);
+                            rels.PopulateViewerFlags(post.QuotedPost.InReplyToUser, ctx);
                     }
                     if (post.InReplyToUser != null)
                         rels.PopulateViewerFlags(post.InReplyToUser, ctx);
@@ -2921,7 +2921,7 @@ namespace AppViewLite
             return CreateUnauthenticatedProtocol(new Uri(instance));
         }
 
-        public ATProtocol CreateUnauthenticatedProtocol(Uri instanceUrl)
+        public static ATProtocol CreateUnauthenticatedProtocol(Uri instanceUrl)
         {
             var builder = new ATProtocolBuilder()
                 .WithInstanceUrl(instanceUrl)
@@ -3202,7 +3202,7 @@ namespace AppViewLite
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>
                 {
-                    var version = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(label.ModeratorDid, RequestContext.CreateForTaskDictionary(ctx));
+                    var version = await FetchAndStoreLabelerServiceMetadataDict.GetValueAsync(label.ModeratorDid!, RequestContext.CreateForTaskDictionary(ctx));
                     ctx.BumpMinimumVersion(version.MinVersion);
                     WithRelationshipsLock(rels =>
                     {

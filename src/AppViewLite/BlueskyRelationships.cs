@@ -327,7 +327,7 @@ namespace AppViewLite
             Postgates = RegisterDictionary<PostIdTimeFirst, byte>("postgate-2", PersistentDictionaryBehavior.PreserveOrder);
             Migrate(Postgates, RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder));
 
-            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", 2 * 1024 * 1024, 6, (k, v) => k.Actor)]);
+            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", 2 * 1024 * 1024, 6, (k, v) => k.Actor)], getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
             ListSubscribers = RegisterDictionary<Relationship, Relationship>("list-subscribers", PersistentDictionaryBehavior.SingleValue);
 

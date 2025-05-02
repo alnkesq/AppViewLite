@@ -1,11 +1,9 @@
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using Microsoft.AspNetCore.Cors;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using AppViewLite.Models;
 using AppViewLite;
-using System.Linq;
 
 namespace AppViewLite.Web.ApiCompat
 {
@@ -23,7 +21,7 @@ namespace AppViewLite.Web.ApiCompat
         }
 
         [HttpGet("app.bsky.feed.getPostThread")]
-        public async Task<GetPostThreadOutput> GetPostThread(string uri, int depth)
+        public async Task<IResult> GetPostThread(string uri, int depth)
         {
 
             var aturi = await apis.ResolveUriAsync(uri, ctx);
@@ -43,11 +41,11 @@ namespace AppViewLite.Web.ApiCompat
             return new GetPostThreadOutput
             {
                 Thread = tvp,
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.getLikes")]
-        public async Task<GetLikesOutput> GetLikes(string uri, string? cursor)
+        public async Task<IResult> GetLikes(string uri, string? cursor)
         {
             var aturi = await apis.ResolveUriAsync(uri, ctx);
             var likers = await apis.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
@@ -56,11 +54,11 @@ namespace AppViewLite.Web.ApiCompat
                 Uri = aturi,
                 Cursor = likers.NextContinuation,
                 Likes = likers.Profiles.Select(x => new LikeDef { Actor = x.ToApiCompatProfile(), CreatedAt = x.RelationshipRKey!.Value.Date, IndexedAt = x.RelationshipRKey.Value.Date }).ToList(),
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.getRepostedBy")]
-        public async Task<GetRepostedByOutput> GetRepostedBy(string uri, string? cursor)
+        public async Task<IResult> GetRepostedBy(string uri, string? cursor)
         {
             var aturi = await apis.ResolveUriAsync(uri, ctx);
             var reposters = await apis.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
@@ -69,11 +67,11 @@ namespace AppViewLite.Web.ApiCompat
                 Uri = aturi,
                 Cursor = reposters.NextContinuation,
                 RepostedBy = reposters.Profiles.Select(x => x.ToApiCompatProfile()).ToList(),
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.getQuotes")]
-        public async Task<GetQuotesOutput> GetQuotes(string uri, string? cursor)
+        public async Task<IResult> GetQuotes(string uri, string? cursor)
         {
             var aturi = await apis.ResolveUriAsync(uri, ctx);
             var quotes = await apis.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
@@ -82,11 +80,11 @@ namespace AppViewLite.Web.ApiCompat
                 Uri = aturi,
                 Cursor = quotes.NextContinuation,
                 Posts = quotes.Posts.Select(x => x.ToApiCompat(null)).ToList(),
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.getFeedGenerator")]
-        public async Task<GetFeedGeneratorOutput> GetFeedGenerator(string feed)
+        public async Task<IResult> GetFeedGenerator(string feed)
         {
             var uri = await apis.ResolveUriAsync(feed, ctx);
             var feedDid = uri.Did!.Handler!;
@@ -98,11 +96,11 @@ namespace AppViewLite.Web.ApiCompat
                 IsOnline = true,
                 IsValid = true,
                 View = generator.ToApiCompat(creator)
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.getFeed")]
-        public async Task<GetFeedOutput> GetFeed(string feed, int limit, string? cursor)
+        public async Task<IResult> GetFeed(string feed, int limit, string? cursor)
         {
             var uri = await apis.ResolveUriAsync(feed, ctx);
             var feedDid = uri.Did!.Handler!;
@@ -113,11 +111,11 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList(),
                 Cursor = nextContinuation,
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.getAuthorFeed")]
-        public async Task<GetAuthorFeedOutput> GetAuthorFeed(string actor, GetUserPostsFilter filter, string includePins, int limit, string? cursor)
+        public async Task<IResult> GetAuthorFeed(string actor, GetUserPostsFilter filter, string includePins, int limit, string? cursor)
         {
             if (filter == GetUserPostsFilter.None) filter = GetUserPostsFilter.posts_no_replies;
 
@@ -139,11 +137,11 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Cursor = nextContinuation,
                 Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList()
-            };
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.feed.searchPosts")]
-        public async Task<SearchPostsOutput> SearchPosts(string q, int limit, SearchPostsSort sort, string? cursor)
+        public async Task<IResult> SearchPosts(string q, int limit, SearchPostsSort sort, string? cursor)
         {
             var options = new PostSearchOptions
             {
@@ -156,7 +154,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),
                 Cursor = results.NextContinuation,
-            };
+            }.ToJsonResponse();
         }
 
         public enum GetUserPostsFilter

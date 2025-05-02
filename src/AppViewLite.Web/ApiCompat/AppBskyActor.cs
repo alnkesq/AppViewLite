@@ -20,20 +20,20 @@ namespace AppViewLite.Web
         }
 
         [HttpGet("app.bsky.actor.getProfile")]
-        public async Task<FishyFlip.Lexicon.App.Bsky.Actor.ProfileViewDetailed> GetProfile(string actor)
+        public async Task<IResult> GetProfile(string actor)
         {
             var profile = await apis.GetFullProfileAsync(actor, ctx, 0);
 
-            return profile.ToApiCompatDetailed();
+            return profile.ToApiCompatDetailed().ToJsonResponse();
         }
 
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]
-        public Task<SearchActorsTypeaheadOutput> SearchActorsTypeahead(string q, int limit)
+        public Task<IResult> SearchActorsTypeahead(string q, int limit)
         {
             return Task.FromResult(new SearchActorsTypeaheadOutput
             {
                 Actors = []
-            });
+            }.ToJsonResponse());
         }
     }
 }

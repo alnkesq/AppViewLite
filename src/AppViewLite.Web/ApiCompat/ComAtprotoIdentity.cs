@@ -19,12 +19,12 @@ namespace AppViewLite.Web.ApiCompat
         }
 
         [HttpGet("com.atproto.identity.resolveHandle")]
-        public async Task<FishyFlip.Lexicon.Com.Atproto.Identity.ResolveHandleOutput> ResolveHandle(string handle)
+        public async Task<IResult> ResolveHandle(string handle)
         {
             return new FishyFlip.Lexicon.Com.Atproto.Identity.ResolveHandleOutput
             {
                 Did = new FishyFlip.Models.ATDid(await apis.ResolveHandleAsync(handle, ctx))
-            };
+            }.ToJsonResponse();
         }
     }
 }

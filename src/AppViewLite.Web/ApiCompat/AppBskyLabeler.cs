@@ -19,12 +19,12 @@ namespace AppViewLite.Web.ApiCompat
         }
 
         [HttpGet("app.bsky.labeler.getServices")]
-        public async Task<FishyFlip.Lexicon.App.Bsky.Labeler.GetServicesOutput> GetServices()
+        public async Task<IResult> GetServices()
         {
             return new FishyFlip.Lexicon.App.Bsky.Labeler.GetServicesOutput
             {
                 Views = []
-            };
+            }.ToJsonResponse();
         }
     }
 }

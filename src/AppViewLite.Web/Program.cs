@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using AppViewLite.Storage;
 using AppViewLite.Models;
 using System.Text;
+using FishyFlip;
 
 namespace AppViewLite.Web
 {
@@ -410,5 +411,10 @@ namespace AppViewLite.Web
             navigation.NavigateTo("/login?return=" + Uri.EscapeDataString(new Uri(navigation.Uri).PathAndQuery), true);
         }
 
+
+        public static IResult ToJsonResponse<T>(this T result) where T: IJsonEncodable<T>
+        {
+            return TypedResults.Bytes(result.ToUtf8Json(), "application/json");
+        }
     }
 }

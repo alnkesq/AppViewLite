@@ -3774,6 +3774,7 @@ namespace AppViewLite
             if (post.IsMuted) return false;
 
             if (post.Author.BlockReason != default) return false;
+            if (post.AllLabels.Any(x => x.Mode is ModerationBehavior.Mute or ModerationBehavior.Block)) return false;
 
             PopulateQuotedPost(post, ctx);
             if (post.QuotedPost != null)

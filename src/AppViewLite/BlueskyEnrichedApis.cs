@@ -2140,49 +2140,11 @@ namespace AppViewLite
             {
 
                 var possibleFollows = rels.GetFollowingFast(ctx);
-
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
-
 
                 var userPosts = possibleFollows.PossibleFollows.Select(pair =>
                 {
-                    var plc = pair.Plc;
-
-
-#if false
-                    var posts = rels.UserToRecentPosts
-                        .GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(minDate), default))
-                        .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
-                        .ToArray();
-#else
-                    var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/);
-
-                    var posts = postsFast
-                        .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
-                        .Where(x => x.RKey.Date >= minDate)
-                        .ToArray();
-#endif
-                    var reposts = rels.GetRecentReposts(plc, couldBePluggablePost: pair.IsPrivate)
-                        .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
-                        .Where(x => x.RepostRKey.Date >= minDate)
-                        .ToArray();
-
-                    if (posts.Length == 0 && reposts.Length == 0) return default;
-                    if (!possibleFollows.IsStillFollowed(plc, rels)) return default;
-                    var isReposterOnly = reposts.Length != 0 && posts.Length == 0 && rels.ReposterOnlyProfile.ContainsKey(plc);
-
-
-                    return (
-                        Plc: plc,
-                        Posts: posts
-                            .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
-                            //.Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate, plcToRecentPostLikes)))
-                            .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
-                            .ToArray(),
-                       Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels) || isReposterOnly, LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, allowImprecise: true)))
-                            .ToArray()
-                       );
+                    return GetBalancedFollowingFeedCandidatesForFollowee(rels, pair.Plc, pair.IsPrivate, minDate, loggedInUser, possibleFollows, isPostSeen);
                 }).Where(x => x.Plc != default).ToArray();
                 return (possibleFollows, userPosts);
             }, ctx);
@@ -2503,6 +2465,37 @@ namespace AppViewLite
             var posts = finalPosts.ToArray();
             await EnrichAsync(posts, ctx);
             return new PostsAndContinuation(posts, ProducedEnoughPosts() ? string.Join(",", finalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
+        }
+
+        private static BalancedFeedCandidatesForFollowee GetBalancedFollowingFeedCandidatesForFollowee(BlueskyRelationships rels, Plc plc, bool couldBePluggablePost, DateTime minDate, Plc loggedInUser, FollowingFastResults possibleFollows, Func<PostIdTimeFirst, bool> isPostSeen)
+        {
+            var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: couldBePluggablePost /*pluggables can only repost pluggables, atprotos can only repost atprotos*/);
+
+            var posts = postsFast
+                .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
+                .Where(x => x.RKey.Date >= minDate)
+                .ToArray();
+
+            var reposts = rels.GetRecentReposts(plc, couldBePluggablePost: couldBePluggablePost)
+                .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
+                .Where(x => x.RepostRKey.Date >= minDate)
+                .ToArray();
+
+            if (posts.Length == 0 && reposts.Length == 0) return default;
+            if (!possibleFollows.IsStillFollowed(plc, rels)) return default;
+            var isReposterOnly = reposts.Length != 0 && posts.Length == 0 && rels.ReposterOnlyProfile.ContainsKey(plc);
+
+            return new BalancedFeedCandidatesForFollowee(
+                plc,
+                posts
+                    .Where(x => x.InReplyTo == default || x.InReplyTo == loggedInUser || possibleFollows.IsStillFollowed(x.InReplyTo, rels))
+                    //.Select(x => (PostRKey: x.RKey, LikeCount: rels.GetApproximateLikeCount(new(x.RKey, plc), pair.IsPrivate, plcToRecentPostLikes)))
+                    .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
+                    .ToArray(),
+               reposts
+                    .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels) || isReposterOnly, LikeCount: rels.GetApproximateLikeCount(x.PostId, couldBePluggablePost /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, allowImprecise: true)))
+                    .ToArray()
+               );
         }
 
         private Func<Plc, float> GetScorer(RequestContext ctx)
@@ -4925,6 +4918,8 @@ namespace AppViewLite
             return labels;
         }
     }
+
+    internal record struct BalancedFeedCandidatesForFollowee(Plc Plc, (Tid PostRKey, int LikeCount)[] Posts, (PostId PostId, Tid RepostRKey, bool IsReposteeFollowed, long LikeCount)[] Reposts);
 }
 
 

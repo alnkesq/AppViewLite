@@ -3330,7 +3330,7 @@ namespace AppViewLite
             return KnownMirrorsToIgnore.ContainsKey(hash);
         }
 
-        public ((Plc Plc, bool IsPrivate)[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, BlueskyRelationships, Tid> IsStillFollowedGetRkey, Func<Plc, bool> IsPossiblyStillFollowed) GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
+        public FollowingFastResults GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
             var StillPrivateFollowed = Tid.MaxValue;
 
@@ -3379,7 +3379,7 @@ namespace AppViewLite
 
             }
 
-            return (possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray(), (plc, rels) => IsStillFollowedGetRkey(plc, rels) != default, IsStillFollowedGetRkey,
+            return new FollowingFastResults(possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray(), (plc, rels) => IsStillFollowedGetRkey(plc, rels) != default, IsStillFollowedGetRkey,
             plc =>
             {
                 if (plc == default) return true;
@@ -3420,12 +3420,14 @@ namespace AppViewLite
 
         public Func<PostIdTimeFirst, bool> GetIsPostSeenFuncForUserRequiresLock(RequestContext ctx)
         {
+            // The returned lambda can be used in parallel as long as the same read lock is always held.
+
             MaybeUpdateRecentlyAlreadySeenOrDiscardedPosts(ctx);
             var seenPostsInMemory = ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts!;
             var seenPostsInMemoryThreshold = (ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset - BalancedFeedMaximumAge).AddSeconds(60);
             var seenPosts = SeenPosts.GetValuesChunked(ctx.LoggedInUser).ToArray();
 
-            var cache = new Dictionary<PostIdTimeFirst, bool>();
+            var cache = new ConcurrentDictionary<PostIdTimeFirst, bool>();
 
             return postId =>
             {
@@ -4305,6 +4307,8 @@ namespace AppViewLite
 
 
     public delegate void LiveNotificationDelegate(Versioned<PostStatsNotification> notification, Plc commitPlc);
+
+    public record struct FollowingFastResults((Plc Plc, bool IsPrivate)[] PossibleFollows, Func<Plc, BlueskyRelationships, bool> IsStillFollowed, Func<Plc, BlueskyRelationships, Tid> IsStillFollowedGetRkey, Func<Plc, bool> IsPossiblyStillFollowed);
 }
 
 

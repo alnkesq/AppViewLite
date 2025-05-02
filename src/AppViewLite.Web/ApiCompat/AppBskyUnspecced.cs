@@ -25,6 +25,14 @@ namespace AppViewLite.Web.ApiCompat
                 Topics = [],
             }.ToJsonResponse();
         }
+        [HttpGet("app.bsky.unspecced.getPopularFeedGenerators")]
+        public IResult GetPopularFeedGenerators(string? query, int limit)
+        {
+            return new GetPopularFeedGeneratorsOutput
+            {
+                Feeds = []
+            }.ToJsonResponse();
+        }
     }
 }
 

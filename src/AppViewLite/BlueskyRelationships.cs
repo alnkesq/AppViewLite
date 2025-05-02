@@ -1827,7 +1827,7 @@ namespace AppViewLite
         public BlueskyPost GetPost(PostId id, RequestContext? ctx = null)
         {
             var post = GetPostWithoutData(id, ctx);
-            (post.Data, post.InReplyToUser) = TryGetPostDataAndInReplyTo(id, ctx);
+            (post.Data, post.InReplyToUser, post.RootPostDid) = TryGetPostDataAndInReplyTo(id, ctx);
             MaybePropagateAdministrativeBlockToPost(post);
 
             if (post.Data != null)
@@ -1907,13 +1907,13 @@ namespace AppViewLite
             };
         }
 
-        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo) TryGetPostDataAndInReplyTo(PostId id, RequestContext? ctx = null)
+        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo, string? RootPostDid) TryGetPostDataAndInReplyTo(PostId id, RequestContext? ctx = null)
         {
             var d = TryGetPostData(id);
             if (d == null) return default;
-            if (d.InReplyToPlc == null) return (d, null);
+            if (d.InReplyToPlc == null) return (d, null, null);
             var inReplyTo = GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true);
-            return (d, inReplyTo);
+            return (d, inReplyTo, GetDid(d.RootPostId.Author));
 
         }
 

@@ -1,9 +1,9 @@
+using AppViewLite.Models;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
 using Ipfs;
-using AppViewLite.Models;
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -24,6 +24,7 @@ namespace AppViewLite
         public static PostView ToApiCompat(this BlueskyPost post, BlueskyPost? rootPost = null)
         {
             var aturi = GetPostUri(post.Author.Did, post.RKey);
+            
             return new PostView
             {
                 Uri = aturi,
@@ -43,7 +44,7 @@ namespace AppViewLite
                     Reply = post.InReplyToPostId != null ? new ReplyRefDef
                     {
                         Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
-                        Root = GetPostStrongRef(rootPost!.Did, rootPost.RKey)
+                        Root = GetPostStrongRef(post.RootPostDid!, post.RootPostId.PostRKey.ToString()!)
                     } : null,
                 },
                 Author = post.Author.ToApiCompatBasic(),
@@ -99,7 +100,7 @@ namespace AppViewLite
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
                 CreatedAt = DummyDate,
-                Avatar = profile.AvatarUrl,
+                Avatar = GetAvatarUrl(profile),
                 Did = new FishyFlip.Models.ATDid(profile.Did),
                 Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
                 Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
@@ -109,6 +110,16 @@ namespace AppViewLite
                 },
             };
         }
+
+        private static string? GetAvatarUrl(BlueskyProfile profile)
+        {
+            return BlueskyEnrichedApis.Instance.GetAvatarUrl(profile.Did, profile.BasicData?.AvatarCidBytes, profile.Pds);
+        }
+        private static string? GetAvatarUrl(BlueskyFeedGenerator feed)
+        {
+            return BlueskyEnrichedApis.Instance.GetAvatarUrl(feed.Did, feed.Data?.AvatarCid, feed.Author.Pds);
+        }
+
         public static ProfileViewBasic ToApiCompatBasic(this BlueskyProfile profile)
         {
             return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileViewBasic
@@ -116,7 +127,7 @@ namespace AppViewLite
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
                 CreatedAt = DummyDate,
-                Avatar = profile.AvatarUrl,
+                Avatar = GetAvatarUrl(profile),
                 Did = new FishyFlip.Models.ATDid(profile.Did),
                 Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
                 Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
@@ -134,7 +145,7 @@ namespace AppViewLite
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
                 CreatedAt = DummyDate,
-                Avatar = profile.AvatarUrl,
+                Avatar = GetAvatarUrl(profile),
                 Did = new FishyFlip.Models.ATDid(profile.Did),
                 Handle = new FishyFlip.Models.ATHandle("handle.invalid"),
                 Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
@@ -172,12 +183,14 @@ namespace AppViewLite
                 Uri = feed.Uri,
                 IndexedAt = DummyDate,
                 Did = new ATDid(feed.Did),
-                Avatar = feed.AvatarUrl,
+                Avatar = GetAvatarUrl(feed),
                 AcceptsInteractions = false,
                 Creator = creator.ToApiCompatProfile(),
 
             };
         }
+
+     
     }
 }
 

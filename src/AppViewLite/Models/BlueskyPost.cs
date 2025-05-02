@@ -87,7 +87,7 @@ namespace AppViewLite.Models
         }
 
         public string? OriginalPostUrl => Author.PluggableProtocol?.TryGetOriginalPostUrl(QualifiedPluggablePostId, this);
-
+        public string? RootPostDid;
         public IEnumerable<BlueskyModerationBase> AllLabels => this.Labels.Concat(this.Author.Labels);
         public BlockReasonDisplayStringAndList? GetBlurReason(bool isFocal, bool isQuotee, bool isThreadView, bool isQuoteList, RequestContext ctx)
         {

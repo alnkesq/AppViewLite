@@ -35,6 +35,15 @@ namespace AppViewLite.Web
                 Actors = []
             }.ToJsonResponse());
         }
+
+        [HttpGet("app.bsky.actor.searchActors")]
+        public Task<IResult> SearchActors(string q, int limit, string? cursor)
+        {
+            return Task.FromResult(new SearchActorsOutput
+            {
+                Actors = []
+            }.ToJsonResponse());
+        }
     }
 }
 

@@ -537,7 +537,7 @@ namespace AppViewLite
             {
                 if (post.Data == null)
                 {
-                    (post.Data, post.InReplyToUser) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey, ctx), ctx);
+                    (post.Data, post.InReplyToUser, post.RootPostDid) = rels.TryGetPostDataAndInReplyTo(rels.GetPostId(post.Author.Did, post.RKey, ctx), ctx);
                 }
 
                 BlueskyRelationships.MaybePropagateAdministrativeBlockToPost(post);

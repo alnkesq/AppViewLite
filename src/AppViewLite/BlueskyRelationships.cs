@@ -56,8 +56,8 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
-        public CombinedPersistentMultiDictionary<PostId, byte> Threadgates;
-        public CombinedPersistentMultiDictionary<PostId, byte> Postgates;
+        public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> Threadgates;
+        public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> Postgates;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListBlocks;
         public CombinedPersistentMultiDictionary<Relationship, Relationship> ListSubscribers;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListBlockDeletions;
@@ -321,8 +321,11 @@ namespace AppViewLite
             Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder);
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
 
-            Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder);
-            Postgates = RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder);
+            Threadgates = RegisterDictionary<PostIdTimeFirst, byte>("threadgate-2", PersistentDictionaryBehavior.PreserveOrder);
+            Migrate(Threadgates, RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder));
+
+            Postgates = RegisterDictionary<PostIdTimeFirst, byte>("postgate-2", PersistentDictionaryBehavior.PreserveOrder);
+            Migrate(Postgates, RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder));
 
             ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", 2 * 1024 * 1024, 6, (k, v) => k.Actor)]);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);

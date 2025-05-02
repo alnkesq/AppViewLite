@@ -2435,8 +2435,7 @@ namespace AppViewLite
                 return false;
             }
 
-            if (ListDeletions.ContainsKey(list))
-                return false;
+
 
             foreach (var memberChunk in LockLocalCaches.ListMembers.GetOrFetch(list, () => ListItems.GetValuesChunked(list).ToArray()))
             {
@@ -2455,6 +2454,9 @@ namespace AppViewLite
                     if (ListItemDeletions.ContainsKey(listItem))
                         continue;
 
+
+                    if (ListDeletions.ContainsKey(list))
+                        return false;
                     return true;
                 }
             }

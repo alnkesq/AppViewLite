@@ -2128,7 +2128,7 @@ namespace AppViewLite
         {
             ctx.IsStillFollowedCached ??= new();
 
-            EnsureLimit(ref limit, 50);
+            EnsureLimit(ref limit, 20);
             var scoredSampler = GetScorer(ctx);
 
             var now = DateTime.UtcNow;

@@ -2007,7 +2007,7 @@ namespace AppViewLite
         {
             return GetImageUrl(ThumbnailSize.feed_thumbnail, did, cid, pds, fileNameForDownload);
         }
-        public string? GetImageBannerUrl(string did, byte[] cid, string? pds, string? fileNameForDownload = null)
+        public string? GetImageBannerUrl(string did, byte[]? cid, string? pds, string? fileNameForDownload = null)
         {
             return GetImageUrl(ThumbnailSize.banner, did, cid, pds, fileNameForDownload);
         }

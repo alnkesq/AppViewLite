@@ -24,7 +24,7 @@ namespace AppViewLite.Web
         {
             var profile = await apis.GetFullProfileAsync(actor, ctx, 0);
 
-            return profile.ToApiCompatDetailed().ToJsonResponse();
+            return profile.ToApiCompatProfileDetailed().ToJsonResponse();
         }
 
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]

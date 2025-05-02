@@ -79,7 +79,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Uri = aturi,
                 Cursor = quotes.NextContinuation,
-                Posts = quotes.Posts.Select(x => x.ToApiCompat(null)).ToList(),
+                Posts = quotes.Posts.Select(x => x.ToApiCompatPostView(null)).ToList(),
             }.ToJsonResponse();
         }
 
@@ -95,7 +95,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 IsOnline = true,
                 IsValid = true,
-                View = generator.ToApiCompat(creator)
+                View = generator.ToApiCompatGeneratorView(creator)
             }.ToJsonResponse();
         }
 
@@ -152,7 +152,7 @@ namespace AppViewLite.Web.ApiCompat
                 await apis.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, ctx: ctx);
             return new SearchPostsOutput
             {
-                Posts = results.Posts.Select(x => x.ToApiCompat()).ToList(),
+                Posts = results.Posts.Select(x => x.ToApiCompatPostView()).ToList(),
                 Cursor = results.NextContinuation,
             }.ToJsonResponse();
         }

@@ -3,6 +3,7 @@ using System;
 using AppViewLite.PluggableProtocols;
 using System.Linq;
 using System.Collections.Generic;
+using FishyFlip.Models;
 
 namespace AppViewLite.Models
 {
@@ -34,6 +35,9 @@ namespace AppViewLite.Models
 
         public BlueskyPost? InReplyToFullPost;
         public BlueskyPost? RootFullPost;
+
+        public ATUri AtUri => new ATUri($"at://{Did}/app.bsky.feed.post/{RKey}");
+
         public bool IsReply => Data?.InReplyToPlc != null || Data?.IsReplyToUnspecifiedPost == true;
         public bool IsNativeReply => Data?.InReplyToPlc != null;
         public bool IsRootPost => !IsReply;

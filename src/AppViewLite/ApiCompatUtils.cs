@@ -40,7 +40,7 @@ namespace AppViewLite
                 {
                     CreatedAt = post.Date,
                     Text = post.Data?.Text,
-                    Reply = post.IsReply ? new ReplyRefDef
+                    Reply = post.InReplyToPostId != null ? new ReplyRefDef
                     {
                         Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
                         Root = GetPostStrongRef(rootPost!.Did, rootPost.RKey)

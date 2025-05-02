@@ -53,6 +53,7 @@ namespace AppViewLite
         public ConcurrentDictionary<Plc, Tid>? IsStillFollowedCached;
         public ConcurrentDictionary<(Plc, Plc), BlockReason> BlockReasonCache = new();
         public ConcurrentDictionary<Plc, List<Relationship>> SubscribedBlocklistsCache = new();
+        public ConcurrentDictionary<Relationship, BlueskyList> ListCache = new();
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();

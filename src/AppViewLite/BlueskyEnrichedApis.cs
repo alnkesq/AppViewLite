@@ -3241,7 +3241,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
             var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)), ctx);
-            var list = WithRelationshipsLock(rels => rels.GetList(listId), ctx);
+            var list = WithRelationshipsLock(rels => rels.GetList(listId, ctx: ctx), ctx);
 
             await EnrichAsync([list], ctx);
 
@@ -3295,7 +3295,7 @@ namespace AppViewLite
         {
             EnsureLimit(ref limit);
             var listId = WithRelationshipsLockForDid(did, (plc, rels) => new Models.Relationship(plc, Tid.Parse(rkey)), ctx);
-            var list = WithRelationshipsLock(rels => rels.GetList(listId), ctx);
+            var list = WithRelationshipsLock(rels => rels.GetList(listId, ctx: ctx), ctx);
 
             await EnrichAsync([list], ctx);
 #if false

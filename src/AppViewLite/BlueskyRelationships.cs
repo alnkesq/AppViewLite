@@ -2930,6 +2930,17 @@ namespace AppViewLite
 
         public BlueskyList GetList(Relationship listId, ListData? listData = null, RequestContext? ctx = null)
         {
+            if (ctx == null || !ctx.ListCache.TryGetValue(listId, out var result))
+            {
+                result = GetListCore(listId, listData, ctx);
+                if (ctx != null)
+                    ctx.ListCache[listId] = result;
+            }
+            return result;
+        }
+        private BlueskyList GetListCore(Relationship listId, ListData? listData = null, RequestContext? ctx = null)
+        {
+
             var did = GetDid(listId.Actor);
             return new BlueskyList
             {

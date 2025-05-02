@@ -105,9 +105,18 @@ namespace AppViewLite.Web
                     context.Request.Headers.TryGetValue("Sec-Fetch-Site", out var fetchSite) &&
                     fetchSite == "cross-site")
                 {
-                    context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync("Cross-site POST requests are not allowed.");
-                    return;
+                    var origin = context.Request.Headers.Origin.FirstOrDefault();
+                    var requestHost = context.Request.Host.Host;
+                    if (requestHost != null && origin != null && new Uri(origin).Host == requestHost)
+                    {
+                        // OK, this is social-app POSTing on AppViewLite (same server but different port)
+                    }
+                    else
+                    {
+                        context.Response.StatusCode = 403;
+                        await context.Response.WriteAsync("Cross-site POST requests are not allowed.");
+                        return;
+                    }
                 }
 
                 await next();

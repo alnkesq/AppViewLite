@@ -3370,11 +3370,18 @@ namespace AppViewLite
                 if (!possibleFollows.TryGetValue(plc, out var rkey)) return default;
                 if (rkey == default) return StillPrivateFollowed; // private follow
 
+#if true
                 ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(stillFollowedResult, plc, out var exists);
                 if (!exists)
                 {
                     result = !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc, ctx) == default ? rkey : default;
                 }
+#else
+                var result = stillFollowedResult.GetOrAdd(plc, plc => 
+                { 
+                    return !rels.Follows.IsDeleted(new Relationship(ctx.LoggedInUser, rkey)) && rels.UsersHaveBlockRelationship(ctx.LoggedInUser, plc, ctx) == default ? rkey : default; 
+                });
+#endif
                 return result;
 
             }

@@ -72,7 +72,7 @@ namespace AppViewLite
                             {
                                 var segments = thumbUrl.GetSegments();
                                 var size = segments.ElementAtOrDefault(2);
-                                if (size!.Contains("128x128"))
+                                if (size?.Contains("128x128") == true)
                                 {
                                     result.ExternalThumbnailUrl = null; // avatar thumbnail
                                 }

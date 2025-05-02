@@ -175,7 +175,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var now = DateTime.UtcNow;
             refreshInfo ??= new RssRefreshInfo { FirstRefresh = now };
 
-            if (refreshInfo.RedirectsTo != null && (now - refreshInfo.LastRefreshAttempt).TotalDays < 30) return refreshInfo;
+            if (refreshInfo.RedirectsTo != null && (now - refreshInfo.LastRefreshAttempt).TotalDays < 30 && IsBadRedirect(new Uri(refreshInfo.RedirectsTo)) == null) return refreshInfo;
 
             var lastRefreshSucceeded = refreshInfo.RssErrorMessage == null;
 
@@ -212,9 +212,16 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var redirectLocation = response.GetRedirectLocationUrl();
                 if (redirectLocation != null)
                 {
+                    var error = IsBadRedirect(redirectLocation);
+                    if (error != null)
+                        throw new UnexpectedFirehoseDataException(error);
                     refreshInfo.RedirectsTo = redirectLocation.AbsoluteUri;
                     return refreshInfo;
                 }
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound && feedUrl.HasHostSuffix("tumblr.com"))
+                    throw new UnexpectedFirehoseDataException("Tumblr blog not found, or blog requires login.");
+
                 response.EnsureSuccessStatusCode();
 
                 var xml = await response.Content.ReadAsStringAsync();
@@ -346,10 +353,13 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             catch (TaskCanceledException)
             {
+                refreshInfo.LastHttpStatus = default;
                 refreshInfo.LastHttpError = TimeoutError;
             }
             catch (Exception ex)
             {
+                refreshInfo.LastHttpStatus = default;
+                refreshInfo.LastHttpError = default;
                 refreshInfo.OtherException = ex.Message;
             }
             finally
@@ -357,6 +367,15 @@ namespace AppViewLite.PluggableProtocols.Rss
                 Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)), ctx);
             }
             return refreshInfo;
+        }
+
+        private static string? IsBadRedirect(Uri redirectsTo)
+        {
+            if (redirectsTo.HasHostSuffix("tumblr.com") && redirectsTo.AbsolutePath.StartsWith("/privacy/consent", StringComparison.OrdinalIgnoreCase))
+                return "Tumblr returned a cookie consent form instead of an RSS feed.";
+            if (redirectsTo.HasHostSuffix("tumblr.com") && redirectsTo.AbsolutePath == "/safe-mode")
+                return "This Tumblr blog isn't accessible via RSS because it is considered adult content.";
+            return null;
         }
 
         private static string? NormalizeForApproxUrlEquality(Uri url)

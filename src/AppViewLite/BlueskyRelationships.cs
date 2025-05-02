@@ -68,7 +68,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Plc, byte> PlcToDidOther;
         public CombinedPersistentMultiDictionary<Plc, UInt128> PlcToDidPlc;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> PostData;
-        public CombinedPersistentMultiDictionary<Plc, RecentPostLikeCount> RecentPluggablePostLikeCount;
+        public CombinedPersistentMultiDictionary<PostIdTimeFirst, int> RecentPluggablePostLikeCount;
         public CombinedPersistentMultiDictionary<HashedWord, ApproximateDateTime32> PostTextSearch;
         public CombinedPersistentMultiDictionary<Plc, DateTime> FailedProfileLookups;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> FailedListLookups;
@@ -308,7 +308,7 @@ namespace AppViewLite
             ProfileSearchPrefix2 = RegisterDictionary<SizeLimitedWord2, Plc>("profile-search-prefix-2-letters");
 
             PostData = RegisterDictionary<PostIdTimeFirst, byte>("post-data-time-first-2", PersistentDictionaryBehavior.PreserveOrder, shouldPreserveKey: (ctx, postId) => ctx.ShouldPreservePost(postId), getIoPreferenceForKey: x => IsVeryRecentDate(x.PostRKey.Date) ? MultiDictionaryIoPreference.KeysAndOffsetsMmap : MultiDictionaryIoPreference.None);
-            RecentPluggablePostLikeCount = RegisterDictionary<Plc, RecentPostLikeCount>("recent-post-like-count", onCompactation: x => x.DistinctByAssumingOrderedInputLatest(x => x.PostRKey), getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
+            RecentPluggablePostLikeCount = RegisterDictionary<PostIdTimeFirst, int>("recent-post-like-count-2", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
             PostTextSearch = RegisterDictionary<HashedWord, ApproximateDateTime32>("post-text-approx-time-32");
             FailedProfileLookups = RegisterDictionary<Plc, DateTime>("profile-basic-failed");
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
@@ -3621,7 +3621,7 @@ namespace AppViewLite
 
 
 
-        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, Dictionary<Plc, DangerousHugeReadOnlyMemory<RecentPostLikeCount>[]?>? plcToRecentPostLikes, bool allowImprecise = false)
+        public long GetApproximateLikeCount(PostIdTimeFirst postId, bool couldBePluggablePost, bool allowImprecise = false)
         {
             if (!couldBePluggablePost)
             {
@@ -3637,36 +3637,20 @@ namespace AppViewLite
 
             var likeCount = Likes.GetApproximateActorCount(postId);
 
-            if (allowImprecise && !couldBePluggablePost && likeCount <= int.MaxValue)
-            {
-                ReplicaOnlyApproximateLikeCountCache.Add(postId, (int)likeCount);
-            }
 
             if (likeCount == 0 && couldBePluggablePost)
             {
-                // TODO: do we really need this plcToRecentPostLikes now that we have global ReplicaOnlyApproximateLikeCountCache?
-                if (plcToRecentPostLikes == null || !plcToRecentPostLikes.TryGetValue(postId.Author, out var recentPostLikes))
+                var did = GetDid(postId.Author);
+                if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
                 {
-                    var did = GetDid(postId.Author);
-                    if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
-                    {
-                        recentPostLikes = RecentPluggablePostLikeCount.GetValuesChunkedLatestFirst(postId.Author).ToArray();
-                    }
-                    else
-                    {
-                        recentPostLikes = null;
-                    }
-                    if (plcToRecentPostLikes != null)
-                        plcToRecentPostLikes[postId.Author] = recentPostLikes;
+                    if (RecentPluggablePostLikeCount.TryGetLatestValue(postId, out var pluggableLikeCount))
+                        likeCount = pluggableLikeCount;
                 }
-                if (recentPostLikes != null)
-                {
-                    likeCount =
-                        recentPostLikes
-                        .Select(x => x.EnumerateFromReverseRightBiased(new RecentPostLikeCount(postId.PostRKey, int.MaxValue)).FirstOrDefault(x => x.PostRKey == postId.PostRKey))
-                        .FirstOrDefault(x => x != default)
-                        .LikeCount;
-                }
+            }
+
+            if (allowImprecise && likeCount <= int.MaxValue)
+            {
+                ReplicaOnlyApproximateLikeCountCache.Add(postId, (int)likeCount);
             }
 
             return likeCount;
@@ -3849,7 +3833,7 @@ namespace AppViewLite
             return UserToRecentPosts.GetValuesUnsorted(plc, new RecentPost(Tid.FromDateTime(now - BalancedFeedMaximumAge), default))
                 .Select(x =>
                 {
-                    var likeCount = GetApproximateLikeCount(new PostIdTimeFirst(x.RKey, plc), couldBePluggablePost: couldBePluggablePost, null);
+                    var likeCount = GetApproximateLikeCount(new PostIdTimeFirst(x.RKey, plc), couldBePluggablePost: couldBePluggablePost);
                     return new UserRecentPostWithScore(x.RKey, x.InReplyTo, (int)Math.Min(likeCount, int.MaxValue));
                 })
                 .OrderBy(x => x.RKey)
@@ -3866,7 +3850,7 @@ namespace AppViewLite
         public ConcurrentSet<Plc> PostAuthorsSinceLastReplicaSnapshot = new();
         public ConcurrentSet<Plc> RepostersSinceLastReplicaSnapshot = new();
 
-        public void IncrementRecentPopularPostLikeCount(PostId postId, int incrementBy)
+        public void IncrementRecentPopularPostLikeCount(PostId postId, int? setTo)
         {
             if (UserToRecentPopularPosts.TryGetValue(postId.Author, out var recentPosts))
             {
@@ -3875,7 +3859,12 @@ namespace AppViewLite
                 if (index != -1)
                 {
                     if (recentPosts[index].ApproximateLikeCount < int.MaxValue)
-                        recentPosts[index].ApproximateLikeCount++;
+                    {
+                        if (setTo != null)
+                            recentPosts[index].ApproximateLikeCount = setTo.Value;
+                        else
+                            recentPosts[index].ApproximateLikeCount++;
+                    }
                 }
 
             }

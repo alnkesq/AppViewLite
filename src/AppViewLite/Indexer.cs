@@ -235,7 +235,7 @@ namespace AppViewLite
                         {
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
 
-                            var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false, null);
+                            var approxActorCount = relationships.GetApproximateLikeCount(postId, couldBePluggablePost: false);
                             approxActorCount++; // this dict is only written here, while holding the write lock.
                             var primaryLikeCountCache = relationships.ApproximateLikeCountCache;
 
@@ -260,7 +260,7 @@ namespace AppViewLite
 
 
 
-                            relationships.IncrementRecentPopularPostLikeCount(postId, 1);
+                            relationships.IncrementRecentPopularPostLikeCount(postId, null);
 
                             if (relationships.IsRegisteredForNotifications(commitPlc))
                                 relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));

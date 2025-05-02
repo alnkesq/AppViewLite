@@ -79,6 +79,12 @@ namespace AppViewLite
             if (dict.TryRemove(key, out _))
                 Interlocked.Decrement(ref approximateCount);
         }
+
+        public void UpdateIfExists(TKey key, TValue updatedValue)
+        {
+            if (dict.ContainsKey(key))
+                dict[key] = updatedValue;
+        }
     }
 
     public class ConcurrentFullEvictionSetCache<TKey> where TKey : notnull

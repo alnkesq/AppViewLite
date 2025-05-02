@@ -2143,7 +2143,6 @@ namespace AppViewLite
 
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
 
-                var plcToRecentPostLikes = new Dictionary<Plc, DangerousHugeReadOnlyMemory<RecentPostLikeCount>[]?>();
 
                 var userPosts = possibleFollows.PossibleFollows.Select(pair =>
                 {
@@ -2181,7 +2180,7 @@ namespace AppViewLite
                             .Select(x => (PostRKey: x.RKey, LikeCount: x.ApproximateLikeCount))
                             .ToArray(),
                        Reposts: reposts
-                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels) || isReposterOnly, LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, plcToRecentPostLikes, allowImprecise: true)))
+                            .Select(x => (x.PostId, x.RepostRKey, IsReposteeFollowed: possibleFollows.IsStillFollowed(x.PostId.Author, rels) || isReposterOnly, LikeCount: rels.GetApproximateLikeCount(x.PostId, pair.IsPrivate /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, allowImprecise: true)))
                             .ToArray()
                        );
                 }).Where(x => x.Plc != default).ToArray();

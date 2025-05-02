@@ -939,10 +939,14 @@ namespace AppViewLite.Storage
             return num;
         }
 
-        public void AddIfMissing(TKey key, TValue value)
+        public bool AddIfMissing(TKey key, TValue value)
         {
             if (!Contains(key, value))
+            {
                 Add(key, value);
+                return true;
+            }
+            return false;
         }
 
         public void Add(TKey key, TValue value)

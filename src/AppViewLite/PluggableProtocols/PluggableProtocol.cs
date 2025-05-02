@@ -239,11 +239,11 @@ namespace AppViewLite.PluggableProtocols
 
                 if (likeCountForScoring != 0)
                 {
-                    var prevLikeCount = rels.RecentPluggablePostLikeCount.GetValueWithPrefixLatest(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, default), x => x.PostRKey == simplePostId.PostRKey)?.LikeCount ?? 0;
-                    if (likeCountForScoring > prevLikeCount)
+                    if (rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId, likeCountForScoring))
                     {
-                        rels.RecentPluggablePostLikeCount.Add(simplePostId.Author, new RecentPostLikeCount(simplePostId.PostRKey, likeCountForScoring));
-                        rels.IncrementRecentPopularPostLikeCount(simplePostId, likeCountForScoring - prevLikeCount);
+                        rels.IncrementRecentPopularPostLikeCount(simplePostId, likeCountForScoring);
+                        rels.ReplicaOnlyApproximateLikeCountCache.UpdateIfExists(simplePostId, likeCountForScoring);
+                        rels.ApproximateLikeCountCache.UpdateIfExists(simplePostId, likeCountForScoring);
                     }
                 }
 

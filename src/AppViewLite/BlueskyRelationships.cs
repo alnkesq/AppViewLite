@@ -324,7 +324,7 @@ namespace AppViewLite
             Threadgates = RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder);
             Postgates = RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder);
 
-            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue);
+            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", 2 * 1024 * 1024, 6, (k, v) => k.Actor)]);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
             ListSubscribers = RegisterDictionary<Relationship, Relationship>("list-subscribers", PersistentDictionaryBehavior.SingleValue);
 
@@ -2451,6 +2451,7 @@ namespace AppViewLite
 
         public List<Relationship> GetSubscribedBlockLists(Plc subscriber)
         {
+            if (ListBlocks.GetDelegateProbabilisticCache<Plc>()?.PossiblyContains(subscriber) == false) return [];
             var lists = new List<Relationship>();
 
             foreach (var (subscriptionId, singleList) in ListBlocks.GetInRangeUnsorted(new Relationship(subscriber, default), new Relationship(subscriber.GetNext(), default)))

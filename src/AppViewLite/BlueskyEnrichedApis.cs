@@ -3846,6 +3846,7 @@ namespace AppViewLite
         }
         public static void EnsureValidDid(string did)
         {
+            if (string.IsNullOrEmpty(did)) throw new UnexpectedFirehoseDataException("The provided DID is null or empty.");
             if (did.StartsWith("did:plc:", StringComparison.Ordinal))
             {
                 if (did.Length != 32) throw new UnexpectedFirehoseDataException("Invalid did:plc: length.");

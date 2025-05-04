@@ -633,6 +633,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             };
             if (url == null) hasFullContent = true;
 
+            var mediaThumb = GetAttribute((mediaGroup ?? item)?.Element(NsMedia + "thumbnail"), "url");
+
             if (!hasFullContent)
             {
 
@@ -680,7 +682,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     data.ExternalTitle = title;
                 }
 
-                var mediaThumb = GetAttribute(mediaGroup?.Element(NsMedia + "thumbnail"), "url");
+
                 if (mediaThumb != null)
                 {
                     data.ExternalThumbCid = UrlToCid(mediaThumb);
@@ -722,6 +724,13 @@ namespace AppViewLite.PluggableProtocols.Rss
                     Cid = UrlToCid(TryGetImageUrl(x, url ?? feedUrl)?.AbsoluteUri)!,
                     AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
                 }).Where(x => x.Cid != null).ToArray();
+                if ((data.Media == null || data.Media.Length == 0) && data.ExternalUrl == null && mediaThumb != null)
+                {
+                    data.Media = [new BlueskyMediaData 
+                    { 
+                        Cid = UrlToCid(mediaThumb)!
+                    }];
+                }
             }
             OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data, ctx: ctx);
             return (dateParsed, url);

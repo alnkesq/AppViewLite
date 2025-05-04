@@ -39,6 +39,8 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override async Task DiscoverAsync(CancellationToken ct)
         {
+            if (!(AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_RSS, false)))
+                return;
             while (true)
             {
 
@@ -158,6 +160,8 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
         private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext ctx)
         {
+            if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_RSS, false))
+                throw new NotSupportedException("RSS is not enabled on the current instance.");
             var feedUrl = DidToUrl(did);
             if (feedUrl.HasHostSuffix("reddit.com"))
             {

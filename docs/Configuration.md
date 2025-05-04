@@ -17,7 +17,8 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_LISTEN_TO_PLC_DIRECTORY`: Periodically fetches updates to the PLC directory. Defaults to `1`.
 * `APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN`: For debugging only, will allow you to "log in" to any account (but obviously you won't be able to perform PDS writes). Defaults to `0`.
 * `APPVIEWLITE_READONLY`: Forbids database writes (useful for debugging data issues without the firehose interfering).
-* `APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS`: External previews to these domains will be always displayed in compact format (not just when quoted or the post was already seen by the user).
+* `APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS`: External previews to these domains will be always displayed in compact format (not just when quoted or the post was already seen by the user), because the image doesn't generally contain useful information or is always the same for the whole site (e.g. `x.com,twitter.com,arxiv.org,paypal.me,paypal.com,t.me,cash.app`). Defaults to none.
+* `APPVIEWLITE_EXTERNAL_PREVIEW_DISABLE_AUTOMATIC_FOR_DOMAINS`: Disables OpenGraph previews for the specified domains, unless already set by a post record. Use this when the OpenGraph for that domain doesn't generally contain useful information, only branding or wasted space (e.g. `x.com,twitter.com,t.me,redd.it`). Defaults to none.
 * `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exits during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
 * `APPVIEWLITE_ADMINISTRATIVE_DIDS`: List of DIDs that, when logged in, can perform privileged operations. Defaults to none. You can use `*` for local development.
 * `APPVIEWLITE_CONFIGURATION`: Path to an env file that will be loaded into the environment at startup. Prior environment variables take the precendence.
@@ -47,6 +48,9 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_DIRECT_IO`: Uses direct IO (`O_DIRECT`) instead of memory mapping for some reads that are unlikely to be necessary again in the near future. Defaults to `1`.
 * `APPVIEWLITE_DIRECT_IO_SECTOR_SIZE`: Sets the sector block size for direct reads. Must be a multiple of the disk sector size. If AppViewLite crashes on startup and you have an enterprise disk with 4KB sectors, try changing this to `4096`. Defaults to `512`.
 * `APPVIEWLITE_DIRECT_IO_PRINT_READS`: Prints to stderr every time a direct IO read is performed, with path, offset and length.
+* `APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE`: how many pending records to process can accumulate before the firehose websocket listener blocks waiting for work to complete. Defaults to `100000`.
+* `APPVIEWLITE_RESET_FIREHOSE_CURSORS`: URLs of the firehoses whose cursors should be reset on startup. Defaults to `*` to avoid a known [JetStream issue](https://github.com/bluesky-social/jetstream/issues/27).
+
 
 ## Handle and DID doc resolution
 * `APPVIEWLITE_DNS_SERVER`: DNS server for TXT resolutions. Defaults to `1.1.1.1`
@@ -70,7 +74,7 @@ You can use `#` for comments (whole line, or partial).
 It will be live-reloaded if it changes.
 
 ## Additional protocols
-By default, only ATProto/Bluesky and RSS are enabled.<br>
+By default, only ATProto/Bluesky is enabled.<br>
 You can however enable additional protocols:
 
 ### ActivityPub (Fediverse)
@@ -93,7 +97,11 @@ Examples:
 * `APPVIEWLITE_NOSTR_IGNORE_REGEX`: Don't ingest posts matching the specified regex.
 
 ### RSS
-RSS is enabled by default, and provides support for Tumblr and Reddit as well. Feeds are refreshed periodically as long as at least one user subscribes to them, or when the corresponding profile page is opened.
+* `APPVIEWLITE_ENABLE_RSS`: Enables support for RSS feeds. Defaults to `0`.
+The RSS protocol provides support for Tumblr, Reddit and YouTube as well. Feeds are refreshed periodically as long as at least one user subscribes to them, or when the corresponding profile page is opened.
+
+### HackerNews
+* `APPVIEWLITE_ENABLE_HACKERNEWS`: Enables support for [HackerNews](https://news.ycombinator.com). Defaults to `0`.
 
 ## Image proxying and caching
 * `APPVIEWLITE_SERVE_IMAGES`: Enables image serving, instead of relying on an external CDN.
@@ -141,3 +149,5 @@ The neighborhood score for a user is the sum of:
    * 3 for each like from a followee of an AppViewLite user
    * 3 for each like they send to an AppViewLite user
    * 1 for each like they send to a followee of an AppViewLite user
+
+* `APPVIEWLITE_IGNORE_SLICES_PATH`: Alternatively, instead of pruning as described above, you can manually remove database slices altogether. `APPVIEWLITE_IGNORE_SLICES_PATH` is the path to a text file where each line is a database slice (example: `post-data-time-first-2/638754262903104348-638793205252577381`, without column number or ext) that AppViewLite should ignore (for example, because you manually deleted it or migrated offline). Be careful, not all tables can be safely ignored. Known SAFE tables are `user-to-recent-posts-2`, `post-text-approx-time-32`, `post-data-time-first-2`.

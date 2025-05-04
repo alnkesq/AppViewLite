@@ -17,6 +17,9 @@ namespace AppViewLite.PluggableProtocols.HackerNews
         }
         public async override Task DiscoverAsync(CancellationToken ct)
         {
+            if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_HACKERNEWS, false))
+                return;
+
             await PluggableProtocol.RetryInfiniteLoopAsync("HackerNews", async ct =>
             {
 

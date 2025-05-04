@@ -34,6 +34,8 @@ namespace AppViewLite
             var s = GetString(parameter);
             return s != null ? double.Parse(s, CultureInfo.InvariantCulture) : null;
         }
+
+        public static bool GetBool(AppViewLiteParameter parameter, bool defaultValue) => GetBool(parameter) ?? false;
         public static bool? GetBool(AppViewLiteParameter parameter)
         {
             var s = GetString(parameter)?.ToLowerInvariant();
@@ -169,6 +171,8 @@ namespace AppViewLite
         APPVIEWLITE_RESET_FIREHOSE_CURSORS,
         APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE,
         APPVIEWLITE_IGNORE_SLICES_PATH,
+        APPVIEWLITE_ENABLE_HACKERNEWS,
+        APPVIEWLITE_ENABLE_RSS,
     }
 }
 

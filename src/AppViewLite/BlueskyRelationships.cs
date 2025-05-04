@@ -268,7 +268,7 @@ namespace AppViewLite
             loadedCheckpoint = latestCheckpoint != null ? DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(latestCheckpoint.FullName)) : new GlobalCheckpoint();
             checkpointToLoad = (loadedCheckpoint.Tables ?? []).ToDictionary(x => x.Name, x => (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray());
 
-            var resetFirehoseCursors = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_RESET_FIREHOSE_CURSORS) ?? [];
+            var resetFirehoseCursors = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_RESET_FIREHOSE_CURSORS) ?? ["*"];
             firehoseCursors = loadedCheckpoint?.FirehoseCursors?
                 .Select(x => { x.MakeUtc(); return x; })
                 .Where(x => !(resetFirehoseCursors.Contains(x.FirehoseUrl) || resetFirehoseCursors.Contains("*")))

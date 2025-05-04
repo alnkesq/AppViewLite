@@ -1024,6 +1024,16 @@ function recurseUntilVisible(node, f) {
 
 function onInitialLoad() {
     if (isNoLayout) return;
+
+    var ssr = document.documentElement.dataset.ssrPageUrl;
+    if (ssr) { 
+        var originAspNet = new URL(ssr).origin;
+        var originJs = location.origin;
+        if (originAspNet != originJs) { 
+            document.querySelector('.sidebar').insertAdjacentHTML('afterBegin', "<div style=\"font-size: 8pt; color: rgb(126, 27, 27);\">Your reverse proxy is not forwarding X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host.<br><br>Some generated links might be broken (" + originJs + " vs " + originAspNet + ")<br><br>If your reverse proxy is not on localhost, you might also need to configure ForwardedHeadersOptions.KnownProxies</div>")
+        }
+    }
+
     window.addEventListener('beforeunload', e => {
         console.log('beforeunload event triggered.')
     });

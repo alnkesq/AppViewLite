@@ -168,8 +168,15 @@ namespace AppViewLite.PluggableProtocols.Rss
             var feedUrl = DidToUrl(did);
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
-                if ((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()) || !feedUrl.AbsolutePath.EndsWith("/.rss", StringComparison.Ordinal) || feedUrl.AbsolutePath.Contains("//", StringComparison.Ordinal))
-                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, path lowercased, ending in slash dot rss.");
+                if ((feedUrl.Host != "www.reddit.com" ||
+                    feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()) ||
+                    feedUrl.AbsolutePath.EndsWith("/", StringComparison.Ordinal) ||
+                    feedUrl.GetSegments().Length != 2 ||
+                    feedUrl.AbsolutePath.Contains("//", StringComparison.Ordinal) ||
+                    feedUrl.Query.Length != 0 ||
+                    feedUrl.Fragment.Length != 0
+                    )
+                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, path lowercased, no trailing slash.");
                 var segments = feedUrl.GetSegments();
                 if (segments.Length < 2 || segments[0] != "r")
                     throw new Exception("Only subreddit URLs are supported.");
@@ -929,6 +936,8 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
+            if (profile.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
+                return DidToUrl(profile.Did).AbsoluteUri;
             return profile.BasicData?.CustomFields?.FirstOrDefault(x => x.Name == "web")?.Value;
         }
 
@@ -1142,19 +1151,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                     var sortSegment = segments.ElementAtOrDefault(2);
                     if (sortSegment is "comments" or "wiki") throw new Exception("RSS feeds to reddit comments or wikis are not supported.");
                     var q = url.GetQueryDictionary();
-                    var sort = q.TryGetValue("sort", out var sortQ) && !string.IsNullOrEmpty(sortQ) ? sortQ : sortSegment;
-                    sort ??= "top";
 
-                    q.TryGetValue("t", out var t);
-                    if (sort == "top" && string.IsNullOrEmpty(t))
-                        t = "month";
-                    var suffix =
-                        sort == "top"
-                            ? "/top/.rss?sort=" + sort + "&t=" + t
-                            : "/" + sort + ".rss";
-
-                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/r/{segments[1].ToLowerInvariant()}" + suffix));
-                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/u/{segments[1].ToLowerInvariant()}" + suffix));
+                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/r/{segments[1].ToLowerInvariant()}"));
+                    if (segments[0] == "u") return UrlToDid(new Uri($"https://www.reddit.com/u/{segments[1].ToLowerInvariant()}"));
                 }
             }
 
@@ -1241,16 +1240,12 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("reddit.com"))
             {
                 var segments = url.GetSegments();
-                url.GetQueryDictionary().TryGetValue("t", out var top);
-
-
 
                 if (segments.Length >= 2)
                 {
-                    var suffix = (top != null ? " (top " + top + ")" : null);
                     if (segments[0] == "r" && segments[1].Equals(profile.DisplayName, StringComparison.OrdinalIgnoreCase))
-                        return "/r/" + profile.DisplayName + suffix;
-                    return "/" + segments[0] + "/" + segments[1] + suffix;
+                        return "/r/" + profile.DisplayName;
+                    return "/" + segments[0] + "/" + segments[1];
                 }
             }
             if (url.HasHostSuffix("tumblr.com"))

@@ -785,22 +785,25 @@ namespace AppViewLite
                 return;
             }
 
-            var record = e.Message.Record;
             var commitAuthor = e.Message.Commit?.Repo!.Handler;
             if (commitAuthor == null) return;
             var message = e.Message;
 
             VerifyValidForCurrentRelay!(commitAuthor);
 
-            foreach (var del in (message.Commit?.Ops ?? []).Where(x => x.Action == "delete"))
+            foreach (var op in message.Commit?.Ops ?? [])
             {
-                OnRecordDeleted(commitAuthor, del.Path!, ignoreIfDisposing: true);
+                if (op.Action == "delete")
+                {
+                    OnRecordDeleted(commitAuthor, op.Path!, ignoreIfDisposing: true);
+                }
+                else
+                {
+                    var record = e.Message.Records!.First(x => x.Cid == op.Cid).Value;
+                    OnRecordCreated(commitAuthor, op.Path!, record, ignoreIfDisposing: true);
+                }
             }
-
-            if (record != null)
-            {
-                OnRecordCreated(commitAuthor, message.Commit!.Ops![0].Path!, record, ignoreIfDisposing: true);
-            }
+            
             var seq = e.Message.Commit!.Seq;
             BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time!.Value);
         }

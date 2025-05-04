@@ -19,7 +19,8 @@ namespace AppViewLite
                 var redirects = 0;
                 while (true)
                 {
-                    using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
+
+                    using var response = await BlueskyEnrichedApis.DefaultHttpClientOpenGraph.GetAsync(url);
                     var redirectUrl = response.GetRedirectLocationUrl();
                     if (redirectUrl != null)
                     {
@@ -37,7 +38,8 @@ namespace AppViewLite
                         };
                     }
 
-                    var dom = StringUtils.ParseHtml(await response.Content.ReadAsStringAsync());
+                    var html = await response.Content.ReadAsStringAsync();
+                    var dom = StringUtils.ParseHtml(html);
                     var imageUrl = GetMetaProperty(dom, "og:image");
                     var pageTitle = StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim());
                     var result = new OpenGraphData

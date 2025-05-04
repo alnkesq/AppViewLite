@@ -4030,16 +4030,18 @@ namespace AppViewLite
         public readonly static HttpClient DefaultHttpClient;
         public readonly static HttpClient DefaultHttpClientNoDefaultHeaders;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
+        public readonly static HttpClient DefaultHttpClientOpenGraph;
 
         static BlueskyEnrichedApis()
         {
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
             DefaultHttpClientNoDefaultHeaders = CreateHttpClient(autoredirect: true, defaultHeaders: false);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
+            DefaultHttpClientOpenGraph = CreateHttpClient(autoredirect: false, defaultHeaders: true, userAgent: "facebookexternalhit/1.1");
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true)
+        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null)
         {
             var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
             {
@@ -4047,7 +4049,7 @@ namespace AppViewLite
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
             }, true), true);
             if (defaultHeaders)
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? "Mozilla/5.0");
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
             client.Timeout = TimeSpan.FromSeconds(10);
             return client;

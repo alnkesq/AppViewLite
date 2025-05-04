@@ -165,7 +165,8 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_RSS, false))
                 throw new NotSupportedException("RSS is not enabled on the current instance.");
-            var feedUrl = DidToUrl(did);
+            var feedUrl = DidToUrl(did)!;
+
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
                 if ((feedUrl.Host != "www.reddit.com" ||
@@ -407,6 +408,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             finally
             {
+                if (refreshInfo.LastSuccessfulRefresh != now)
+                    Log("RSS refresh failed for " + feedUrl + ": " + refreshInfo.RssErrorMessage);
                 Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)), ctx);
             }
             return refreshInfo;

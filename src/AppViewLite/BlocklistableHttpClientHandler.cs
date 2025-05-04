@@ -22,10 +22,11 @@ namespace AppViewLite
         }
 
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             AdministrativeBlocklist.Instance.GetValue().ThrowIfBlockedOutboundConnection(request.RequestUri!.Host);
-            return (Task<HttpResponseMessage>)invokeInnerMethod.Invoke(inner, [request, cancellationToken])!;
+            using var _ = await HostRateLimiter.AcquireUrlAsync(request.RequestUri, cancellationToken);
+            return await (Task<HttpResponseMessage>)invokeInnerMethod.Invoke(inner, [request, cancellationToken])!;
         }
 
         protected override void Dispose(bool disposing)

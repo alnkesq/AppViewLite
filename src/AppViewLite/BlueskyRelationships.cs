@@ -3686,7 +3686,7 @@ namespace AppViewLite
             if (likeCount == 0 && couldBePluggablePost)
             {
                 var did = GetDid(postId.Author);
-                if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount)
+                if (TryGetPluggableProtocolForDid(did) is { } pluggable && pluggable.ProvidesLikeCount(did))
                 {
                     if (RecentPluggablePostLikeCount.TryGetLatestValue(postId, out var pluggableLikeCount))
                         likeCount = pluggableLikeCount;

@@ -131,7 +131,7 @@ namespace AppViewLite.PluggableProtocols
 
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(postId.Did)) return null;
 
-            if ((data.PluggableLikeCount != null || data.PluggableLikeCountForScoring != null) && !ProvidesLikeCount)
+            if ((data.PluggableLikeCount != null || data.PluggableLikeCountForScoring != null) && !ProvidesLikeCount(postId.Did))
                 throw new ArgumentException("PluggableProtocol.ProvidesLikeCount should be overriden if posts are populated with PluggableLikeCount.");
 
 
@@ -463,7 +463,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool ShouldDisplayExternalLinkInBio => true;
 
-        public virtual bool ProvidesLikeCount => false;
+        public virtual bool ProvidesLikeCount(string did) => false;
 
         public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid = false) => Task.FromResult<string?>(null);
 

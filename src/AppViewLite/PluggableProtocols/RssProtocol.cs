@@ -14,6 +14,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.Net.Http.Json;
+using AppViewLite.PluggableProtocols.Reddit;
 
 namespace AppViewLite.PluggableProtocols.Rss
 {
@@ -158,6 +160,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return "#999";
         }
+
         private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext ctx)
         {
             if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_RSS, false))
@@ -191,6 +194,35 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
 
                 refreshInfo.RedirectsTo = null;
+
+
+                var virtualRss = TryGetVirtualRssDelegate(feedUrl, did);
+
+                if (virtualRss != null)
+                {
+                    var result = await virtualRss();
+                    var posts = result.Posts;
+                    if (posts.Length == 0) throw new UnexpectedFirehoseDataException("Virtual RSS feed returned zero posts.");
+                    foreach (var post in posts)
+                    {
+                        OnPostDiscovered(post.PostId, null, null, post.Data, ctx);
+                    }
+                    if (result.Profile != null)
+                    {
+                        OnProfileDiscovered(did, result.Profile, ctx);
+                    }
+                    refreshInfo.HttpLastETag = null;
+                    refreshInfo.HttpLastModified = null;
+                    refreshInfo.HttpLastModifiedTzOffset = 0;
+                    refreshInfo.HttpLastDate = null;
+                    refreshInfo.LastSuccessfulRefresh = now;
+                    refreshInfo.XmlOldestPost = posts.Min(x => x.Date);
+                    refreshInfo.XmlNewestPost = posts.Max(x => x.Date);
+                    refreshInfo.XmlPostCount = posts.Length;
+                    return refreshInfo;
+
+                }
+
                 using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, feedUrl);
 
                 if (lastRefreshSucceeded)
@@ -694,7 +726,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return new BlueskyMediaData
                 {
                     AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
-                    Cid = isVideo ? UrlToCid((x.GetAttribute("src") ?? x.QuerySelector("source")!.GetAttribute("src")) + "\n" + x.GetAttribute("poster"))! : UrlToCid(x.GetAttribute("src"))!,
+                    Cid = isVideo ? UrlToCid(x.GetAttribute("poster"), x.GetAttribute("src") ?? x.QuerySelector("source")!.GetAttribute("src"))! : UrlToCid(x.GetAttribute("src"))!,
                     IsVideo = isVideo,
                 };
             }).ToArray();
@@ -705,8 +737,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             return Regex.Replace(title, @"[\s….]", string.Empty);
         }
 
-        private static byte[]? UrlToCid(string? imageUrl)
+        private static byte[]? UrlToCid(string? imageUrl, string? videoUrl = null)
         {
+            if (imageUrl == null) return null;
+            if (videoUrl != null) imageUrl = videoUrl + "\n" + imageUrl;
             return BlueskyRelationships.CompressBpe(imageUrl);
         }
 
@@ -1229,6 +1263,126 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             return StringUtils.GetDisplayHost(url);
         }
+
+        public static VirtualRssDelegate? TryGetVirtualRssDelegate(Uri feedUrl, string did)
+        {
+            if (feedUrl.HasHostSuffix("reddit.com") && feedUrl.AbsolutePath.StartsWith("/r/", StringComparison.Ordinal))
+            {
+                return GetRedditVirtualRss(feedUrl, did);
+            }
+            return null;
+        }
+
+        
+        private static VirtualRssDelegate? GetRedditVirtualRss(Uri feedUrl, string did)
+        {
+            return async () =>
+            {
+                var baseUrl = new Uri("https://www.reddit.com/");
+                var subreddit = feedUrl.GetSegments()[1];
+                var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<RedditApiResponse>($"https://www.reddit.com/r/{subreddit}/top/.json?sort=top&t=week"))!;
+                var postsJson = response.data.children.Select(x => x.data).ToArray();
+                var profile = new BlueskyProfileBasicInfo
+                {
+                    DisplayName = postsJson.Select(x => x.subreddit).FirstOrDefault(x => x.Equals(subreddit, StringComparison.OrdinalIgnoreCase)) ?? subreddit,
+                };
+
+                var posts = postsJson.Select(x => 
+                {
+                    var date = DateTime.UnixEpoch.AddSeconds(x.created_utc);
+                    var tid = CreateSyntheticTid(date, x.id);
+                    var title = x.title;
+                    var html = StringUtils.HtmlDecode(x.selftext_html);
+                    if (!string.IsNullOrEmpty(html) && !string.IsNullOrEmpty(title))
+                    {
+                        html = "<b>" + title + "</b>" + (title.EndsWith(':') || title.EndsWith('!') || title.EndsWith('?') || title.EndsWith('.') ? " " : ": ") + html;
+                    } 
+                    else if (!string.IsNullOrEmpty(title))
+                    {
+                        html = title;
+                    }
+
+                    var (text, facets) = StringUtils.ParseHtmlToText(html, out var body, x => StringUtils.DefaultElementToFacet(x, baseUrl));
+                    var externalLinkFromBody = x.is_self ? body?.QuerySelectorAll("a").Select(x => StringUtils.TryParseUri(baseUrl, x.GetAttribute("href"))).FirstOrDefault(x => x != null && !x.HasHostSuffix("reddit.com") && !x.HasHostSuffix("redd.it")) : null;
+
+                    Uri? externalLink = null;
+
+                    if (!x.is_self || externalLinkFromBody != null)
+                    {
+                        var url = externalLinkFromBody ?? new Uri(x.url);
+                        if (!url.HasHostSuffix("redd.it") && !(url.HasHostSuffix("reddit.com") && url.AbsolutePath.StartsWith("/gallery/", StringComparison.Ordinal)))
+                        {
+                            externalLink = url;
+                        }
+                    }
+
+                    BlueskyMediaData[] media;
+
+
+                    if (x.gallery_data != null && x.gallery_data.items.Length != 0)
+                    {
+                        media = x.gallery_data.items.Select(y =>
+                        {
+                            var m = x.media_metadata[y.media_id];
+                            if (m.e != "Image") return null;
+                            return new BlueskyMediaData
+                            {
+                                AltText = !string.IsNullOrEmpty(y.caption) ? y.caption : null,
+                                Cid = UrlToCid(StringUtils.HtmlDecode(m.s.u))!
+                            };
+                        }).WhereNonNull().ToArray();
+                    }
+                    else 
+                    {
+                        media = x.preview?.images?.Select(y =>
+                        {
+                            var videoUrl = StringUtils.HtmlDecode(y.variants?.mp4?.source?.url); // ?? x.preview.reddit_video_preview?.hls_url /*mirrored video from external domain*/;
+                            var imageUrl = StringUtils.HtmlDecode(y.source?.url);
+                            return new BlueskyMediaData()
+                            {
+                                Cid = UrlToCid(imageUrl, videoUrl)!,
+                                IsVideo = videoUrl != null,
+                            };
+                        })
+                        .Where(x => x.Cid != null)
+                        .ToArray() ?? [];
+                    }
+
+
+                    var postData = new BlueskyPostData
+                    {
+                        Text = text,
+                        Facets = facets,
+                        Media = media,
+                        PluggableLikeCount = x.ups,
+                        PluggableReplyCount = x.num_comments,
+                    };
+
+                    if (externalLink != null)
+                    {
+                        postData.ExternalUrl = externalLink.AbsoluteUri;
+                        postData.ExternalThumbCid = media?.FirstOrDefault()?.Cid ?? (x.thumbnail != "default" && !string.IsNullOrEmpty(x.thumbnail) ? UrlToCid(x.thumbnail) : null);
+                        postData.Media = null;
+                    }
+
+                    return new VirtualRssPost(new QualifiedPluggablePostId(did, tid, x.id), postData);
+                }).ToArray();
+                return new VirtualRssResult(profile, posts);
+            };
+        }
+
+        public override bool ProvidesLikeCount(string did) => did.StartsWith("did:rss:www.reddit.com:r:", StringComparison.Ordinal);
     }
+
+    public delegate Task<VirtualRssResult> VirtualRssDelegate();
+    public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data)
+    {
+        public DateTime Date => PostId.Tid.Date;
+    }
+    public record VirtualRssResult(BlueskyProfileBasicInfo? Profile, VirtualRssPost[] Posts);
+
+
+
+
 }
 

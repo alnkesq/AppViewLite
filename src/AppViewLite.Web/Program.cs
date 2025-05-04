@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.WebUtilities;
 using AppViewLite.Storage;
@@ -68,6 +69,19 @@ namespace AppViewLite.Web
             });
             builder.Services.AddSignalR();
 
+            var bindHttps = bindUrls.FirstOrDefault(x => x.StartsWith("https://", StringComparison.Ordinal));
+            if (bindHttps != null)
+            {
+                var port = bindHttps.Split(':').ElementAtOrDefault(2)?.Replace("/", null);
+                if (port != null)
+                {
+                    builder.Services.Configure<HttpsRedirectionOptions>(options =>
+                    {
+                        options.HttpsPort = int.Parse(port);
+                    });
+                }
+            }
+
             var app = builder.Build();
 
             StaticServiceProvider = app.Services;
@@ -124,7 +138,11 @@ namespace AppViewLite.Web
                 await next();
             });
 
-            app.UseHttpsRedirection();
+
+
+            if (bindHttps != null)
+                app.UseHttpsRedirection();
+
 
             app.UseStatusCodePagesWithReExecute("/ErrorHttpStatus", "?code={0}");
             app.UseAntiforgery();

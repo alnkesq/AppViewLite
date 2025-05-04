@@ -708,6 +708,13 @@ namespace AppViewLite
 
         public static bool HasHostSuffix(this Uri url, string suffix) => url.Host == suffix || url.Host.EndsWith("." + suffix, StringComparison.Ordinal);
 
+        public static string? HtmlDecode(string? html)
+        {
+            var result = WebUtility.HtmlDecode(html);
+            if (string.IsNullOrEmpty(result)) return null;
+            return result;
+        }
+
         internal static FacetData? DefaultElementToFacet(IElement element, Uri? baseUrl, bool includeInlineImages = false)
         {
             if (element.TagName == "A")

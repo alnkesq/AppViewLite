@@ -643,7 +643,7 @@ function applyPageElements() {
                     while (postToMarkAsRead) {
                         if (postToMarkAsRead.classList.contains('post')) {
                             if (postToMarkAsRead.wasMarkedAsRead) break;
-                            if (postToMarkAsRead.getBoundingClientRect().bottom < 0 && postToMarkAsRead.didAppearInViewport) {
+                            if (postToMarkAsRead.didAppearInViewport) {
                                 //console.log('Mark as read: ' + getPostText(postToMarkAsRead));
                                 recordPostEngagement(postToMarkAsRead, 'None');
                             }

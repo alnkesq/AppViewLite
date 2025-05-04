@@ -203,7 +203,6 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 refreshInfo.RedirectsTo = null;
 
-
                 var virtualRss = TryGetVirtualRssDelegate(feedUrl, did);
 
                 if (virtualRss != null)
@@ -231,7 +230,9 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 }
 
-                using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, feedUrl);
+                var feedUrlForRequest = feedUrl.HasHostSuffix("reddit.com") ? new Uri(feedUrl.AbsoluteUri + "/top/.rss?sort=top&t=day") : feedUrl;
+
+                using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, feedUrlForRequest);
 
                 if (lastRefreshSucceeded)
                 {
@@ -338,7 +339,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     try
                     {
-                        var (date, postUrl) = AddPost(did, item, feedUrl, ctx);
+                        var (date, postUrl) = AddPost(did, item, postIndex: postCount, feedUrl, ctx);
                         firstUrl ??= postUrl;
                         if (date < minDate) minDate = date;
                         if (date > maxDate) maxDate = date;
@@ -431,7 +432,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public const HttpRequestError TimeoutError = (HttpRequestError)1001;
-        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl, RequestContext ctx)
+        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, int postIndex, Uri feedUrl, RequestContext ctx)
         {
             var title = GetValue(item, "title");
             if (title != null && title.Contains('&')) title = StringUtils.ParseHtmlToText(title, out _, x => null).Text;
@@ -460,8 +461,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             NonQualifiedPluggablePostId postId;
             var hasFullContent = false;
 
+            int? pluggableLikeCountForScoring = null;
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
+                pluggableLikeCountForScoring = EstimateLikesFromRank(postIndex, 1.1);
                 var commentsUrl = url;
                 var link = bodyDom?.QuerySelectorAll("a").FirstOrDefault(x => x.TextContent == "[link]");
                 if (link != null)
@@ -623,7 +626,11 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (bodyAsText?.Length >= maxLength)
                 bodyAsText = string.Concat(bodyAsText.AsSpan(0, maxLength - 10), "…");
 
-            var data = new BlueskyPostData();
+            var data = new BlueskyPostData()
+            {
+                PluggableLikeCountForScoring = pluggableLikeCountForScoring,
+                PluggableLikeCount = pluggableLikeCountForScoring // TODO temporary for debugging
+            };
             if (url == null) hasFullContent = true;
 
             if (!hasFullContent)
@@ -1266,7 +1273,8 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             if (feedUrl.HasHostSuffix("reddit.com") && feedUrl.AbsolutePath.StartsWith("/r/", StringComparison.Ordinal))
             {
-                return GetRedditVirtualRss(feedUrl, did);
+                // RSS works, but .json is often blocked
+                // return GetRedditVirtualRss(feedUrl, did);
             }
             return null;
         }
@@ -1387,6 +1395,13 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public override bool ProvidesLikeCount(string did) => did.StartsWith("did:rss:www.reddit.com:r:", StringComparison.Ordinal);
+
+
+        private static int EstimateLikesFromRank(int rank, double alpha)
+        {
+            rank++; // 0-based to 1-based
+            return (int)(500 * (1.0 / Math.Pow(rank, alpha))); // power law
+        }
     }
 
     public delegate Task<VirtualRssResult> VirtualRssDelegate();

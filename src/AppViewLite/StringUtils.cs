@@ -477,13 +477,28 @@ namespace AppViewLite
                 sb.Append(buffer.Slice(0, len));
                 utf8length += rune.Utf8SequenceLength;
             }
+
+            void MaybeTrimLastAddedSpace()
+            {
+                if (sb.Length != 0 && sb[sb.Length - 1] == ' ')
+                {
+                    if (!facets.Any(x => x.End >= sb.Length))
+                    {
+                        utf8length--;
+                        sb.Length--;
+                    }
+                }
+            }
+
             void AppendNewLineIfNecessary()
             {
+                MaybeTrimLastAddedSpace();
                 if (sb.Length != 0 && sb[sb.Length - 1] != '\n')
                     AppendChar('\n');
             }
             void AppendNewLineIfNecessaryAllowEmptyLine()
             {
+                MaybeTrimLastAddedSpace();
                 if (sb.Length == 0) return;
                 if (sb.Length >= 2 && sb[sb.Length - 2] == '\n' && sb[sb.Length - 1] == '\n')
                     return;

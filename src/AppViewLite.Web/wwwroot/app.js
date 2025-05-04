@@ -157,6 +157,7 @@ var liveUpdatesConnectionFuture = (async () => {
             return;
         }
         var newnode = parseHtmlAsElement(html);
+        newnode.didAppearInViewport = oldnode.didAppearInViewport;
         oldnode.replaceWith(newnode);
         //if (newnode.querySelector(".post-quoted[data-pendingload='1']"))
 

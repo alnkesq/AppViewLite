@@ -26,6 +26,8 @@ namespace AppViewLite.Web
             var relationships = apis.DangerousUnlockedRelationships;
             var listenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
             var builder = WebApplication.CreateBuilder(args);
+            var bindUrls = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_BIND_URLS) ?? ["https://localhost:61749", "http://localhost:61750"];
+            builder.WebHost.UseUrls(bindUrls);
             // Add services to the container.
             builder.Logging.ClearProviders();
             builder.Logging.AddProvider(new LogWrapper.Provider());
@@ -358,6 +360,8 @@ namespace AppViewLite.Web
 
             AppViewLiteHubContext = app.Services.GetRequiredService<IHubContext<AppViewLiteHub>>();
             RequestContext.SendSignalrImpl = (signalrSessionId, method, args) => AppViewLiteHubContext.Clients.Client(signalrSessionId).SendCoreAsync(method, args);
+
+            LoggableBase.Log("AppViewLite is now serving requests on ========> " + string.Join(", ", bindUrls));
             app.Run();
 
         }

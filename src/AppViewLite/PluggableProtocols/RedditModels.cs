@@ -229,6 +229,8 @@ namespace AppViewLite.PluggableProtocols.Reddit
         public int y { get; set; }
         public int x { get; set; }
         public string u { get; set; }
+        public string gif { get; set; }
+        public string mp4 { get; set; }
     }
 
     public class RedditApiMediaMetadataPreview

@@ -1319,12 +1319,29 @@ namespace AppViewLite.PluggableProtocols.Rss
                         media = x.gallery_data.items.Select(y =>
                         {
                             var m = x.media_metadata[y.media_id];
-                            if (m.e != "Image") return null;
-                            return new BlueskyMediaData
+                            var altText = !string.IsNullOrEmpty(y.caption) ? y.caption : null;
+                            if (m.e == "Image")
                             {
-                                AltText = !string.IsNullOrEmpty(y.caption) ? y.caption : null,
-                                Cid = UrlToCid(StringUtils.HtmlDecode(m.s.u))!
-                            };
+                                return new BlueskyMediaData
+                                {
+                                    AltText = altText,
+                                    Cid = UrlToCid(StringUtils.HtmlDecode(m.s.u))!
+                                };
+                            }
+                            else if (m.e == "AnimatedImage")
+                            {
+                                var thumbUrl = StringUtils.HtmlDecode(m.p.MaxBy(x => x.x * x.y)!.u);
+                                return new BlueskyMediaData
+                                {
+                                    AltText = altText,
+                                    Cid = UrlToCid(thumbUrl, StringUtils.HtmlDecode(m.s.mp4))!
+                                };
+                            }
+                            else
+                            {
+                                return null;
+                            }
+                            
                         }).WhereNonNull().ToArray();
                     }
                     else 

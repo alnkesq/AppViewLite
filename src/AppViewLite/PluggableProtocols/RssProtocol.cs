@@ -719,10 +719,18 @@ namespace AppViewLite.PluggableProtocols.Rss
                     data.Text = bodyAsText ?? title;
                 }
 
-                data.Media = bodyDom?.QuerySelectorAll("img").Select(x => new BlueskyMediaData
+                data.Media = bodyDom?.QuerySelectorAll("img").Select(x =>
                 {
-                    Cid = UrlToCid(TryGetImageUrl(x, url ?? feedUrl)?.AbsoluteUri)!,
-                    AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                    var imageUrl = TryGetImageUrl(x, url ?? feedUrl);
+                    if (imageUrl != null && imageUrl.HasHostSuffix("preview.redd.it") && imageUrl.AbsolutePath.Split('.').Last() is "jpg" or "jpeg" or "png" or "webp")
+                    {
+                        imageUrl = new Uri("https://i.redd.it/" + imageUrl.GetSegments()[0]);
+                    };
+                    return new BlueskyMediaData
+                    {
+                        Cid = UrlToCid(imageUrl?.AbsoluteUri)!,
+                        AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                    };
                 }).Where(x => x.Cid != null).ToArray();
                 if ((data.Media == null || data.Media.Length == 0) && data.ExternalUrl == null && mediaThumb != null)
                 {

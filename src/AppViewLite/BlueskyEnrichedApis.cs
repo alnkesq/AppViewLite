@@ -4746,6 +4746,7 @@ namespace AppViewLite
             {
                 Uptime = Stopwatch.GetElapsedTime(TimeProcessStarted),
                 Pid = Environment.ProcessId,
+                RepositoryVersion = AppViewLiteInit.GitCommitVersion,
                 CarImportCount = this.CarImportDict.Count,
                 FetchAndStoreDidDocNoOverrideDict = this.FetchAndStoreDidDocNoOverrideDict.Count,
                 FetchAndStoreLabelerServiceMetadataDict = this.FetchAndStoreLabelerServiceMetadataDict.Count,

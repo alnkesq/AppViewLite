@@ -1,6 +1,7 @@
 using AppViewLite.Models;
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
+using FishyFlip.Lexicon.App.Bsky.Graph;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
@@ -303,6 +304,32 @@ namespace AppViewLite
                 AcceptsInteractions = false,
                 Creator = creator.ToApiCompatProfile(),
 
+            };
+        }
+
+        public static ListView ToApiCompatListView()
+        {
+            return new ListView
+            {
+                Cid = GetSyntheticCid(new FishyFlip.Models.ATUri("at://stub")),
+                Creator = new ProfileView
+                {
+                    DisplayName = "[stub]",
+                    Labels = [],
+                    CreatedAt = DummyDate,
+                    Avatar = "stub",
+                    Did = new FishyFlip.Models.ATDid("did:plc:hdhoaan3xa3jiuq4fg4mefid"),
+                    Handle = new FishyFlip.Models.ATHandle("stub.bad-example.com"),
+                    Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
+                    {
+                        Muted = false,
+                        BlockedBy = false,
+                    },
+                },
+                ListItemCount = 0,
+                Name = "[stub]",
+                Purpose = "app.bsky.graph.defs#curatelist",
+                Uri = new FishyFlip.Models.ATUri("at://stub"),
             };
         }
 

@@ -2,6 +2,7 @@ using FishyFlip.Lexicon.App.Bsky.Feed;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using AppViewLite;
 
 #pragma warning disable CS1998
 
@@ -60,7 +61,7 @@ namespace AppViewLite.Web
             // stub empty for now
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetListOutput
             {
-                List = null,
+                List = ApiCompatUtils.ToApiCompatListView(),
                 Items = []
             }.ToJsonResponse();
         }

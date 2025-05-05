@@ -501,6 +501,7 @@ namespace AppViewLite
         {
             if (newTable.KeyCount != 0) return;
             Assert(newTable.Behavior == oldTable.Behavior);
+            if (oldTable.KeyCount == 0) return; // new database, avoid log noise
             Log("Migrating: " + newTable.Name);
             if (newTable.Behavior == PersistentDictionaryBehavior.PreserveOrder)
             {

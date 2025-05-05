@@ -27,6 +27,13 @@ namespace AppViewLite.Web
             return profile.ToApiCompatProfileDetailed().ToJsonResponse();
         }
 
+        [HttpGet("app.bsky.actor.getProfiles")]
+        public async Task<IResult> GetProfiles([FromQuery]string[] profiles)
+        {
+            var fullProfiles = await Task.WhenAll(profiles.Select(did => apis.GetFullProfileAsync(did, ctx, 0)));
+            return new GetProfilesOutput(fullProfiles.Select(p => p.ToApiCompatProfileDetailed()).ToList()).ToJsonResponse();
+        }
+
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]
         public Task<IResult> SearchActorsTypeahead(string q, int limit)
         {

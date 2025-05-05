@@ -317,7 +317,7 @@ namespace AppViewLite
                     DisplayName = "[stub]",
                     Labels = [],
                     CreatedAt = DummyDate,
-                    Avatar = "stub",
+                    Avatar = "https://bad-example.com/stub",
                     Did = new FishyFlip.Models.ATDid("did:plc:hdhoaan3xa3jiuq4fg4mefid"),
                     Handle = new FishyFlip.Models.ATHandle("stub.bad-example.com"),
                     Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
@@ -342,7 +342,7 @@ namespace AppViewLite
                     DisplayName = "[stub]",
                     Labels = [],
                     CreatedAt = DummyDate,
-                    Avatar = "stub",
+                    Avatar = "https://bad-example.com/stub",
                     Did = new FishyFlip.Models.ATDid("did:plc:hdhoaan3xa3jiuq4fg4mefid"),
                     Handle = new FishyFlip.Models.ATHandle("stub.bad-example.com"),
                     Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState

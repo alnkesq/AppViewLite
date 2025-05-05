@@ -2410,7 +2410,15 @@ namespace AppViewLite
 
         internal void ClearLockLocalCache()
         {
-            _lockLocalCaches.Value = new();
+            try
+            {
+                _lockLocalCaches.Value = new();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed, and our callees (WithRelationshipsXxxxLock) must not fail (they must release the locks).
+                // Subsequent reads from _lockLocalCaches.Value will fail anyway, no need to worry about stale data in them
+            }
         }
 
         private readonly ThreadLocal<LockLocalCaches> _lockLocalCaches = new();

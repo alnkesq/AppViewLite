@@ -18,7 +18,7 @@ namespace AppViewLite.PluggableProtocols
             var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<GitHubCommitEntry[]>($"https://api.github.com/repos/{owner}/{repo}/commits"))!;
             return new VirtualRssResult(new Models.BlueskyProfileBasicInfo { DisplayName = repo + " (commits)", CustomFields = [new CustomFieldProto("web", $"https://github.com/{owner}/{repo}/commits")] },
                 response
-                .Where(x => !IsNoiseAuthor(x.author.id))
+                .Where(x => !IsNoiseAuthor(x.author))
                 .Select(x =>
             {
                 var url = $"https://github.com/{owner}/{repo}/commit/{x.sha}";
@@ -31,10 +31,12 @@ namespace AppViewLite.PluggableProtocols
             }).ToArray());
         }
 
-        private static bool IsNoiseAuthor(int id)
+        private static bool IsNoiseAuthor(GitHubUserExtended? user)
         {
+
+            if (user == null) return false;
             return
-                id is
+                user.id is
                     49699333 // dependabot[bot]
                     ;
         }
@@ -60,7 +62,7 @@ namespace AppViewLite.PluggableProtocols
             var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<GitHubIssue[]>($"https://api.github.com/repos/{owner}/{repo}/issues?state=all&filter=all&per_page=100"))!;
             return new VirtualRssResult(new Models.BlueskyProfileBasicInfo { DisplayName = repo + (pulls ? " (pull requests)" : " (issues)"), CustomFields = [new CustomFieldProto("web", $"https://github.com/{owner}/{repo}/issues")] }, response
                 .Where(x => (x.pull_request != null) == pulls)
-                .Where(x => !IsNoiseAuthor(x.user.id))
+                .Where(x => !IsNoiseAuthor(x.user))
                 .Select(x =>
             {
                 var url = $"https://github.com/{owner}/{repo}/{(x.pull_request != null ? "pull" : "issues")}/{x.number}";

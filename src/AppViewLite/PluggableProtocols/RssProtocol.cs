@@ -1068,13 +1068,17 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
                 var segments = feedUrl.GetSegments();
-                if(postId.PostId.String!.StartsWith("/r/", StringComparison.Ordinal))
+                if (postId.PostId.String!.StartsWith("/r/", StringComparison.Ordinal))
                     return $"https://www.reddit.com" + postId.PostId.String + "/";
                 return $"https://www.reddit.com/{segments[0]}/{segments[1]}/comments/{postId.PostId.String}/";
             }
             else if (feedUrl.HasHostSuffix("tumblr.com"))
             {
                 return $"https://www.tumblr.com/{feedUrl.Host.Split('.')[0]}/{postId.PostId.Int64}";
+            }
+            else if (feedUrl.HasHostSuffix("t.me"))
+            {
+                return "https://t.me" + postId.PostId.String;
             }
             return post.Data?.ExternalUrl;
         }

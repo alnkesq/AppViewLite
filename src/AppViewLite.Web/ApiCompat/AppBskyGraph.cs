@@ -54,6 +54,16 @@ namespace AppViewLite.Web
                 StarterPacks = []
             }.ToJsonResponse();
         }
+        [HttpGet("app.bsky.graph.getList")]
+        public async Task<IResult> GetActorStarterPacks(string list, string? cursor, int? limit)
+        {
+            // stub empty for now
+            return new FishyFlip.Lexicon.App.Bsky.Graph.GetListOutput
+            {
+                List = null,
+                Items = []
+            }.ToJsonResponse();
+        }
     }
 }
 

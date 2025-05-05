@@ -330,6 +330,7 @@ namespace AppViewLite
                 Name = "[stub]",
                 Purpose = "app.bsky.graph.defs#curatelist",
                 Uri = new FishyFlip.Models.ATUri("at://did:web:bad-example.com/com.example.bad/33333"),
+                IndexedAt = DummyDate,
             };
         }
 

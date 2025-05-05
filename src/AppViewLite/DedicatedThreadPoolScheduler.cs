@@ -93,6 +93,7 @@ namespace AppViewLite
 
         public DedicatedThreadPoolScheduler(int threadCount, string? name)
         {
+            TotalThreads = threadCount;
             threads = new List<Thread>(threadCount);
             for (int i = 0; i < threadCount; i++)
             {
@@ -107,7 +108,25 @@ namespace AppViewLite
             }
         }
 
+
+        public int BusyThreads;
+        public int TotalThreads;
+        public DateTime LastProcessedSuspendableTask;
+        public DateTime LastProcessedNonSuspendableTask;
+
         private void ThreadWorker()
+        {
+            try
+            {
+                ThreadWorkerCore();
+            }
+            catch (Exception ex)
+            {
+                BlueskyRelationships.ThrowFatalError("One of the worker threads of DedicatedThreadPoolScheduler died: " + ex);
+            }
+        
+        }
+        private void ThreadWorkerCore()
         {
             using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
             while (true)
@@ -115,14 +134,18 @@ namespace AppViewLite
                 var index = BlockingCollection<Task>.TryTakeFromAny([tasksNonSuspendable, tasksSuspendable], out var task, Timeout.Infinite);
                 if (index == -1)
                 {
+                    Interlocked.Decrement(ref TotalThreads);
                     BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted && tasksSuspendable.IsAddingCompleted);
                     return;
                 }
+
+                Interlocked.Increment(ref BusyThreads);
                 if (index == 0)
                 {
                     // non suspendable
                     if (!TryExecuteTask(task!))
                         BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
+                    LastProcessedNonSuspendableTask = DateTime.UtcNow;
                     AfterTaskProcessed?.Invoke();
 
                 }
@@ -132,10 +155,13 @@ namespace AppViewLite
                     if (!TryExecuteTask(task!))
                         BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of suspendable queued tasks was found to be already executed or running.");
                     Interlocked.Decrement(ref UncompletedSuspendableTasks);
+                    LastProcessedSuspendableTask = DateTime.UtcNow;
                     AfterTaskProcessed?.Invoke();
 
                 }
                 else BlueskyRelationships.ThrowFatalError("Invalid index returned by TryTakeFromAny");
+
+                Interlocked.Decrement(ref BusyThreads);
             }
         }
 
@@ -184,6 +210,10 @@ namespace AppViewLite
                 UncompletedSuspendableTasks,
                 TotalSuspendableTasks,
                 TotalNonSuspendableTasks,
+                LastProcessedSuspendableTaskAgo = DateTime.UtcNow - LastProcessedSuspendableTask,
+                LastProcessedNonSuspendableTaskAgo = DateTime.UtcNow - LastProcessedNonSuspendableTask,
+                BusyThreads,
+                TotalThreads,
             };
         }
     }

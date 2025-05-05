@@ -121,14 +121,16 @@ namespace AppViewLite
                 if (index == 0)
                 {
                     // non suspendable
-                    TryExecuteTask(task!);
+                    if (!TryExecuteTask(task!))
+                        BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
                     AfterTaskProcessed?.Invoke();
 
                 }
                 else if (index == 1)
                 {
                     // suspendable
-                    TryExecuteTask(task!);
+                    if (!TryExecuteTask(task!))
+                        BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of suspendable queued tasks was found to be already executed or running.");
                     Interlocked.Decrement(ref UncompletedSuspendableTasks);
                     AfterTaskProcessed?.Invoke();
 

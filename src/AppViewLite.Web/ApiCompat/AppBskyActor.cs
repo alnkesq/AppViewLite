@@ -28,10 +28,10 @@ namespace AppViewLite.Web
         }
 
         [HttpGet("app.bsky.actor.getProfiles")]
-        public async Task<IResult> GetProfiles([FromQuery]string[] profiles)
+        public async Task<IResult> GetProfiles([FromQuery]string[] actors)
         {
-            var fullProfiles = await Task.WhenAll(profiles.Select(did => apis.GetFullProfileAsync(did, ctx, 0)));
-            return new GetProfilesOutput(fullProfiles.Select(p => p.ToApiCompatProfileDetailed()).ToList()).ToJsonResponse();
+            var profiles = await Task.WhenAll(actors.Select(did => apis.GetFullProfileAsync(did, ctx, 0)));
+            return new GetProfilesOutput(profiles.Select(p => p.ToApiCompatProfileDetailed()).ToList()).ToJsonResponse();
         }
 
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]

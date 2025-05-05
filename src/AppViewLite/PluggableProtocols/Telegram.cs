@@ -44,9 +44,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                             Cid = RssProtocol.UrlToCid(imageUrl)!
                         };
                     }).ToArray();
+                    if (data.Media.Length == 0 && text == null && x.QuerySelector(".message_media_not_supported_label") != null) return null;
                     var post = new VirtualRssPost(new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(PluggableProtocol.CreateSyntheticTid(date, postId), "/" + postId)), data);
                     return post;
-                }).ToArray();
+                }).WhereNonNull().ToArray();
                 return new VirtualRssResult(profile, posts);
             };
         }

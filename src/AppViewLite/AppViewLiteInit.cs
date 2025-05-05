@@ -1,10 +1,9 @@
 using AppViewLite.Storage;
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Reflection;
 
 namespace AppViewLite
 {
@@ -17,6 +16,8 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
+
+            GitCommitVersion = TryGetGitCommit();
 
             var ignoreSlicesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IGNORE_SLICES_PATH);
             var ignoreSlices = ignoreSlicesPath != null ? StringUtils.ReadTextFile(ignoreSlicesPath).Select(x =>
@@ -83,6 +84,33 @@ namespace AppViewLite
 
             BlueskyEnrichedApis.Instance = apis;
             return apis;
+        }
+
+
+        public static string? GitCommitVersion;
+        private static string? TryGetGitCommit()
+        {
+            try
+            {
+                var processStartInfo = new ProcessStartInfo("git", ["log", "-1", "--pretty=format:%H %ad", "--date=short"]);
+                processStartInfo.RedirectStandardOutput = true;
+                processStartInfo.RedirectStandardError = true;
+                processStartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                using var process = Process.Start(processStartInfo)!;
+                var version = process.StandardOutput.ReadToEnd().Trim();
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                {
+                    LoggableBase.Log("git log returned exit code " + process.ExitCode);
+                    return null;
+                }
+                return version;
+            }
+            catch (Exception ex)
+            {
+                LoggableBase.LogNonCriticalException("git log failed", ex);
+                return null;
+            }
         }
     }
 }

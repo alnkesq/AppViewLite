@@ -477,13 +477,28 @@ namespace AppViewLite
                 sb.Append(buffer.Slice(0, len));
                 utf8length += rune.Utf8SequenceLength;
             }
+
+            void MaybeTrimLastAddedSpace()
+            {
+                if (sb.Length != 0 && sb[sb.Length - 1] == ' ')
+                {
+                    if (!facets.Any(x => x.End >= sb.Length))
+                    {
+                        utf8length--;
+                        sb.Length--;
+                    }
+                }
+            }
+
             void AppendNewLineIfNecessary()
             {
+                MaybeTrimLastAddedSpace();
                 if (sb.Length != 0 && sb[sb.Length - 1] != '\n')
                     AppendChar('\n');
             }
             void AppendNewLineIfNecessaryAllowEmptyLine()
             {
+                MaybeTrimLastAddedSpace();
                 if (sb.Length == 0) return;
                 if (sb.Length >= 2 && sb[sb.Length - 2] == '\n' && sb[sb.Length - 1] == '\n')
                     return;
@@ -692,6 +707,13 @@ namespace AppViewLite
         public static string[] GetSegments(this Uri url) => url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
         public static bool HasHostSuffix(this Uri url, string suffix) => url.Host == suffix || url.Host.EndsWith("." + suffix, StringComparison.Ordinal);
+
+        public static string? HtmlDecode(string? html)
+        {
+            var result = WebUtility.HtmlDecode(html);
+            if (string.IsNullOrEmpty(result)) return null;
+            return result;
+        }
 
         internal static FacetData? DefaultElementToFacet(IElement element, Uri? baseUrl, bool includeInlineImages = false)
         {
@@ -922,11 +944,23 @@ namespace AppViewLite
 
         private static string UnescapeDataStringOrPlus(string s) => Uri.UnescapeDataString(s.Replace('+', ' '));
 
-        public static string? TrimTextWithEllipsis(string? text, int maxLength)
+        public static string? TrimTextWithEllipsis(string? text, int maxLength, int? maxLines = null)
         {
             if (text == null) return text;
-            if (text.Length <= maxLength) return text;
-            return string.Concat(text.AsSpan(0, maxLength), "…");
+
+            
+            if (text.Length > maxLength) 
+                text = string.Concat(text.AsSpan(0, maxLength), "…");
+
+            if (maxLines != null)
+            {
+                var lines = text.Split('\n');
+                if (lines.Length > maxLines)
+                {
+                    text = string.Join("\n", lines.Take(maxLines.Value)) + "…";
+                }
+            }
+            return text;
         }
 
         public static string GetExceptionDisplayText(Exception exception)

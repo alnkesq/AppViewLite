@@ -7,6 +7,7 @@ Each of these options can be specified (by descending priority):
 
 ## Main settings
 
+* `APPVIEWLITE_BIND_URLS`: Bind IP and ports. Defaults to `https://localhost:61749,http://localhost:61750`. Use `*` instead of `localhost` to listen on all network interfaces.
 * `APPVIEWLITE_DIRECTORY`: Where to store the data. Defaults to `~/BskyAppViewLiteData`
 * `APPVIEWLITE_ADDITIONAL_DIRECTORIES`: Optional additional data directories (perhaps stored on different volumes) that complement `APPVIEWLITE_DIRECTORY`. When AppViewLite needs to read a file, it will first check if it exists in `APPVIEWLITE_DIRECTORY`, if it doesn't exist there, it will check the corresponding subfolders of each additional directory (if any files are missing altogether, AppViewLite will refuse to start). You can manually move large files or directories from the main `APPVIEWLITE_DIRECTORY` (for example, stored on fast solid storage) to an additional data directory (for example, stored on larger but slower rotating drives). Moving files requires scheduled downtime.
 * `APPVIEWLITE_PLC_DIRECTORY_BUNDLE`: Path to an optional parquet file for quick bootstraping of the PLC directory data.
@@ -24,7 +25,7 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_CONFIGURATION`: Path to an env file that will be loaded into the environment at startup. Prior environment variables take the precendence.
 * `APPVIEWLITE_ALLOW_NEW_DATABASE`: Allows AppViewLite to start a new database / empty checkpoint, if no `checkpoints/*.pb` files exist. Defaults to `0`. This is a safer default than `1`, because if no checkpoints were found for whatever reason, AppViewLite would otherwise start from scratch, and it would soon garbage collect all your previous data slices.
 * `APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE`: An appview that can be used to quickly bootstrap the list of followers of a user without first downloading the whole network. Defaults to `https://public.api.bsky.app`, can be disabled with `-`
-
+* `APPVIEWLITE_MAX_QPS_BY_HOST`: Max requests per second that AppViewLite will perform against external servers (PDSes, RSS sites, etc.). Don't include `www.` or other prefixes. Defaults to `*=5` (at most 5 requests per second to the same server).
 ## Storage (low level configuration)
 * `APPVIEWLITE_USE_READONLY_REPLICA`: If enabled, most requests will be served from a readonly snapshot of the database (so that we don't have to wait for any current write lock to complete). Defaults to `1`.
 * `APPVIEWLITE_MAX_READONLY_STALENESS_MS_OPPORTUNISTIC`: How many milliseconds can the readonly replica lag behind the primary, ideally. Default: `2000`.

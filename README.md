@@ -4,8 +4,8 @@ AppViewLite is an ATProto (Bluesky) appview focused on low resource consumption,
 
 It includes:
 * A firehose listener and indexer (`AppViewLite`)
-* A simple web UI for viewing the indexed data (`AppViewLite.Web`)
-* An XRPC interface that allows you to reuse the official TypeScript [client](https://github.com/bluesky-social/social-app/) implementation
+* A web UI for viewing the indexed data (`AppViewLite.Web`)
+* An XRPC interface that allows you to reuse the official TypeScript [client](https://github.com/bluesky-social/social-app/) implementation (experimental)
 
 <img src="https://raw.githubusercontent.com/alnkesq/AppViewLite/refs/heads/main/images/appviewlite.png" alt="Screenshot of the bsky.app profile on AppViewLite" width="600">
 
@@ -64,6 +64,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 - Install [.NET 9](https://dotnet.microsoft.com/en-us/download)
 - `cd src/AppViewLite.Web`
 - `dotnet run -c Release -- --allow-new-database`
+- Browse to `https://localhost:61749/`
 
 Optionally, you can set [various configuration settings](https://github.com/alnkesq/AppViewLite/blob/main/docs/Configuration.md), including  `APPVIEWLITE_DIRECTORY` to specify where the data should be stored.
 

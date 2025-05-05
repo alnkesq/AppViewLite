@@ -338,7 +338,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             return Task.FromResult<string?>(null);
         }
 
-        public override bool ProvidesLikeCount => true;
+        public override bool ProvidesLikeCount(string did) => true;
 
 
         public override bool ShouldShowRepliesTab(BlueskyProfile profile)

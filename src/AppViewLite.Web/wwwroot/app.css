@@ -1215,6 +1215,9 @@ details:not([open]) .summary-when-open {
 }
 .post-external-preview-summary {
     font-size: 13.125px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 .post-external-preview-domain {
     color: var(--light-text);

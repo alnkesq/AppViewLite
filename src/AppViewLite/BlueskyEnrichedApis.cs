@@ -4030,16 +4030,18 @@ namespace AppViewLite
         public readonly static HttpClient DefaultHttpClient;
         public readonly static HttpClient DefaultHttpClientNoDefaultHeaders;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
+        public readonly static HttpClient DefaultHttpClientOpenGraph;
 
         static BlueskyEnrichedApis()
         {
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
             DefaultHttpClientNoDefaultHeaders = CreateHttpClient(autoredirect: true, defaultHeaders: false);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
+            DefaultHttpClientOpenGraph = CreateHttpClient(autoredirect: false, defaultHeaders: true, userAgent: "facebookexternalhit/1.1");
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true)
+        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null)
         {
             var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
             {
@@ -4047,7 +4049,7 @@ namespace AppViewLite
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
             }, true), true);
             if (defaultHeaders)
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? "Mozilla/5.0");
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
             client.Timeout = TimeSpan.FromSeconds(10);
             return client;
@@ -4232,6 +4234,36 @@ namespace AppViewLite
             // synchronous part
             var did = userContext.Did!;
             var plc = userContext.Profile!.Plc;
+
+
+            WithRelationshipsWriteLock(rels => 
+            {
+                var anythingMigrated = false;
+                foreach (var follow in userContext.PrivateProfile!.PrivateFollows ?? [])
+                {
+                    var did = rels.GetDid(new Plc(follow.Plc));
+                    if (did.StartsWith("did:rss:", StringComparison.Ordinal))
+                    {
+                        var url = AppViewLite.PluggableProtocols.Rss.RssProtocol.DidToUrl(did);
+                        if (url.HasHostSuffix("reddit.com"))
+                        {
+                            var subreddit = url.GetSegments()[1].ToLowerInvariant();
+                            var newdid = "did:rss:www.reddit.com:r:" + subreddit;
+                            if (did != newdid)
+                            {
+                                follow.Plc = rels.SerializeDid(newdid, ctx).PlcValue;
+                                anythingMigrated = true;
+                            }
+                        }
+                    }
+                }
+                if (anythingMigrated)
+                {
+                    userContext.PrivateProfile!.PrivateFollows = userContext.PrivateProfile!.PrivateFollows!.DistinctBy(x => x.Plc).ToArray();
+                    rels.SaveAppViewLiteProfile(userContext);
+                }
+            }, ctx);
+
             lock (userContext)
             {
                 userContext.PrivateFollows = (userContext.PrivateProfile!.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);
@@ -4714,6 +4746,7 @@ namespace AppViewLite
             {
                 Uptime = Stopwatch.GetElapsedTime(TimeProcessStarted),
                 Pid = Environment.ProcessId,
+                RepositoryVersion = AppViewLiteInit.GitCommitVersion,
                 CarImportCount = this.CarImportDict.Count,
                 FetchAndStoreDidDocNoOverrideDict = this.FetchAndStoreDidDocNoOverrideDict.Count,
                 FetchAndStoreLabelerServiceMetadataDict = this.FetchAndStoreLabelerServiceMetadataDict.Count,

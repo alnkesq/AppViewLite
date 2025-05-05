@@ -14,6 +14,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.Net.Http.Json;
+using AppViewLite.PluggableProtocols.Reddit;
 
 namespace AppViewLite.PluggableProtocols.Rss
 {
@@ -158,18 +160,27 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             return "#999";
         }
+
         private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext ctx)
         {
             if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_RSS, false))
                 throw new NotSupportedException("RSS is not enabled on the current instance.");
-            var feedUrl = DidToUrl(did);
+            var feedUrl = DidToUrl(did)!;
+
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
-                if ((feedUrl.Host != "www.reddit.com" || feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()) || !feedUrl.AbsolutePath.EndsWith("/.rss", StringComparison.Ordinal) || feedUrl.AbsolutePath.Contains("//", StringComparison.Ordinal))
-                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, path lowercased, ending in slash dot rss.");
+                if ((feedUrl.Host != "www.reddit.com" ||
+                    feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()) ||
+                    feedUrl.AbsolutePath.EndsWith("/", StringComparison.Ordinal) ||
+                    feedUrl.GetSegments().Length != 2 ||
+                    feedUrl.AbsolutePath.Contains("//", StringComparison.Ordinal) ||
+                    feedUrl.Query.Length != 0 ||
+                    feedUrl.Fragment.Length != 0
+                    )
+                    throw new Exception("Reddit RSS host should be normalized to www.reddit.com, path lowercased, no trailing slash.");
                 var segments = feedUrl.GetSegments();
-                if (segments.Length < 2 || segments[0] != "r")
-                    throw new Exception("Only subreddit URLs are supported.");
+                if (segments.Length < 2 || !(segments[0] is "r" or "user"))
+                    throw new Exception("Only subreddit and user URLs are supported.");
             }
             if (UrlToDid(feedUrl) != did)
                 throw new Exception("RSS/did roundtrip failed.");
@@ -191,7 +202,45 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
 
                 refreshInfo.RedirectsTo = null;
-                using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, feedUrl);
+
+                var (virtualRssRedirect, virtualRss) = TryGetVirtualRssDelegate(feedUrl, did);
+                if (virtualRssRedirect != null) throw new UnexpectedFirehoseDataException("The specified virtual RSS DID was recognized, but it is not canonical. The canonical DID is " + UrlToDid(virtualRssRedirect));
+
+                if (virtualRss != null)
+                {
+                    var result = await virtualRss();
+                    var posts = result.Posts;
+                    if (posts.Length == 0) throw new UnexpectedFirehoseDataException("Virtual RSS feed returned zero posts.");
+                    foreach (var post in posts)
+                    {
+                        OnPostDiscovered(post.PostId, null, null, post.Data, ctx);
+                    }
+                    if (result.Profile != null)
+                    {
+                        OnProfileDiscovered(did, result.Profile, ctx);
+                    }
+                    refreshInfo.HttpLastETag = null;
+                    refreshInfo.HttpLastModified = null;
+                    refreshInfo.HttpLastModifiedTzOffset = 0;
+                    refreshInfo.HttpLastDate = null;
+                    refreshInfo.LastSuccessfulRefresh = now;
+                    refreshInfo.XmlOldestPost = posts.Min(x => x.Date);
+                    refreshInfo.XmlNewestPost = posts.Max(x => x.Date);
+                    refreshInfo.XmlPostCount = posts.Length;
+                    return refreshInfo;
+
+                }
+
+                var feedUrlForRequest = (
+                    feedUrl.HasHostSuffix("reddit.com") ?
+                    (
+                        feedUrl.AbsolutePath.StartsWith("/r/", StringComparison.Ordinal) ? new Uri(feedUrl.AbsoluteUri + "/top/.rss?sort=top&t=day") :
+                        feedUrl.AbsolutePath.StartsWith("/user/", StringComparison.Ordinal) ? new Uri(feedUrl.AbsoluteUri + "/submitted/.rss?sort=new") :
+                        null
+                    ) : null)
+                    ?? feedUrl;
+
+                using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Get, feedUrlForRequest);
 
                 if (lastRefreshSucceeded)
                 {
@@ -298,7 +347,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     try
                     {
-                        var (date, postUrl) = AddPost(did, item, feedUrl, ctx);
+                        var (date, postUrl) = AddPost(did, item, postIndex: postCount, feedUrl, ctx);
                         firstUrl ??= postUrl;
                         if (date < minDate) minDate = date;
                         if (date > maxDate) maxDate = date;
@@ -368,6 +417,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             finally
             {
+                if (refreshInfo.LastSuccessfulRefresh != now)
+                    Log("RSS refresh failed for " + feedUrl + ": " + refreshInfo.RssErrorMessage);
                 Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)), ctx);
             }
             return refreshInfo;
@@ -389,7 +440,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         }
 
         public const HttpRequestError TimeoutError = (HttpRequestError)1001;
-        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, Uri feedUrl, RequestContext ctx)
+        private (DateTime Date, Uri? Url) AddPost(string did, XElement item, int postIndex, Uri feedUrl, RequestContext ctx)
         {
             var title = GetValue(item, "title");
             if (title != null && title.Contains('&')) title = StringUtils.ParseHtmlToText(title, out _, x => null).Text;
@@ -418,8 +469,12 @@ namespace AppViewLite.PluggableProtocols.Rss
             NonQualifiedPluggablePostId postId;
             var hasFullContent = false;
 
+            int? pluggableLikeCountForScoring = null;
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
+                var isUserRss = feedUrl.AbsolutePath.StartsWith("/user/", StringComparison.Ordinal);
+                if (!isUserRss) // for user RSS, we sort by new, so rank isn't meaningful
+                    pluggableLikeCountForScoring = EstimateLikesFromRank(postIndex, 1.1);
                 var commentsUrl = url;
                 var link = bodyDom?.QuerySelectorAll("a").FirstOrDefault(x => x.TextContent == "[link]");
                 if (link != null)
@@ -435,6 +490,12 @@ namespace AppViewLite.PluggableProtocols.Rss
                         var submittedBy = bodyDom!.Descendants<IText>().FirstOrDefault(x => x.TextContent.Trim() == "submitted by");
                         if (submittedBy != null)
                         {
+                            if (isUserRss)
+                            {
+                                var to = submittedBy.NextElementSibling?.NextSibling;
+                                to?.NextSibling?.RemoveFromParent();
+                                to?.RemoveFromParent();
+                            }
                             submittedBy.NextElementSibling?.Remove();
                             submittedBy.Remove();
                         }
@@ -454,7 +515,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 }
                 var segments = commentsUrl!.GetSegments();
-                var h = segments[3];
+                var h = isUserRss ? "/r/" + segments[1] + "/comments/" + segments[3] : segments[3];
                 postId = new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, h), h);
             }
             else if (feedUrl.HasHostSuffix("tumblr.com"))
@@ -581,8 +642,14 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (bodyAsText?.Length >= maxLength)
                 bodyAsText = string.Concat(bodyAsText.AsSpan(0, maxLength - 10), "…");
 
-            var data = new BlueskyPostData();
+            var data = new BlueskyPostData()
+            {
+                PluggableLikeCountForScoring = pluggableLikeCountForScoring,
+                PluggableLikeCount = pluggableLikeCountForScoring // TODO temporary for debugging
+            };
             if (url == null) hasFullContent = true;
+
+            var mediaThumb = GetAttribute((mediaGroup ?? item)?.Element(NsMedia + "thumbnail"), "url");
 
             if (!hasFullContent)
             {
@@ -631,7 +698,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     data.ExternalTitle = title;
                 }
 
-                var mediaThumb = GetAttribute(mediaGroup?.Element(NsMedia + "thumbnail"), "url");
+
                 if (mediaThumb != null)
                 {
                     data.ExternalThumbCid = UrlToCid(mediaThumb);
@@ -668,11 +735,26 @@ namespace AppViewLite.PluggableProtocols.Rss
                     data.Text = bodyAsText ?? title;
                 }
 
-                data.Media = bodyDom?.QuerySelectorAll("img").Select(x => new BlueskyMediaData
+                data.Media = bodyDom?.QuerySelectorAll("img").Select(x =>
                 {
-                    Cid = UrlToCid(TryGetImageUrl(x, url ?? feedUrl)?.AbsoluteUri)!,
-                    AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                    var imageUrl = TryGetImageUrl(x, url ?? feedUrl);
+                    if (imageUrl != null && imageUrl.HasHostSuffix("preview.redd.it") && imageUrl.AbsolutePath.Split('.').Last() is "jpg" or "jpeg" or "png" or "webp" or "gif")
+                    {
+                        imageUrl = new Uri("https://i.redd.it/" + imageUrl.GetSegments()[0]);
+                    };
+                    return new BlueskyMediaData
+                    {
+                        Cid = UrlToCid(imageUrl?.AbsoluteUri)!,
+                        AltText = feedUrl.HasHostSuffix("reddit.com") ? null : x.GetAttribute("title") ?? x.GetAttribute("alt"),
+                    };
                 }).Where(x => x.Cid != null).ToArray();
+                if ((data.Media == null || data.Media.Length == 0) && data.ExternalUrl == null && mediaThumb != null)
+                {
+                    data.Media = [new BlueskyMediaData 
+                    { 
+                        Cid = UrlToCid(mediaThumb)!
+                    }];
+                }
             }
             OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data, ctx: ctx);
             return (dateParsed, url);
@@ -694,7 +776,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return new BlueskyMediaData
                 {
                     AltText = x.GetAttribute("title") ?? x.GetAttribute("alt"),
-                    Cid = isVideo ? UrlToCid((x.GetAttribute("src") ?? x.QuerySelector("source")!.GetAttribute("src")) + "\n" + x.GetAttribute("poster"))! : UrlToCid(x.GetAttribute("src"))!,
+                    Cid = isVideo ? UrlToCid(x.GetAttribute("poster"), x.GetAttribute("src") ?? x.QuerySelector("source")!.GetAttribute("src"))! : UrlToCid(x.GetAttribute("src"))!,
                     IsVideo = isVideo,
                 };
             }).ToArray();
@@ -705,8 +787,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             return Regex.Replace(title, @"[\s….]", string.Empty);
         }
 
-        private static byte[]? UrlToCid(string? imageUrl)
+        internal static byte[]? UrlToCid(string? imageUrl, string? videoUrl = null)
         {
+            if (imageUrl == null) return null;
+            if (videoUrl != null) imageUrl = videoUrl + "\n" + imageUrl;
             return BlueskyRelationships.CompressBpe(imageUrl);
         }
 
@@ -861,6 +945,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("youtube.com")) return "/assets/default-youtube-avatar.png";
             if (url.HasHostSuffix("reddit.com")) return "/assets/default-reddit-avatar.svg";
             if (url.HasHostSuffix("tumblr.com")) return "/assets/default-tumblr-avatar.svg";
+            if (url.HasHostSuffix("github.com")) return "/assets/default-github-avatar.svg";
             return "/assets/default-rss-avatar.svg";
         }
 
@@ -895,6 +980,8 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
+            if (profile.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
+                return DidToUrl(profile.Did).AbsoluteUri;
             return profile.BasicData?.CustomFields?.FirstOrDefault(x => x.Name == "web")?.Value;
         }
 
@@ -950,7 +1037,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("reddit.com"))
             {
                 var path = url.GetSegments();
-                if (path[0] == "u") return "/" + path[0] + "/" + path[1];
+                if (path[0] == "user") return "/u/" + path[1];
                 else return path[1];
             }
             var host = url.GetDomainTrimWww();
@@ -981,11 +1068,17 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
                 var segments = feedUrl.GetSegments();
+                if (postId.PostId.String!.StartsWith("/r/", StringComparison.Ordinal))
+                    return $"https://www.reddit.com" + postId.PostId.String + "/";
                 return $"https://www.reddit.com/{segments[0]}/{segments[1]}/comments/{postId.PostId.String}/";
             }
             else if (feedUrl.HasHostSuffix("tumblr.com"))
             {
                 return $"https://www.tumblr.com/{feedUrl.Host.Split('.')[0]}/{postId.PostId.Int64}";
+            }
+            else if (feedUrl.HasHostSuffix("t.me"))
+            {
+                return "https://t.me" + postId.PostId.String;
             }
             return post.Data?.ExternalUrl;
         }
@@ -1108,22 +1201,16 @@ namespace AppViewLite.PluggableProtocols.Rss
                     var sortSegment = segments.ElementAtOrDefault(2);
                     if (sortSegment is "comments" or "wiki") throw new Exception("RSS feeds to reddit comments or wikis are not supported.");
                     var q = url.GetQueryDictionary();
-                    var sort = q.TryGetValue("sort", out var sortQ) && !string.IsNullOrEmpty(sortQ) ? sortQ : sortSegment;
-                    sort ??= "top";
 
-                    q.TryGetValue("t", out var t);
-                    if (sort == "top" && string.IsNullOrEmpty(t))
-                        t = "month";
-                    var suffix =
-                        sort == "top"
-                            ? "/top/.rss?sort=" + sort + "&t=" + t
-                            : "/" + sort + ".rss";
-
-                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/r/{segments[1].ToLowerInvariant()}" + suffix));
-                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/u/{segments[1].ToLowerInvariant()}" + suffix));
+                    if (segments[0] == "r") return UrlToDid(new Uri($"https://www.reddit.com/r/{segments[1].ToLowerInvariant()}"));
+                    if (segments[0] is "u" or "user") return UrlToDid(new Uri($"https://www.reddit.com/user/{segments[1].ToLowerInvariant()}"));
                 }
             }
 
+            var did = UrlToDid(url);
+            var (virtualFeedRedirect, virtualFeed) = TryGetVirtualRssDelegate(url, did);
+            if (virtualFeedRedirect != null) return "/" + virtualFeedRedirect;
+            if (virtualFeed != null) return did;
 
 
             using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.GetAsync(url);
@@ -1137,7 +1224,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var responseText = (await response.Content.ReadAsStringAsync()).Trim();
             if (IsFeedXml(responseText))
             {
-                return UrlToDid(url);
+                return did;
             }
 
             var rssFeed = await TryGetFeedUrlFromPageAsync(responseText, url);
@@ -1207,28 +1294,112 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("reddit.com"))
             {
                 var segments = url.GetSegments();
-                url.GetQueryDictionary().TryGetValue("t", out var top);
-
-
 
                 if (segments.Length >= 2)
                 {
-                    var suffix = (top != null ? " (top " + top + ")" : null);
                     if (segments[0] == "r" && segments[1].Equals(profile.DisplayName, StringComparison.OrdinalIgnoreCase))
-                        return "/r/" + profile.DisplayName + suffix;
-                    return "/" + segments[0] + "/" + segments[1] + suffix;
+                        return "/r/" + profile.DisplayName;
+                    if (segments[0] == "user") return "/u/" + segments[1];
                 }
             }
             if (url.HasHostSuffix("tumblr.com"))
             {
                 return url.Host;
             }
+            if (url.HasHostSuffix("github.com"))
+            {
+                var segments = url.GetSegments().Take(2).ToArray();
+                return "github.com/" + string.Join("/", segments);
+            }
             if (url.HasHostSuffix("youtube.com"))
             {
                 return "youtube.com/channel/" + url.GetQueryDictionary()["channel_id"];
             }
+            if (url.HasHostSuffix("t.me"))
+            {
+                return "t.me/" + url.GetSegments().FirstOrDefault();
+            }
             return StringUtils.GetDisplayHost(url);
         }
+
+        public static (Uri? RedirectTo, VirtualRssDelegate? Delegate) TryGetVirtualRssDelegate(Uri feedUrl, string did)
+        {
+            // RSS works, while .json is often blocked
+            if (false && feedUrl.HasHostSuffix("reddit.com") && feedUrl.AbsolutePath.StartsWith("/r/", StringComparison.Ordinal))
+            {
+                return (null, RedditApi.GetRedditVirtualRss(feedUrl, did));
+            }
+
+            if (feedUrl.HasHostSuffix("t.me"))
+            {
+                var segments = feedUrl.GetSegments();
+                var channel = segments.FirstOrDefault() == "s" ? segments.ElementAtOrDefault(1) : segments.FirstOrDefault();
+                if (channel != null)
+                {
+                    var normalized = "https://t.me/" + channel;
+                    if (normalized != feedUrl.AbsoluteUri) return (new(normalized), null);
+                    return (null, Telegram.GetFeedAsync(did, channel));
+                }
+            }
+
+            if (feedUrl.HasHostSuffix("github.com"))
+            {
+                var segments = feedUrl.GetSegments();
+
+                if (segments.Length == 2)
+                    segments = segments.Append("commits").ToArray();
+                if (segments.Length >= 3)
+                {
+                    var r = ("https://github.com/" + string.Join("/", segments.Take(3))).ToLowerInvariant();
+
+                    if(r == feedUrl.AbsoluteUri)
+                    {
+                        if (segments[2] == "commits")
+                        {
+                            return (null, () => GitHub.GetCommitsAsync(did, segments[0], segments[1]));
+                        }
+                        if (segments[2] == "releases")
+                        {
+                            return (null, () => GitHub.GetReleasesAsync(did, segments[0], segments[1]));
+                        }
+                        if (segments[2] == "issues")
+                        {
+                            return (null, () => GitHub.GetIssuesAsync(did, segments[0], segments[1], pulls: false));
+                        }
+                        if (segments[2] == "pulls")
+                        {
+                            return (null, () => GitHub.GetIssuesAsync(did, segments[0], segments[1], pulls: true));
+                        }
+                        throw new UnexpectedFirehoseDataException("Unrecognized GitHub URL. Only /commits, /releases, /issues and /pulls are supported.");
+                    }
+                    
+                    return (new Uri(r), null);
+
+                }
+
+            }
+            return default;
+        }
+
+        public override bool ProvidesLikeCount(string did) => did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal) || did.StartsWith("did:rss:github.com:", StringComparison.Ordinal);
+
+
+        private static int EstimateLikesFromRank(int rank, double alpha)
+        {
+            rank++; // 0-based to 1-based
+            return (int)(500 * (1.0 / Math.Pow(rank, alpha))); // power law
+        }
     }
+
+    public delegate Task<VirtualRssResult> VirtualRssDelegate();
+    public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data)
+    {
+        public DateTime Date => PostId.Tid.Date;
+    }
+    public record VirtualRssResult(BlueskyProfileBasicInfo? Profile, VirtualRssPost[] Posts);
+
+
+
+
 }
 

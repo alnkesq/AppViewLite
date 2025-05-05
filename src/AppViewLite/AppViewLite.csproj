@@ -21,6 +21,7 @@
     <PackageReference Include="NNostr.Client" Version="0.0.53" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.2" />
+    <PackageReference Include="System.Threading.RateLimiting" Version="9.0.4" />
   </ItemGroup>
 
 </Project>

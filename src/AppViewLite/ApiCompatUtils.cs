@@ -311,7 +311,7 @@ namespace AppViewLite
         {
             return new ListView
             {
-                Cid = GetSyntheticCid(new FishyFlip.Models.ATUri("at://did:web:bad-example.com")),
+                Cid = GetSyntheticCid(new FishyFlip.Models.ATUri("at://did:web:bad-example.com/com.example.bad/33333")),
                 Creator = new ProfileView
                 {
                     DisplayName = "[stub]",
@@ -329,7 +329,7 @@ namespace AppViewLite
                 ListItemCount = 0,
                 Name = "[stub]",
                 Purpose = "app.bsky.graph.defs#curatelist",
-                Uri = new FishyFlip.Models.ATUri("at://did:web:bad-example.com"),
+                Uri = new FishyFlip.Models.ATUri("at://did:web:bad-example.com/com.example.bad/33333"),
             };
         }
 
@@ -351,7 +351,7 @@ namespace AppViewLite
                         BlockedBy = false,
                     },
                 },
-                Uri = new FishyFlip.Models.ATUri("at://did:web:bad-example.com"),
+                Uri = new FishyFlip.Models.ATUri("at://did:web:bad-example.com/com.example.bad/33333"),
             };
         }
 

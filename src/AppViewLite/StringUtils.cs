@@ -944,11 +944,23 @@ namespace AppViewLite
 
         private static string UnescapeDataStringOrPlus(string s) => Uri.UnescapeDataString(s.Replace('+', ' '));
 
-        public static string? TrimTextWithEllipsis(string? text, int maxLength)
+        public static string? TrimTextWithEllipsis(string? text, int maxLength, int? maxLines = null)
         {
             if (text == null) return text;
-            if (text.Length <= maxLength) return text;
-            return string.Concat(text.AsSpan(0, maxLength), "…");
+
+            
+            if (text.Length > maxLength) 
+                text = string.Concat(text.AsSpan(0, maxLength), "…");
+
+            if (maxLines != null)
+            {
+                var lines = text.Split('\n');
+                if (lines.Length > maxLines)
+                {
+                    text = string.Join("\n", lines.Take(maxLines.Value)) + "…";
+                }
+            }
+            return text;
         }
 
         public static string GetExceptionDisplayText(Exception exception)

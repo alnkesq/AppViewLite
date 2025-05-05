@@ -333,6 +333,28 @@ namespace AppViewLite
             };
         }
 
+        public static ListItemView ToApiCompatListItemView()
+        {
+            return new FishyFlip.Lexicon.App.Bsky.Graph.ListItemView
+            {
+                Subject = new FishyFlip.Lexicon.App.Bsky.Actor.ProfileView
+                {
+                    DisplayName = "[stub]",
+                    Labels = [],
+                    CreatedAt = DummyDate,
+                    Avatar = "stub",
+                    Did = new FishyFlip.Models.ATDid("did:plc:hdhoaan3xa3jiuq4fg4mefid"),
+                    Handle = new FishyFlip.Models.ATHandle("stub.bad-example.com"),
+                    Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
+                    {
+                        Muted = false,
+                        BlockedBy = false,
+                    },
+                },
+                Uri = new FishyFlip.Models.ATUri("at://stub"),
+            };
+        }
+
      
     }
 }

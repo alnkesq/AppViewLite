@@ -62,7 +62,7 @@ namespace AppViewLite.Web
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetListOutput
             {
                 List = ApiCompatUtils.ToApiCompatListView(),
-                Items = []
+                Items = [ApiCompatUtils.ToApiCompatListItemView()],
             }.ToJsonResponse();
         }
     }

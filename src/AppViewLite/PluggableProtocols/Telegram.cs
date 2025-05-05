@@ -29,7 +29,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     var date = DateTime.Parse(x.QuerySelector("time")!.GetAttribute("datetime")!, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
                     var postId = x.Children.First(x => x.ClassList.Contains("tgme_widget_message")).GetAttribute("data-post");
                     var body = x.QuerySelector(".tgme_widget_message_text");
-                    body?.Children.LastOrDefault(x => x.TagName == "A")?.Remove();
+                    body?.Children.LastOrDefault(x => x.TagName == "A" && StringUtils.TryParseUri(feedUrl, x.GetAttribute("href"))?.HasHostSuffix("t.me") == true && x.GetAttribute("rel") != "noopener")?.Remove();
                     var (text, facets) = body != null ? StringUtils.HtmlToFacets(body, x => StringUtils.DefaultElementToFacet(x, feedUrl)) : default;
                     var data = new BlueskyPostData
                     {

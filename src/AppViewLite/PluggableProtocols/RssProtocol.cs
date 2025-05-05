@@ -1311,6 +1311,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 return "youtube.com/channel/" + url.GetQueryDictionary()["channel_id"];
             }
+            if (url.HasHostSuffix("t.me"))
+            {
+                return "t.me/" + url.GetSegments().FirstOrDefault();
+            }
             return StringUtils.GetDisplayHost(url);
         }
 

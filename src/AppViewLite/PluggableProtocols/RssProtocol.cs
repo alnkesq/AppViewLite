@@ -1322,6 +1322,17 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return (null, RedditApi.GetRedditVirtualRss(feedUrl, did));
             }
 
+            if (feedUrl.HasHostSuffix("t.me"))
+            {
+                var segments = feedUrl.GetSegments();
+                var channel = segments.FirstOrDefault() == "s" ? segments.ElementAtOrDefault(1) : segments.FirstOrDefault();
+                if (channel != null)
+                {
+                    var normalized = "https://t.me/" + channel;
+                    if (normalized != feedUrl.AbsoluteUri) return (new(normalized), null);
+                    return (null, Telegram.GetFeedAsync(did, channel));
+                }
+            }
 
             if (feedUrl.HasHostSuffix("github.com"))
             {

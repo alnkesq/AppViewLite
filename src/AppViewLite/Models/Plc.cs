@@ -12,6 +12,11 @@ namespace AppViewLite.Models
         public Plc GetNext() => new Plc(PlcValue + 1);
 
         public readonly static Plc MaxValue = new(int.MaxValue);
+
+        public override string ToString()
+        {
+            return $"Plc({PlcValue})";
+        }
     }
 }
 

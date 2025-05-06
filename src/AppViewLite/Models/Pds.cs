@@ -12,6 +12,11 @@ namespace AppViewLite.Models
         {
             return this.PdsId.CompareTo(other.PdsId);
         }
+
+        public override string ToString()
+        {
+            return $"Pds({PdsId})";
+        }
     }
 }
 

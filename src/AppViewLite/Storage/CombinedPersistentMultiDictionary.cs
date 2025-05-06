@@ -58,6 +58,9 @@ namespace AppViewLite.Storage
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
 
+        public bool DefaultKeysAreValid;
+        public bool DefaultValuesAreValid;
+
         public abstract Task? HasPendingCompactationNotReadyForCommitYet { get; }
         public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
@@ -951,6 +954,16 @@ namespace AppViewLite.Storage
 
         public void Add(TKey key, TValue value)
         {
+            if (value.Equals(default(TValue)) && behavior != PersistentDictionaryBehavior.KeySetOnly)
+            {
+                if (!DefaultValuesAreValid)
+                    Log($"CombinedPersistentMultiDictionary.Add() with a default(TValue). Table: {Name}, Key: {key}, value: {value}");
+            }
+            if (key.Equals(default(TKey)))
+            {
+                if (!DefaultKeysAreValid)
+                    Log($"CombinedPersistentMultiDictionary.Add() with a default(TKey). Table: {Name}, Key: {key}, value: {value}");
+            }
             OnBeforeWrite();
             AddToCaches(key, value);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
@@ -1550,7 +1563,7 @@ namespace AppViewLite.Storage
 
         public override string[] GetPotentiallyCorruptFiles()
         {
-            return slices.SelectMany(x => x.Reader.GetPotentiallyCorruptFiles()).ToArray();
+            return slices.SelectMany(x => x.Reader.GetPotentiallyCorruptFiles(DefaultKeysAreValid, DefaultValuesAreValid)).ToArray();
         }
 
         public override IEnumerable GetValuesSortedUntyped(object key, object? minExclusive)

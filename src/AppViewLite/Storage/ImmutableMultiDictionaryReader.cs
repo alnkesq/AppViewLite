@@ -121,14 +121,14 @@ namespace AppViewLite.Storage
 
         }
 
-        public IEnumerable<string> GetPotentiallyCorruptFiles()
+        public IEnumerable<string> GetPotentiallyCorruptFiles(bool defaultKeysAreValid, bool defaultValuesAreValid)
         {
-            if (IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<TKey>)Keys)))
+            if (IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<TKey>)Keys)) && !(defaultKeysAreValid && KeyCount < 512))
                 yield return columnarReader.Columns[0].Path;
 
             if (behavior != PersistentDictionaryBehavior.KeySetOnly)
             {
-                if (IsPotentiallyCorrupt(Values))
+                if (IsPotentiallyCorrupt(Values) && !(defaultValuesAreValid && ValueCount < 512))
                     yield return columnarReader.Columns[1].Path;
 
                 if (HasOffsets && Offsets!.Length >= 2 && IsPotentiallyCorrupt(((DangerousHugeReadOnlyMemory<UInt48>)Offsets!)))

@@ -36,7 +36,7 @@ namespace AppViewLite
         {
         }
 #nullable restore
-        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null, KeyProbabilisticCache<Relationship, DateTime>? deletionProbabilisticCache = null)
+        public RelationshipDictionary(string baseDirectory, string prefix, Dictionary<string, SliceName[]> activeSlices, Func<TTarget, bool, UInt24?>? targetToApproxTarget = null, RelationshipProbabilisticCache<TTarget>? relationshipCache = null, Func<TTarget, MultiDictionaryIoPreference>? getCreationsIoPreferenceForKey = null, KeyProbabilisticCache<Relationship, DateTime>? deletionProbabilisticCache = null, bool zeroApproxTargetsAreValid = false)
         {
             if (!BlueskyRelationships.UseProbabilisticSets)
                 relationshipCache = null;
@@ -66,6 +66,7 @@ namespace AppViewLite
             if (targetToApproxTarget != null)
             {
                 this.relationshipIdHashToApproxTarget = CreateMultiDictionary<RelationshipHash, UInt24>("-rkey-hash-to-approx-target24", PersistentDictionaryBehavior.SingleValue);
+                this.relationshipIdHashToApproxTarget.DefaultValuesAreValid = zeroApproxTargetsAreValid;
                 SetUpEventHandlers(relationshipIdHashToApproxTarget);
             }
             _multidictionaries = new CombinedPersistentMultiDictionary?[] { creations, deletions, deletionCounts, relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();

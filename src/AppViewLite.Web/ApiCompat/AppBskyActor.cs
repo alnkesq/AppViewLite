@@ -1,3 +1,4 @@
+using AppViewLite.Models;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using Microsoft.AspNetCore.Cors;
@@ -25,6 +26,33 @@ namespace AppViewLite.Web
             var profile = await apis.GetFullProfileAsync(actor, ctx, 0);
 
             return profile.ToApiCompatProfileDetailed().ToJsonResponse();
+        }
+
+        [HttpGet("app.bsky.actor.getProfiles")]
+        public async Task<IResult> GetProfiles(string[] actors)
+        {
+            if (actors.Length == 0) return new GetProfilesOutput { Profiles = [] }.ToJsonResponse();
+
+            // TODO: where is getProfiles used?
+
+            if (actors.Length == 1) return new GetProfilesOutput { Profiles = [ApiCompatUtils.ToApiCompatProfileDetailed(await apis.GetFullProfileAsync(actors[0], ctx, 0))] }.ToJsonResponse();
+            var profiles = apis.WithRelationshipsLockForDids(actors, (plcs, rels) =>
+            {
+                return plcs.Select(x =>
+                {
+                    var p = rels.GetProfile(x, ctx);
+                    return new BlueskyFullProfile
+                    {
+                        Profile = p,
+                    };
+                }).ToArray();
+            }, ctx);
+            await apis.EnrichAsync(profiles.Select(x => x.Profile).ToArray(), ctx);
+            return new GetProfilesOutput
+            {
+
+                Profiles = profiles.Select(x => ApiCompatUtils.ToApiCompatProfileDetailed(x)).ToList(),
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]

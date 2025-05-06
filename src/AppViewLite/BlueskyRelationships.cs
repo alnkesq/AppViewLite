@@ -2177,7 +2177,7 @@ namespace AppViewLite
             {
                 Profile = GetProfile(plc, ctx),
                 Followers = Follows.GetActorCount(plc),
-                FollowedByPeopleYouFollow = ctx.IsLoggedIn ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx, canOmitDescription: true) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! }).ToList() : null,
+                FollowedByPeopleYouFollow = ctx.IsLoggedIn && followersYouFollowToLoad != 0 ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx, canOmitDescription: true) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! }).ToList() : null,
                 HasFeeds = FeedGenerators.GetInRangeUnsorted(new RelationshipHashedRKey(plc, 0), new RelationshipHashedRKey(plc.GetNext(), 0)).Any(),
                 HasLists = Lists.GetInRangeUnsorted(new Relationship(plc, default), new Relationship(plc.GetNext(), default)).Any(),
             };

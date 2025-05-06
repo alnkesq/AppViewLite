@@ -86,7 +86,11 @@ namespace AppViewLite
                         result.ExternalDescription = null;
 
                     result.ExternalTitle = StringUtils.TrimTextWithEllipsis(result.ExternalTitle, 300);
-                    result.ExternalDescription = StringUtils.TrimTextWithEllipsis(result.ExternalDescription, 1000);
+
+                    if (BlueskyEnrichedApis.ExternalDomainsIgnoreDescription.Contains(StringUtils.GetDomainTrimWww(url)))
+                        result.ExternalDescription = null;
+                    else
+                        result.ExternalDescription = StringUtils.TrimTextWithEllipsis(result.ExternalDescription, 1000);
                     return result;
                 }
             }

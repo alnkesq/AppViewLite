@@ -470,6 +470,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var hasFullContent = false;
 
             int? pluggableLikeCountForScoring = null;
+            var isRedditNativeVideo = false;
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
                 var isUserRss = feedUrl.AbsolutePath.StartsWith("/user/", StringComparison.Ordinal);
@@ -503,7 +504,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                     link.Remove();
                     bodyDom!.QuerySelectorAll("a").FirstOrDefault(x => x.TextContent == "[comments]")?.Remove();
                     url = new Uri(feedUrl, link.GetAttribute("href"));
-                    if (url.HasHostSuffix("reddit.com") || url.HasHostSuffix("redd.it"))
+                    if (url.HasHostSuffix("v.redd.it"))
+                    {
+                        isRedditNativeVideo = true;
+                    }
+                    else if (url.HasHostSuffix("reddit.com") || url.HasHostSuffix("redd.it"))
                     {
                         hasFullContent = true;
                         foreach (var externalImg in bodyDom!.QuerySelectorAll("img[src*='external-preview.redd.it']").ToArray())
@@ -688,7 +693,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 }
                 data.ExternalUrl = url!.AbsoluteUri;
 
-                if (feedUrl.HasHostSuffix("reddit.com") && data.Text == null)
+                if (feedUrl.HasHostSuffix("reddit.com") && data.Text == null && !isRedditNativeVideo)
                 {
                     data.Text = title;
                 }
@@ -1261,6 +1266,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             if (post.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
             {
+                if (data.ExternalUrl.StartsWith("https://v.redd.it/", StringComparison.Ordinal)) return false;
                 // Reddit RSS doesn't provide description. However, keep RSS thumbnail as a fallback.
                 return true;
             }

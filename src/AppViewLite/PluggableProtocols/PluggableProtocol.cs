@@ -501,6 +501,8 @@ namespace AppViewLite.PluggableProtocols
         {
             return null;
         }
+
+        public virtual bool ReusesThumbImageForFullSizeImages(BlueskyPost post) => false;
     }
 
 }

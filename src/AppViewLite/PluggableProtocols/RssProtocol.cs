@@ -1032,6 +1032,12 @@ namespace AppViewLite.PluggableProtocols.Rss
             return result;
         }
 
+        public override bool ReusesThumbImageForFullSizeImages(BlueskyPost post)
+        {
+            if (post.Data?.Media == null) return false;
+            return post.Data.Media.All(x => !BlueskyRelationships.DecompressBpe(x.Cid)!.Contains('\n'));
+        }
+
         public override string? GetDisplayNameFromDid(string did)
         {
             var url = DidToUrl(did);

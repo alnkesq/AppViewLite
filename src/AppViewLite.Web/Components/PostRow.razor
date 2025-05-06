@@ -132,6 +132,7 @@
 
         var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(Post.Did);
         ShouldUseCompactView = Post.Data?.Media?.Length > 1 || IsQuote || (Post.ShouldUseCompactView && !IsFocalPost);
+        ReusesThumbForFullSizeImage = Post.PluggableProtocol?.ReusesThumbImageForFullSizeImages(Post) == true;
     }
 
     public BlueskyProfile OriginalAuthor => Post.Author;
@@ -139,6 +140,7 @@
     public bool UseBookmarkButton => Post.PluggableProtocol != null || (RequestContext.IsLoggedIn && RequestContext.UserContext.PrivateProfile!.AlwaysPreferBookmarkButton);
 
     private bool ShouldUseCompactView;
+    private bool ReusesThumbForFullSizeImage;
 
     private bool IsBusy;
     private async Task PerformActionIfNotBusyAsync(Func<Task> func)
@@ -343,7 +345,7 @@
                     }
                     else
                     {
-                        <a href="@Apis.GetImageFullUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" data-theaterurl="@Post.BaseUrl/media/@(index + 1)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
+                        <a href="@Apis.GetImageUrl(ReusesThumbForFullSizeImage ? ThumbnailSize.feed_thumbnail : ThumbnailSize.feed_fullsize, Post.Author.Did, image.Cid, Post.Author.Pds)" data-theaterurl="@Post.BaseUrl/media/@(index + 1)" title="@image.AltText" class="post-image-link post-image-for-threater" rel="noreferrer">
                             <img src="@Apis.GetImageThumbnailUrl(Post.Author.Did, image.Cid, Post.Author.Pds)" class="post-image">
                         </a>
                     }
@@ -465,7 +467,7 @@
                         foreach (var (index, media) in Post.Data.Media.Index())
                         {
 
-                            <a href="@Apis.GetImageUrl(media.IsVideo ? ThumbnailSize.feed_video_blob : ThumbnailSize.feed_fullsize, Post.Did, media.Cid, Post.Author.Pds, forceProxy: true)" class="menu-item media-download-menu-item" download>Download @(media.IsVideo ? "video" : "image")@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
+                            <a href="@Apis.GetImageUrl(media.IsVideo ? ThumbnailSize.feed_video_blob : (ReusesThumbForFullSizeImage ? ThumbnailSize.feed_thumbnail : ThumbnailSize.feed_fullsize), Post.Did, media.Cid, Post.Author.Pds, forceProxy: true)" class="menu-item media-download-menu-item" download>Download @(media.IsVideo ? "video" : "image")@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
                         }
 
                     }

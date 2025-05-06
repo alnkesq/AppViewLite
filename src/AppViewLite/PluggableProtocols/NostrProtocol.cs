@@ -316,6 +316,8 @@ namespace AppViewLite.PluggableProtocols.Nostr
             return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
         }
 
+        public override bool ReusesThumbImageForFullSizeImages(BlueskyPost post) => true;
+
         public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
             return "https://primal.net/p/" + GetNip19FromDid(profile.Did);

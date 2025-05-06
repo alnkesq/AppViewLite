@@ -121,7 +121,7 @@ namespace AppViewLite.Web.ApiCompat
 
             return new GetFeedGeneratorsOutput
             {
-                Feeds = feedGenerators.ToList(),
+                Feeds = feedGenerators.Where(f => f != null).ToList(),
             }.ToJsonResponse();
         }
 

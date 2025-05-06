@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using AppViewLite.Models;
 using AppViewLite;
+using FishyFlip.Models;
 
 namespace AppViewLite.Web.ApiCompat
 {
@@ -90,12 +91,11 @@ namespace AppViewLite.Web.ApiCompat
             var feedDid = uri.Did!.Handler!;
             var feedRKey = uri.Rkey;
             var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey, ctx);
-            var creator = await apis.GetProfileAsync(feedDid, ctx);
             return new GetFeedGeneratorOutput
             {
                 IsOnline = true,
                 IsValid = true,
-                View = generator.ToApiCompatGeneratorView(creator)
+                View = generator.ToApiCompatGeneratorView()
             }.ToJsonResponse();
         }
 
@@ -165,6 +165,61 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Cursor = feed.NextContinuation,
                 Feed = feed.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x)).ToList()
+            }.ToJsonResponse();
+        }
+
+
+
+        [HttpGet("app.bsky.feed.getFeedGenerators")]
+        public async Task<IResult> GetFeedGenerators(string[] feeds)
+        {
+            if (feeds.Length == 0) return new GetFeedGeneratorsOutput { Feeds = [] }.ToJsonResponse();
+
+            var feedIds = feeds.Select(x => new ATUri(x)).Select(x => (Did: x.Did!.Handler, x.Rkey)).ToArray();
+            var feedsInfos = apis.WithRelationshipsLockForDids(feedIds.Select(x => x.Did).ToArray(), (_, rels) =>
+            {
+                return feedIds.Select(x => rels.GetFeedGenerator(rels.SerializeDid(x.Did, ctx), x.Rkey, ctx)).ToArray();
+            }, ctx);
+            await apis.EnrichAsync(feedsInfos, ctx);
+
+            return new GetFeedGeneratorsOutput
+            {
+                Feeds = feedsInfos.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList()
+            }.ToJsonResponse();
+        }
+
+        [HttpGet("app.bsky.feed.getActorFeeds")]
+        public async Task<IResult> GetActorFeeds(string actor, int limit, string? cursor)
+        {
+            var feeds = await apis.GetProfileFeedsAsync(actor, cursor, limit, ctx);
+
+            return new GetActorFeedsOutput
+            {
+                Feeds = feeds.Feeds.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList(),
+                Cursor = feeds.NextContinuation
+            }.ToJsonResponse();
+        }
+
+        [HttpGet("app.bsky.feed.getActorLikes")]
+        public async Task<IResult> GetActorLikes(string actor, int limit, string? cursor)
+        {
+            var likes = await apis.GetUserPostsAsync(actor, includePosts: false, includeReplies: false, includeReposts: false, includeLikes: true, includeBookmarks: false, mediaOnly: false, limit, cursor, ctx);
+
+            return new GetActorLikesOutput
+            {
+                Feed = likes.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x)).ToList(),
+                Cursor = likes.NextContinuation
+            }.ToJsonResponse();
+        }
+
+        [HttpGet("app.bsky.feed.getListFeed")]
+        public IResult GetListFeed(string list, int limit, string? cursor)
+        {
+            var aturi = new ATUri(list);
+
+            return new GetListFeedOutput
+            {
+                 Feed = [],
             }.ToJsonResponse();
         }
 

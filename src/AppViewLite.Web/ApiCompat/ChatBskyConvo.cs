@@ -28,6 +28,31 @@ namespace AppViewLite.Web.ApiCompat
                 Logs = []
             }.ToJsonResponse();
         }
+
+        //[HttpGet("chat.bsky.convo.getConvoForMembers")]
+        //public IResult GetConvoForMembers(string[] members)
+        //{
+        //    return new GetConvoForMembersOutput
+        //    {
+        //        Convo = new ConvoView 
+        //        {
+
+        //        }
+        //    }.ToJsonResponse();
+        //}
+
+
+        [HttpGet("chat.bsky.convo.getConvoAvailability")]
+        public IResult GetConvoAvailability(string[] members)
+        {
+            return new GetConvoAvailabilityOutput
+            {
+                CanChat = false,
+            }.ToJsonResponse();
+        }
+
+
+
     }
 }
 

@@ -11,14 +11,19 @@ namespace AppViewLite.Web.ApiCompat
     [EnableCors("BskyClient")]
     public class AppBskyNotification : Controller
     {
-        
+
         [HttpGet("app.bsky.notification.listNotifications")]
         public IResult ListNotifications(int limit)
         {
             return new ListNotificationsOutput
             {
-               Notifications = [] 
+                Notifications = []
             }.ToJsonResponse();
+        }
+        [HttpPost("app.bsky.notification.updateSeen")]
+        public object UpdateSeen(UpdateSeenInput input)
+        {
+            return Ok();
         }
     }
 }

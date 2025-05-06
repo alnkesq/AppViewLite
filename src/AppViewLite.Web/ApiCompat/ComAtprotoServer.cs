@@ -1,4 +1,5 @@
 using FishyFlip.Lexicon.Com.Atproto.Server;
+using FishyFlip.Models;
 using FishyFlip.Tools;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
@@ -55,8 +56,17 @@ namespace AppViewLite.Web.ApiCompat
 
 
         [HttpGet("com.atproto.server.getSession")]
-        public IResult GetSession()
+        public object GetSession()
         {
+            if (!ctx.IsLoggedIn)
+            {
+                Response.StatusCode = 400;
+                return new
+                {
+                    error = "ExpiredToken",
+                    message = "Invalid session."
+                };
+            }
             var userCtx = ctx.UserContext;
             var pdsSession = userCtx.PdsSession!;
             return new GetSessionOutput()

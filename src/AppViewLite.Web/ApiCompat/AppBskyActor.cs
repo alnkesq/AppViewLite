@@ -28,18 +28,30 @@ namespace AppViewLite.Web
         }
 
         [HttpGet("app.bsky.actor.searchActorsTypeahead")]
-        public Task<IResult> SearchActorsTypeahead(string q, int limit)
+        public async Task<IResult> SearchActorsTypeahead(string q, int limit)
         {
-            return Task.FromResult(new SearchActorsTypeaheadOutput
+            var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, limit, ctx);
+            return new SearchActorsTypeaheadOutput
             {
-                Actors = []
-            }.ToJsonResponse());
+                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileViewBasic(x)).ToList(),
+            }.ToJsonResponse();
         }
 
         [HttpGet("app.bsky.actor.searchActors")]
-        public Task<IResult> SearchActors(string q, int limit, string? cursor)
+        public async Task<IResult> SearchActors(string q, int limit, string? cursor)
         {
-            return Task.FromResult(new SearchActorsOutput
+            var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: false, cursor, limit, ctx);
+            return new SearchActorsOutput
+            {
+                Cursor = results.NextContinuation,
+                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfile(x)).ToList(),
+            }.ToJsonResponse();
+        }
+
+        [HttpGet("app.bsky.actor.getSuggestions")]
+        public Task<IResult> GetSuggestions(int limit, string? cursor)
+        {
+            return Task.FromResult(new GetSuggestionsOutput
             {
                 Actors = []
             }.ToJsonResponse());

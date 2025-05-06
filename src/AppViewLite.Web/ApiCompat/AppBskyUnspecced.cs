@@ -9,6 +9,13 @@ namespace AppViewLite.Web.ApiCompat
     [EnableCors("BskyClient")]
     public class AppBskyUnspecced : Controller
     {
+        private readonly BlueskyEnrichedApis apis;
+        private readonly RequestContext ctx;
+        public AppBskyUnspecced(BlueskyEnrichedApis apis, RequestContext ctx)
+        {
+            this.apis = apis;
+            this.ctx = ctx;
+        }
         [HttpGet("app.bsky.unspecced.getConfig")]
         public IResult GetConfig()
         {
@@ -26,11 +33,13 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResponse();
         }
         [HttpGet("app.bsky.unspecced.getPopularFeedGenerators")]
-        public IResult GetPopularFeedGenerators(string? query, int limit)
+        public async Task<IResult> GetPopularFeedGenerators(string? query, int limit, string? cursor)
         {
+            var results = string.IsNullOrWhiteSpace(query) ? await apis.GetPopularFeedsAsync(cursor, limit, ctx) : await apis.SearchFeedsAsync(query, cursor, limit, ctx);
             return new GetPopularFeedGeneratorsOutput
             {
-                Feeds = []
+                Cursor = results.NextContinuation,
+                Feeds = results.Feeds.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList(),
             }.ToJsonResponse();
         }
     }

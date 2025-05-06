@@ -3,6 +3,7 @@ using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Lexicon.App.Bsky.Graph;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Lexicon.Tools.Ozone.Moderation;
@@ -271,6 +272,17 @@ namespace AppViewLite
                 },
                 FollowersCount = fullProfile.Followers,
                 FollowsCount = fullProfile.Following,
+                Associated = ToApiCompactProfileAssociated(fullProfile)
+            };
+        }
+
+        private static ProfileAssociated ToApiCompactProfileAssociated(BlueskyFullProfile fullProfile)
+        {
+            return new ProfileAssociated
+            {
+                 Lists = fullProfile.HasLists ? 1 : 0,
+                 Feedgens = fullProfile.HasFeeds ? 1 : 0,
+                 Labeler = fullProfile.Profile.DidDoc?.AtProtoLabeler != null,
             };
         }
 
@@ -289,7 +301,7 @@ namespace AppViewLite
             };
         }
 
-        public static GeneratorView ToApiCompatGeneratorView(this BlueskyFeedGenerator feed, BlueskyProfile creator)
+        public static GeneratorView ToApiCompatGeneratorView(this BlueskyFeedGenerator feed)
         {
             return new GeneratorView
             {
@@ -301,12 +313,57 @@ namespace AppViewLite
                 Did = new ATDid(feed.Did),
                 Avatar = GetAvatarUrl(feed),
                 AcceptsInteractions = false,
-                Creator = creator.ToApiCompatProfile(),
+                Creator = feed.Author.ToApiCompatProfile(),
 
             };
         }
 
-     
+        public static ListView ToApiCompactListView(BlueskyList x)
+        {
+            return new ListView
+            {
+                 Avatar = x.AvatarUrl,
+                 Cid = GetSyntheticCid(x.AtUri),
+                 Creator = ToApiCompatProfile(x.Moderator!),
+                 Description = x.Description,
+                 DescriptionFacets = ToApiCompatFacets(x.DescriptionFacets, Encoding.UTF8.GetBytes(x.Description ?? string.Empty)),
+                 IndexedAt = DateTime.UtcNow,
+                 Uri = x.AtUri,
+                 Purpose = ToApiCompatListPurpose(x.Data?.Purpose ?? default),
+                 Name = x.DisplayNameOrFallback,
+                 Viewer = ToApiCompatListViewer(x),
+            };
+        }
+
+        private static ListViewerState ToApiCompatListViewer(BlueskyList x)
+        {
+            return new ListViewerState()
+            {
+                 //Blocked = x.Mode == ModerationBehavior.Block ? "dummy",
+                 Blocked = null,
+                 Muted = x.Mode == ModerationBehavior.Mute,
+            };
+        }
+
+        public static string ToApiCompatListPurpose(ListPurposeEnum listPurposeEnum)
+        {
+            return listPurposeEnum switch
+            {
+                ListPurposeEnum.Curation => "app.bsky.graph.defs#curatelist",
+                ListPurposeEnum.Moderation => "app.bsky.graph.defs#modlist",
+                ListPurposeEnum.Reference => "app.bsky.graph.defs#referencelist",
+                _ => "app.bsky.graph.defs#curatelist"
+            };
+        }
+
+        public static ListItemView ToApiCompatToListItemView(BlueskyProfile x, string moderatorDid)
+        {
+            return new ListItemView
+            {
+                Subject = ToApiCompatProfile(x),
+                Uri = new ATUri(moderatorDid + "/app.bsky.graph.listitem/" + x.RelationshipRKey.ToString()),
+            };
+        }
     }
 }
 

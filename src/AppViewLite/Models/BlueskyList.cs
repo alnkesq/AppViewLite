@@ -1,5 +1,6 @@
-using Ipfs;
 using AppViewLite.Numerics;
+using FishyFlip.Models;
+using Ipfs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,8 @@ namespace AppViewLite.Models
         public override string BaseUrl => $"{Moderator.BaseUrl}/lists/{RKey}";
 
         public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(ModeratorDid, Data?.AvatarCid, Moderator.Pds);
+        
+        public ATUri AtUri => new ATUri($"at://{ModeratorDid}/app.bsky.graph.list/{RKey}");
 
         public override string? Description => Data?.Description;
         public override FacetData[]? DescriptionFacets => Data?.DescriptionFacets;

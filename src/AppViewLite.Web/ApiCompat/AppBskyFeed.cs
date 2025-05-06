@@ -99,6 +99,32 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResponse();
         }
 
+        [HttpGet("app.bsky.feed.getFeedGenerators")]
+        public async Task<IResult> GetFeedGenerators([FromQuery]string[] feeds)
+        {
+            var feedGenerators = await Task.WhenAll(feeds.Select(async feed => {
+                var uri = await apis.ResolveUriAsync(feed, ctx);
+                var feedDid = uri.Did!.Handler!;
+                var feedRKey = uri.Rkey;
+                try
+                {
+                    var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey, ctx);
+                    var creator = await apis.GetProfileAsync(feedDid, ctx);
+                    return generator.ToApiCompatGeneratorView(creator);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Could not check with PDS if account is actually still deactivated", ex);
+                    return null;
+                }
+            }));
+
+            return new GetFeedGeneratorsOutput
+            {
+                Feeds = feedGenerators.ToList(),
+            }.ToJsonResponse();
+        }
+
         [HttpGet("app.bsky.feed.getFeed")]
         public async Task<IResult> GetFeed(string feed, int limit, string? cursor)
         {

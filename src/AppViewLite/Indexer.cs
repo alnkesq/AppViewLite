@@ -522,8 +522,14 @@ namespace AppViewLite
                 }
                 else
                 {
-                    Apis.GlobalFlush("FlushBeforeLagBehindExit");
-                    BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
+                    // We must not block here, because we're inside a suspendable dedicated threadpool task (we would deadlock)
+                    Task.Run(() =>
+                    {
+                        Apis.GlobalFlush("FlushBeforeLagBehindExit");
+                        BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
+                    });
+
+                    throw new Exception("Unable to process the firehose quickly enough.");
                 }
             }
 

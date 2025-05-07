@@ -4049,11 +4049,15 @@ namespace AppViewLite
             {
                 AllowAutoRedirect = autoredirect,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
-            }, true), true);
+            }, true)
+            {
+                Timeout = TimeSpan.FromSeconds(10),
+            }, true);
             if (defaultHeaders)
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? "Mozilla/5.0");
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
-            client.Timeout = TimeSpan.FromSeconds(10);
+            //client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromMinutes(5); // HttpClient launches its own timeout cancellation, even if the delay is intentional from us (max QPS)
             return client;
         }
 

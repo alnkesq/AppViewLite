@@ -620,7 +620,7 @@ namespace AppViewLite
                 }
                 catch (Exception ex)
                 {
-                    currentFirehoseCursor.State = FirehoseState.Error;
+                    currentFirehoseCursor!.State = FirehoseState.Error;
                     currentFirehoseCursor.LastException = ex;
                     throw;
                 }
@@ -678,7 +678,7 @@ namespace AppViewLite
         private void CaptureFirehoseCursor()
         {
             if (largestSeenFirehoseCursor == 0) return;
-            currentFirehoseCursor.CommittedCursor = largestSeenFirehoseCursor.ToString();
+            currentFirehoseCursor!.CommittedCursor = largestSeenFirehoseCursor.ToString();
             currentFirehoseCursor.CursorCommitDate = DateTime.UtcNow;
             LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
@@ -725,7 +725,7 @@ namespace AppViewLite
                 }
                 catch (Exception ex)
                 {
-                    currentFirehoseCursor.State = FirehoseState.Error;
+                    currentFirehoseCursor!.State = FirehoseState.Error;
                     currentFirehoseCursor.LastException = ex;
                     throw;
                 }
@@ -770,10 +770,10 @@ namespace AppViewLite
 
                 Interlocked.CompareExchange(ref largestSeenFirehoseCursor, cursor, oldCursor);
             }
-            currentFirehoseCursor.LastSeenEventDate = eventDate;
+            currentFirehoseCursor!.LastSeenEventDate = eventDate;
         }
 
-        internal FirehoseCursor currentFirehoseCursor;
+        internal FirehoseCursor? currentFirehoseCursor;
 
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
         {

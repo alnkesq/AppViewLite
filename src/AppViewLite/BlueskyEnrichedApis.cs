@@ -4247,36 +4247,6 @@ namespace AppViewLite
             var did = userContext.Did!;
             var plc = userContext.Profile!.Plc;
 
-
-            WithRelationshipsWriteLock(rels => 
-            {
-                var anythingMigrated = false;
-                foreach (var follow in userContext.PrivateProfile!.PrivateFollows ?? [])
-                {
-                    var did = rels.GetDid(new Plc(follow.Plc));
-                    if (did.StartsWith("did:rss:", StringComparison.Ordinal))
-                    {
-                        var url = AppViewLite.PluggableProtocols.Rss.RssProtocol.DidToUrl(did);
-                        if (url.HasHostSuffix("reddit.com"))
-                        {
-                            var subreddit = url.GetSegments()[1].ToLowerInvariant();
-                            var newdid = "did:rss:www.reddit.com:r:" + subreddit;
-                            if (did != newdid)
-                            {
-                                follow.Plc = rels.SerializeDid(newdid, ctx).PlcValue;
-                                anythingMigrated = true;
-                            }
-                            rels.RssFeedToFollowers.AddIfMissing(new Plc(follow.Plc), ctx.LoggedInUser);
-                        }
-                    }
-                }
-                if (anythingMigrated)
-                {
-                    userContext.PrivateProfile!.PrivateFollows = userContext.PrivateProfile!.PrivateFollows!.DistinctBy(x => x.Plc).ToArray();
-                    rels.SaveAppViewLiteProfile(userContext);
-                }
-            }, ctx);
-
             lock (userContext)
             {
                 userContext.PrivateFollows = (userContext.PrivateProfile!.PrivateFollows ?? []).ToDictionary(x => new Plc(x.Plc), x => x);

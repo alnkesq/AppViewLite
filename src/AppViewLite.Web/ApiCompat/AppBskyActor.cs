@@ -1,16 +1,18 @@
 using AppViewLite.Models;
+using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppViewLite.Web
 {
-    [Route("/xrpc")]
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyActor : ControllerBase
+    public class AppBskyActor : FishyFlip.Xrpc.Lexicon.App.Bsky.Actor.ActorController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;
@@ -20,23 +22,39 @@ namespace AppViewLite.Web
             this.ctx = ctx;
         }
 
-        [HttpGet("app.bsky.actor.getProfile")]
-        public async Task<IResult> GetProfile(string actor)
+        /// <inheritdoc/>
+        public override async Task<Results<Ok<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
         {
-            var profile = await apis.GetFullProfileAsync(actor, ctx, 0);
-
-            return profile.ToApiCompatProfileDetailed().ToJsonResponse();
+            return TypedResults.Ok(new GetPreferencesOutput
+            {
+                Preferences = [
+                    new SavedFeedsPrefV2 { Items = [new SavedFeed("3lemacgq3ne2v", "timeline", "following", pinned: true)] },
+                    new AdultContentPref { Enabled = true }
+                ]
+            });
         }
 
-        [HttpGet("app.bsky.actor.getProfiles")]
-        public async Task<IResult> GetProfiles(string[] actors)
+        /// <inheritdoc/>
+        public async override Task<Results<Ok<ProfileViewDetailed>, ATErrorResult>> GetProfileAsync([FromQuery] ATIdentifier actor, CancellationToken cancellationToken = default)
         {
-            if (actors.Length == 0) return new GetProfilesOutput { Profiles = [] }.ToJsonResponse();
+            // TODO: Can be a handle or a did.
+            var profile = await apis.GetFullProfileAsync(((ATDid)actor).ToString(), ctx, 0);
+
+            return TypedResults.Ok(profile.ToApiCompatProfileDetailed());
+        }
+
+        /// <inheritdoc/>
+        public async override Task<Results<Ok<GetProfilesOutput>, ATErrorResult>> GetProfilesAsync([FromQuery] List<ATIdentifier> actors, CancellationToken cancellationToken = default)
+        {
+            // TODO: Actors can be a handles or dids and should handle both.
+            if (actors.Count == 0) return TypedResults.Ok(new GetProfilesOutput { Profiles = [] });
 
             // TODO: where is getProfiles used?
 
-            if (actors.Length == 1) return new GetProfilesOutput { Profiles = [ApiCompatUtils.ToApiCompatProfileDetailed(await apis.GetFullProfileAsync(actors[0], ctx, 0))] }.ToJsonResponse();
-            var profiles = apis.WithRelationshipsLockForDids(actors, (plcs, rels) =>
+            if (actors.Count == 1) return TypedResults.Ok(new GetProfilesOutput { Profiles = [ApiCompatUtils.ToApiCompatProfileDetailed(await apis.GetFullProfileAsync(((ATDid)actors[0]).ToString(), ctx, 0))] });
+
+            var actorsStr = actors.Select(x => ((ATDid)x).ToString()).ToArray();
+            var profiles = apis.WithRelationshipsLockForDids(actorsStr, (plcs, rels) =>
             {
                 return plcs.Select(x =>
                 {
@@ -48,59 +66,46 @@ namespace AppViewLite.Web
                 }).ToArray();
             }, ctx);
             await apis.EnrichAsync(profiles.Select(x => x.Profile).ToArray(), ctx);
-            return new GetProfilesOutput
+            return TypedResults.Ok(new GetProfilesOutput
             {
-
                 Profiles = profiles.Select(x => ApiCompatUtils.ToApiCompatProfileDetailed(x)).ToList(),
-            }.ToJsonResponse();
+            });
         }
 
-        [HttpGet("app.bsky.actor.searchActorsTypeahead")]
-        public async Task<IResult> SearchActorsTypeahead(string q, int limit)
+        /// <inheritdoc/>
+        public async override Task<Results<Ok<GetSuggestionsOutput>, ATErrorResult>> GetSuggestionsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
-            var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, limit, ctx);
-            return new SearchActorsTypeaheadOutput
-            {
-                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileViewBasic(x)).ToList(),
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.actor.searchActors")]
-        public async Task<IResult> SearchActors(string q, int limit, string? cursor)
-        {
-            var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: false, cursor, limit, ctx);
-            return new SearchActorsOutput
-            {
-                Cursor = results.NextContinuation,
-                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfile(x)).ToList(),
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.actor.getSuggestions")]
-        public Task<IResult> GetSuggestions(int limit, string? cursor)
-        {
-            return Task.FromResult(new GetSuggestionsOutput
+            return TypedResults.Ok(new GetSuggestionsOutput
             {
                 Actors = []
-            }.ToJsonResponse());
+            });
         }
 
-        [HttpGet("app.bsky.actor.getPreferences")]
-        public Task<IResult> GetPreferences()
+        /// <inheritdoc/>
+        public async override Task<Results<Ok, ATErrorResult>> PutPreferencesAsync([FromBody] List<ATObject> preferences, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new GetPreferencesOutput
+            return TypedResults.Ok();
+        }
+
+        /// <inheritdoc/>
+        public async override Task<Results<Ok<SearchActorsOutput>, ATErrorResult>> SearchActorsAsync([FromQuery] string? q = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: false, cursor, limit ?? 25, ctx);
+            return TypedResults.Ok(new SearchActorsOutput
             {
-                Preferences = [
-                    new SavedFeedsPrefV2 { Items = [new SavedFeed("3lemacgq3ne2v", "timeline", "following", pinned: true)] },
-                    new AdultContentPref { Enabled = true }
-                ]
-            }.ToJsonResponse());
+                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfile(x)).ToList(),
+                Cursor = results.NextContinuation
+            });
         }
 
-        [HttpPost("app.bsky.actor.putPreferences")]
-        public object PutPreferences(PutPreferencesInput preferences)
+        /// <inheritdoc/>
+        public async override Task<Results<Ok<SearchActorsTypeaheadOutput>, ATErrorResult>> SearchActorsTypeaheadAsync([FromQuery] string? q = null, [FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
         {
-            return new object();
+            var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, limit ?? 10, ctx);
+            return TypedResults.Ok(new SearchActorsTypeaheadOutput
+            {
+                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileViewBasic(x)).ToList(),
+            });
         }
     }
 }

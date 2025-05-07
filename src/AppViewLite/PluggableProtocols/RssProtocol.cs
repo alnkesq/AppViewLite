@@ -89,8 +89,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                                 }));
                                 if (!isStillFollowed) continue;
 
-                                ScheduledRefreshes.TryAdd(rssPlc);
                                 var did = rels.GetDid(rssPlc);
+                                if (did.Contains('%')) continue; // Legacy invalid DIDs
+                                ScheduledRefreshes.TryAdd(rssPlc);
                                 Apis.DispatchOutsideTheLock(() =>
                                 {
                                     ScheduleRefreshAsync(rssPlc, did, remainingTime, ct).FireAndForget();

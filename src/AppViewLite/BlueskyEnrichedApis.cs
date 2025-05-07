@@ -4261,6 +4261,7 @@ namespace AppViewLite
                                 follow.Plc = rels.SerializeDid(newdid, ctx).PlcValue;
                                 anythingMigrated = true;
                             }
+                            rels.RssFeedToFollowers.AddIfMissing(new Plc(follow.Plc), ctx.LoggedInUser);
                         }
                     }
                 }

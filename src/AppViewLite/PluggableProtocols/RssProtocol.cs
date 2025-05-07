@@ -435,6 +435,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return "Tumblr returned a cookie consent form instead of an RSS feed.";
             if (redirectsTo.HasHostSuffix("tumblr.com") && redirectsTo.AbsolutePath == "/safe-mode")
                 return "This Tumblr blog isn't accessible via RSS because it is considered adult content.";
+            if (redirectsTo.HasHostSuffix("reddit.com"))
+                return "Subreddit not found.";
             return null;
         }
 

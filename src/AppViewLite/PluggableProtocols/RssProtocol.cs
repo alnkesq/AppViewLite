@@ -932,7 +932,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var size = img.GetAttribute("height") ?? img.GetAttribute("width");
                 if (size == null || int.Parse(size) > 60)
                 {
-                    return new Uri(baseUrl, img.GetAttribute("src"));
+                    var url = new Uri(baseUrl, img.GetAttribute("src"));
+                    if (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
+                        return null; // for example, data:
+                    return url;
                 }
             }
             catch

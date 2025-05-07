@@ -470,6 +470,11 @@
                             <a href="@Apis.GetImageUrl(media.IsVideo ? ThumbnailSize.feed_video_blob : (ReusesThumbForFullSizeImage ? ThumbnailSize.feed_thumbnail : ThumbnailSize.feed_fullsize), Post.Did, media.Cid, Post.Author.Pds, forceProxy: true)" class="menu-item media-download-menu-item" download>Download @(media.IsVideo ? "video" : "image")@(Post.Data.Media.Length != 1 ? " (" + (index + 1) + ")" : null)</a>
                         }
 
+                        if(Post.Data.Media.Any(x => x.IsVideo))
+                        {
+                            <button actionkind="toggleFastVideoPlayback" class="menu-item">Speed up playback</button>
+                        
+                        }
                     }
 
                     @if (RequestContext.IsLoggedIn)

@@ -4031,6 +4031,7 @@ namespace AppViewLite
 
         public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, bool SlowImport, RequestContext? AuthenticatedCtx, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
+        public readonly static HttpClient DefaultHttpClientForRss;
         public readonly static HttpClient DefaultHttpClientNoDefaultHeaders;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
         public readonly static HttpClient DefaultHttpClientOpenGraph;
@@ -4040,11 +4041,12 @@ namespace AppViewLite
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
             DefaultHttpClientNoDefaultHeaders = CreateHttpClient(autoredirect: true, defaultHeaders: false);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
+            DefaultHttpClientForRss = CreateHttpClient(autoredirect: false, rateLimitingRealm: "Rss", timeoutIncludingRateLimiting: TimeSpan.FromHours(2));
             DefaultHttpClientOpenGraph = CreateHttpClient(autoredirect: false, defaultHeaders: true, userAgent: "facebookexternalhit/1.1");
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null)
+        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null, string? rateLimitingRealm = null, TimeSpan timeoutIncludingRateLimiting = default)
         {
             var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
             {
@@ -4053,12 +4055,15 @@ namespace AppViewLite
             }, true)
             {
                 Timeout = TimeSpan.FromSeconds(10),
+                RateLimitingRealm = rateLimitingRealm,
             }, true);
             if (defaultHeaders)
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? "Mozilla/5.0");
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
             //client.Timeout = TimeSpan.FromSeconds(10);
-            client.Timeout = TimeSpan.FromMinutes(5); // HttpClient launches its own timeout cancellation, even if the delay is intentional from us (max QPS)
+            if (timeoutIncludingRateLimiting == default)
+                timeoutIncludingRateLimiting = TimeSpan.FromMinutes(5);
+            client.Timeout = timeoutIncludingRateLimiting; // HttpClient launches its own timeout cancellation, even if the delay is intentional from us (max QPS)
             return client;
         }
 

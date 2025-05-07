@@ -120,9 +120,13 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (refreshInfo.LastRefreshAttempt == default) return DateTime.UtcNow;
 
             var averageDaysBetweenPosts = GetAverageDaysBetweenPosts(refreshInfo);
-            if (averageDaysBetweenPosts == null) return null;
+            if (averageDaysBetweenPosts == null)
+            {
+                return refreshInfo.LastRefreshAttempt.AddDays(2); // TODO: temporary code (reddit did migration)
+                return null;
+            }
 
-            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts.Value * 0.5, TimeSpan.FromMinutes(15).TotalDays, TimeSpan.FromDays(90).TotalDays);
+            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts.Value * 0.5, TimeSpan.FromMinutes(60).TotalDays, TimeSpan.FromDays(90).TotalDays);
             return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts.Value);
 
         }
@@ -257,7 +261,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 }
 
 
-                using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.SendAsync(request);
+                using var response = await BlueskyEnrichedApis.DefaultHttpClientForRss.SendAsync(request);
                 if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
                 {
                     return refreshInfo;

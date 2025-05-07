@@ -15,7 +15,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return async () =>
             {
                 var feedUrl = new Uri("https://t.me/s/" + channel);
-                var html = await BlueskyEnrichedApis.DefaultHttpClient.GetStringAsync(feedUrl);
+                var html = await BlueskyEnrichedApis.DefaultHttpClientForRss.GetStringAsync(feedUrl);
                 var page = StringUtils.ParseHtml(html);
 
                 var profile = new BlueskyProfileBasicInfo()

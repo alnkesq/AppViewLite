@@ -18,7 +18,7 @@ namespace AppViewLite.PluggableProtocols.Reddit
             {
                 var baseUrl = new Uri("https://www.reddit.com/");
                 var subreddit = feedUrl.GetSegments()[1];
-                var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<RedditApiResponse>($"https://www.reddit.com/r/{subreddit}/top/.json?sort=top&t=week"))!;
+                var response = (await BlueskyEnrichedApis.DefaultHttpClientForRss.GetFromJsonAsync<RedditApiResponse>($"https://www.reddit.com/r/{subreddit}/top/.json?sort=top&t=week"))!;
                 var postsJson = response.data.children.Select(x => x.data).ToArray();
                 var profile = new BlueskyProfileBasicInfo
                 {

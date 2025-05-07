@@ -15,7 +15,7 @@ namespace AppViewLite.PluggableProtocols
     {
         public static async Task<VirtualRssResult> GetCommitsAsync(string did, string owner, string repo)
         {
-            var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<GitHubCommitEntry[]>($"https://api.github.com/repos/{owner}/{repo}/commits"))!;
+            var response = (await BlueskyEnrichedApis.DefaultHttpClientForRss.GetFromJsonAsync<GitHubCommitEntry[]>($"https://api.github.com/repos/{owner}/{repo}/commits"))!;
             return new VirtualRssResult(new Models.BlueskyProfileBasicInfo { DisplayName = repo + " (commits)", CustomFields = [new CustomFieldProto("web", $"https://github.com/{owner}/{repo}/commits")] },
                 response
                 .Where(x => !IsNoiseAuthor(x.author))
@@ -48,7 +48,7 @@ namespace AppViewLite.PluggableProtocols
 
         public static async Task<VirtualRssResult> GetReleasesAsync(string did, string owner, string repo)
         {
-            var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<GitHubRelease[]>($"https://api.github.com/repos/{owner}/{repo}/releases"))!;
+            var response = (await BlueskyEnrichedApis.DefaultHttpClientForRss.GetFromJsonAsync<GitHubRelease[]>($"https://api.github.com/repos/{owner}/{repo}/releases"))!;
             return new VirtualRssResult(new Models.BlueskyProfileBasicInfo { DisplayName = repo + " (releases)", CustomFields = [new CustomFieldProto("web", $"https://github.com/{owner}/{repo}/releases")] }, response.Select(x =>
             {
                 var url = $"https://github.com/{owner}/{repo}/releases/tag/{x.tag_name}";
@@ -59,7 +59,7 @@ namespace AppViewLite.PluggableProtocols
 
         public static async Task<VirtualRssResult> GetIssuesAsync(string did, string owner, string repo, bool pulls)
         {
-            var response = (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<GitHubIssue[]>($"https://api.github.com/repos/{owner}/{repo}/issues?state=all&filter=all&per_page=100"))!;
+            var response = (await BlueskyEnrichedApis.DefaultHttpClientForRss.GetFromJsonAsync<GitHubIssue[]>($"https://api.github.com/repos/{owner}/{repo}/issues?state=all&filter=all&per_page=100"))!;
             return new VirtualRssResult(new Models.BlueskyProfileBasicInfo { DisplayName = repo + (pulls ? " (pull requests)" : " (issues)"), CustomFields = [new CustomFieldProto("web", $"https://github.com/{owner}/{repo}/issues")] }, response
                 .Where(x => (x.pull_request != null) == pulls)
                 .Where(x => !IsNoiseAuthor(x.user))

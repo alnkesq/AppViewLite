@@ -22,11 +22,13 @@ namespace AppViewLite
         }
 
         public TimeSpan? Timeout { get; set; }
+        
+        public string? RateLimitingRealm { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             AdministrativeBlocklist.Instance.GetValue().ThrowIfBlockedOutboundConnection(request.RequestUri!.Host);
-            using var _ = await HostRateLimiter.AcquireUrlAsync(request.RequestUri, cancellationToken);
+            using var _ = await HostRateLimiter.AcquireUrlAsync(request.RequestUri, RateLimitingRealm, cancellationToken);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             if (Timeout != null)

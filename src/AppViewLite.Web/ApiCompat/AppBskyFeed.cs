@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using AppViewLite.Models;
 using AppViewLite;
 using FishyFlip.Models;
+using System.Threading.Tasks;
 
 namespace AppViewLite.Web.ApiCompat
 {
@@ -35,10 +36,10 @@ namespace AppViewLite.Web.ApiCompat
             ThreadViewPost? tvp = null;
             for (int i = 0; i <= focalPostIndex; i++)
             {
-                tvp = thread[i].ToApiCompatThreadViewPost(rootPost, tvp);
+                tvp = thread[i].ToApiCompatThreadViewPost(ctx, rootPost, tvp);
             }
 
-            tvp!.Replies = thread.Skip(focalPostIndex + 1).Select(x => (ATObject)x.ToApiCompatThreadViewPost(rootPost)).ToList();
+            tvp!.Replies = thread.Skip(focalPostIndex + 1).Select(x => (ATObject)x.ToApiCompatThreadViewPost(ctx, rootPost)).ToList();
             return new GetPostThreadOutput
             {
                 Thread = tvp,
@@ -54,7 +55,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Uri = aturi,
                 Cursor = likers.NextContinuation,
-                Likes = likers.Profiles.Select(x => new LikeDef { Actor = x.ToApiCompatProfile(), CreatedAt = x.RelationshipRKey!.Value.Date, IndexedAt = x.RelationshipRKey.Value.Date }).ToList(),
+                Likes = likers.Profiles.Select(x => new LikeDef { Actor = x.ToApiCompatProfileView(), CreatedAt = x.RelationshipRKey!.Value.Date, IndexedAt = x.RelationshipRKey.Value.Date }).ToList(),
             }.ToJsonResponse();
         }
 
@@ -67,7 +68,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Uri = aturi,
                 Cursor = reposters.NextContinuation,
-                RepostedBy = reposters.Profiles.Select(x => x.ToApiCompatProfile()).ToList(),
+                RepostedBy = reposters.Profiles.Select(x => x.ToApiCompatProfileView()).ToList(),
             }.ToJsonResponse();
         }
 
@@ -80,7 +81,7 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Uri = aturi,
                 Cursor = quotes.NextContinuation,
-                Posts = quotes.Posts.Select(x => x.ToApiCompatPostView(null)).ToList(),
+                Posts = quotes.Posts.Select(x => x.ToApiCompatPostView(ctx, null)).ToList(),
             }.ToJsonResponse();
         }
 
@@ -109,7 +110,7 @@ namespace AppViewLite.Web.ApiCompat
             await apis.PopulateFullInReplyToAsync(posts, ctx);
             return new GetFeedOutput
             {
-                Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList(),
+                Feed = posts.Select(x => x.ToApiCompatFeedViewPost(ctx)).ToList(),
                 Cursor = nextContinuation,
             }.ToJsonResponse();
         }
@@ -136,7 +137,7 @@ namespace AppViewLite.Web.ApiCompat
             return new GetAuthorFeedOutput
             {
                 Cursor = nextContinuation,
-                Feed = posts.Select(x => x.ToApiCompatFeedViewPost()).ToList()
+                Feed = posts.Select(x => x.ToApiCompatFeedViewPost(ctx)).ToList()
             }.ToJsonResponse();
         }
 
@@ -152,7 +153,7 @@ namespace AppViewLite.Web.ApiCompat
                 await apis.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, ctx: ctx);
             return new SearchPostsOutput
             {
-                Posts = results.Posts.Select(x => x.ToApiCompatPostView()).ToList(),
+                Posts = results.Posts.Select(x => x.ToApiCompatPostView(ctx)).ToList(),
                 Cursor = results.NextContinuation,
             }.ToJsonResponse();
         }
@@ -160,18 +161,18 @@ namespace AppViewLite.Web.ApiCompat
         [HttpGet("app.bsky.feed.getTimeline")]
         public async Task<IResult> GetTimeline(string? algorithm, int? limit, string? cursor)
         {
-            var feed = await apis.GetBalancedFollowingFeedAsync(cursor, limit ?? default, ctx);
+            var feed = await apis.GetFollowingFeedAsync(cursor, limit ?? default, atProtoOnlyPosts: true, ctx);
             return new GetTimelineOutput
             {
                 Cursor = feed.NextContinuation,
-                Feed = feed.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x)).ToList()
+                Feed = feed.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x, ctx)).ToList()
             }.ToJsonResponse();
         }
 
 
 
         [HttpGet("app.bsky.feed.getFeedGenerators")]
-        public async Task<IResult> GetFeedGenerators(string[] feeds)
+        public async Task<IResult> GetFeedGenerators([FromQuery] string[] feeds)
         {
             if (feeds.Length == 0) return new GetFeedGeneratorsOutput { Feeds = [] }.ToJsonResponse();
 
@@ -207,7 +208,7 @@ namespace AppViewLite.Web.ApiCompat
 
             return new GetActorLikesOutput
             {
-                Feed = likes.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x)).ToList(),
+                Feed = likes.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x, ctx)).ToList(),
                 Cursor = likes.NextContinuation
             }.ToJsonResponse();
         }
@@ -219,7 +220,24 @@ namespace AppViewLite.Web.ApiCompat
 
             return new GetListFeedOutput
             {
-                 Feed = [],
+                Feed = [],
+            }.ToJsonResponse();
+        }
+
+        [HttpGet("app.bsky.feed.getPosts")]
+        public async Task<IResult> GetPosts([FromQuery] string[] uris)
+        {
+            var postUris = uris.Select(x => new ATUri(x)).ToArray();
+            var posts = apis.WithRelationshipsLockForDids(postUris.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
+            {
+                return postUris.Select(x => rels.GetPost(x.Did!.Handler, x.Rkey, ctx)).ToArray();
+
+            }, ctx);
+            await apis.EnrichAsync(posts, ctx);
+
+            return new GetPostsOutput
+            {
+                 Posts = posts.Select(x => ApiCompatUtils.ToApiCompatPostView(x, ctx)).ToList(),
             }.ToJsonResponse();
         }
 

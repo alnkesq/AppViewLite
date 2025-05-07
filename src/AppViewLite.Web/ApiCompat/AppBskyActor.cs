@@ -29,7 +29,7 @@ namespace AppViewLite.Web
         }
 
         [HttpGet("app.bsky.actor.getProfiles")]
-        public async Task<IResult> GetProfiles(string[] actors)
+        public async Task<IResult> GetProfiles([FromQuery] string[] actors)
         {
             if (actors.Length == 0) return new GetProfilesOutput { Profiles = [] }.ToJsonResponse();
 
@@ -72,7 +72,7 @@ namespace AppViewLite.Web
             return new SearchActorsOutput
             {
                 Cursor = results.NextContinuation,
-                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfile(x)).ToList(),
+                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileView(x)).ToList(),
             }.ToJsonResponse();
         }
 

@@ -1,43 +1,42 @@
-using FishyFlip.Models;
-using FishyFlip;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
-using FishyFlip.Lexicon;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.Com.Atproto.Repo;
-using System.Net.Http;
-using AppViewLite.Storage;
-using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using System.Runtime.InteropServices;
+using AppViewLite.PluggableProtocols;
+using DnsClient;
+using FishyFlip;
+using FishyFlip.Lexicon;
+using FishyFlip.Lexicon.App.Bsky.Actor;
+using FishyFlip.Lexicon.App.Bsky.Embed;
+using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Lexicon.Com.Atproto.Repo;
+using FishyFlip.Lexicon.Com.Atproto.Sync;
+using FishyFlip.Models;
 using FishyFlip.Tools;
-using List = FishyFlip.Lexicon.App.Bsky.Graph.List;
-using Follow = FishyFlip.Lexicon.App.Bsky.Graph.Follow;
-using Listitem = FishyFlip.Lexicon.App.Bsky.Graph.Listitem;
-using Block = FishyFlip.Lexicon.App.Bsky.Graph.Block;
-using Listblock = FishyFlip.Lexicon.App.Bsky.Graph.Listblock;
+using Ipfs;
+using PeterO.Cbor;
+using AppViewLite.Storage;
 using DuckDbSharp.Types;
+using AppViewLite.Storage;
+using System;
+using System.Buffers;
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using PeterO.Cbor;
-using FishyFlip.Lexicon.App.Bsky.Embed;
-using DnsClient;
-using System.Text;
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
-using System.Buffers;
-using Ipfs;
-using AppViewLite;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using AppViewLite.PluggableProtocols;
-using System.Collections.Frozen;
-using AppViewLite.Storage;
-using FishyFlip.Lexicon.Com.Atproto.Sync;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Block = FishyFlip.Lexicon.App.Bsky.Graph.Block;
+using Follow = FishyFlip.Lexicon.App.Bsky.Graph.Follow;
+using List = FishyFlip.Lexicon.App.Bsky.Graph.List;
+using Listblock = FishyFlip.Lexicon.App.Bsky.Graph.Listblock;
+using Listitem = FishyFlip.Lexicon.App.Bsky.Graph.Listitem;
 
 namespace AppViewLite
 {
@@ -2106,7 +2105,7 @@ namespace AppViewLite
 
 
 
-        public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, bool atProtoOnlyPosts, RequestContext ctx)
         {
             ctx.IsStillFollowedCached ??= new();
             EnsureLimit(ref limit, 50);
@@ -2114,7 +2113,7 @@ namespace AppViewLite
             var alreadyReturned = new HashSet<PostId>();
             var posts = WithRelationshipsLock(rels =>
             {
-                var posts = rels.EnumerateFollowingFeed(ctx, DateTime.Now.AddDays(-7), maxTid);
+                var posts = rels.EnumerateFollowingFeed(ctx, DateTime.Now.AddDays(-7), maxTid, atProtoOnlyPosts);
                 var normalized = rels.EnumerateFeedWithNormalization(posts, ctx, alreadyReturned, omitIfMuted: true);
                 return normalized.Take(limit).ToArray();
             }, ctx);
@@ -2821,9 +2820,9 @@ namespace AppViewLite
 
 
 
-        public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx)
+        public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx, string? rkey = null)
         {
-            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
+            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record, rkey: rkey)).HandleResult()!.Uri.Rkey), ctx);
 
             var indexer = new Indexer(this);
             indexer.OnRecordCreated(ctx.UserContext.Did!, record.Type + "/" + tid.ToString(), record, ctx: ctx);
@@ -4960,6 +4959,14 @@ namespace AppViewLite
             var list = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetList(new Relationship(plc, Tid.Parse(rkey))), ctx);
             await EnrichAsync([list], ctx);
             return list;
+        }
+
+        public void MarkLastSeenNotification(Notification notification, RequestContext ctx)
+        {
+            var dark = BlueskyRelationships.IsDarkNotification(notification.Kind);
+            WithRelationshipsWriteLock(rels => rels.GetLastSeenNotificationTable(dark).Add(ctx.LoggedInUser, notification), ctx);
+            if (!dark)
+                DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
         }
     }
 

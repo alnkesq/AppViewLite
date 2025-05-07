@@ -31,9 +31,9 @@ namespace AppViewLite.Web
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetFollowersOutput
             {
-                Followers = followers.Select(x => x.ToApiCompatProfile()).ToList(),
+                Followers = followers.Select(x => x.ToApiCompatProfileView()).ToList(),
                 Cursor = nextContinuation,
-                Subject = subject.ToApiCompatProfile()
+                Subject = subject.ToApiCompatProfileView()
             }.ToJsonResponse();
         }
         [HttpGet("app.bsky.graph.getFollows")]
@@ -44,9 +44,9 @@ namespace AppViewLite.Web
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetFollowsOutput
             {
-                Follows = follows.Select(x => x.ToApiCompatProfile()).ToList(),
+                Follows = follows.Select(x => x.ToApiCompatProfileView()).ToList(),
                 Cursor = nextContinuation,
-                Subject = subject.ToApiCompatProfile()
+                Subject = subject.ToApiCompatProfileView()
             }.ToJsonResponse();
         }
         [HttpGet("app.bsky.graph.getActorStarterPacks")]
@@ -64,7 +64,7 @@ namespace AppViewLite.Web
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetListsOutput
             {
-                Lists = lists.Lists.Select(x => ApiCompatUtils.ToApiCompactListView(x)).ToList(),
+                Lists = lists.Lists.Select(x => ApiCompatUtils.ToApiCompatListView(x)).ToList(),
                 Cursor = lists.NextContinuation,
             }.ToJsonResponse();
         }
@@ -77,7 +77,7 @@ namespace AppViewLite.Web
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetListOutput
             {
-                List = ApiCompatUtils.ToApiCompactListView(info),
+                List = ApiCompatUtils.ToApiCompatListView(info),
                 Items = members.Page.Select(x => ApiCompatUtils.ToApiCompatToListItemView(x, aturi.Did.Handler)).ToList(),
                 Cursor = members.NextContinuation,
             }.ToJsonResponse();

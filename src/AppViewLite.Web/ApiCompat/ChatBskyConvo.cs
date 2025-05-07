@@ -43,7 +43,7 @@ namespace AppViewLite.Web.ApiCompat
 
 
         [HttpGet("chat.bsky.convo.getConvoAvailability")]
-        public IResult GetConvoAvailability(string[] members)
+        public IResult GetConvoAvailability([FromQuery] string[] members)
         {
             return new GetConvoAvailabilityOutput
             {

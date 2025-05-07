@@ -3865,6 +3865,7 @@ namespace AppViewLite
             }
             else
             {
+                if (did.Contains('%')) throw new UnexpectedFirehoseDataException("Invalid DID: " + did);
                 var colon = did.IndexOf(':', 4);
                 if (colon != -1)
                 {

@@ -89,8 +89,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                                 }));
                                 if (!isStillFollowed) continue;
 
-                                ScheduledRefreshes.TryAdd(rssPlc);
                                 var did = rels.GetDid(rssPlc);
+                                if (did.Contains('%')) continue; // Legacy invalid DIDs
+                                ScheduledRefreshes.TryAdd(rssPlc);
                                 Apis.DispatchOutsideTheLock(() =>
                                 {
                                     ScheduleRefreshAsync(rssPlc, did, remainingTime, ct).FireAndForget();
@@ -119,9 +120,13 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (refreshInfo.LastRefreshAttempt == default) return DateTime.UtcNow;
 
             var averageDaysBetweenPosts = GetAverageDaysBetweenPosts(refreshInfo);
-            if (averageDaysBetweenPosts == null) return null;
+            if (averageDaysBetweenPosts == null)
+            {
+                return refreshInfo.LastRefreshAttempt.AddDays(2); // TODO: temporary code (reddit did migration)
+                return null;
+            }
 
-            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts.Value * 0.5, TimeSpan.FromMinutes(15).TotalDays, TimeSpan.FromDays(90).TotalDays);
+            averageDaysBetweenPosts = Math.Clamp(averageDaysBetweenPosts.Value * 0.5, TimeSpan.FromMinutes(60).TotalDays, TimeSpan.FromDays(90).TotalDays);
             return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts.Value);
 
         }
@@ -256,7 +261,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 }
 
 
-                using var response = await BlueskyEnrichedApis.DefaultHttpClientNoAutoRedirect.SendAsync(request);
+                using var response = await BlueskyEnrichedApis.DefaultHttpClientForRss.SendAsync(request);
                 if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
                 {
                     return refreshInfo;
@@ -430,6 +435,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return "Tumblr returned a cookie consent form instead of an RSS feed.";
             if (redirectsTo.HasHostSuffix("tumblr.com") && redirectsTo.AbsolutePath == "/safe-mode")
                 return "This Tumblr blog isn't accessible via RSS because it is considered adult content.";
+            if (redirectsTo.HasHostSuffix("reddit.com"))
+                return "Subreddit not found.";
             return null;
         }
 
@@ -927,7 +934,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var size = img.GetAttribute("height") ?? img.GetAttribute("width");
                 if (size == null || int.Parse(size) > 60)
                 {
-                    return new Uri(baseUrl, img.GetAttribute("src"));
+                    var url = new Uri(baseUrl, img.GetAttribute("src"));
+                    if (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
+                        return null; // for example, data:
+                    return url;
                 }
             }
             catch

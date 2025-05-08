@@ -133,10 +133,7 @@ namespace AppViewLite.Web
             var notification = Notification.Deserialize(notificationId.NotificationId);
             if (notification != default)
             {
-                var dark = BlueskyRelationships.IsDarkNotification(notification.Kind);
-                apis.WithRelationshipsWriteLock(rels => rels.GetLastSeenNotificationTable(dark).Add(ctx.LoggedInUser, notification), ctx);
-                if (!dark)
-                    apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
+                apis.MarkLastSeenNotification(notification, ctx);
             }
         }
 

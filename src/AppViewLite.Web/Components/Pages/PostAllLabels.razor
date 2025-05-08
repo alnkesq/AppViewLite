@@ -5,7 +5,6 @@
 @code {
     [Parameter] public required string RKey { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Continuation { get; set; }
-    private string? NextContinuation;
 
     private BlueskyModerationBase[] Labels = [];
     protected override async Task OnParametersSetAsync()

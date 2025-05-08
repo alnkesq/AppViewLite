@@ -1761,6 +1761,19 @@ var postActions = {
         await httpPost('ToggleDomainMute', { domain: domain, mute: muted });
         muteButton.dataset.ismuted = muted ? '1' : '0';
         muteButton.textContent = (muted ? 'Unmute' : 'Mute') + ' links to ' + domain;
+    },
+    toggleFastVideoPlayback: function (did, rkey, postElement, toggleButton) { 
+        var videos = postElement.querySelectorAll('video');
+        var video = [...videos].filter(x => !x.paused)[0] ?? videos[0];
+        if (video.playbackRate == 1) {
+            video.playbackRate = 1.75;
+            toggleButton.textContent = 'Slow down playback';
+        } else { 
+            video.playbackRate = 1;
+            toggleButton.textContent = 'Speed up playback';
+        }
+        if (video.paused)
+            video.play();
     }
 }
 

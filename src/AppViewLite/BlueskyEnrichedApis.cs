@@ -1,43 +1,42 @@
-using FishyFlip.Models;
-using FishyFlip;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
-using FishyFlip.Lexicon;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.Com.Atproto.Repo;
-using System.Net.Http;
-using AppViewLite.Storage;
-using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using System.Runtime.InteropServices;
+using AppViewLite.PluggableProtocols;
+using DnsClient;
+using FishyFlip;
+using FishyFlip.Lexicon;
+using FishyFlip.Lexicon.App.Bsky.Actor;
+using FishyFlip.Lexicon.App.Bsky.Embed;
+using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Lexicon.Com.Atproto.Repo;
+using FishyFlip.Lexicon.Com.Atproto.Sync;
+using FishyFlip.Models;
 using FishyFlip.Tools;
-using List = FishyFlip.Lexicon.App.Bsky.Graph.List;
-using Follow = FishyFlip.Lexicon.App.Bsky.Graph.Follow;
-using Listitem = FishyFlip.Lexicon.App.Bsky.Graph.Listitem;
-using Block = FishyFlip.Lexicon.App.Bsky.Graph.Block;
-using Listblock = FishyFlip.Lexicon.App.Bsky.Graph.Listblock;
+using Ipfs;
+using PeterO.Cbor;
+using AppViewLite.Storage;
 using DuckDbSharp.Types;
+using AppViewLite.Storage;
+using System;
+using System.Buffers;
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using PeterO.Cbor;
-using FishyFlip.Lexicon.App.Bsky.Embed;
-using DnsClient;
-using System.Text;
+using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
-using System.Buffers;
-using Ipfs;
-using AppViewLite;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using AppViewLite.PluggableProtocols;
-using System.Collections.Frozen;
-using AppViewLite.Storage;
-using FishyFlip.Lexicon.Com.Atproto.Sync;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Block = FishyFlip.Lexicon.App.Bsky.Graph.Block;
+using Follow = FishyFlip.Lexicon.App.Bsky.Graph.Follow;
+using List = FishyFlip.Lexicon.App.Bsky.Graph.List;
+using Listblock = FishyFlip.Lexicon.App.Bsky.Graph.Listblock;
+using Listitem = FishyFlip.Lexicon.App.Bsky.Graph.Listitem;
 
 namespace AppViewLite
 {
@@ -2106,7 +2105,7 @@ namespace AppViewLite
 
 
 
-        public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, bool atProtoOnlyPosts, RequestContext ctx)
         {
             ctx.IsStillFollowedCached ??= new();
             EnsureLimit(ref limit, 50);
@@ -2114,7 +2113,7 @@ namespace AppViewLite
             var alreadyReturned = new HashSet<PostId>();
             var posts = WithRelationshipsLock(rels =>
             {
-                var posts = rels.EnumerateFollowingFeed(ctx, DateTime.Now.AddDays(-7), maxTid);
+                var posts = rels.EnumerateFollowingFeed(ctx, DateTime.Now.AddDays(-7), maxTid, atProtoOnlyPosts);
                 var normalized = rels.EnumerateFeedWithNormalization(posts, ctx, alreadyReturned, omitIfMuted: true);
                 return normalized.Take(limit).ToArray();
             }, ctx);
@@ -2821,9 +2820,9 @@ namespace AppViewLite
 
 
 
-        public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx)
+        public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx, string? rkey = null)
         {
-            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record)).HandleResult()!.Uri.Rkey), ctx);
+            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record, rkey: rkey)).HandleResult()!.Uri.Rkey), ctx);
 
             var indexer = new Indexer(this);
             indexer.OnRecordCreated(ctx.UserContext.Did!, record.Type + "/" + tid.ToString(), record, ctx: ctx);
@@ -3866,6 +3865,7 @@ namespace AppViewLite
             }
             else
             {
+                if (did.Contains('%')) throw new UnexpectedFirehoseDataException("Invalid DID: " + did);
                 var colon = did.IndexOf(':', 4);
                 if (colon != -1)
                 {
@@ -4031,6 +4031,7 @@ namespace AppViewLite
 
         public readonly TaskDictionary<(Plc Plc, RepositoryImportKind Kind, bool Incremental), (RepositoryImportEntry? Previous, string Did, bool IsRegisteredUser, bool SlowImport, RequestContext? AuthenticatedCtx, RequestContext Ctx), RepositoryImportEntry> CarImportDict;
         public readonly static HttpClient DefaultHttpClient;
+        public readonly static HttpClient DefaultHttpClientForRss;
         public readonly static HttpClient DefaultHttpClientNoDefaultHeaders;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
         public readonly static HttpClient DefaultHttpClientOpenGraph;
@@ -4040,21 +4041,29 @@ namespace AppViewLite
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
             DefaultHttpClientNoDefaultHeaders = CreateHttpClient(autoredirect: true, defaultHeaders: false);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
+            DefaultHttpClientForRss = CreateHttpClient(autoredirect: false, rateLimitingRealm: "Rss", timeoutIncludingRateLimiting: TimeSpan.FromHours(2));
             DefaultHttpClientOpenGraph = CreateHttpClient(autoredirect: false, defaultHeaders: true, userAgent: "facebookexternalhit/1.1");
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null)
+        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null, string? rateLimitingRealm = null, TimeSpan timeoutIncludingRateLimiting = default)
         {
             var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
             {
                 AllowAutoRedirect = autoredirect,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
-            }, true), true);
+            }, true)
+            {
+                Timeout = TimeSpan.FromSeconds(10),
+                RateLimitingRealm = rateLimitingRealm,
+            }, true);
             if (defaultHeaders)
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? "Mozilla/5.0");
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
-            client.Timeout = TimeSpan.FromSeconds(10);
+            //client.Timeout = TimeSpan.FromSeconds(10);
+            if (timeoutIncludingRateLimiting == default)
+                timeoutIncludingRateLimiting = TimeSpan.FromMinutes(5);
+            client.Timeout = timeoutIncludingRateLimiting; // HttpClient launches its own timeout cancellation, even if the delay is intentional from us (max QPS)
             return client;
         }
 
@@ -4237,35 +4246,6 @@ namespace AppViewLite
             // synchronous part
             var did = userContext.Did!;
             var plc = userContext.Profile!.Plc;
-
-
-            WithRelationshipsWriteLock(rels => 
-            {
-                var anythingMigrated = false;
-                foreach (var follow in userContext.PrivateProfile!.PrivateFollows ?? [])
-                {
-                    var did = rels.GetDid(new Plc(follow.Plc));
-                    if (did.StartsWith("did:rss:", StringComparison.Ordinal))
-                    {
-                        var url = AppViewLite.PluggableProtocols.Rss.RssProtocol.DidToUrl(did);
-                        if (url.HasHostSuffix("reddit.com"))
-                        {
-                            var subreddit = url.GetSegments()[1].ToLowerInvariant();
-                            var newdid = "did:rss:www.reddit.com:r:" + subreddit;
-                            if (did != newdid)
-                            {
-                                follow.Plc = rels.SerializeDid(newdid, ctx).PlcValue;
-                                anythingMigrated = true;
-                            }
-                        }
-                    }
-                }
-                if (anythingMigrated)
-                {
-                    userContext.PrivateProfile!.PrivateFollows = userContext.PrivateProfile!.PrivateFollows!.DistinctBy(x => x.Plc).ToArray();
-                    rels.SaveAppViewLiteProfile(userContext);
-                }
-            }, ctx);
 
             lock (userContext)
             {
@@ -4960,6 +4940,14 @@ namespace AppViewLite
             var list = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetList(new Relationship(plc, Tid.Parse(rkey))), ctx);
             await EnrichAsync([list], ctx);
             return list;
+        }
+
+        public void MarkLastSeenNotification(Notification notification, RequestContext ctx)
+        {
+            var dark = BlueskyRelationships.IsDarkNotification(notification.Kind);
+            WithRelationshipsWriteLock(rels => rels.GetLastSeenNotificationTable(dark).Add(ctx.LoggedInUser, notification), ctx);
+            if (!dark)
+                DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
         }
     }
 

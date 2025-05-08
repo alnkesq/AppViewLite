@@ -1,4 +1,5 @@
 using AppViewLite.Models;
+using FishyFlip;
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
@@ -11,23 +12,25 @@ using FishyFlip.Models;
 using Ipfs;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace AppViewLite
 {
     public static class ApiCompatUtils
     {
-        public static ThreadViewPost ToApiCompatThreadViewPost(this BlueskyPost post, BlueskyPost? rootPost, ThreadViewPost? parent = null)
+        public static ThreadViewPost ToApiCompatThreadViewPost(this BlueskyPost post, RequestContext ctx, BlueskyPost? rootPost, ThreadViewPost? parent = null)
         {
             return new ThreadViewPost
             {
-                Post = post.ToApiCompatPostView(rootPost),
+                Post = post.ToApiCompatPostView(ctx, rootPost),
                 Parent = parent,
             };
         }
-        public static PostView ToApiCompatPostView(this BlueskyPost post, BlueskyPost? rootPost = null)
+        public static PostView ToApiCompatPostView(this BlueskyPost post, RequestContext ctx, BlueskyPost? rootPost = null)
         {
             var aturi = GetPostUri(post.Author.Did, post.RKey);
 
@@ -89,11 +92,18 @@ namespace AppViewLite
                 QuoteCount = post.QuoteCount,
                 ReplyCount = post.ReplyCount,
                 Cid = GetSyntheticCid(aturi),
-                Viewer = new FishyFlip.Lexicon.App.Bsky.Feed.ViewerState
-                {
-                },
+                Viewer = ToApiCompatPostViewerState(post, ctx),
                 Record = ToApiCompatPost(post),
                 Author = post.Author.ToApiCompatProfileViewBasic(),
+            };
+        }
+
+        private static FishyFlip.Lexicon.App.Bsky.Feed.ViewerState ToApiCompatPostViewerState(BlueskyPost post, RequestContext ctx)
+        {
+            return new FishyFlip.Lexicon.App.Bsky.Feed.ViewerState
+            {
+                Like = post.IsLikedBySelf != null ? new ATUri("at://" + ctx.UserContext.Did + "/" + Like.RecordType + "/" + post.IsLikedBySelf.Value) : null,
+                Repost = post.IsRepostedBySelf != null ? new ATUri("at://" + ctx.UserContext.Did + "/" + Repost.RecordType + "/" + post.IsRepostedBySelf.Value) : null,
             };
         }
 
@@ -108,12 +118,12 @@ namespace AppViewLite
             };
         }
 
-        private static Post ToApiCompatPost(BlueskyPost post)
+        public static Post ToApiCompatPost(BlueskyPost post)
         {
             return new Post
             {
                 CreatedAt = post.Date,
-                Text = post.Data?.Text,
+                Text = post.Data != null ? (post.Data.Error != null ? "[" + post.Data.Error + "]" : post.Data.Text) : "[Post data not loaded yet, please refresh page or post]",
                 Reply = post.InReplyToPostId != null ? new ReplyRefDef
                 {
                     Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
@@ -161,22 +171,25 @@ namespace AppViewLite
             }).WhereNonNull().ToList();
         }
 
-        public static FeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post)
+        public static FeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post, RequestContext ctx)
         {
             return new FeedViewPost
             {
-                Post = post.ToApiCompatPostView(null),
+                Post = post.ToApiCompatPostView(ctx, null),
                 Reply = post.InReplyToFullPost != null ? new ReplyRef
                 {
-                    Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(),
-                    Root = post.RootFullPost!.ToApiCompatFeedViewPost(),
+                    Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(ctx),
+                    Root = post.RootFullPost!.ToApiCompatFeedViewPost(ctx),
                     GrandparentAuthor = post.InReplyToFullPost.Author.ToApiCompatProfileViewBasic(),
                 } : null
             };
         }
-        private static StrongRef GetPostStrongRef(string did, string rkey)
+        public static StrongRef GetPostStrongRef(string did, string rkey)
         {
-            var uri = GetPostUri(did, rkey);
+            return GetStrongRef(GetPostUri(did, rkey));
+        }
+        public static StrongRef GetStrongRef(ATUri uri)
+        {
             return new StrongRef
             {
                 Uri = uri,
@@ -184,7 +197,7 @@ namespace AppViewLite
             };
         }
 
-        private static string GetSyntheticCid(ATUri uri)
+        public static string GetSyntheticCid(ATUri uri)
         {
             var c = Cid.Decode("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToArray();
             var preservePrefix = 4;
@@ -202,7 +215,7 @@ namespace AppViewLite
 
         private readonly static DateTime DummyDate = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        public static ProfileView ToApiCompatProfile(this BlueskyProfile profile)
+        public static ProfileView ToApiCompatProfileView(this BlueskyProfile profile)
         {
             return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileView
             {
@@ -272,11 +285,11 @@ namespace AppViewLite
                 },
                 FollowersCount = fullProfile.Followers,
                 FollowsCount = fullProfile.Following,
-                Associated = ToApiCompactProfileAssociated(fullProfile)
+                Associated = ToApiCompatProfileAssociated(fullProfile)
             };
         }
 
-        private static ProfileAssociated ToApiCompactProfileAssociated(BlueskyFullProfile fullProfile)
+        private static ProfileAssociated ToApiCompatProfileAssociated(BlueskyFullProfile fullProfile)
         {
             return new ProfileAssociated
             {
@@ -313,18 +326,17 @@ namespace AppViewLite
                 Did = new ATDid(feed.Did),
                 Avatar = GetAvatarUrl(feed),
                 AcceptsInteractions = false,
-                Creator = feed.Author.ToApiCompatProfile(),
-
+                Creator = feed.Author.ToApiCompatProfileView(),
             };
         }
 
-        public static ListView ToApiCompactListView(BlueskyList x)
+        public static ListView ToApiCompatListView(BlueskyList x)
         {
             return new ListView
             {
                  Avatar = x.AvatarUrl,
                  Cid = GetSyntheticCid(x.AtUri),
-                 Creator = ToApiCompatProfile(x.Moderator!),
+                 Creator = ToApiCompatProfileView(x.Moderator!),
                  Description = x.Description,
                  DescriptionFacets = ToApiCompatFacets(x.DescriptionFacets, Encoding.UTF8.GetBytes(x.Description ?? string.Empty)),
                  IndexedAt = DateTime.UtcNow,
@@ -360,8 +372,30 @@ namespace AppViewLite
         {
             return new ListItemView
             {
-                Subject = ToApiCompatProfile(x),
+                Subject = ToApiCompatProfileView(x),
                 Uri = new ATUri(moderatorDid + "/app.bsky.graph.listitem/" + x.RelationshipRKey.ToString()),
+            };
+        }
+
+        public static async Task<T> RequestBodyToATObjectAsync<T>(Stream requestBody) where T: IJsonEncodable<T>
+        {
+            using var reader = new StreamReader(requestBody);
+            var json = await reader.ReadToEndAsync();
+            return T.FromJson(json);
+        }
+
+        public static Generator ToApiCompatGenerator(BlueskyFeedGenerator feed)
+        {
+            return new Generator
+            {
+                  DisplayName = feed.DisplayNameOrFallback,
+                  Description = feed.Data?.Description,
+                  DescriptionFacets = ToApiCompatFacets(feed.Data?.DescriptionFacets, Encoding.UTF8.GetBytes(feed.Data?.Description ?? string.Empty)),
+                  Did = feed.Data?.ImplementationDid != null ? new ATDid(feed.Data.ImplementationDid) : null,
+                  Avatar = new Blob 
+                  { 
+                      Ref = feed.Data?.AvatarCid != null ? new ATLinkRef(Cid.Read(feed.Data.AvatarCid)) : null
+                  }
             };
         }
     }

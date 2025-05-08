@@ -45,12 +45,12 @@ namespace AppViewLite
             });
         }
 
-        public static Task<RateLimitLease> AcquireUrlAsync(Uri url, CancellationToken ct = default) => AcquireHostAsync(url.Host, ct);
+        public static Task<RateLimitLease> AcquireUrlAsync(Uri url, string? rateLimitingRealm, CancellationToken ct = default) => AcquireHostAsync(url.Host, rateLimitingRealm, ct);
 
-        public static async Task<RateLimitLease> AcquireHostAsync(string host, CancellationToken ct = default)
+        public static async Task<RateLimitLease> AcquireHostAsync(string host, string? rateLimitingRealm, CancellationToken ct = default)
         {
             host = RemoveSubdomains(host);
-            var lease = await _rateLimiter.AcquireAsync(host, cancellationToken: ct);
+            var lease = await _rateLimiter.AcquireAsync(host + (rateLimitingRealm != null ? "@" + rateLimitingRealm : null), cancellationToken: ct);
             if (!lease.IsAcquired)
                 throw new Exception("Too many throttled requests are currently waiting to access " + host);
             return lease;

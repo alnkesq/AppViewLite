@@ -810,7 +810,7 @@ namespace AppViewLite
             else
             {
                 if (allowMissingIfReplica && IsReplica) return null;
-                throw new Exception("Missing DID string for Plc(" + plc + ")");
+                throw new Exception("Missing DID string for " + plc);
 
             }
             //if (SerializeDid(did) != plc) CombinedPersistentMultiDictionary.Abort(new Exception("Did serialization did not roundtrip for " + plc + "/" + did));
@@ -2702,7 +2702,7 @@ namespace AppViewLite
 
         public ConcurrentDictionary<Plc, UserRecentPostWithScore[]> UserToRecentPopularPosts = new(); // within each user, posts are sorted by rkey
         public ConcurrentDictionary<Plc, RecentRepost[]> UserToRecentRepostsCache = new(); // within each user, posts are sorted by repost rkey
-        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTidExclusive)
+        public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTidExclusive, bool atProtoOnlyPosts)
         {
             var loggedInUser = ctx.LoggedInUser;
             var minDateAsTid = minDate != default ? Tid.FromDateTime(minDate) : default;
@@ -2790,6 +2790,7 @@ namespace AppViewLite
                         return false;
                     }
 
+                    if (atProtoOnlyPosts && x.PluggableProtocol != null) return false;
                     var shouldInclude = ShouldIncludeLeafPostInFollowingFeed(x, ctx) ?? true;
                     if (!shouldInclude)
                         DiscardPost(x.PostId, ctx);

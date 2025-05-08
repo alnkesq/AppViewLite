@@ -17,6 +17,8 @@ namespace AppViewLite.Models
         public RelationshipHashedRKey FeedId;
         public long LikeCount;
         public bool IsPinned;
+        public ATUri AtUri => new ATUri($"at://{Did}/app.bsky.feed.generator/{RKey}");
+
         public string DisplayNameOrFallback => Data?.DisplayName ?? (Did + "/" + RKey);
         public Plc Plc => FeedId.Plc;
         public string BaseUrl => $"{Author.BaseUrl}/feed/{RKey}";

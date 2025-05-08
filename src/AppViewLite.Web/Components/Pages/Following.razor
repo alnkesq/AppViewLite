@@ -19,7 +19,7 @@
         else
         {
             if (Sort == "balanced") (Posts, NextContinuation) = await Apis.GetBalancedFollowingFeedAsync(Continuation, default, RequestContext);
-            else (Posts, NextContinuation) = await Apis.GetFollowingFeedAsync(Continuation, default, RequestContext);
+            else (Posts, NextContinuation) = await Apis.GetFollowingFeedAsync(Continuation, default, atProtoOnlyPosts: false, RequestContext);
         }
     }
 }

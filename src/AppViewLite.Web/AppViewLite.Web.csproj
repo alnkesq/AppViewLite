@@ -10,4 +10,8 @@
     <ProjectReference Include="..\AppViewLite\AppViewLite.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FishyFlip.Xrpc" Version="3.10.0-alpha.5" />
+  </ItemGroup>
+
 </Project>

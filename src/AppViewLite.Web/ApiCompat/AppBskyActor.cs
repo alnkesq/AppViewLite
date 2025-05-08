@@ -1,12 +1,12 @@
 using AppViewLite.Models;
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+
+#pragma warning disable CS1998 // Unnecessary async
 
 namespace AppViewLite.Web
 {
@@ -93,7 +93,7 @@ namespace AppViewLite.Web
             var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: false, cursor, limit ?? 25, ctx);
             return TypedResults.Ok(new SearchActorsOutput
             {
-                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfile(x)).ToList(),
+                Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileView(x)).ToList(),
                 Cursor = results.NextContinuation
             });
         }

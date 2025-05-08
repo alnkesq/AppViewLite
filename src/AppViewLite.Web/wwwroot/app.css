@@ -1205,7 +1205,6 @@ details:not([open]) .summary-when-open {
     width: 100%;
     object-fit: cover;
     max-height: 500px;
-    aspect-ratio: 1;
 }
 
 .post-external-preview-metadata {

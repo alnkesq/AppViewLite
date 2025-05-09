@@ -165,7 +165,7 @@ namespace AppViewLite
                 if (feature == null) return null;
                 return new Facet
                 {
-                    Index = new ByteSlice(x.Start, x.Length),
+                    Index = new ByteSlice(x.Start, x.Start + x.Length),
                     Features = [feature]
                 };
             }).WhereNonNull().ToList();

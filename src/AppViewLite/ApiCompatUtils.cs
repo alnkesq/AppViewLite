@@ -34,6 +34,33 @@ namespace AppViewLite
         {
             var aturi = GetPostUri(post.Author.Did, post.RKey);
 
+            return new PostView
+            {
+                Uri = aturi,
+                Embed = ToApiCompatEmbedView(post),
+                IndexedAt = post.Date,
+                RepostCount = post.RepostCount,
+                LikeCount = post.LikeCount,
+                QuoteCount = post.QuoteCount,
+                ReplyCount = post.ReplyCount,
+                Cid = GetSyntheticCid(aturi),
+                Viewer = ToApiCompatPostViewerState(post, ctx),
+                Record = ToApiCompatPost(post),
+                Author = post.Author.ToApiCompatProfileViewBasic(),
+            };
+        }
+
+        private static ATObject? ToApiCompatEmbedView(BlueskyPost post)
+        {
+
+            /*
+             Must return one of:
+                ViewImages
+                ViewVideo
+                ViewExternal
+                ViewRecordDef
+                ViewRecordWithMedia
+             */
             ATObject? embed = null;
             if (post.IsImagePost)
             {
@@ -55,48 +82,94 @@ namespace AppViewLite
 
             if (post.QuotedPost != null)
             {
-                var record = ToApiCompatRecordView(post.QuotedPost);
+                var recordView = new ViewRecordDef { Record = ToApiCompatRecordView(post.QuotedPost) };
                 if (embed != null)
                 {
-                    embed = new ViewRecordWithMedia { Media = embed, Record = new ViewRecordDef { Record = record }  };
+                    embed = new ViewRecordWithMedia { Media = embed, Record = recordView };
+                }
+                else
+                {
+                    embed = recordView;
+                }
+            }
+            if (post.Data?.ExternalUrl != null)
+            {
+                return new ViewExternal
+                {
+                    External = new ViewExternalExternal
+                    {
+                        Description = post.Data.ExternalDescription ?? string.Empty,
+                        Title = post.Data.ExternalTitle ?? string.Empty,
+                        Uri = post.Data.ExternalUrl,
+                        Thumb = BlueskyEnrichedApis.Instance.GetExternalThumbnailUrl(post),
+                    }
+                };
+            }
+            return embed;
+        }
+
+        private static ATObject? ToApiCompatEmbed(BlueskyPost post)
+        {
+            /*
+             Must return one of:
+                EmbedImages
+                EmbedVideo
+                EmbedExternal
+                EmbedRecord
+                RecordWithMedia
+             */
+            ATObject? embed = null;
+            if (post.IsImagePost)
+            {
+                if (post.Data!.Media![0].IsVideo)
+                {
+                    //media = new EmbedVideo 
+                    //{ 
+                    //    Alt = post.Data.Media[0].AltText,
+                    //};
+                }
+                else
+                {
+                    embed = new EmbedImages
+                    {
+                        Images = post.Data.Media.Select(x => ToApiCompatImage(x)).ToList()
+                    };
+                }
+            }
+
+            if (post.QuotedPost != null)
+            {
+                var record = new EmbedRecord { Record = GetPostStrongRef(post.QuotedPost!.Did, post.QuotedPost.RKey) };
+                if (embed != null)
+                {
+                    embed = new RecordWithMedia { Media = embed, Record = record };
                 }
                 else
                 {
                     embed = record;
                 }
             }
-            //ATObject? embed = null;
 
-            //if (post.QuotedPost != null)
-            //{
-            //    embed = new ViewRecord
-            //    {
-
-            //    };
-            //}
-            //if (post.IsImagePost)
-            //{
-            //    embed = new ViewRecordWithMedia
-            //    {
-            //         Media
-            //    };
-            //}
-
-            return new PostView
+            if (post.Data?.ExternalUrl != null)
             {
-                Uri = aturi,
-                Embed = embed,
-                IndexedAt = post.Date,
-                RepostCount = post.RepostCount,
-                LikeCount = post.LikeCount,
-                QuoteCount = post.QuoteCount,
-                ReplyCount = post.ReplyCount,
-                Cid = GetSyntheticCid(aturi),
-                Viewer = ToApiCompatPostViewerState(post, ctx),
-                Record = ToApiCompatPost(post),
-                Author = post.Author.ToApiCompatProfileViewBasic(),
-            };
+                embed = new EmbedExternal
+                {
+                    External = new External
+                    {
+                        Description = post.Data.ExternalDescription ?? string.Empty,
+                        Title = post.Data.ExternalTitle ?? string.Empty,
+                        Uri = post.Data.ExternalUrl,
+                        Thumb = post.Data.ExternalThumbCid != null ? new Blob
+                        {
+                            Ref = new ATLinkRef(Cid.Read(post.Data.ExternalThumbCid)),
+                            MimeType = "image/jpeg"
+                        } : null
+                    }
+                };
+            }
+            return embed;
         }
+
 
         private static FishyFlip.Lexicon.App.Bsky.Feed.ViewerState ToApiCompatPostViewerState(BlueskyPost post, RequestContext ctx)
         {
@@ -130,7 +203,33 @@ namespace AppViewLite
                     Root = GetPostStrongRef(post.RootPostDid!, post.RootPostId.PostRKey.ToString()!)
                 } : null,
                 Facets = ToApiCompatFacets(post.Data?.Facets, post.Data?.GetUtf8IfNeededByCompactFacets()),
+                Langs = post.Data?.Language != null ? [ToApiCompatLanguage(post.Data.Language.Value)] : null,
+                Embed = ToApiCompatEmbed(post)
             };
+        }
+
+        private static string ToApiCompatLanguage(LanguageEnum language)
+        {
+            return language.ToString().Replace("_", "-");
+        }
+
+
+        private static Image ToApiCompatImage(BlueskyMediaData x)
+        {
+            return new Image
+            {
+                Alt = x.AltText ?? string.Empty,
+                ImageValue = new Blob
+                {
+                    Ref = new ATLinkRef(Cid.Read(x.Cid)),
+                },
+                AspectRatio = GetDefaultAspectRatio()
+            };
+        }
+
+        private static AspectRatio GetDefaultAspectRatio()
+        {
+            return new AspectRatio(1600, 900); // best guess
         }
 
         private static ViewImage ToApiCompatViewImage(BlueskyMediaData x, BlueskyProfile author)
@@ -140,7 +239,7 @@ namespace AppViewLite
                 Alt = x.AltText ?? string.Empty,
                 Fullsize = BlueskyEnrichedApis.Instance.GetImageFullUrl(author.Did, x.Cid, author.Pds)!,
                 Thumb = BlueskyEnrichedApis.Instance.GetImageThumbnailUrl(author.Did, x.Cid, author.Pds)!,
-                AspectRatio = new AspectRatio(1600, 900) // best guess
+                AspectRatio = GetDefaultAspectRatio(),
             };
         }
 

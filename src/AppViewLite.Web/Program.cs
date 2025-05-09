@@ -4,6 +4,7 @@ using AppViewLite.Web.Components;
 using FishyFlip;
 using FishyFlip.Lexicon;
 using FishyFlip.Models;
+using FishyFlip.Tools.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -41,10 +42,12 @@ namespace AppViewLite.Web
                     ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
             });
             builder.Services.AddSingleton<BlueskyEnrichedApis>(_ => apis);
-            builder.Services.AddControllers().AddJsonOptions(options =>
+            builder.Services.ConfigureHttpJsonOptions(options =>
             {
-                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+                options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+                options.SerializerOptions.Converters.Add(new ATObjectJsonConverter());
             });
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("BskyClient", b => b.WithOrigins("http://localhost:19006").AllowAnyHeader().AllowAnyMethod());

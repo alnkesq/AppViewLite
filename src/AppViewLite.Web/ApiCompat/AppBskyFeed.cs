@@ -1,18 +1,19 @@
+using AppViewLite.Models;
 using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Feed;
-using Microsoft.AspNetCore.Cors;
-using Microsoft.AspNetCore.Mvc;
-using AppViewLite.Models;
-using AppViewLite;
 using FishyFlip.Models;
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using AppViewLite;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AppViewLite.Web.ApiCompat
 {
-    [Route("/xrpc")]
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyFeed : ControllerBase
+    public class AppBskyFeed : FishyFlip.Xrpc.Lexicon.App.Bsky.Feed.FeedController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;
@@ -22,11 +23,147 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        [HttpGet("app.bsky.feed.getPostThread")]
-        public async Task<IResult> GetPostThread(string uri, int depth)
+        public override Task<Results<Ok<DescribeFeedGeneratorOutput>, ATErrorResult>> DescribeFeedGeneratorAsync(CancellationToken cancellationToken = default)
         {
+            throw new NotImplementedException();
+        }
 
-            var aturi = await apis.ResolveUriAsync(uri, ctx);
+        public async override Task<Results<Ok<GetActorFeedsOutput>, ATErrorResult>> GetActorFeedsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            var feeds = await apis.GetProfileFeedsAsync(((ATDid)actor).Handler, cursor, limit ?? default, ctx);
+
+            return new GetActorFeedsOutput
+            {
+                Feeds = feeds.Feeds.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList(),
+                Cursor = feeds.NextContinuation
+            }.ToJsonResultOk();
+        }
+
+        public async override Task<Results<Ok<GetActorLikesOutput>, ATErrorResult>> GetActorLikesAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+                    
+            var likes = await apis.GetUserPostsAsync(((ATDid)actor).Handler, includePosts: false, includeReplies: false, includeReposts: false, includeLikes: true, includeBookmarks: false, mediaOnly: false, limit ?? default, cursor, ctx);
+
+            return new GetActorLikesOutput
+            {
+                Feed = likes.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x, ctx)).ToList(),
+                Cursor = likes.NextContinuation
+            }.ToJsonResultOk();
+        }
+
+        public async override Task<Results<Ok<GetAuthorFeedOutput>, ATErrorResult>> GetAuthorFeedAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? filter = null, [FromQuery] bool? includePins = null, CancellationToken cancellationToken = default)
+        {
+            var filterEnum = filter != null ? Enum.Parse<GetUserPostsFilter>(filter, ignoreCase: true) : GetUserPostsFilter.posts_and_author_threads;
+            if (filterEnum == GetUserPostsFilter.None) filterEnum = GetUserPostsFilter.posts_no_replies;
+
+            if (filterEnum == GetUserPostsFilter.posts_and_author_threads) filterEnum = GetUserPostsFilter.posts_no_replies; // TODO: https://github.com/alnkesq/AppViewLite/issues/16
+
+            var (posts, nextContinuation) = await apis.GetUserPostsAsync(((ATDid)actor).Handler,
+                includePosts: true,
+                includeReplies: filterEnum != GetUserPostsFilter.posts_no_replies,
+                includeReposts: filterEnum == GetUserPostsFilter.posts_no_replies,
+                includeLikes: false,
+                includeBookmarks: false,
+                mediaOnly: filterEnum == GetUserPostsFilter.posts_with_media,
+                limit: limit ?? default,
+                cursor,
+                ctx);
+            await apis.PopulateFullInReplyToAsync(posts, ctx);
+
+            return new GetAuthorFeedOutput
+            {
+                Cursor = nextContinuation,
+                Feed = posts.Select(x => x.ToApiCompatFeedViewPost(ctx)).ToList()
+            }.ToJsonResultOk();
+        }
+
+        public async override Task<Results<Ok<GetFeedOutput>, ATErrorResult>> GetFeedAsync([FromQuery] ATUri feed, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            var uri = await apis.ResolveUriAsync(feed.ToString(), ctx);
+            var feedDid = uri.Did!.Handler!;
+            var feedRKey = uri.Rkey;
+            var (posts, info, nextContinuation) = await apis.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, ctx, limit: limit ?? default);
+            await apis.PopulateFullInReplyToAsync(posts, ctx);
+            return new GetFeedOutput
+            {
+                Feed = posts.Select(x => x.ToApiCompatFeedViewPost(ctx)).ToList(),
+                Cursor = nextContinuation,
+            }.ToJsonResultOk();
+        }
+
+        public async override Task<Results<Ok<GetFeedGeneratorOutput>, ATErrorResult>> GetFeedGeneratorAsync([FromQuery] ATUri feed, CancellationToken cancellationToken = default)
+        {
+            var uri = await apis.ResolveUriAsync(feed.ToString(), ctx);
+            var feedDid = uri.Did!.Handler!;
+            var feedRKey = uri.Rkey;
+            var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey, ctx);
+            return new GetFeedGeneratorOutput
+            {
+                IsOnline = true,
+                IsValid = true,
+                View = generator.ToApiCompatGeneratorView()
+            }.ToJsonResultOk();
+        }
+
+        public async override Task<Results<Ok<GetFeedGeneratorsOutput>, ATErrorResult>> GetFeedGeneratorsAsync([FromQuery] List<ATUri> feeds, CancellationToken cancellationToken = default)
+        {
+            if (feeds.Count == 0) return new GetFeedGeneratorsOutput { Feeds = [] }.ToJsonResultOk();
+
+            var feedsInfos = apis.WithRelationshipsLockForDids(feeds.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
+            {
+                return feeds.Select(x => rels.GetFeedGenerator(rels.SerializeDid(x.Did!.Handler, ctx), x.Rkey, ctx)).ToArray();
+            }, ctx);
+            await apis.EnrichAsync(feedsInfos, ctx, cancellationToken);
+
+            return new GetFeedGeneratorsOutput
+            {
+                Feeds = feedsInfos.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList()
+            }.ToJsonResultOk();
+        }
+
+        public override Task<Results<Ok<GetFeedSkeletonOutput>, ATErrorResult>> GetFeedSkeletonAsync([FromQuery] ATUri feed, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async override Task<Results<Ok<GetLikesOutput>, ATErrorResult>> GetLikesAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
+            var likers = await apis.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
+            return new GetLikesOutput
+            {
+                Uri = aturi,
+                Cursor = likers.NextContinuation,
+                Likes = likers.Profiles.Select(x => new LikeDef { Actor = x.ToApiCompatProfileView(), CreatedAt = x.RelationshipRKey!.Value.Date, IndexedAt = x.RelationshipRKey.Value.Date }).ToList(),
+            }.ToJsonResultOk();
+        }
+
+        public override Task<Results<Ok<GetListFeedOutput>, ATErrorResult>> GetListFeedAsync([FromQuery] ATUri list, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            return new GetListFeedOutput
+            {
+                Feed = [],
+            }.ToJsonResultOkTask();
+        }
+
+        public async override Task<Results<Ok<GetPostsOutput>, ATErrorResult>> GetPostsAsync([FromQuery] List<ATUri> uris, CancellationToken cancellationToken = default)
+        {
+            var posts = apis.WithRelationshipsLockForDids(uris.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
+            {
+                return uris.Select(x => rels.GetPost(x.Did!.Handler, x.Rkey, ctx)).ToArray();
+
+            }, ctx);
+            await apis.EnrichAsync(posts, ctx, ct: cancellationToken);
+
+            return new GetPostsOutput
+            {
+                Posts = posts.Select(x => ApiCompatUtils.ToApiCompatPostView(x, ctx)).ToList(),
+            }.ToJsonResultOk();
+        }
+
+        public async override Task<Results<Ok<GetPostThreadOutput>, ATErrorResult>> GetPostThreadAsync([FromQuery] ATUri uri, [FromQuery] int? depth = 6, [FromQuery] int? parentHeight = 80, CancellationToken cancellationToken = default)
+        {
+            var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
             var thread = (await apis.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, default, null, ctx)).Posts;
 
             var focalPostIndex = thread.ToList().FindIndex(x => x.Did == aturi.Did.Handler && x.RKey == aturi.Rkey);
@@ -43,202 +180,67 @@ namespace AppViewLite.Web.ApiCompat
             return new GetPostThreadOutput
             {
                 Thread = tvp,
-            }.ToJsonResponse();
+            }.ToJsonResultOk();
         }
 
-        [HttpGet("app.bsky.feed.getLikes")]
-        public async Task<IResult> GetLikes(string uri, string? cursor)
+        public async override Task<Results<Ok<GetQuotesOutput>, ATErrorResult>> GetQuotesAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
-            var aturi = await apis.ResolveUriAsync(uri, ctx);
-            var likers = await apis.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
-            return new GetLikesOutput
-            {
-                Uri = aturi,
-                Cursor = likers.NextContinuation,
-                Likes = likers.Profiles.Select(x => new LikeDef { Actor = x.ToApiCompatProfileView(), CreatedAt = x.RelationshipRKey!.Value.Date, IndexedAt = x.RelationshipRKey.Value.Date }).ToList(),
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.getRepostedBy")]
-        public async Task<IResult> GetRepostedBy(string uri, string? cursor)
-        {
-            var aturi = await apis.ResolveUriAsync(uri, ctx);
-            var reposters = await apis.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
-            return new GetRepostedByOutput
-            {
-                Uri = aturi,
-                Cursor = reposters.NextContinuation,
-                RepostedBy = reposters.Profiles.Select(x => x.ToApiCompatProfileView()).ToList(),
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.getQuotes")]
-        public async Task<IResult> GetQuotes(string uri, string? cursor)
-        {
-            var aturi = await apis.ResolveUriAsync(uri, ctx);
-            var quotes = await apis.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
+            var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
+            var quotes = await apis.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, limit ?? default, ctx);
             return new GetQuotesOutput
             {
                 Uri = aturi,
                 Cursor = quotes.NextContinuation,
                 Posts = quotes.Posts.Select(x => x.ToApiCompatPostView(ctx, null)).ToList(),
-            }.ToJsonResponse();
+            }.ToJsonResultOk();
         }
 
-        [HttpGet("app.bsky.feed.getFeedGenerator")]
-        public async Task<IResult> GetFeedGenerator(string feed)
+        public async override Task<Results<Ok<GetRepostedByOutput>, ATErrorResult>> GetRepostedByAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
-            var uri = await apis.ResolveUriAsync(feed, ctx);
-            var feedDid = uri.Did!.Handler!;
-            var feedRKey = uri.Rkey;
-            var generator = await apis.GetFeedGeneratorAsync(feedDid, feedRKey, ctx);
-            return new GetFeedGeneratorOutput
+            var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
+            var reposters = await apis.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, limit ?? default, ctx);
+            return new GetRepostedByOutput
             {
-                IsOnline = true,
-                IsValid = true,
-                View = generator.ToApiCompatGeneratorView()
-            }.ToJsonResponse();
+                Uri = aturi,
+                Cursor = reposters.NextContinuation,
+                RepostedBy = reposters.Profiles.Select(x => x.ToApiCompatProfileView()).ToList(),
+            }.ToJsonResultOk();
         }
 
-        [HttpGet("app.bsky.feed.getFeed")]
-        public async Task<IResult> GetFeed(string feed, int limit, string? cursor)
+        public override Task<Results<Ok<GetSuggestedFeedsOutput>, ATErrorResult>> GetSuggestedFeedsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
-            var uri = await apis.ResolveUriAsync(feed, ctx);
-            var feedDid = uri.Did!.Handler!;
-            var feedRKey = uri.Rkey;
-            var (posts, info, nextContinuation) = await apis.GetFeedAsync(uri.Did!.Handler!, uri.Rkey!, cursor, ctx);
-            await apis.PopulateFullInReplyToAsync(posts, ctx);
-            return new GetFeedOutput
-            {
-                Feed = posts.Select(x => x.ToApiCompatFeedViewPost(ctx)).ToList(),
-                Cursor = nextContinuation,
-            }.ToJsonResponse();
+            throw new NotImplementedException();
         }
 
-        [HttpGet("app.bsky.feed.getAuthorFeed")]
-        public async Task<IResult> GetAuthorFeed(string actor, GetUserPostsFilter filter, string includePins, int limit, string? cursor)
-        {
-            if (filter == GetUserPostsFilter.None) filter = GetUserPostsFilter.posts_no_replies;
-
-            if (filter == GetUserPostsFilter.posts_and_author_threads) filter = GetUserPostsFilter.posts_no_replies; // TODO: https://github.com/alnkesq/AppViewLite/issues/16
-
-            var (posts, nextContinuation) = await apis.GetUserPostsAsync(actor,
-                includePosts: true,
-                includeReplies: filter != GetUserPostsFilter.posts_no_replies,
-                includeReposts: filter == GetUserPostsFilter.posts_no_replies,
-                includeLikes: false,
-                includeBookmarks: false,
-                mediaOnly: filter == GetUserPostsFilter.posts_with_media,
-                limit: limit,
-                cursor,
-                ctx);
-            await apis.PopulateFullInReplyToAsync(posts, ctx);
-
-            return new GetAuthorFeedOutput
-            {
-                Cursor = nextContinuation,
-                Feed = posts.Select(x => x.ToApiCompatFeedViewPost(ctx)).ToList()
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.searchPosts")]
-        public async Task<IResult> SearchPosts(string q, int limit, SearchPostsSort sort, string? cursor)
-        {
-            var options = new PostSearchOptions
-            {
-                Query = q,
-            };
-            var results =
-                sort == SearchPostsSort.top ? await apis.SearchTopPostsAsync(options, ctx, continuation: cursor, limit: limit) :
-                await apis.SearchLatestPostsAsync(options, continuation: cursor, limit: limit, ctx: ctx);
-            return new SearchPostsOutput
-            {
-                Posts = results.Posts.Select(x => x.ToApiCompatPostView(ctx)).ToList(),
-                Cursor = results.NextContinuation,
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.getTimeline")]
-        public async Task<IResult> GetTimeline(string? algorithm, int? limit, string? cursor)
+        public async override Task<Results<Ok<GetTimelineOutput>, ATErrorResult>> GetTimelineAsync([FromQuery] string? algorithm = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var feed = await apis.GetFollowingFeedAsync(cursor, limit ?? default, atProtoOnlyPosts: true, ctx);
             return new GetTimelineOutput
             {
                 Cursor = feed.NextContinuation,
                 Feed = feed.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x, ctx)).ToList()
-            }.ToJsonResponse();
+            }.ToJsonResultOk();
         }
 
-
-
-        [HttpGet("app.bsky.feed.getFeedGenerators")]
-        public async Task<IResult> GetFeedGenerators([FromQuery] string[] feeds)
+        public async override Task<Results<Ok<SearchPostsOutput>, ATErrorResult>> SearchPostsAsync([FromQuery] string q, [FromQuery] string? sort = null, [FromQuery] string? since = null, [FromQuery] string? until = null, [FromQuery] ATIdentifier? mentions = null, [FromQuery] ATIdentifier? author = null, [FromQuery] string? lang = null, [FromQuery] string? domain = null, [FromQuery] string? url = null, [FromQuery] List<string>? tag = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
-            if (feeds.Length == 0) return new GetFeedGeneratorsOutput { Feeds = [] }.ToJsonResponse();
-
-            var feedIds = feeds.Select(x => new ATUri(x)).Select(x => (Did: x.Did!.Handler, x.Rkey)).ToArray();
-            var feedsInfos = apis.WithRelationshipsLockForDids(feedIds.Select(x => x.Did).ToArray(), (_, rels) =>
+            var options = new PostSearchOptions
             {
-                return feedIds.Select(x => rels.GetFeedGenerator(rels.SerializeDid(x.Did, ctx), x.Rkey, ctx)).ToArray();
-            }, ctx);
-            await apis.EnrichAsync(feedsInfos, ctx);
-
-            return new GetFeedGeneratorsOutput
+                Query = q,
+            };
+            var results =
+                sort == "top" ? await apis.SearchTopPostsAsync(options, ctx, continuation: cursor, limit: limit ?? 0) :
+                await apis.SearchLatestPostsAsync(options, continuation: cursor, limit: limit ?? 0, ctx: ctx);
+            return new SearchPostsOutput
             {
-                Feeds = feedsInfos.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList()
-            }.ToJsonResponse();
+                Posts = results.Posts.Select(x => x.ToApiCompatPostView(ctx)).ToList(),
+                Cursor = results.NextContinuation,
+            }.ToJsonResultOk();
         }
 
-        [HttpGet("app.bsky.feed.getActorFeeds")]
-        public async Task<IResult> GetActorFeeds(string actor, int limit, string? cursor)
+        public override Task<Results<Ok<SendInteractionsOutput>, ATErrorResult>> SendInteractionsAsync([FromBody] SendInteractionsInput input, CancellationToken cancellationToken)
         {
-            var feeds = await apis.GetProfileFeedsAsync(actor, cursor, limit, ctx);
-
-            return new GetActorFeedsOutput
-            {
-                Feeds = feeds.Feeds.Select(x => ApiCompatUtils.ToApiCompatGeneratorView(x)).ToList(),
-                Cursor = feeds.NextContinuation
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.getActorLikes")]
-        public async Task<IResult> GetActorLikes(string actor, int limit, string? cursor)
-        {
-            var likes = await apis.GetUserPostsAsync(actor, includePosts: false, includeReplies: false, includeReposts: false, includeLikes: true, includeBookmarks: false, mediaOnly: false, limit, cursor, ctx);
-
-            return new GetActorLikesOutput
-            {
-                Feed = likes.Posts.Select(x => ApiCompatUtils.ToApiCompatFeedViewPost(x, ctx)).ToList(),
-                Cursor = likes.NextContinuation
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.getListFeed")]
-        public IResult GetListFeed(string list, int limit, string? cursor)
-        {
-            var aturi = new ATUri(list);
-
-            return new GetListFeedOutput
-            {
-                Feed = [],
-            }.ToJsonResponse();
-        }
-
-        [HttpGet("app.bsky.feed.getPosts")]
-        public async Task<IResult> GetPosts([FromQuery] string[] uris)
-        {
-            var postUris = uris.Select(x => new ATUri(x)).ToArray();
-            var posts = apis.WithRelationshipsLockForDids(postUris.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
-            {
-                return postUris.Select(x => rels.GetPost(x.Did!.Handler, x.Rkey, ctx)).ToArray();
-
-            }, ctx);
-            await apis.EnrichAsync(posts, ctx);
-
-            return new GetPostsOutput
-            {
-                 Posts = posts.Select(x => ApiCompatUtils.ToApiCompatPostView(x, ctx)).ToList(),
-            }.ToJsonResponse();
+            throw new NotImplementedException();
         }
 
         public enum GetUserPostsFilter

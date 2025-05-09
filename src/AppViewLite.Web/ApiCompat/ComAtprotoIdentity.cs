@@ -1,14 +1,15 @@
-using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Lexicon;
+using FishyFlip.Lexicon.Com.Atproto.Identity;
+using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppViewLite.Web.ApiCompat
 {
-    [Route("/xrpc")]
     [ApiController]
     [EnableCors("BskyClient")]
-    public class ComAtprotoIdentity : ControllerBase
+    public class ComAtprotoIdentity : FishyFlip.Xrpc.Lexicon.Com.Atproto.Identity.IdentityController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;
@@ -18,13 +19,52 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        [HttpGet("com.atproto.identity.resolveHandle")]
-        public async Task<IResult> ResolveHandle(string handle)
+        public override Task<Results<Ok<GetRecommendedDidCredentialsOutput>, ATErrorResult>> GetRecommendedDidCredentialsAsync(CancellationToken cancellationToken = default)
         {
-            return new FishyFlip.Lexicon.Com.Atproto.Identity.ResolveHandleOutput
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<IdentityInfo>, ATErrorResult>> RefreshIdentityAsync([FromBody] RefreshIdentityInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok, ATErrorResult>> RequestPlcOperationSignatureAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<ResolveDidOutput>, ATErrorResult>> ResolveDidAsync([FromQuery] ATDid did, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async override Task<Results<Ok<ResolveHandleOutput>, ATErrorResult>> ResolveHandleAsync([FromQuery] ATHandle handle, CancellationToken cancellationToken = default)
+        {
+            return new ResolveHandleOutput
             {
-                Did = new FishyFlip.Models.ATDid(await apis.ResolveHandleAsync(handle, ctx))
-            }.ToJsonResponse();
+                Did = new FishyFlip.Models.ATDid(await apis.ResolveHandleAsync(handle.Handle, ctx))
+            }.ToJsonResultOk();
+        }
+
+        public override Task<Results<Ok<IdentityInfo>, ATErrorResult>> ResolveIdentityAsync([FromQuery] ATIdentifier identifier, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<SignPlcOperationOutput>, ATErrorResult>> SignPlcOperationAsync([FromBody] SignPlcOperationInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok, ATErrorResult>> SubmitPlcOperationAsync([FromBody] SubmitPlcOperationInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok, ATErrorResult>> UpdateHandleAsync([FromBody] UpdateHandleInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

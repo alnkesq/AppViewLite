@@ -2,16 +2,18 @@ using AppViewLite.Models;
 using AppViewLite.PluggableProtocols;
 using AppViewLite.Web.Components;
 using FishyFlip;
+using FishyFlip.Lexicon;
+using FishyFlip.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.WebUtilities;
 using AppViewLite.Storage;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -459,9 +461,39 @@ namespace AppViewLite.Web
         }
 
 
-        public static IResult ToJsonResponse<T>(this T result) where T: IJsonEncodable<T>
+        public static IResult ToJsonResponse<T>(this T result) where T : IJsonEncodable<T>
         {
             return TypedResults.Bytes(result.ToUtf8Json(), "application/json");
+        }
+        public static Ok<T> ToJsonOk<T>(this T result) where T : ATObject
+        {
+            return TypedResults.Ok(result);
+        }
+        public static Results<Ok<T>, ATErrorResult> ToJsonResultOk<T>(this T result) where T : ATObject
+        {
+            return TypedResults.Ok(result);
+        }
+        public static Task<Results<Ok<T>, ATErrorResult>> ToJsonResultOkTask<T>(this T result) where T : ATObject
+        {
+            return Task.FromResult<Results<Ok<T>, ATErrorResult>>(TypedResults.Ok(result));
+        }
+        public static Task<Ok<T>> ToJsonOkTask<T>(this T result) where T : ATObject
+        {
+            return Task.FromResult(ToJsonOk(result));
+        }
+        public static Task<Results<Ok, ATErrorResult>> ToJsonResultTask(this Ok result)
+        {
+            return Task.FromResult<Results<Ok, ATErrorResult>>(result);
+        }
+
+        public static Results<Ok<T>, ATErrorResult> ToJsonResult<T>(this ATErrorResult error) where T : ATObject
+        {
+            return error;
+        }
+
+        public static Task<Results<Ok<T>, ATErrorResult>> ToJsonResultTask<T>(this ATErrorResult error) where T : ATObject
+        {
+            return Task.FromResult<Results<Ok<T>, ATErrorResult>>(error);
         }
     }
 }

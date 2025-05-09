@@ -6,8 +6,6 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
-#pragma warning disable CS1998 // Unnecessary async
-
 namespace AppViewLite.Web
 {
     [ApiController]
@@ -23,15 +21,15 @@ namespace AppViewLite.Web
         }
 
         /// <inheritdoc/>
-        public override async Task<Results<Ok<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<Ok<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
         {
-            return TypedResults.Ok(new GetPreferencesOutput
+            return new GetPreferencesOutput
             {
                 Preferences = [
                     new SavedFeedsPrefV2 { Items = [new SavedFeed("3lemacgq3ne2v", "timeline", "following", pinned: true)] },
                     new AdultContentPref { Enabled = true }
                 ]
-            });
+            }.ToJsonResultOkTask();
         }
 
         /// <inheritdoc/>
@@ -40,7 +38,7 @@ namespace AppViewLite.Web
             // TODO: Can be a handle or a did.
             var profile = await apis.GetFullProfileAsync(((ATDid)actor).ToString(), ctx, 0);
 
-            return TypedResults.Ok(profile.ToApiCompatProfileDetailed());
+            return profile.ToApiCompatProfileDetailed().ToJsonResultOk();
         }
 
         /// <inheritdoc/>
@@ -65,47 +63,47 @@ namespace AppViewLite.Web
                     };
                 }).ToArray();
             }, ctx);
-            await apis.EnrichAsync(profiles.Select(x => x.Profile).ToArray(), ctx);
-            return TypedResults.Ok(new GetProfilesOutput
+            await apis.EnrichAsync(profiles.Select(x => x.Profile).ToArray(), ctx, ct: cancellationToken);
+            return new GetProfilesOutput
             {
                 Profiles = profiles.Select(x => ApiCompatUtils.ToApiCompatProfileDetailed(x)).ToList(),
-            });
+            }.ToJsonOk();
         }
 
         /// <inheritdoc/>
-        public async override Task<Results<Ok<GetSuggestionsOutput>, ATErrorResult>> GetSuggestionsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<Ok<GetSuggestionsOutput>, ATErrorResult>> GetSuggestionsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
-            return TypedResults.Ok(new GetSuggestionsOutput
+            return new GetSuggestionsOutput
             {
                 Actors = []
-            });
+            }.ToJsonResultOkTask();
         }
 
-        /// <inheritdoc/>
-        public async override Task<Results<Ok, ATErrorResult>> PutPreferencesAsync([FromBody] List<ATObject> preferences, CancellationToken cancellationToken = default)
+        public override Task<Results<Ok, ATErrorResult>> PutPreferencesAsync([FromBody] PutPreferencesInput input, CancellationToken cancellationToken)
         {
-            return TypedResults.Ok();
+            return TypedResults.Ok().ToJsonResultTask();
         }
+
 
         /// <inheritdoc/>
         public async override Task<Results<Ok<SearchActorsOutput>, ATErrorResult>> SearchActorsAsync([FromQuery] string? q = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: false, cursor, limit ?? 25, ctx);
-            return TypedResults.Ok(new SearchActorsOutput
+            return new SearchActorsOutput
             {
                 Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileView(x)).ToList(),
                 Cursor = results.NextContinuation
-            });
+            }.ToJsonResultOk();
         }
 
         /// <inheritdoc/>
         public async override Task<Results<Ok<SearchActorsTypeaheadOutput>, ATErrorResult>> SearchActorsTypeaheadAsync([FromQuery] string? q = null, [FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
         {
             var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, limit ?? 10, ctx);
-            return TypedResults.Ok(new SearchActorsTypeaheadOutput
+            return new SearchActorsTypeaheadOutput
             {
                 Actors = results.Profiles.Select(x => ApiCompatUtils.ToApiCompatProfileViewBasic(x)).ToList(),
-            });
+            }.ToJsonResultOk();
         }
     }
 }

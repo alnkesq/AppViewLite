@@ -7,7 +7,6 @@ using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Graph;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
-using FishyFlip.Lexicon.Tools.Ozone.Moderation;
 using FishyFlip.Models;
 using Ipfs;
 using System;
@@ -80,6 +79,19 @@ namespace AppViewLite
                 }
             }
 
+            if (post.Data?.ExternalUrl != null)
+            {
+                embed = new ViewExternal
+                {
+                    External = new ViewExternalExternal
+                    {
+                        Description = post.Data.ExternalDescription ?? string.Empty,
+                        Title = post.Data.ExternalTitle ?? string.Empty,
+                        Uri = post.Data.ExternalUrl,
+                        Thumb = BlueskyEnrichedApis.Instance.GetExternalThumbnailUrl(post),
+                    }
+                };
+            }
             if (post.QuotedPost != null)
             {
                 var recordView = new ViewRecordDef { Record = ToApiCompatRecordView(post.QuotedPost) };
@@ -91,19 +103,6 @@ namespace AppViewLite
                 {
                     embed = recordView;
                 }
-            }
-            if (post.Data?.ExternalUrl != null)
-            {
-                return new ViewExternal
-                {
-                    External = new ViewExternalExternal
-                    {
-                        Description = post.Data.ExternalDescription ?? string.Empty,
-                        Title = post.Data.ExternalTitle ?? string.Empty,
-                        Uri = post.Data.ExternalUrl,
-                        Thumb = BlueskyEnrichedApis.Instance.GetExternalThumbnailUrl(post),
-                    }
-                };
             }
             return embed;
         }
@@ -137,19 +136,6 @@ namespace AppViewLite
                 }
             }
 
-            if (post.QuotedPost != null)
-            {
-                var record = new EmbedRecord { Record = GetPostStrongRef(post.QuotedPost!.Did, post.QuotedPost.RKey) };
-                if (embed != null)
-                {
-                    embed = new RecordWithMedia { Media = embed, Record = record };
-                }
-                else
-                {
-                    embed = record;
-                }
-            }
-
             if (post.Data?.ExternalUrl != null)
             {
                 embed = new EmbedExternal
@@ -167,6 +153,19 @@ namespace AppViewLite
                     }
                 };
             }
+
+            if (post.QuotedPost != null)
+            {
+                var record = new EmbedRecord { Record = GetPostStrongRef(post.QuotedPost!.Did, post.QuotedPost.RKey) };
+                if (embed != null)
+                {
+                    embed = new RecordWithMedia { Media = embed, Record = record };
+                }
+                else
+                {
+                    embed = record;
+                }
+            }
             return embed;
         }
 
@@ -180,14 +179,22 @@ namespace AppViewLite
             };
         }
 
-        private static RecordView ToApiCompatRecordView(BlueskyPost post)
+        private static ViewRecord ToApiCompatRecordView(BlueskyPost post)
         {
             var aturi = post.AtUri;
-            return new RecordView
+            return new ViewRecord
             {
                 Value = ToApiCompatPost(post),
                 Uri = aturi,
                 Cid = GetSyntheticCid(aturi),
+                Author = ToApiCompatProfileViewBasic(post.Author),
+                IndexedAt = DateTime.UtcNow,
+                RepostCount = post.RepostCount,
+                LikeCount = post.LikeCount,
+                QuoteCount = post.QuoteCount,
+                ReplyCount = post.ReplyCount,
+                Labels = [],
+                Embeds = ToApiCompatEmbedView(post) is { } v ? [v] : [],
             };
         }
 

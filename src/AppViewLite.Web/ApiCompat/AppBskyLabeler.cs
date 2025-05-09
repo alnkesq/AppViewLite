@@ -1,16 +1,16 @@
 using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Lexicon.App.Bsky.Labeler;
+using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-
-#pragma warning disable CS1998
 
 namespace AppViewLite.Web.ApiCompat
 {
-    [Route("/xrpc")]
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyLabeler : ControllerBase
+    public class AppBskyLabeler : FishyFlip.Xrpc.Lexicon.App.Bsky.Labeler.LabelerController
     {
         private readonly BlueskyEnrichedApis apis;
         public AppBskyLabeler(BlueskyEnrichedApis apis)
@@ -18,13 +18,12 @@ namespace AppViewLite.Web.ApiCompat
             this.apis = apis;
         }
 
-        [HttpGet("app.bsky.labeler.getServices")]
-        public async Task<IResult> GetServices()
+        public override Task<Results<Ok<GetServicesOutput>, ATErrorResult>> GetServicesAsync([FromQuery] List<ATDid> dids, [FromQuery] bool? detailed = null, CancellationToken cancellationToken = default)
         {
-            return new FishyFlip.Lexicon.App.Bsky.Labeler.GetServicesOutput
+            return new GetServicesOutput
             {
                 Views = []
-            }.ToJsonResponse();
+            }.ToJsonResultOkTask();
         }
     }
 }

@@ -4,51 +4,81 @@ using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AppViewLite.Web.ApiCompat
 {
-    [Route("/xrpc")]
     [ApiController]
     [EnableCors("BskyClient")]
-    public class ComAtprotoRecord : ControllerBase
+    public class ComAtprotoRepo : FishyFlip.Xrpc.Lexicon.Com.Atproto.Repo.RepoController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;
-        public ComAtprotoRecord(BlueskyEnrichedApis apis, RequestContext ctx)
+        public ComAtprotoRepo(BlueskyEnrichedApis apis, RequestContext ctx)
         {
             this.apis = apis;
             this.ctx = ctx;
         }
 
-        [HttpPost("com.atproto.repo.createRecord")]
-        public async Task<IResult> CreateRecord()
+        public override Task<Results<Ok<ApplyWritesOutput>, ATErrorResult>> ApplyWritesAsync([FromBody] ApplyWritesInput input, CancellationToken cancellationToken)
         {
-            var input = await ApiCompatUtils.RequestBodyToATObjectAsync<CreateRecordInput>(Request.Body);
+            throw new NotImplementedException();
+        }
+
+        public async override Task<Results<Ok<CreateRecordOutput>, ATErrorResult>> CreateRecordAsync([FromBody] CreateRecordInput input, CancellationToken cancellationToken)
+        {
             var result = await apis.CreateRecordAsync(input.Record, ctx, rkey: input.Rkey);
             var uri = new ATUri("at://" + ctx.UserContext.Did + "/" + input.Collection + "/" + result.RkeyString);
             return new CreateRecordOutput
             {
                 Uri = uri,
                 Cid = ApiCompatUtils.GetSyntheticCid(uri),
-            }.ToJsonResponse();
+            }.ToJsonResultOk();
         }
 
-        [HttpPost("com.atproto.repo.deleteRecord")]
-        public async Task<IResult> DeleteRecord()
+        public async override Task<Results<Ok<DeleteRecordOutput>, ATErrorResult>> DeleteRecordAsync([FromBody] DeleteRecordInput input, CancellationToken cancellationToken)
         {
-            var input = await ApiCompatUtils.RequestBodyToATObjectAsync<DeleteRecordInput>(Request.Body);
             await apis.DeleteRecordAsync(input.Collection, Tid.Parse(input.Rkey), ctx);
             return new DeleteRecordOutput
             {
-            }.ToJsonResponse();
+            }.ToJsonResultOk();
         }
 
-        [HttpGet("com.atproto.repo.getRecord")]
-        public async Task<IResult> GetRecord(string repo, string collection, string rkey)
+        public override Task<Results<Ok<DescribeRepoOutput>, ATErrorResult>> DescribeRepoAsync([FromQuery] ATIdentifier repo, CancellationToken cancellationToken = default)
         {
-            var result = await apis.GetRecordAsync(repo, collection, rkey, ctx);
-            return result.ToJsonResponse();
+            throw new NotImplementedException();
+        }
+
+        public async override Task<Results<Ok<GetRecordOutput>, ATErrorResult>> GetRecordAsync([FromQuery] ATIdentifier repo, [FromQuery] string collection, [FromQuery] string rkey, [FromQuery] string? cid = null, CancellationToken cancellationToken = default)
+        {
+            var result = await apis.GetRecordAsync(((ATDid)repo).Handler, collection, rkey, ctx, cancellationToken);
+            return result.ToJsonResultOk();
+        }
+
+        public override Task<Results<Ok, ATErrorResult>> ImportRepoAsync([FromBody] StreamContent content, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<ListMissingBlobsOutput>, ATErrorResult>> ListMissingBlobsAsync([FromQuery] int? limit = 500, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<ListRecordsOutput>, ATErrorResult>> ListRecordsAsync([FromQuery] ATIdentifier repo, [FromQuery] string collection, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] bool? reverse = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<PutRecordOutput>, ATErrorResult>> PutRecordAsync([FromBody] PutRecordInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok<UploadBlobOutput>, ATErrorResult>> UploadBlobAsync([FromBody] StreamContent content, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

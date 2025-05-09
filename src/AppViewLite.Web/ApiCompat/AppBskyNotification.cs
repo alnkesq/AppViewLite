@@ -7,15 +7,15 @@ using FishyFlip.Lexicon.App.Bsky.Unspecced;
 using FishyFlip.Lexicon.Chat.Bsky.Convo;
 using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.IO.Hashing;
 
 namespace AppViewLite.Web.ApiCompat
 {
-    [Route("/xrpc")]
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyNotification : Controller
+    public class AppBskyNotification : FishyFlip.Xrpc.Lexicon.App.Bsky.Notification.NotificationController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;
@@ -25,15 +25,21 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        [HttpGet("app.bsky.notification.listNotifications")]
-        public async Task<IResult> ListNotifications(int limit)
+        public override Task<Results<Ok<GetUnreadCountOutput>, ATErrorResult>> GetUnreadCountAsync([FromQuery] bool? priority = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
+        {
+            return new GetUnreadCountOutput
+            {
+                Count = apis.GetNotificationCount(ctx.Session, ctx, dark: false)
+            }.ToJsonResultOkTask();
+        }
+        public async override Task<Results<Ok<ListNotificationsOutput>, ATErrorResult>> ListNotificationsAsync([FromQuery] List<string>? reasons = null, [FromQuery] int? limit = 50, [FromQuery] bool? priority = null, [FromQuery] string? cursor = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
         {
             var notifications = await apis.GetNotificationsAsync(ctx, dark: false);
             var allNotifications = notifications.NewNotifications.Select(x => (IsNew: true, Notification: x)).Concat(notifications.OldNotifications.Select(x => (IsNew: false, Notification: x)))
                 .ToArray();
             return new ListNotificationsOutput
             {
-                Notifications = allNotifications.Select(x => 
+                Notifications = allNotifications.Select(x =>
                 {
 
                     ATUri uri;
@@ -107,13 +113,23 @@ namespace AppViewLite.Web.ApiCompat
                 })
                 .Where(x => x != null && !string.IsNullOrEmpty(x.Reason))
                 .ToList()!,
-            }.ToJsonResponse();
+            }.ToJsonResultOk();
         }
-        [HttpPost("app.bsky.notification.updateSeen")]
-        public object UpdateSeen(UpdateSeenInput input)
+
+        public override Task<Results<Ok, ATErrorResult>> PutPreferencesAsync([FromBody] PutPreferencesInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok, ATErrorResult>> RegisterPushAsync([FromBody] RegisterPushInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<Ok, ATErrorResult>> UpdateSeenAsync([FromBody] UpdateSeenInput input, CancellationToken cancellationToken)
         {
             apis.MarkLastSeenNotification(new Models.Notification(((ApproximateDateTime32)input.SeenAt!.Value).AddTicks(1), default, default, Models.NotificationKind.None), ctx);
-            return Ok();
+            return TypedResults.Ok().ToJsonResultTask();
         }
     }
 }

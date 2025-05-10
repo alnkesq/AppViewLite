@@ -23,12 +23,12 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        public override Task<Results<Ok<DescribeFeedGeneratorOutput>, ATErrorResult>> DescribeFeedGeneratorAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<DescribeFeedGeneratorOutput>, ATErrorResult>> DescribeFeedGeneratorAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetActorFeedsOutput>, ATErrorResult>> GetActorFeedsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetActorFeedsOutput>, ATErrorResult>> GetActorFeedsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var feeds = await apis.GetProfileFeedsAsync(((ATDid)actor).Handler, cursor, limit ?? default, ctx);
 
@@ -39,7 +39,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetActorLikesOutput>, ATErrorResult>> GetActorLikesAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetActorLikesOutput>, ATErrorResult>> GetActorLikesAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
                     
             var likes = await apis.GetUserPostsAsync(((ATDid)actor).Handler, includePosts: false, includeReplies: false, includeReposts: false, includeLikes: true, includeBookmarks: false, mediaOnly: false, limit ?? default, cursor, ctx);
@@ -51,7 +51,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetAuthorFeedOutput>, ATErrorResult>> GetAuthorFeedAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? filter = null, [FromQuery] bool? includePins = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetAuthorFeedOutput>, ATErrorResult>> GetAuthorFeedAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? filter = null, [FromQuery] bool? includePins = null, CancellationToken cancellationToken = default)
         {
             var filterEnum = filter != null ? Enum.Parse<GetUserPostsFilter>(filter, ignoreCase: true) : GetUserPostsFilter.posts_and_author_threads;
             if (filterEnum == GetUserPostsFilter.None) filterEnum = GetUserPostsFilter.posts_no_replies;
@@ -77,7 +77,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetFeedOutput>, ATErrorResult>> GetFeedAsync([FromQuery] ATUri feed, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetFeedOutput>, ATErrorResult>> GetFeedAsync([FromQuery] ATUri feed, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var uri = await apis.ResolveUriAsync(feed.ToString(), ctx);
             var feedDid = uri.Did!.Handler!;
@@ -91,7 +91,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetFeedGeneratorOutput>, ATErrorResult>> GetFeedGeneratorAsync([FromQuery] ATUri feed, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetFeedGeneratorOutput>, ATErrorResult>> GetFeedGeneratorAsync([FromQuery] ATUri feed, CancellationToken cancellationToken = default)
         {
             var uri = await apis.ResolveUriAsync(feed.ToString(), ctx);
             var feedDid = uri.Did!.Handler!;
@@ -105,7 +105,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetFeedGeneratorsOutput>, ATErrorResult>> GetFeedGeneratorsAsync([FromQuery] List<ATUri> feeds, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetFeedGeneratorsOutput>, ATErrorResult>> GetFeedGeneratorsAsync([FromQuery] List<ATUri> feeds, CancellationToken cancellationToken = default)
         {
             if (feeds.Count == 0) return new GetFeedGeneratorsOutput { Feeds = [] }.ToJsonResultOk();
 
@@ -121,12 +121,12 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<GetFeedSkeletonOutput>, ATErrorResult>> GetFeedSkeletonAsync([FromQuery] ATUri feed, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetFeedSkeletonOutput>, ATErrorResult>> GetFeedSkeletonAsync([FromQuery] ATUri feed, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetLikesOutput>, ATErrorResult>> GetLikesAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetLikesOutput>, ATErrorResult>> GetLikesAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
             var likers = await apis.GetPostLikersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, default, ctx);
@@ -138,7 +138,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<GetListFeedOutput>, ATErrorResult>> GetListFeedAsync([FromQuery] ATUri list, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetListFeedOutput>, ATErrorResult>> GetListFeedAsync([FromQuery] ATUri list, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             return new GetListFeedOutput
             {
@@ -146,7 +146,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
-        public async override Task<Results<Ok<GetPostsOutput>, ATErrorResult>> GetPostsAsync([FromQuery] List<ATUri> uris, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetPostsOutput>, ATErrorResult>> GetPostsAsync([FromQuery] List<ATUri> uris, CancellationToken cancellationToken = default)
         {
             var posts = apis.WithRelationshipsLockForDids(uris.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
             {
@@ -161,7 +161,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetPostThreadOutput>, ATErrorResult>> GetPostThreadAsync([FromQuery] ATUri uri, [FromQuery] int? depth = 6, [FromQuery] int? parentHeight = 80, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetPostThreadOutput>, ATErrorResult>> GetPostThreadAsync([FromQuery] ATUri uri, [FromQuery] int? depth = 6, [FromQuery] int? parentHeight = 80, CancellationToken cancellationToken = default)
         {
             var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
             var thread = (await apis.GetPostThreadAsync(aturi.Did!.Handler, aturi.Rkey, default, null, ctx)).Posts;
@@ -183,7 +183,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetQuotesOutput>, ATErrorResult>> GetQuotesAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetQuotesOutput>, ATErrorResult>> GetQuotesAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
             var quotes = await apis.GetPostQuotesAsync(aturi.Did!.Handler, aturi.Rkey, cursor, limit ?? default, ctx);
@@ -195,7 +195,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetRepostedByOutput>, ATErrorResult>> GetRepostedByAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetRepostedByOutput>, ATErrorResult>> GetRepostedByAsync([FromQuery] ATUri uri, [FromQuery] string? cid = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var aturi = await apis.ResolveUriAsync(uri.ToString(), ctx);
             var reposters = await apis.GetPostRepostersAsync(aturi.Did!.Handler, aturi.Rkey, cursor, limit ?? default, ctx);
@@ -207,12 +207,12 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<GetSuggestedFeedsOutput>, ATErrorResult>> GetSuggestedFeedsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetSuggestedFeedsOutput>, ATErrorResult>> GetSuggestedFeedsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetTimelineOutput>, ATErrorResult>> GetTimelineAsync([FromQuery] string? algorithm = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetTimelineOutput>, ATErrorResult>> GetTimelineAsync([FromQuery] string? algorithm = null, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var feed = await apis.GetFollowingFeedAsync(cursor, limit ?? default, atProtoOnlyPosts: true, ctx);
             return new GetTimelineOutput
@@ -222,7 +222,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<SearchPostsOutput>, ATErrorResult>> SearchPostsAsync([FromQuery] string q, [FromQuery] string? sort = null, [FromQuery] string? since = null, [FromQuery] string? until = null, [FromQuery] ATIdentifier? mentions = null, [FromQuery] ATIdentifier? author = null, [FromQuery] string? lang = null, [FromQuery] string? domain = null, [FromQuery] string? url = null, [FromQuery] List<string>? tag = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<SearchPostsOutput>, ATErrorResult>> SearchPostsAsync([FromQuery] string q, [FromQuery] string? sort = null, [FromQuery] string? since = null, [FromQuery] string? until = null, [FromQuery] ATIdentifier? mentions = null, [FromQuery] ATIdentifier? author = null, [FromQuery] string? lang = null, [FromQuery] string? domain = null, [FromQuery] string? url = null, [FromQuery] List<string>? tag = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var options = new PostSearchOptions
             {
@@ -238,7 +238,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<SendInteractionsOutput>, ATErrorResult>> SendInteractionsAsync([FromBody] SendInteractionsInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<SendInteractionsOutput>, ATErrorResult>> SendInteractionsAsync([FromBody] SendInteractionsInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

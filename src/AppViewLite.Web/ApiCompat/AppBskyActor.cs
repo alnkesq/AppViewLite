@@ -21,7 +21,7 @@ namespace AppViewLite.Web
         }
 
         /// <inheritdoc/>
-        public override Task<Results<Ok<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
         {
             return new GetPreferencesOutput
             {
@@ -33,7 +33,7 @@ namespace AppViewLite.Web
         }
 
         /// <inheritdoc/>
-        public async override Task<Results<Ok<ProfileViewDetailed>, ATErrorResult>> GetProfileAsync([FromQuery] ATIdentifier actor, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<ProfileViewDetailed>, ATErrorResult>> GetProfileAsync([FromQuery] ATIdentifier actor, CancellationToken cancellationToken = default)
         {
             // TODO: Can be a handle or a did.
             var profile = await apis.GetFullProfileAsync(((ATDid)actor).ToString(), ctx, 0);
@@ -42,14 +42,14 @@ namespace AppViewLite.Web
         }
 
         /// <inheritdoc/>
-        public async override Task<Results<Ok<GetProfilesOutput>, ATErrorResult>> GetProfilesAsync([FromQuery] List<ATIdentifier> actors, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetProfilesOutput>, ATErrorResult>> GetProfilesAsync([FromQuery] List<ATIdentifier> actors, CancellationToken cancellationToken = default)
         {
             // TODO: Actors can be a handles or dids and should handle both.
-            if (actors.Count == 0) return TypedResults.Ok(new GetProfilesOutput { Profiles = [] });
+            if (actors.Count == 0) return new GetProfilesOutput { Profiles = [] }.ToJsonResultOk();
 
             // TODO: where is getProfiles used?
 
-            if (actors.Count == 1) return TypedResults.Ok(new GetProfilesOutput { Profiles = [ApiCompatUtils.ToApiCompatProfileDetailed(await apis.GetFullProfileAsync(((ATDid)actors[0]).ToString(), ctx, 0))] });
+            if (actors.Count == 1) return new GetProfilesOutput { Profiles = [ApiCompatUtils.ToApiCompatProfileDetailed(await apis.GetFullProfileAsync(((ATDid)actors[0]).ToString(), ctx, 0))] }.ToJsonResultOk();
 
             var actorsStr = actors.Select(x => ((ATDid)x).ToString()).ToArray();
             var profiles = apis.WithRelationshipsLockForDids(actorsStr, (plcs, rels) =>
@@ -67,11 +67,11 @@ namespace AppViewLite.Web
             return new GetProfilesOutput
             {
                 Profiles = profiles.Select(x => ApiCompatUtils.ToApiCompatProfileDetailed(x)).ToList(),
-            }.ToJsonOk();
+            }.ToJsonResultOk();
         }
 
         /// <inheritdoc/>
-        public override Task<Results<Ok<GetSuggestionsOutput>, ATErrorResult>> GetSuggestionsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetSuggestionsOutput>, ATErrorResult>> GetSuggestionsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             return new GetSuggestionsOutput
             {
@@ -86,7 +86,7 @@ namespace AppViewLite.Web
 
 
         /// <inheritdoc/>
-        public async override Task<Results<Ok<SearchActorsOutput>, ATErrorResult>> SearchActorsAsync([FromQuery] string? q = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<SearchActorsOutput>, ATErrorResult>> SearchActorsAsync([FromQuery] string? q = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: false, cursor, limit ?? 25, ctx);
             return new SearchActorsOutput
@@ -97,7 +97,7 @@ namespace AppViewLite.Web
         }
 
         /// <inheritdoc/>
-        public async override Task<Results<Ok<SearchActorsTypeaheadOutput>, ATErrorResult>> SearchActorsTypeaheadAsync([FromQuery] string? q = null, [FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<SearchActorsTypeaheadOutput>, ATErrorResult>> SearchActorsTypeaheadAsync([FromQuery] string? q = null, [FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
         {
             var results = await apis.SearchProfilesAsync(q, allowPrefixForLastWord: true, null, limit ?? 10, ctx);
             return new SearchActorsTypeaheadOutput

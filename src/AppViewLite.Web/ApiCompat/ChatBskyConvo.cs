@@ -12,27 +12,27 @@ namespace AppViewLite.Web.ApiCompat
     public class ChatBskyConvo : FishyFlip.Xrpc.Lexicon.Chat.Bsky.Convo.ConvoController
     {
 
-        public override Task<Results<Ok<AcceptConvoOutput>, ATErrorResult>> AcceptConvoAsync([FromBody] AcceptConvoInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<AcceptConvoOutput>, ATErrorResult>> AcceptConvoAsync([FromBody] AcceptConvoInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<AddReactionOutput>, ATErrorResult>> AddReactionAsync([FromBody] AddReactionInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<AddReactionOutput>, ATErrorResult>> AddReactionAsync([FromBody] AddReactionInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<DeletedMessageView>, ATErrorResult>> DeleteMessageForSelfAsync([FromBody] DeleteMessageForSelfInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<DeletedMessageView>, ATErrorResult>> DeleteMessageForSelfAsync([FromBody] DeleteMessageForSelfInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetConvoOutput>, ATErrorResult>> GetConvoAsync([FromQuery] string convoId, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetConvoOutput>, ATErrorResult>> GetConvoAsync([FromQuery] string convoId, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetConvoAvailabilityOutput>, ATErrorResult>> GetConvoAvailabilityAsync([FromQuery] List<ATDid> members, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetConvoAvailabilityOutput>, ATErrorResult>> GetConvoAvailabilityAsync([FromQuery] List<ATDid> members, CancellationToken cancellationToken = default)
         {
             return new GetConvoAvailabilityOutput
             {
@@ -40,12 +40,12 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
-        public override Task<Results<Ok<GetConvoForMembersOutput>, ATErrorResult>> GetConvoForMembersAsync([FromQuery] List<ATDid> members, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetConvoForMembersOutput>, ATErrorResult>> GetConvoForMembersAsync([FromQuery] List<ATDid> members, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetLogOutput>, ATErrorResult>> GetLogAsync([FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetLogOutput>, ATErrorResult>> GetLogAsync([FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             return new GetLogOutput
             {
@@ -53,17 +53,17 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
-        public override Task<Results<Ok<GetMessagesOutput>, ATErrorResult>> GetMessagesAsync([FromQuery] string convoId, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetMessagesOutput>, ATErrorResult>> GetMessagesAsync([FromQuery] string convoId, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<LeaveConvoOutput>, ATErrorResult>> LeaveConvoAsync([FromBody] LeaveConvoInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<LeaveConvoOutput>, ATErrorResult>> LeaveConvoAsync([FromBody] LeaveConvoInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<ListConvosOutput>, ATErrorResult>> ListConvosAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? readState = null, [FromQuery] string? status = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<ListConvosOutput>, ATErrorResult>> ListConvosAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? readState = null, [FromQuery] string? status = null, CancellationToken cancellationToken = default)
         {
             return new ListConvosOutput
             {
@@ -71,37 +71,37 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
-        public override Task<Results<Ok<MuteConvoOutput>, ATErrorResult>> MuteConvoAsync([FromBody] MuteConvoInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<MuteConvoOutput>, ATErrorResult>> MuteConvoAsync([FromBody] MuteConvoInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<RemoveReactionOutput>, ATErrorResult>> RemoveReactionAsync([FromBody] RemoveReactionInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<RemoveReactionOutput>, ATErrorResult>> RemoveReactionAsync([FromBody] RemoveReactionInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<MessageView>, ATErrorResult>> SendMessageAsync([FromBody] SendMessageInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<MessageView>, ATErrorResult>> SendMessageAsync([FromBody] SendMessageInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<SendMessageBatchOutput>, ATErrorResult>> SendMessageBatchAsync([FromBody] SendMessageBatchInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<SendMessageBatchOutput>, ATErrorResult>> SendMessageBatchAsync([FromBody] SendMessageBatchInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<UnmuteConvoOutput>, ATErrorResult>> UnmuteConvoAsync([FromBody] UnmuteConvoInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<UnmuteConvoOutput>, ATErrorResult>> UnmuteConvoAsync([FromBody] UnmuteConvoInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<UpdateAllReadOutput>, ATErrorResult>> UpdateAllReadAsync([FromBody] UpdateAllReadInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<UpdateAllReadOutput>, ATErrorResult>> UpdateAllReadAsync([FromBody] UpdateAllReadInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<UpdateReadOutput>, ATErrorResult>> UpdateReadAsync([FromBody] UpdateReadInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<UpdateReadOutput>, ATErrorResult>> UpdateReadAsync([FromBody] UpdateReadInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

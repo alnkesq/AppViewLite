@@ -26,7 +26,7 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<CheckAccountStatusOutput>, ATErrorResult>> CheckAccountStatusAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<CheckAccountStatusOutput>, ATErrorResult>> CheckAccountStatusAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -36,27 +36,27 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<CreateAccountOutput>, ATErrorResult>> CreateAccountAsync([FromBody] CreateAccountInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<CreateAccountOutput>, ATErrorResult>> CreateAccountAsync([FromBody] CreateAccountInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<AppPassword>, ATErrorResult>> CreateAppPasswordAsync([FromBody] CreateAppPasswordInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<AppPassword>, ATErrorResult>> CreateAppPasswordAsync([FromBody] CreateAppPasswordInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<CreateInviteCodeOutput>, ATErrorResult>> CreateInviteCodeAsync([FromBody] CreateInviteCodeInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<CreateInviteCodeOutput>, ATErrorResult>> CreateInviteCodeAsync([FromBody] CreateInviteCodeInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<CreateInviteCodesOutput>, ATErrorResult>> CreateInviteCodesAsync([FromBody] CreateInviteCodesInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<CreateInviteCodesOutput>, ATErrorResult>> CreateInviteCodesAsync([FromBody] CreateInviteCodesInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override async Task<Results<Ok<CreateSessionOutput>, ATErrorResult>> CreateSessionAsync([FromBody] CreateSessionInput input, CancellationToken cancellationToken)
+        public override async Task<Results<ATResult<CreateSessionOutput>, ATErrorResult>> CreateSessionAsync([FromBody] CreateSessionInput input, CancellationToken cancellationToken)
         {
             var identifier = input.Identifier.Trim('@');
             if (identifier.Contains('@')) throw new ATNetworkErrorException(new FishyFlip.Models.ATError(400, new FishyFlip.Models.ErrorDetail { Message = "Only login via handle is supported, not email address." }));
@@ -94,7 +94,7 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<DescribeServerOutput>, ATErrorResult>> DescribeServerAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<DescribeServerOutput>, ATErrorResult>> DescribeServerAsync(CancellationToken cancellationToken = default)
         {
             return new DescribeServerOutput
             {
@@ -103,17 +103,17 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
-        public override Task<Results<Ok<GetAccountInviteCodesOutput>, ATErrorResult>> GetAccountInviteCodesAsync([FromQuery] bool? includeUsed = null, [FromQuery] bool? createAvailable = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetAccountInviteCodesOutput>, ATErrorResult>> GetAccountInviteCodesAsync([FromQuery] bool? includeUsed = null, [FromQuery] bool? createAvailable = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetServiceAuthOutput>, ATErrorResult>> GetServiceAuthAsync([FromQuery] ATDid aud, [FromQuery] int? exp = 0, [FromQuery] string? lxm = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetServiceAuthOutput>, ATErrorResult>> GetServiceAuthAsync([FromQuery] ATDid aud, [FromQuery] int? exp = 0, [FromQuery] string? lxm = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetSessionOutput>, ATErrorResult>> GetSessionAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetSessionOutput>, ATErrorResult>> GetSessionAsync(CancellationToken cancellationToken = default)
         {
             if (!ctx.IsLoggedIn)
             {
@@ -133,12 +133,12 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
-        public override Task<Results<Ok<ListAppPasswordsOutput>, ATErrorResult>> ListAppPasswordsAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<ListAppPasswordsOutput>, ATErrorResult>> ListAppPasswordsAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<RefreshSessionOutput>, ATErrorResult>> RefreshSessionAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<RefreshSessionOutput>, ATErrorResult>> RefreshSessionAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -153,7 +153,7 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<RequestEmailUpdateOutput>, ATErrorResult>> RequestEmailUpdateAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<RequestEmailUpdateOutput>, ATErrorResult>> RequestEmailUpdateAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -163,7 +163,7 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<ReserveSigningKeyOutput>, ATErrorResult>> ReserveSigningKeyAsync([FromBody] ReserveSigningKeyInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<ReserveSigningKeyOutput>, ATErrorResult>> ReserveSigningKeyAsync([FromBody] ReserveSigningKeyInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

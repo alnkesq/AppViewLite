@@ -18,7 +18,7 @@ namespace AppViewLite.Web.ApiCompat
             this.apis = apis;
         }
 
-        public override Task<Results<Ok<GetServicesOutput>, ATErrorResult>> GetServicesAsync([FromQuery] List<ATDid> dids, [FromQuery] bool? detailed = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetServicesOutput>, ATErrorResult>> GetServicesAsync([FromQuery] List<ATDid> dids, [FromQuery] bool? detailed = null, CancellationToken cancellationToken = default)
         {
             return new GetServicesOutput
             {

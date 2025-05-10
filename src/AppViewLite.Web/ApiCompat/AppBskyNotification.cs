@@ -25,14 +25,14 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        public override Task<Results<Ok<GetUnreadCountOutput>, ATErrorResult>> GetUnreadCountAsync([FromQuery] bool? priority = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetUnreadCountOutput>, ATErrorResult>> GetUnreadCountAsync([FromQuery] bool? priority = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
         {
             return new GetUnreadCountOutput
             {
                 Count = apis.GetNotificationCount(ctx.Session, ctx, dark: false)
             }.ToJsonResultOkTask();
         }
-        public async override Task<Results<Ok<ListNotificationsOutput>, ATErrorResult>> ListNotificationsAsync([FromQuery] List<string>? reasons = null, [FromQuery] int? limit = 50, [FromQuery] bool? priority = null, [FromQuery] string? cursor = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<ListNotificationsOutput>, ATErrorResult>> ListNotificationsAsync([FromQuery] List<string>? reasons = null, [FromQuery] int? limit = 50, [FromQuery] bool? priority = null, [FromQuery] string? cursor = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
         {
             var notifications = await apis.GetNotificationsAsync(ctx, dark: false);
             var allNotifications = notifications.NewNotifications.Select(x => (IsNew: true, Notification: x)).Concat(notifications.OldNotifications.Select(x => (IsNew: false, Notification: x)))

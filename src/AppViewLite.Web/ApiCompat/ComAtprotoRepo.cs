@@ -21,12 +21,11 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        public override Task<Results<Ok<ApplyWritesOutput>, ATErrorResult>> ApplyWritesAsync([FromBody] ApplyWritesInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<ApplyWritesOutput>, ATErrorResult>> ApplyWritesAsync([FromBody] ApplyWritesInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
-
-        public async override Task<Results<Ok<CreateRecordOutput>, ATErrorResult>> CreateRecordAsync([FromBody] CreateRecordInput input, CancellationToken cancellationToken)
+        public async override Task<Results<ATResult<CreateRecordOutput>, ATErrorResult>> CreateRecordAsync([FromBody] CreateRecordInput input, CancellationToken cancellationToken)
         {
             var result = await apis.CreateRecordAsync(input.Record, ctx, rkey: input.Rkey);
             var uri = new ATUri("at://" + ctx.UserContext.Did + "/" + input.Collection + "/" + result.RkeyString);
@@ -37,7 +36,7 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<DeleteRecordOutput>, ATErrorResult>> DeleteRecordAsync([FromBody] DeleteRecordInput input, CancellationToken cancellationToken)
+        public async override Task<Results<ATResult<DeleteRecordOutput>, ATErrorResult>> DeleteRecordAsync([FromBody] DeleteRecordInput input, CancellationToken cancellationToken)
         {
             await apis.DeleteRecordAsync(input.Collection, Tid.Parse(input.Rkey), ctx);
             return new DeleteRecordOutput
@@ -45,12 +44,12 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<DescribeRepoOutput>, ATErrorResult>> DescribeRepoAsync([FromQuery] ATIdentifier repo, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<DescribeRepoOutput>, ATErrorResult>> DescribeRepoAsync([FromQuery] ATIdentifier repo, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetRecordOutput>, ATErrorResult>> GetRecordAsync([FromQuery] ATIdentifier repo, [FromQuery] string collection, [FromQuery] string rkey, [FromQuery] string? cid = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetRecordOutput>, ATErrorResult>> GetRecordAsync([FromQuery] ATIdentifier repo, [FromQuery] string collection, [FromQuery] string rkey, [FromQuery] string? cid = null, CancellationToken cancellationToken = default)
         {
             var result = await apis.GetRecordAsync(((ATDid)repo).Handler, collection, rkey, ctx, cancellationToken);
             return result.ToJsonResultOk();
@@ -61,22 +60,22 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<ListMissingBlobsOutput>, ATErrorResult>> ListMissingBlobsAsync([FromQuery] int? limit = 500, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<ListMissingBlobsOutput>, ATErrorResult>> ListMissingBlobsAsync([FromQuery] int? limit = 500, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<ListRecordsOutput>, ATErrorResult>> ListRecordsAsync([FromQuery] ATIdentifier repo, [FromQuery] string collection, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] bool? reverse = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<ListRecordsOutput>, ATErrorResult>> ListRecordsAsync([FromQuery] ATIdentifier repo, [FromQuery] string collection, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] bool? reverse = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<PutRecordOutput>, ATErrorResult>> PutRecordAsync([FromBody] PutRecordInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<PutRecordOutput>, ATErrorResult>> PutRecordAsync([FromBody] PutRecordInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<UploadBlobOutput>, ATErrorResult>> UploadBlobAsync([FromBody] StreamContent content, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<UploadBlobOutput>, ATErrorResult>> UploadBlobAsync([FromBody] StreamContent content, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

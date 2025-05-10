@@ -19,12 +19,12 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
-        public override Task<Results<Ok<GetRecommendedDidCredentialsOutput>, ATErrorResult>> GetRecommendedDidCredentialsAsync(CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetRecommendedDidCredentialsOutput>, ATErrorResult>> GetRecommendedDidCredentialsAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<IdentityInfo>, ATErrorResult>> RefreshIdentityAsync([FromBody] RefreshIdentityInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<IdentityInfo>, ATErrorResult>> RefreshIdentityAsync([FromBody] RefreshIdentityInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
@@ -34,12 +34,12 @@ namespace AppViewLite.Web.ApiCompat
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<ResolveDidOutput>, ATErrorResult>> ResolveDidAsync([FromQuery] ATDid did, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<ResolveDidOutput>, ATErrorResult>> ResolveDidAsync([FromQuery] ATDid did, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<ResolveHandleOutput>, ATErrorResult>> ResolveHandleAsync([FromQuery] ATHandle handle, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<ResolveHandleOutput>, ATErrorResult>> ResolveHandleAsync([FromQuery] ATHandle handle, CancellationToken cancellationToken = default)
         {
             return new ResolveHandleOutput
             {
@@ -47,12 +47,12 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<IdentityInfo>, ATErrorResult>> ResolveIdentityAsync([FromQuery] ATIdentifier identifier, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<IdentityInfo>, ATErrorResult>> ResolveIdentityAsync([FromQuery] ATIdentifier identifier, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<SignPlcOperationOutput>, ATErrorResult>> SignPlcOperationAsync([FromBody] SignPlcOperationInput input, CancellationToken cancellationToken)
+        public override Task<Results<ATResult<SignPlcOperationOutput>, ATErrorResult>> SignPlcOperationAsync([FromBody] SignPlcOperationInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

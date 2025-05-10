@@ -45,7 +45,6 @@ namespace AppViewLite.Web
             builder.Services.ConfigureHttpJsonOptions(options =>
             {
                 options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-                options.SerializerOptions.Converters.Add(new ATObjectJsonConverter());
             });
 
             builder.Services.AddCors(options =>

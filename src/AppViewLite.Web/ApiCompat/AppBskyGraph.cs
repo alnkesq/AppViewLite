@@ -22,7 +22,7 @@ namespace AppViewLite.Web
             this.ctx = ctx;
         }
 
-        public override Task<Results<Ok<GetActorStarterPacksOutput>, ATErrorResult>> GetActorStarterPacksAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetActorStarterPacksOutput>, ATErrorResult>> GetActorStarterPacksAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             return new GetActorStarterPacksOutput
             {
@@ -30,12 +30,12 @@ namespace AppViewLite.Web
             }.ToJsonResultOkTask();
         }
 
-        public override Task<Results<Ok<GetBlocksOutput>, ATErrorResult>> GetBlocksAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetBlocksOutput>, ATErrorResult>> GetBlocksAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetFollowersOutput>, ATErrorResult>> GetFollowersAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetFollowersOutput>, ATErrorResult>> GetFollowersAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var actorDid = ((ATDid)actor).Handler;
             var subject = await apis.GetProfileAsync(actorDid, ctx);
@@ -49,7 +49,7 @@ namespace AppViewLite.Web
             }.ToJsonResultOk();
         }
 
-        public async override Task<Results<Ok<GetFollowsOutput>, ATErrorResult>> GetFollowsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetFollowsOutput>, ATErrorResult>> GetFollowsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var actorDid = ((ATDid)actor).Handler;
             var subject = await apis.GetProfileAsync(actorDid, ctx);
@@ -63,12 +63,12 @@ namespace AppViewLite.Web
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<GetKnownFollowersOutput>, ATErrorResult>> GetKnownFollowersAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetKnownFollowersOutput>, ATErrorResult>> GetKnownFollowersAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetListOutput>, ATErrorResult>> GetListAsync([FromQuery] ATUri list, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetListOutput>, ATErrorResult>> GetListAsync([FromQuery] ATUri list, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var info = await apis.GetListMetadataAsync(list.Did!.Handler, list.Rkey, ctx);
             var members = await apis.GetListMembersAsync(info.ModeratorDid!, info.RKey, cursor, limit ?? default, ctx);
@@ -81,17 +81,17 @@ namespace AppViewLite.Web
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<GetListBlocksOutput>, ATErrorResult>> GetListBlocksAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetListBlocksOutput>, ATErrorResult>> GetListBlocksAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetListMutesOutput>, ATErrorResult>> GetListMutesAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetListMutesOutput>, ATErrorResult>> GetListMutesAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<Ok<GetListsOutput>, ATErrorResult>> GetListsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetListsOutput>, ATErrorResult>> GetListsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             var lists = await apis.GetProfileListsAsync(((ATDid)actor).Handler, cursor, limit ?? default, ctx);
 
@@ -102,27 +102,27 @@ namespace AppViewLite.Web
             }.ToJsonResultOk();
         }
 
-        public override Task<Results<Ok<GetMutesOutput>, ATErrorResult>> GetMutesAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetMutesOutput>, ATErrorResult>> GetMutesAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetRelationshipsOutput>, ATErrorResult>> GetRelationshipsAsync([FromQuery] ATIdentifier actor, [FromQuery] List<ATIdentifier>? others = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetRelationshipsOutput>, ATErrorResult>> GetRelationshipsAsync([FromQuery] ATIdentifier actor, [FromQuery] List<ATIdentifier>? others = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetStarterPackOutput>, ATErrorResult>> GetStarterPackAsync([FromQuery] ATUri starterPack, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetStarterPackOutput>, ATErrorResult>> GetStarterPackAsync([FromQuery] ATUri starterPack, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetStarterPacksOutput>, ATErrorResult>> GetStarterPacksAsync([FromQuery] List<ATUri> uris, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetStarterPacksOutput>, ATErrorResult>> GetStarterPacksAsync([FromQuery] List<ATUri> uris, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<GetSuggestedFollowsByActorOutput>, ATErrorResult>> GetSuggestedFollowsByActorAsync([FromQuery] ATIdentifier actor, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<GetSuggestedFollowsByActorOutput>, ATErrorResult>> GetSuggestedFollowsByActorAsync([FromQuery] ATIdentifier actor, CancellationToken cancellationToken = default)
         {
             return new GetSuggestedFollowsByActorOutput
             {
@@ -145,7 +145,7 @@ namespace AppViewLite.Web
             throw new NotImplementedException();
         }
 
-        public override Task<Results<Ok<SearchStarterPacksOutput>, ATErrorResult>> SearchStarterPacksAsync([FromQuery] string q, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public override Task<Results<ATResult<SearchStarterPacksOutput>, ATErrorResult>> SearchStarterPacksAsync([FromQuery] string q, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

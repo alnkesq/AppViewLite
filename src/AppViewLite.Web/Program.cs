@@ -391,7 +391,7 @@ namespace AppViewLite.Web
                     var handler = new JwtSecurityTokenHandler();
                     var unverifiedJwtToken = authorization.Substring(7).Trim();
                     var parsedUnverifiedJwtToken = handler.ReadJwtToken(unverifiedJwtToken);
-                    var unverifiedDid = parsedUnverifiedJwtToken.Subject;
+                    var unverifiedDid = parsedUnverifiedJwtToken.Issuer;
                     return unverifiedJwtToken + "=" + unverifiedDid;
                 }
                 return null;

@@ -462,40 +462,22 @@ namespace AppViewLite.Web
             navigation.NavigateTo("/login?return=" + Uri.EscapeDataString(new Uri(navigation.Uri).PathAndQuery), true);
         }
 
-
-        public static IResult ToJsonResponse<T>(this T result) where T : IJsonEncodable<T>
+        public static Results<ATResult<T>, ATErrorResult> ToJsonResultOk<T>(this T result) where T : ATObject
         {
-            return TypedResults.Bytes(result.ToUtf8Json(), "application/json");
+            return ATResult<T>.Ok(result);
         }
-        public static Ok<T> ToJsonOk<T>(this T result) where T : ATObject
+        public static Task<Results<ATResult<T>, ATErrorResult>> ToJsonResultOkTask<T>(this T result) where T : ATObject
         {
-            return TypedResults.Ok(result);
-        }
-        public static Results<Ok<T>, ATErrorResult> ToJsonResultOk<T>(this T result) where T : ATObject
-        {
-            return TypedResults.Ok(result);
-        }
-        public static Task<Results<Ok<T>, ATErrorResult>> ToJsonResultOkTask<T>(this T result) where T : ATObject
-        {
-            return Task.FromResult<Results<Ok<T>, ATErrorResult>>(TypedResults.Ok(result));
-        }
-        public static Task<Ok<T>> ToJsonOkTask<T>(this T result) where T : ATObject
-        {
-            return Task.FromResult(ToJsonOk(result));
+            return Task.FromResult<Results<ATResult<T>, ATErrorResult>>(ATResult<T>.Ok(result));
         }
         public static Task<Results<Ok, ATErrorResult>> ToJsonResultTask(this Ok result)
         {
             return Task.FromResult<Results<Ok, ATErrorResult>>(result);
         }
 
-        public static Results<Ok<T>, ATErrorResult> ToJsonResult<T>(this ATErrorResult error) where T : ATObject
+        public static Task<Results<ATResult<T>, ATErrorResult>> ToJsonResultTask<T>(this ATErrorResult error) where T : ATObject
         {
-            return error;
-        }
-
-        public static Task<Results<Ok<T>, ATErrorResult>> ToJsonResultTask<T>(this ATErrorResult error) where T : ATObject
-        {
-            return Task.FromResult<Results<Ok<T>, ATErrorResult>>(error);
+            return Task.FromResult<Results<ATResult<T>, ATErrorResult>>(error);
         }
     }
 }

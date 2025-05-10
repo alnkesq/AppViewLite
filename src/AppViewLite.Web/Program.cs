@@ -391,7 +391,13 @@ namespace AppViewLite.Web
                     var handler = new JwtSecurityTokenHandler();
                     var unverifiedJwtToken = authorization.Substring(7).Trim();
                     var parsedUnverifiedJwtToken = handler.ReadJwtToken(unverifiedJwtToken);
-                    var unverifiedDid = parsedUnverifiedJwtToken.Subject;
+                    var unverifiedDid = parsedUnverifiedJwtToken.Subject ?? string.Empty;
+                    if (!unverifiedDid.StartsWith("did:", StringComparison.Ordinal))
+                    {
+                        unverifiedDid = parsedUnverifiedJwtToken.Issuer;
+                    }
+                    if (!BlueskyEnrichedApis.IsValidDid(unverifiedDid))
+                        throw new Exception("A valid DID identifier was not found inside the Subject or Issue field of the JWT token. https://github.com/alnkesq/AppViewLite/pull/215");
                     return unverifiedJwtToken + "=" + unverifiedDid;
                 }
                 return null;

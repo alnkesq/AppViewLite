@@ -1062,8 +1062,11 @@ namespace AppViewLite.Storage
                 if (pendingCompactation == null) return;
                 if (forceWait)
                 {
+                    var sw = Stopwatch.StartNew();
                     Log("Synchronously waiting for pending compactation to complete, because forceWait=true");
                     pendingCompactation.GetAwaiter().GetResult();
+                    if (sw.Elapsed.TotalMilliseconds > 100)
+                        Log("  This synchronous wait for pending compactation took " + sw.Elapsed);
                 }
                 if (!pendingCompactation.IsCompleted)
                 {

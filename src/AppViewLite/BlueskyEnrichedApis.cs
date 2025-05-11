@@ -4727,6 +4727,8 @@ namespace AppViewLite
         public readonly static long TimeProcessStarted = Stopwatch.GetTimestamp();
         public object GetCountersThreadSafe(RequestContext ctx)
         {
+            var gcMemoryInfo = GC.GetGCMemoryInfo();
+            using var proc = Process.GetCurrentProcess();
             return new
             {
                 Uptime = Stopwatch.GetElapsedTime(TimeProcessStarted),
@@ -4755,11 +4757,50 @@ namespace AppViewLite
                 DirectIoReadStatsTotalOffsets = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col2")).Sum(x => x.Value),
                 DirectIoReadStatsTotalValues = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col1")).Sum(x => x.Value),
                 DirectIoReadStats = new OrderedDictionary<string, long>(CombinedPersistentMultiDictionary.DirectIoReadStats.OrderByDescending(x => x.Value).Select(x => new KeyValuePair<string, long>(x.Key.Replace(".dat", null).Replace("col0", "K").Replace("col1", "V").Replace("col2", "O"), x.Value))),
-                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
                 AliveBlueskyRelationshipsDatabases = BlueskyRelationships.AliveBlueskyRelationshipsDatabases,
                 AlignedArenaPool = GetAllPooledObjects(AlignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
                 UnalignedArenaPool = GetAllPooledObjects(UnalignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
                 EfficientTextCompressor_TokenizerPool = GetAllPooledObjects(EfficientTextCompressor.TokenizerPool).Count,
+                GCMemoryInfo = new  
+                {
+                    gcMemoryInfo.FinalizationPendingCount,
+                    gcMemoryInfo.FragmentedBytes,
+                    gcMemoryInfo.HeapSizeBytes,
+                    gcMemoryInfo.HighMemoryLoadThresholdBytes,
+                    gcMemoryInfo.Generation,
+                    gcMemoryInfo.Index,
+                    gcMemoryInfo.MemoryLoadBytes,
+                    gcMemoryInfo.PauseTimePercentage,
+                    gcMemoryInfo.PinnedObjectsCount,
+                    gcMemoryInfo.PromotedBytes,
+                    gcMemoryInfo.TotalAvailableMemoryBytes,
+                    gcMemoryInfo.TotalCommittedBytes,
+                },
+                ProcessInfo = new 
+                {
+                    proc.HandleCount,
+                    //MaxWorkingSet = (long)proc.MaxWorkingSet,
+                    //MinWorkingSet = (long)proc.MinWorkingSet,
+                    Memory = new 
+                    {
+                        Private = proc.PrivateMemorySize64,
+                        Virtual = proc.VirtualMemorySize64,
+                        WorkingSet = proc.WorkingSet64,
+
+                        NonPagedSystem = proc.NonpagedSystemMemorySize64,
+                        Paged = proc.PagedMemorySize64,
+                        PagedSystem = proc.PagedSystemMemorySize64,
+
+                        PeakPaged = proc.PeakPagedMemorySize64,
+                        PeakVirtual = proc.PeakVirtualMemorySize64,
+                        PeakWorkingSet = proc.PeakWorkingSet64,
+                    },
+
+                    proc.TotalProcessorTime,
+                    proc.UserProcessorTime,
+                    proc.PrivilegedProcessorTime,
+                },
+                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
             };
         }
 

@@ -143,7 +143,8 @@ namespace AppViewLite
         {
             return new
             {
-                DefinitelyNotExistsRatio = RuleOutCounter.HitRatio
+                DefinitelyNotExistsRatio = RuleOutCounter.HitRatio,
+                SizeInBytes
             };
         }
     }

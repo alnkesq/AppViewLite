@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AppViewLite.Storage
 {
@@ -38,11 +39,6 @@ namespace AppViewLite.Storage
         private void BumpVersion()
         {
             Version++;
-        }
-
-        public sealed override object? GetCounters()
-        {
-            return null;
         }
 
         public sealed override void LoadFromOriginalSlice(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice)

@@ -1,6 +1,7 @@
 using AppViewLite.Storage;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace AppViewLite.Storage
 {
@@ -54,6 +55,12 @@ namespace AppViewLite.Storage
 
         public override void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior)
         {
+        }
+        public override object? GetCounters()
+        {
+            var sizes = cacheSlices.Select(x => x.Cache.KeyIndexSize).Where(x => x != 0).ToArray();
+            var total = sizes.Sum();
+            return new { KeyIndexSizesTotal = total, KeyIndexSizes = sizes };
         }
 
     }

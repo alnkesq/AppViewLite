@@ -1,6 +1,7 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
+using AppViewLite.Storage;
 using DnsClient;
 using FishyFlip;
 using FishyFlip.Lexicon;
@@ -12,6 +13,7 @@ using FishyFlip.Lexicon.Com.Atproto.Sync;
 using FishyFlip.Models;
 using FishyFlip.Tools;
 using Ipfs;
+using Microsoft.Extensions.ObjectPool;
 using PeterO.Cbor;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
@@ -4754,7 +4756,21 @@ namespace AppViewLite
                 DirectIoReadStatsTotalValues = CombinedPersistentMultiDictionary.DirectIoReadStats.Where(x => x.Key.Contains("col1")).Sum(x => x.Value),
                 DirectIoReadStats = new OrderedDictionary<string, long>(CombinedPersistentMultiDictionary.DirectIoReadStats.OrderByDescending(x => x.Value).Select(x => new KeyValuePair<string, long>(x.Key.Replace(".dat", null).Replace("col0", "K").Replace("col1", "V").Replace("col2", "O"), x.Value))),
                 PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
+                AliveBlueskyRelationshipsDatabases = BlueskyRelationships.AliveBlueskyRelationshipsDatabases,
+                AlignedArenaPool = GetAllPooledObjects(AlignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
+                UnalignedArenaPool = GetAllPooledObjects(UnalignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
+                EfficientTextCompressor_TokenizerPool = GetAllPooledObjects(EfficientTextCompressor.TokenizerPool).Count,
             };
+        }
+
+        internal static IReadOnlyList<T> GetAllPooledObjects<T>(ObjectPool<T> pool) where T: class
+        {
+            var items = (ConcurrentQueue<T>)pool.GetType().GetField("_items", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(pool)!;
+            var fastItem = (T?)pool.GetType().GetField("_fastItem", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(pool);
+            var allItems = items.ToList();
+            if (fastItem != null)
+                allItems.Add(fastItem);
+            return allItems;
         }
 
         public readonly SemaphoreSlim CarDownloadSemaphore = new SemaphoreSlim(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_CAR_DOWNLOAD_SEMAPHORE) ?? 8);

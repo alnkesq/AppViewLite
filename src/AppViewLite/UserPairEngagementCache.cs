@@ -55,5 +55,12 @@ namespace AppViewLite
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
         }
 
+        public override object? GetCounters()
+        {
+            var sizes = cacheSlices.Select(x => x.Cache.KeyIndexSize).Where(x => x != 0).ToArray();
+            var total = sizes.Sum();
+            return new { KeyIndexSizesSum = sizes, KeyIndexSizes = sizes };
+        }
+
     }
 }

@@ -235,7 +235,9 @@ namespace AppViewLite
 #nullable disable
         private BlueskyRelationships(bool isReadOnly)
         {
-            // set via reflection
+            Interlocked.Increment(ref AliveBlueskyRelationshipsDatabases);
+
+            // if this is a secondary, fields will be set via reflection
         }
 #nullable restore
 
@@ -493,8 +495,7 @@ namespace AppViewLite
             }
 
             GarbageCollectOldSlices(allowTempFileDeletion: true);
-
-            Log("Loaded.");
+            Log("Database loaded.");
         }
 
         private static void Migrate<TValue>(CombinedPersistentMultiDictionary<PostIdTimeFirst, TValue> newTable, CombinedPersistentMultiDictionary<PostId, TValue> oldTable) where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -637,6 +638,8 @@ namespace AppViewLite
 
                     if (IsPrimary)
                         Log("Disposed primary BlueskyRelationships.");
+
+                    Interlocked.Decrement(ref AliveBlueskyRelationshipsDatabases);
                 }
 
             }
@@ -648,6 +651,8 @@ namespace AppViewLite
             }
 
         }
+
+        public static int AliveBlueskyRelationshipsDatabases;
 
         public event Action? BeforeCaptureCheckpoint;
 

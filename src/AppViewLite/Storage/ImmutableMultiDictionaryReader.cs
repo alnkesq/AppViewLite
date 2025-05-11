@@ -25,6 +25,7 @@ namespace AppViewLite.Storage
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
+        public long KeyIndexSize => pageKeys.Length * Unsafe.SizeOf<TKey>();
 
         public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
         public bool HasOffsets => !IsSingleValueOrKeySet;

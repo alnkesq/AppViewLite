@@ -21,7 +21,7 @@ namespace AppViewLite
 
 
 
-        private readonly static ObjectPool<TiktokenWrapper> TokenizerPool = ObjectPool.Create<TiktokenWrapper>();
+        internal readonly static ObjectPool<TiktokenWrapper> TokenizerPool = ObjectPool.Create<TiktokenWrapper>();
 
 
         public const int MaxLength = 1024 * 4;

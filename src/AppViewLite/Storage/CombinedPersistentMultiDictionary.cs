@@ -171,6 +171,7 @@ namespace AppViewLite.Storage
 
         }
         public virtual long InMemorySize { get; }
+        public virtual long KeyIndexSize { get; }
         public virtual long OnDiskSize { get; }
 
         public virtual long KeyCount { get; }
@@ -1049,6 +1050,7 @@ namespace AppViewLite.Storage
         }
 
         public override long InMemorySize => queue.SizeInBytes;
+        public override long KeyIndexSize => slices.Sum(x => x.Reader.KeyIndexSize);
         public override long OnDiskSize => slices.Sum(x => x.SizeInBytes);
 
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.

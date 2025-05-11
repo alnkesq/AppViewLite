@@ -308,8 +308,8 @@ namespace AppViewLite
         }
 
 
-        private readonly static ObjectPool<NativeArenaSlim> UnalignedArenaPool = ObjectPool.Create(new NativeArenaSlimPoolingPolicy(64 * 1024));
-        private static readonly ObjectPool<AlignedNativeArena> AlignedArenaPool = ObjectPool.Create(new AlignedNativeArenaPoolingPolicy(CombinedPersistentMultiDictionary.DiskSectorSize, 256 * 1024));
+        protected readonly static ObjectPool<NativeArenaSlim> UnalignedArenaPool = ObjectPool.Create(new NativeArenaSlimPoolingPolicy(64 * 1024));
+        protected static readonly ObjectPool<AlignedNativeArena> AlignedArenaPool = ObjectPool.Create(new AlignedNativeArenaPoolingPolicy(CombinedPersistentMultiDictionary.DiskSectorSize, 256 * 1024));
 
         private static void SetupArena()
         {

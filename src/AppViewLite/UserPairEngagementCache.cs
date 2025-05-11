@@ -59,7 +59,7 @@ namespace AppViewLite
         {
             var sizes = cacheSlices.Select(x => x.Cache.KeyIndexSize).Where(x => x != 0).ToArray();
             var total = sizes.Sum();
-            return new { KeyIndexSizesSum = sizes, KeyIndexSizes = sizes };
+            return new { KeyIndexSizesTotal = total, KeyIndexSizes = sizes };
         }
 
     }

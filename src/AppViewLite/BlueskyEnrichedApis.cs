@@ -4800,7 +4800,7 @@ namespace AppViewLite
                     proc.UserProcessorTime,
                     proc.PrivilegedProcessorTime,
                 },
-                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(),
+                PrimaryOnlyCounters = this.relationshipsUnlocked.GetCountersThreadSafePrimaryOnly(cursors),
             };
         }
 

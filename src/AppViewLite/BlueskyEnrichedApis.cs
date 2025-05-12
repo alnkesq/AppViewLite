@@ -4725,7 +4725,7 @@ namespace AppViewLite
         }
 
         public readonly static long TimeProcessStarted = Stopwatch.GetTimestamp();
-        public object GetCountersThreadSafe(RequestContext ctx)
+        public object GetCountersThreadSafe(RequestContext ctx, bool cursors = true)
         {
             var gcMemoryInfo = GC.GetGCMemoryInfo();
             using var proc = Process.GetCurrentProcess();

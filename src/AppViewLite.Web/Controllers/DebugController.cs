@@ -63,9 +63,9 @@ namespace AppViewLite.Web.Controllers
 
 
         [HttpGet("counters")]
-        public object GetCounters()
+        public object GetCounters(int cursors = 1)
         {
-            return apis.GetCountersThreadSafe(ctx);
+            return apis.GetCountersThreadSafe(ctx, cursors: cursors == 1);
         }
 
 

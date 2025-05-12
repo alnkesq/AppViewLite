@@ -4212,10 +4212,10 @@ namespace AppViewLite
             };
         }
 
-        public object GetCountersThreadSafePrimaryOnly()
+        public object GetCountersThreadSafePrimaryOnly(bool cursors)
         {
             FirehoseCursor[]? firehoseCursors = null;
-            if (IsPrimary)
+            if (cursors && IsPrimary)
             {
                 lock (this.firehoseCursors!)
                 {

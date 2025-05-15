@@ -1059,6 +1059,7 @@ namespace AppViewLite.Storage
         private Task<Action>? pendingCompactation;
 
         public override Task? HasPendingCompactationNotReadyForCommitYet => pendingCompactation != null && !pendingCompactation.IsCompleted ? pendingCompactation : null;
+
         private void MaybeCommitPendingCompactation(bool forceWait = false)
         {
             try
@@ -1067,10 +1068,10 @@ namespace AppViewLite.Storage
                 if (forceWait)
                 {
                     var sw = Stopwatch.StartNew();
-                    Log("Synchronously waiting for pending compactation to complete, because forceWait=true");
+                    Log("Synchronously waiting for pending compactation to complete, because forceWait=true: " + Name);
                     pendingCompactation.GetAwaiter().GetResult();
                     if (sw.Elapsed.TotalMilliseconds > 100)
-                        Log("  This synchronous wait for pending compactation took " + sw.Elapsed);
+                        Log("  This synchronous wait for pending compactation took " + sw.Elapsed + ": " + Name);
                 }
                 if (!pendingCompactation.IsCompleted)
                 {

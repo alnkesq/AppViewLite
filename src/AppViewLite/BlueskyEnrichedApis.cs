@@ -4979,7 +4979,7 @@ namespace AppViewLite
                 VerifyValidForCurrentRelay = labelerDidFromFirehose =>
                 {
                     if (!allowedLabelerDids.Contains(labelerDidFromFirehose))
-                        throw new Exception($"Labeler firehose {endpoint} ({string.Join(", ", allowedLabelerDids)}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
+                        throw new UnexpectedFirehoseDataException($"Labeler firehose {endpoint} ({string.Join(", ", allowedLabelerDids)}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
                 }
             };
             indexer.StartListeningToAtProtoFirehoseLabels(endpoint).FireAndForget();

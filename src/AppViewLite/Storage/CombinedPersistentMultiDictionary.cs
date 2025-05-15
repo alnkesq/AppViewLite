@@ -542,6 +542,7 @@ namespace AppViewLite.Storage
 
         public List<CompactationCandidate> GetCompactationCandidates(int minLength)
         {
+            var maxOutputBytes = new DriveInfo(this.DirectoryPath).AvailableFreeSpace - 200_000_000;
             var candidates = new List<CompactationCandidate>();
             for (int start = 0; start < slices.Count; start++)
             {
@@ -554,6 +555,7 @@ namespace AppViewLite.Storage
                     compactationBytes += componentBytes;
                     var length = end - start;
                     if (length < minLength) continue;
+                    if (compactationBytes > maxOutputBytes) break;
 
                     var ratioOfLargestComponent = ((double)largestComponentBytes / compactationBytes);
                     if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(compactationBytes, slices.Count)) continue;

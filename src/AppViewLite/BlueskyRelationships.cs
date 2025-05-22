@@ -295,13 +295,8 @@ namespace AppViewLite
             RecentBookmarks = RegisterDictionary<Plc, BookmarkDateFirst>("bookmark-recent");
             BookmarkDeletions = RegisterDictionary<Plc, Tid>("bookmark-deletion");
             DirectReplies = RegisterDictionary<PostIdTimeFirst, PostId>("post-reply-direct-2");
-            Migrate(DirectReplies, RegisterDictionary<PostId, PostId>("post-reply-direct"));
-
             Quotes = RegisterDictionary<PostIdTimeFirst, PostId>("post-quote-2");
-            Migrate(Quotes, RegisterDictionary<PostId, PostId>("post-quote"));
-
             PostDeletions = RegisterDictionary<PostIdTimeFirst, DateTime>("post-deletion-2", PersistentDictionaryBehavior.SingleValue);
-            Migrate(PostDeletions, RegisterDictionary<PostId, DateTime>("post-deletion", PersistentDictionaryBehavior.SingleValue));
 
             Profiles = RegisterDictionary<Plc, byte>("profile-basic-2", PersistentDictionaryBehavior.PreserveOrder);
             ProfileSearchLong = RegisterDictionary<HashedWord, Plc>("profile-search-long");
@@ -324,11 +319,7 @@ namespace AppViewLite
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
 
             Threadgates = RegisterDictionary<PostIdTimeFirst, byte>("threadgate-2", PersistentDictionaryBehavior.PreserveOrder);
-            Migrate(Threadgates, RegisterDictionary<PostId, byte>("threadgate", PersistentDictionaryBehavior.PreserveOrder));
-
             Postgates = RegisterDictionary<PostIdTimeFirst, byte>("postgate-2", PersistentDictionaryBehavior.PreserveOrder);
-            Migrate(Postgates, RegisterDictionary<PostId, byte>("postgate", PersistentDictionaryBehavior.PreserveOrder));
-
             ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", 2 * 1024 * 1024, 6, (k, v) => k.Actor)], getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
             ListSubscribers = RegisterDictionary<Relationship, Relationship>("list-subscribers", PersistentDictionaryBehavior.SingleValue);

@@ -304,7 +304,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var title = GetValue(rss, "title");
                 if (title != null)
                 {
-                    if (title.StartsWith("https://", StringComparison.Ordinal) && StringUtils.TryParseUri(title) is Uri url && url.HasHostSuffix(feedUrl.GetDomainTrimWww()))
+                    if (title.Equals("Untitled", StringComparison.OrdinalIgnoreCase) && feedUrl.HasHostSuffix("tumblr.com"))
+                    {
+                        title = null;
+                    }
+                    else if (title.StartsWith("https://", StringComparison.Ordinal) && StringUtils.TryParseUri(title) is Uri url && url.HasHostSuffix(feedUrl.GetDomainTrimWww()))
                     {
                         title = null;
                     }

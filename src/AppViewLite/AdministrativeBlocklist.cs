@@ -180,7 +180,7 @@ namespace AppViewLite
 
             if (domainOrDid.StartsWith("did:", StringComparison.OrdinalIgnoreCase))
             {
-                if (rules.IsMatch(domainOrDid))
+                if (rules.IsMatch(domainOrDid, alsoCheckRegexes: !IsCryptographicDid(domainOrDid)))
                     return true;
 
                 if (domainOrDid.StartsWith("did:web:", StringComparison.Ordinal) && ShouldBlock(rules, domainOrDid.Substring(8)))
@@ -207,11 +207,18 @@ namespace AppViewLite
             return false;
         }
 
+        private static bool IsCryptographicDid(string domainOrDid)
+        {
+            return
+                domainOrDid.StartsWith("did:plc:", StringComparison.Ordinal) ||
+                domainOrDid.StartsWith("did:nostr:", StringComparison.Ordinal);
+        }
+
         readonly record struct FrozenSetAndRegexList(FrozenSet<string> Set, Regex[] Regexes)
         {
-            public bool IsMatch(string domainOrDid)
+            public bool IsMatch(string domainOrDid, bool alsoCheckRegexes = true)
             {
-                return Set.Contains(domainOrDid) || Regexes.Any(x => x.IsMatch(domainOrDid));
+                return Set.Contains(domainOrDid) || (alsoCheckRegexes && Regexes.Any(x => x.IsMatch(domainOrDid)));
             }
         }
     }

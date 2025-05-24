@@ -16,7 +16,7 @@ namespace AppViewLite.Models
 
         public override string? Description => Data?.Description;
 
-        public override string BaseUrl => Moderator.BaseUrl + "?labeler=1";
+        public override string BaseUrl => Moderator!.BaseUrl + "?labeler=1";
 
         public override FacetData[]? DescriptionFacets => null;
 
@@ -24,7 +24,7 @@ namespace AppViewLite.Models
 
         public override string GetAvatarUrl(RequestContext ctx)
         {
-            return Moderator.AvatarUrl!;
+            return Moderator!.AvatarUrl!;
         }
     }
 }

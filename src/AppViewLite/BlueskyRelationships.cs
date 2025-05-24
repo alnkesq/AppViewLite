@@ -2814,6 +2814,7 @@ namespace AppViewLite
             post.DidPopulateViewerFlags = true;
         }
 
+
         internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, RequestContext ctx, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false, bool omitIfMuted = false)
         {
             alreadyReturned ??= [];
@@ -2932,11 +2933,14 @@ namespace AppViewLite
 
 
 
-
-
-        public BlueskyList GetList(Relationship listId, ListData? listData = null, RequestContext? ctx = null)
+        public BlueskyList GetList(Relationship listId, RequestContext ctx)
         {
-            if (ctx == null || !ctx.ListCache.TryGetValue(listId, out var result))
+            return GetList(listId, null, ctx: ctx);
+        }
+
+        public BlueskyList GetList(Relationship listId, ListData? listData, RequestContext ctx)
+        {
+            if (!ctx.ListCache.TryGetValue(listId, out var result))
             {
                 result = GetListCore(listId, listData, ctx);
                 if (ctx != null)
@@ -2944,11 +2948,11 @@ namespace AppViewLite
             }
             return result;
         }
-        private BlueskyList GetListCore(Relationship listId, ListData? listData = null, RequestContext? ctx = null)
+        private BlueskyList GetListCore(Relationship listId, ListData? listData, RequestContext ctx)
         {
 
             var did = GetDid(listId.Actor);
-            return new BlueskyList
+            var list = new BlueskyList
             {
                 ModeratorDid = did,
                 ListId = listId,
@@ -2956,6 +2960,14 @@ namespace AppViewLite
                 ListIdStr = new RelationshipStr(did, listId.RelationshipRKey.ToString()!),
                 Moderator = GetProfile(listId.Actor, ctx, canOmitDescription: true)
             };
+
+            if (ctx.IsLoggedIn)
+            {
+                var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == list.Moderator!.Plc && new Tid(x.ListRKey) == list.ListId.RelationshipRKey);
+                list.Mode = subscription?.Behavior ?? ModerationBehavior.None;
+                list.PrivateNickname = subscription?.OverrideDisplayName;
+            }
+            return list;
         }
 
         public ListData? TryGetListData(Relationship listId)
@@ -3256,10 +3268,9 @@ namespace AppViewLite
             throw new Exception(message);
         }
         public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(label));
-        public BlueskyLabel GetLabel(LabelId x, RequestContext? ctx)
+        public BlueskyLabel GetLabel(LabelId x, RequestContext ctx)
         {
-            if (ctx == null || ctx.LabelCache == null) { }
-            if (ctx?.LabelCache?.TryGetValue(x, out var cached) == true) return cached;
+            if (ctx.LabelCache?.TryGetValue(x, out var cached) == true) return cached;
             var label = new BlueskyLabel
             {
                 LabelId = x,
@@ -3268,7 +3279,14 @@ namespace AppViewLite
                 Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
                 Data = TryGetLabelData(x)
             };
-            ctx?.LabelCache?.TryAdd(x, label);
+
+            if (ctx.IsLoggedIn)
+            {
+                var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == label.Moderator!.Plc && x.LabelerNameHash == label.LabelId.NameHash);
+                label.Mode = subscription?.Behavior ?? ModerationBehavior.None;
+                label.PrivateNickname = subscription?.OverrideDisplayName;
+            }
+            ctx.LabelCache?.TryAdd(x, label);
             return label;
         }
 

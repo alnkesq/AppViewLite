@@ -2910,6 +2910,9 @@ namespace AppViewLite
             if (!BlueskyRelationships.IsNativeAtProtoDid(did)) return null;
             return await CreateProtocolForDidAsync(did, ctx)!;
         }
+
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Consistency with other factory methods")]
         public ATProtocol CreateQuickBackfillProtocol()
         {
             var instance = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE) ?? "https://public.api.bsky.app";
@@ -3183,16 +3186,6 @@ namespace AppViewLite
         {
             if (labels.Length == 0) return labels;
 
-            if (ctx.IsLoggedIn)
-            {
-                foreach (var label in labels)
-                {
-                    var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == label.Moderator!.Plc && x.LabelerNameHash == label.LabelId.NameHash);
-                    label.Mode = subscription?.Behavior ?? ModerationBehavior.None;
-                    label.PrivateNickname = subscription?.OverrideDisplayName;
-                }
-            }
-
             await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx, omitLabelsAndViewerFlags: true /* avoid infinite recursion */);
             if (!IsReadOnly)
             {
@@ -3209,19 +3202,11 @@ namespace AppViewLite
             return labels;
         }
 
+
         private async Task<BlueskyList[]> EnrichAsync(BlueskyList[] lists, RequestContext ctx, CancellationToken ct = default)
         {
             if (lists.Length == 0) return lists;
 
-            if (ctx.IsLoggedIn)
-            {
-                foreach (var list in lists)
-                {
-                    var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == list.Moderator!.Plc && new Tid(x.ListRKey) == list.ListId.RelationshipRKey);
-                    list.Mode = subscription?.Behavior ?? ModerationBehavior.None;
-                    list.PrivateNickname = subscription?.OverrideDisplayName;
-                }
-            }
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(lists.Where(x => x.Data == null).Select(async list =>
@@ -5002,7 +4987,7 @@ namespace AppViewLite
 
         public async Task<BlueskyList> GetListMetadataAsync(string did, string rkey, RequestContext ctx)
         {
-            var list = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetList(new Relationship(plc, Tid.Parse(rkey))), ctx);
+            var list = WithRelationshipsLockForDid(did, (plc, rels) => rels.GetList(new Relationship(plc, Tid.Parse(rkey)), ctx), ctx);
             await EnrichAsync([list], ctx);
             return list;
         }

@@ -10,7 +10,7 @@ namespace AppViewLite
     public static class EfficientTextCompressor
     {
         // Wrapper, because ObjectPool<T> needs T with public parameterless ctor.
-        internal class TiktokenWrapper
+        public class TiktokenWrapper
         {
             public readonly TiktokenTokenizer Tokenizer;
             public TiktokenWrapper()

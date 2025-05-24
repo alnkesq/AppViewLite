@@ -30,6 +30,8 @@ namespace AppViewLite.Storage
         private const uint OPEN_EXISTING = 3;
         private const uint FILE_FLAG_NO_BUFFERING = 0x20000000;
 
+        public DirectIoReadCache? DirectIoReadCache;
+
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern SafeFileHandle CreateFile(
             string lpFileName,

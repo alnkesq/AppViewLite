@@ -1,7 +1,7 @@
+using AppViewLite;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace AppViewLite.Storage
 {
@@ -15,7 +15,15 @@ namespace AppViewLite.Storage
             {
                 for (int i = 0; i < columnCount; i++)
                 {
-                    cols.Add(new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true));
+                    var file = new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true);
+
+                    var blockCacheCapacity = CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile;
+                    if (blockCacheCapacity != 0) 
+                    {
+                        var cache = new ConcurrentFullEvictionCache<long, byte[]>(blockCacheCapacity);
+                        file.DirectIoReadCache = new DirectIoReadCache(cache.GetOrAdd, AllocUnaligned);
+                    }
+                    cols.Add(file);
                 }
             }
             catch
@@ -27,6 +35,12 @@ namespace AppViewLite.Storage
                 throw;
             }
             this.columns = cols.ToArray();
+        }
+
+        private static unsafe NativeMemoryRange AllocUnaligned(int length)
+        {
+            var ptr = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread!.Allocate(length);
+            return new NativeMemoryRange((nuint)ptr, (nuint)length);
         }
 
         public IReadOnlyList<MemoryMappedFileSlim> Columns => columns;

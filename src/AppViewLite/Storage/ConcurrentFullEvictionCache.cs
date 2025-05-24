@@ -50,26 +50,46 @@ namespace AppViewLite
                 Add(key, value);
             }
         }
+
+        public TValue GetOrAdd(TKey key, Func<TValue> factory)
+        {
+            var wasAdded = false;
+            var value = dict.GetOrAdd(key, (key) =>
+            {
+                wasAdded = true; // racy but doesn't matter, approximation only
+                return factory();
+            });
+            if (wasAdded)
+            {
+                IncrementApproximateCountAndMaybeReset();
+            }
+            return value;
+        }
         public bool Add(TKey key, TValue value)
         {
             var wasAdded = true;
             dict.AddOrUpdate(key, value, (key, old) =>
             {
-                wasAdded = false;
+                wasAdded = false; // Updating, so we must NOT increment approx count
                 return value;
             });
             if (wasAdded)
             {
-                var incremented = Interlocked.Increment(ref approximateCount);
-                if (incremented >= capacity)
-                {
-                    // It's ok to have races here. Count is only approximate.
-                    dict = new();
-                    approximateCount = 0;
-                    LastReset = Stopwatch.GetTimestamp();
-                }
+                IncrementApproximateCountAndMaybeReset();
             }
             return wasAdded;
+        }
+
+        private void IncrementApproximateCountAndMaybeReset()
+        {
+            var incremented = Interlocked.Increment(ref approximateCount);
+            if (incremented >= capacity)
+            {
+                // It's ok to have races here. Count is only approximate.
+                dict = new();
+                approximateCount = 0;
+                LastReset = Stopwatch.GetTimestamp();
+            }
         }
 
         private long LastReset = Stopwatch.GetTimestamp();

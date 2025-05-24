@@ -172,7 +172,7 @@
                     {
                         @if (SimpleProfile.BlockReason == default || SimpleProfile.IsFollowedEvenPrivatelyBySelf)
                         {
-                            <button actionkind="toggleFollow" data-followkind="private" class="menu-item @(SimpleProfile.IsFollowedBySelf != null ? "display-none" : null)">@(SimpleProfile.IsFollowedEvenPrivatelyBySelf ? "Unfollow (private)" : "Follow privately")</button>
+                            <button actionkind="toggleFollow" data-followkind="private" class="menu-item @(SimpleProfile.IsFollowedViaAtProto != null ? "display-none" : null)">@(SimpleProfile.IsFollowedEvenPrivatelyBySelf ? "Unfollow (private)" : "Follow privately")</button>
 
                             @if (SimpleProfile.BlockReason == default)
                             {

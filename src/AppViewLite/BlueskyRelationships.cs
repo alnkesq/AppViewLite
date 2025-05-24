@@ -3573,13 +3573,13 @@ namespace AppViewLite
                 profile.UserContext = ctx.UserContext;
                 if (ctx.IsStillFollowedCached?.TryGetValue(profile.Plc, out var followRkey) == true)
                 {
-                    if (followRkey != Tid.MaxValue) // MaxValue means private follow
-                        profile.IsFollowedBySelf = followRkey;
+                    if (followRkey != Tid.MaxValue && followRkey != default) // MaxValue means private follow, default means not followed.
+                        profile.IsFollowedViaAtProto = followRkey;
                 }
                 else
                 {
                     if (Follows.HasActor(profile.Plc, ctx.LoggedInUser, out var followRel))
-                        profile.IsFollowedBySelf = followRel.RelationshipRKey;
+                        profile.IsFollowedViaAtProto = followRel.RelationshipRKey;
                 }
 
             }

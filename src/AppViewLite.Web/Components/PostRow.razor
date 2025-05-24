@@ -222,7 +222,7 @@
         </a>
     </div>
 
-    @if (IsFocalPost && RequestContext.IsLoggedIn && Post.Author.Plc != RequestContext.LoggedInUser && Post.Author.IsFollowedBySelf == null && Post.Author.BlockReason == default)
+    @if (IsFocalPost && RequestContext.IsLoggedIn && Post.Author.Plc != RequestContext.LoggedInUser && !Post.Author.IsFollowedEvenPrivatelyBySelf && Post.Author.BlockReason == default)
     {
         <div class="post-follow-area" data-profiledid="@OriginalAuthor.Did" data-followrkey="@OriginalAuthor.FollowRKeyForAttribute" data-followsyou="@OriginalAuthor.FollowsYouForAttribute">
             <FollowButton Profile="@Post.Author" />

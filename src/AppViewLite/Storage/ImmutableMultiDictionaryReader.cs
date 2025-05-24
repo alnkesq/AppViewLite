@@ -410,6 +410,11 @@ namespace AppViewLite.Storage
 
         }
 
+        public IEnumerable<(TKey Key, TValue Value)> EnumerateKeyValuePairs()
+        {
+            return Enumerate().SelectMany(x => x.Values, (a, b) => (a.Key, Value: b));
+        }
+
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
         {
             var keys = this.Keys;

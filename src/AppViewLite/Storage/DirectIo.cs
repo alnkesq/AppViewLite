@@ -17,6 +17,8 @@ namespace AppViewLite.Storage
             return new NativeMemoryRange((nuint)ptr, (nuint)length);
         }
 
+        [ThreadStatic] private static AlignedNativeArena? AlignedNativeArenaForCurrentThreadCacheReads;
+
         public unsafe static NativeMemoryRange ReadUnaligned(SafeFileHandle handle, long fileOffset, int length, AlignedNativeArena arena, DirectIoReadCache? readCache = null)
         {
             var blockSize = (int)arena.Alignment;
@@ -47,12 +49,22 @@ namespace AppViewLite.Storage
                 {
                     var blockSpan = readCache.GetOrAdd(blockStartFileOffset, () => 
                     {
-                        var block = new byte[blockSize];
-                        if (RandomAccess.Read(handle, block, blockStartFileOffset) != blockSize)
+                        var alignedArenaForCacheReads = AlignedNativeArenaForCurrentThreadCacheReads;
+                        if (alignedArenaForCacheReads == null)
                         {
-                            throw new EndOfStreamException();
+                            alignedArenaForCacheReads = new(blockSize, (nuint)blockSize);
+                            AlignedNativeArenaForCurrentThreadCacheReads = alignedArenaForCacheReads;
                         }
-                        return block;
+                        var block = ReadAligned(handle, blockStartFileOffset, blockSize, alignedArenaForCacheReads);
+                        alignedArenaForCacheReads.Reset();
+                        return new Span<byte>((byte*)block.Pointer, (int)block.Length).ToArray();
+                        //var block = new byte[blockSize];
+                        //Console.Error.WriteLine("Read: " + handle.DangerousGetHandle() + ", " + block.Length + ", " + blockStartFileOffset + ", total: " + RandomAccess.GetLength(handle));
+                        //if (RandomAccess.Read(handle, block, blockStartFileOffset) != blockSize)
+                        //{
+                        //    throw new EndOfStreamException();
+                        //}
+                        //return block;
                     }).AsSpan();
 
                     if (blockIndex == 0)

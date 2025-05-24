@@ -330,6 +330,7 @@ namespace AppViewLite.Storage
         public unsafe DangerousHugeReadOnlyMemory<T> ReadSpanCore<T>(MemoryMappedFileSlim fileHandle, DangerousHugeReadOnlyMemory<T> hugeSpan, long index, long length, IoMethodPreference preference) where T : unmanaged
         {
             CombinedPersistentMultiDictionary.Assert(index >= 0);
+            if (length == 0) return default;
             var directIoArena = AlignedNativeArena.ForCurrentThread;
             if (directIoArena != null && preference != IoMethodPreference.Mmap)
             {

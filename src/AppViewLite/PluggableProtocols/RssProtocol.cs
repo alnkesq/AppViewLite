@@ -1055,7 +1055,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         public override bool ReusesThumbImageForFullSizeImages(BlueskyPost post)
         {
             if (post.Data?.Media == null) return false;
-            return post.Data.Media.All(x => !BlueskyRelationships.DecompressBpe(x.Cid)!.Contains('\n'));
+            return post.Data.Media.All(x => !(BlueskyRelationships.DecompressBpe(x.Cid)?.Contains('\n') ?? false));
         }
 
         public override string? GetDisplayNameFromDid(string did)

@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Net.Http.Json;
 using AppViewLite.PluggableProtocols.Reddit;
+using AngleSharp.Html.Dom;
 
 namespace AppViewLite.PluggableProtocols.Rss
 {
@@ -860,7 +861,17 @@ namespace AppViewLite.PluggableProtocols.Rss
                         if (quotedExternalLinkUrl != null)
                             quotedExternalLinkTitle = linkText.Trim();
                         preludeBelongsToQuotee = true;
+                    } 
+                    else if (prelude.Any(x => x is IHtmlImageElement) && prelude.All(x => x is IHtmlImageElement || x is IHtmlBreakRowElement))
+                    {
+                        foreach (var item in prelude.AsEnumerable().Reverse())
+                        {
+                            blockquote.InsertBefore(item, blockquote.FirstChild);
+                        }
+                        preludeBelongsToQuotee = true;
                     }
+
+
                     if (!preludeBelongsToQuotee)
                         nextSiblings.AddRange(prelude);
                 }

@@ -49,5 +49,39 @@ namespace AppViewLite.Storage
             return hash!(obj);
         }
     }
+
+    public class ProjectionComparer<T, TKey> : IComparer<T>
+    {
+        private readonly Func<T, TKey> _keySelector;
+        private readonly IComparer<TKey> _comparer;
+
+        public ProjectionComparer(Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+        {
+            _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
+            _comparer = comparer ?? Comparer<TKey>.Default;
+        }
+
+        public int Compare(T? x, T? y)
+        {
+            return _comparer.Compare(_keySelector(x!), _keySelector(y!));
+        }
+    }
+
+    public class ReverseProjectionComparer<T, TKey> : IComparer<T>
+    {
+        private readonly Func<T, TKey> _keySelector;
+        private readonly IComparer<TKey> _comparer;
+
+        public ReverseProjectionComparer(Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+        {
+            _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
+            _comparer = comparer ?? Comparer<TKey>.Default;
+        }
+
+        public int Compare(T? x, T? y)
+        {
+            return _comparer.Compare(_keySelector(y!), _keySelector(x!));
+        }
+    }
 }
 

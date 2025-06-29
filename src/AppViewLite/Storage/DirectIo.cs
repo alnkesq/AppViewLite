@@ -42,38 +42,51 @@ namespace AppViewLite.Storage
                 var blockCount = alignedLength / blockSize;
                 var blockStartFileOffset = alignedFileOffset;
                 var result = readCache.AllocUnaligned(length);
-                var resultSpan = new Span<byte>((void*)result.Pointer, length);
+                var resultSpan = result.AsSpan();
                 var resultSpanRemaining = resultSpan;
-                if (blockCount != 1) { }
-                for (int blockIndex = 0; blockIndex < blockCount; blockIndex++)
+                if (blockCount >= 3)
                 {
-                    var blockSpan = readCache.GetOrAdd(blockStartFileOffset, () =>
+                    var cached = readCache.GetOrAddMultiblock((fileOffset, length), () =>
                     {
-                        var alignedArenaForCacheReads = GetArenaForAlignedCacheReads(blockSize);
-                        var block = ReadAligned(handle, blockStartFileOffset, blockSize, alignedArenaForCacheReads);
-                        alignedArenaForCacheReads.Reset();
-                        return new Span<byte>((byte*)block.Pointer, (int)block.Length).ToArray();
-                    }).AsSpan();
-
-                    if (blockIndex == 0)
-                    {
-                        blockSpan = blockSpan.Slice((int)offsetWithinBlock);
-                    }
-
-                    if (resultSpanRemaining.Length < blockSpan.Length)
-                    {
-                        blockSpan = blockSpan.Slice(0, resultSpanRemaining.Length);
-                    }
-
-
-
-                    blockSpan.CopyTo(resultSpanRemaining);
-                    resultSpanRemaining = resultSpanRemaining.Slice(blockSpan.Length);
-
-
-                    blockStartFileOffset += blockSize;
+                        
+                        var alignedArena = GetArenaForAlignedCacheReads(blockSize);
+                        var alignedBuffer = ReadAligned(handle, alignedFileOffset, alignedLength, alignedArena).AsReadOnlySpan();
+                        alignedArena.Reset();
+                        return alignedBuffer.Slice((int)offsetWithinBlock, length).ToArray();
+                    });
+                    cached.CopyTo(resultSpan);
                 }
+                else
+                {
+                    for (int blockIndex = 0; blockIndex < blockCount; blockIndex++)
+                    {
+                        var blockSpan = readCache.GetOrAddSingleBlock(blockStartFileOffset, () =>
+                        {
+                            var alignedArena = GetArenaForAlignedCacheReads(blockSize);
+                            var block = ReadAligned(handle, blockStartFileOffset, blockSize, alignedArena);
+                            alignedArena.Reset();
+                            return block.AsReadOnlySpan().ToArray();
+                        }).AsSpan();
 
+                        if (blockIndex == 0)
+                        {
+                            blockSpan = blockSpan.Slice((int)offsetWithinBlock);
+                        }
+
+                        if (resultSpanRemaining.Length < blockSpan.Length)
+                        {
+                            blockSpan = blockSpan.Slice(0, resultSpanRemaining.Length);
+                        }
+
+
+
+                        blockSpan.CopyTo(resultSpanRemaining);
+                        resultSpanRemaining = resultSpanRemaining.Slice(blockSpan.Length);
+
+
+                        blockStartFileOffset += blockSize;
+                    }
+                }
 #if false
                 var alignedSpan = ReadAligned(handle, alignedFileOffset, alignedLength, arena);
                 var unalignedSpan = new NativeMemoryRange(alignedSpan.Pointer + (nuint)offsetWithinBlock, (nuint)length);
@@ -106,6 +119,8 @@ namespace AppViewLite.Storage
 
     public record struct NativeMemoryRange(nuint Pointer, nuint Length)
     {
+        public unsafe Span<byte> AsSpan() => new Span<byte>((void*)Pointer, checked((int)Length));
+        public unsafe ReadOnlySpan<byte> AsReadOnlySpan() => AsSpan();
     }
 
     public enum IoMethodPreference
@@ -117,12 +132,14 @@ namespace AppViewLite.Storage
 
     public class DirectIoReadCache
     {
-        public DirectIoReadCache(Func<long, Func<byte[]>, byte[]> getOrAdd, Func<int, NativeMemoryRange> allocUnaligned)
+        public DirectIoReadCache(Func<long, Func<byte[]>, byte[]> getOrAddSingleBlock, Func<(long FileOffset, int Length), Func<byte[]>, byte[]> getOrAddMultiBlock, Func<int, NativeMemoryRange> allocUnaligned)
         {
-            GetOrAdd = getOrAdd;
+            GetOrAddSingleBlock = getOrAddSingleBlock;
             AllocUnaligned = allocUnaligned;
+            GetOrAddMultiblock = getOrAddMultiBlock;
         }
-        internal readonly Func<long, Func<byte[]>, byte[]> GetOrAdd;
+        internal readonly Func<long, Func<byte[]>, byte[]> GetOrAddSingleBlock;
+        internal readonly Func<(long FileOffset, int Length), Func<byte[]>, byte[]> GetOrAddMultiblock;
         internal readonly Func<int, NativeMemoryRange> AllocUnaligned;
     }
 }

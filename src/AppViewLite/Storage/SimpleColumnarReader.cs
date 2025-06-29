@@ -17,11 +17,11 @@ namespace AppViewLite.Storage
                 {
                     var file = new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true);
 
-                    var blockCacheCapacity = CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile;
-                    if (blockCacheCapacity != 0) 
+                    if (CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile != 0) 
                     {
-                        var cache = new ConcurrentFullEvictionCache<long, byte[]>(blockCacheCapacity);
-                        file.DirectIoReadCache = new DirectIoReadCache(cache.GetOrAdd, AllocUnaligned);
+                        var singleBlockCache = new ConcurrentFullEvictionCache<long, byte[]>(CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile);
+                        var multiBlockCache = new ConcurrentFullEvictionCache<(long, int), byte[]>(CombinedPersistentMultiDictionary.DirectIoMultiBlockCacheCapacityPerFile);
+                        file.DirectIoReadCache = new DirectIoReadCache(singleBlockCache.GetOrAdd, multiBlockCache.GetOrAdd, AllocUnaligned);
                     }
                     cols.Add(file);
                 }

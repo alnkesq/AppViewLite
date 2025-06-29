@@ -193,6 +193,7 @@ namespace AppViewLite.Storage
         public static Func<string, string> ToPhysicalPath = x => x;
         public static ConcurrentDictionary<string, long> DirectIoReadStats = new();
         public static int DirectIoBlockCacheCapacityPerFile;
+        public static int DirectIoMultiBlockCacheCapacityPerFile;
 
         public static void Log(string text)
         {

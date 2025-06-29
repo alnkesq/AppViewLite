@@ -12,8 +12,12 @@ namespace AppViewLite.Storage
             var ptr = arena.Allocate((nuint)length);
             var span = new Span<byte>(ptr, length);
             var read = RandomAccess.Read(handle, span, fileOffset);
-            if (read != length)
+            // "read != length" can happen when we read near the end of a file (last block might not be complete)
+            // Just make sure we read at least one byte.
+            if (read == 0)
+            {
                 throw new EndOfStreamException();
+            } 
             return new NativeMemoryRange((nuint)ptr, (nuint)length);
         }
 

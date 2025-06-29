@@ -47,24 +47,12 @@ namespace AppViewLite.Storage
                 if (blockCount != 1) { }
                 for (int blockIndex = 0; blockIndex < blockCount; blockIndex++)
                 {
-                    var blockSpan = readCache.GetOrAdd(blockStartFileOffset, () => 
+                    var blockSpan = readCache.GetOrAdd(blockStartFileOffset, () =>
                     {
-                        var alignedArenaForCacheReads = AlignedNativeArenaForCurrentThreadCacheReads;
-                        if (alignedArenaForCacheReads == null)
-                        {
-                            alignedArenaForCacheReads = new(blockSize, (nuint)blockSize);
-                            AlignedNativeArenaForCurrentThreadCacheReads = alignedArenaForCacheReads;
-                        }
+                        var alignedArenaForCacheReads = GetArenaForAlignedCacheReads(blockSize);
                         var block = ReadAligned(handle, blockStartFileOffset, blockSize, alignedArenaForCacheReads);
                         alignedArenaForCacheReads.Reset();
                         return new Span<byte>((byte*)block.Pointer, (int)block.Length).ToArray();
-                        //var block = new byte[blockSize];
-                        //Console.Error.WriteLine("Read: " + handle.DangerousGetHandle() + ", " + block.Length + ", " + blockStartFileOffset + ", total: " + RandomAccess.GetLength(handle));
-                        //if (RandomAccess.Read(handle, block, blockStartFileOffset) != blockSize)
-                        //{
-                        //    throw new EndOfStreamException();
-                        //}
-                        //return block;
                     }).AsSpan();
 
                     if (blockIndex == 0)
@@ -103,6 +91,17 @@ namespace AppViewLite.Storage
 
         }
 
+        private static unsafe AlignedNativeArena GetArenaForAlignedCacheReads(int blockSize)
+        {
+            var alignedArenaForCacheReads = AlignedNativeArenaForCurrentThreadCacheReads;
+            if (alignedArenaForCacheReads == null)
+            {
+                alignedArenaForCacheReads = new(blockSize, (nuint)blockSize);
+                AlignedNativeArenaForCurrentThreadCacheReads = alignedArenaForCacheReads;
+            }
+
+            return alignedArenaForCacheReads;
+        }
     }
 
     public record struct NativeMemoryRange(nuint Pointer, nuint Length)

@@ -63,7 +63,12 @@ namespace AppViewLite
             });
             if (wasAdded)
             {
+                HitMissCounter.OnMiss();
                 IncrementApproximateCountAndMaybeReset(value);
+            }
+            else
+            {
+                HitMissCounter.OnHit();
             }
             return value;
         }

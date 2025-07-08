@@ -561,7 +561,8 @@ async function recordPostEngagement(postElement, kind) {
     }
     console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
     var hasImages = !!postElement.querySelector('.post-image-list') && !postElement.classList.contains('post-small-media-thumbnail');
-    var weight = hasImages ? 2 : 1;
+    var hasExternalPreview = !!postElement.querySelector('.post-external-preview-image') && !postElement.querySelector('.post-external-preview-compact');
+    var weight = hasImages || hasExternalPreview ? 2 : 1;
     safeSignalrInvoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, kind, weight);
     postElement.wasMarkedAsRead = true;
 }

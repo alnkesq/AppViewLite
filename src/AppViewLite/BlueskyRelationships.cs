@@ -3440,7 +3440,12 @@ namespace AppViewLite
 
             }
 
-            return new FollowingFastResults(possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray(), (plc, rels) => IsStillFollowedGetRkey(plc, rels) != default, IsStillFollowedGetRkey,
+            var possibleFollowsArray = possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray();
+            
+            // Following feed gives up on cold reads after a timeout, so be fair.
+            new Random((DateTime.UtcNow.Ticks / TimeSpan.TicksPerMinute).GetHashCode()).Shuffle(possibleFollowsArray);
+
+            return new FollowingFastResults(possibleFollowsArray, (plc, rels) => IsStillFollowedGetRkey(plc, rels) != default, IsStillFollowedGetRkey,
             plc =>
             {
                 if (plc == default) return true;

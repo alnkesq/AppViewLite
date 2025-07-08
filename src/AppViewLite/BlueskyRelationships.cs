@@ -3876,6 +3876,7 @@ namespace AppViewLite
         public IEnumerable<RecentRepost>? GetRecentReposts(Plc plc, bool couldBePluggablePost, bool onlyIfAlreadyInRam)
         {
             var result = GetRecentRepostsEvenVeryRecent(plc, onlyIfAlreadyInRam);
+            if (result == null) return null;
             if (couldBePluggablePost)
             {
                 var threshold = Tid.FromDateTime(DateTime.UtcNow - PrimarySecondaryPair.ReadOnlyReplicaMaxStalenessOnExplicitRead - TimeSpan.FromSeconds(10));

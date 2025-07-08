@@ -26,7 +26,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 };
                 var posts = page.QuerySelectorAll(".tgme_widget_message_wrap").Select(x => 
                 {
-                    var date = DateTime.Parse(x.QuerySelector("time")!.GetAttribute("datetime")!, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
+                    var date = DateTime.Parse(x.QuerySelectorAll("time").Last().GetAttribute("datetime")!, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
                     var postId = x.Children.First(x => x.ClassList.Contains("tgme_widget_message")).GetAttribute("data-post");
                     var body = x.QuerySelector(".tgme_widget_message_text");
                     body?.Children.LastOrDefault(x => x.TagName == "A" && StringUtils.TryParseUri(feedUrl, x.GetAttribute("href"))?.HasHostSuffix("t.me") == true && x.GetAttribute("rel") != "noopener")?.Remove();
@@ -43,7 +43,15 @@ namespace AppViewLite.PluggableProtocols.Rss
                         {
                             Cid = RssProtocol.UrlToCid(imageUrl)!
                         };
-                    }).ToArray();
+                    }).Concat(x.QuerySelectorAll(".tgme_widget_message_video_player").Select(x => 
+                    {
+                        var thumb = Regex.Matches(x.QuerySelector(".tgme_widget_message_video_thumb")!.GetAttribute("style")!, @"url\('(.+?)'").First().Groups[1].Value;
+                        return new BlueskyMediaData
+                        {
+                            IsVideo = true,
+                            Cid = RssProtocol.UrlToCid(thumb, x.QuerySelector("video")!.GetAttribute("src"))!,
+                        };
+                    })).ToArray();
                     if (data.Media.Length == 0 && text == null && x.QuerySelector(".message_media_not_supported_label") != null) return null;
                     var post = new VirtualRssPost(new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(PluggableProtocol.CreateSyntheticTid(date, postId), "/" + postId)), data);
                     return post;

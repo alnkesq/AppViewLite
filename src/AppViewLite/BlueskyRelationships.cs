@@ -2698,6 +2698,16 @@ namespace AppViewLite
 
         public ConcurrentDictionary<Plc, UserRecentPostWithScore[]> UserToRecentPopularPosts = new(); // within each user, posts are sorted by rkey
         public ConcurrentDictionary<Plc, RecentRepost[]> UserToRecentRepostsCache = new(); // within each user, posts are sorted by repost rkey
+
+
+        public static Func<bool> CreateTimeoutFunc(TimeSpan timeout)
+        {
+            var sw = Stopwatch.StartNew();
+            return () => sw.Elapsed > timeout;
+        }
+
+        public readonly static TimeSpan FollowingFeedTimeout = TimeSpan.FromMilliseconds(750);
+
         public IEnumerable<BlueskyPost> EnumerateFollowingFeed(RequestContext ctx, DateTime minDate, Tid? maxTidExclusive, bool atProtoOnlyPosts)
         {
             var loggedInUser = ctx.LoggedInUser;
@@ -2709,14 +2719,16 @@ namespace AppViewLite
 
             var requireFollowStillValid = new Dictionary<BlueskyPost, (Plc A, Plc B, Plc C)>();
 
+            var timedOut = CreateTimeoutFunc(FollowingFeedTimeout);
             var usersRecentPosts =
                 follows.PossibleFollows
                 .Select(pair =>
                 {
                     var author = pair.Plc;
-                    return this
+                    return
+                        this
                         //.EnumerateRecentPosts(author, thresholdDate, maxTid)
-                        .GetRecentPopularPosts(author, pair.IsPrivate)
+                        .GetRecentPopularPosts(author, pair.IsPrivate, onlyIfAlreadyInRam: timedOut())?
                         .Reverse()
                         .SkipWhile(x => maxTidExclusive != null && x.RKey.CompareTo(maxTidExclusive.Value) >= 0)
                         .TakeWhile(x => minDateAsTid.CompareTo(x.RKey) <= 0)
@@ -2756,7 +2768,8 @@ namespace AppViewLite
                             return post;
                         })
                         .WhereNonNull();
-                });
+                })
+                .WhereNonNull();
             var usersRecentReposts =
                 follows.PossibleFollows
                 .Select(pair =>
@@ -2764,7 +2777,7 @@ namespace AppViewLite
                     var reposter = pair.Plc;
                     BlueskyProfile? reposterProfile = null;
                     return this
-                        .GetRecentReposts(reposter, pair.IsPrivate)
+                        .GetRecentReposts(reposter, pair.IsPrivate, onlyIfAlreadyInRam: timedOut())?
                         .Select(x =>
                         {
                             var post = GetPost(x.PostId, ctx);
@@ -2773,7 +2786,8 @@ namespace AppViewLite
                             requireFollowStillValid[post] = (reposter, default, default);
                             return post;
                         });
-                });
+                })
+                .WhereNonNull();
             var result =
                 SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value) : x.PostId.PostRKey, new ReverseComparer<Tid>())
                 .Where(x =>
@@ -3830,9 +3844,11 @@ namespace AppViewLite
         public readonly static TimeSpan BalancedFeedMaximumAge = TimeSpan.FromDays(2);
 
 
-        public IEnumerable<UserRecentPostWithScore> GetRecentPopularPosts(Plc plc, bool couldBePluggablePost)
+        public IEnumerable<UserRecentPostWithScore>? GetRecentPopularPosts(Plc plc, bool couldBePluggablePost, bool onlyIfAlreadyInRam)
         {
-            var result = GetRecentPopularPostsEvenVeryRecent(plc, couldBePluggablePost);
+            var result = GetRecentPopularPostsEvenVeryRecent(plc, couldBePluggablePost, onlyIfAlreadyInRam);
+            if (result == null)
+                return null;
             if (couldBePluggablePost)
             {
                 var threshold = Tid.FromDateTime(DateTime.UtcNow - PrimarySecondaryPair.ReadOnlyReplicaMaxStalenessOnExplicitRead - TimeSpan.FromSeconds(10));
@@ -3840,9 +3856,9 @@ namespace AppViewLite
             }
             return result;
         }
-        public IEnumerable<RecentRepost> GetRecentReposts(Plc plc, bool couldBePluggablePost)
+        public IEnumerable<RecentRepost>? GetRecentReposts(Plc plc, bool couldBePluggablePost, bool onlyIfAlreadyInRam)
         {
-            var result = GetRecentRepostsEvenVeryRecent(plc);
+            var result = GetRecentRepostsEvenVeryRecent(plc, onlyIfAlreadyInRam);
             if (couldBePluggablePost)
             {
                 var threshold = Tid.FromDateTime(DateTime.UtcNow - PrimarySecondaryPair.ReadOnlyReplicaMaxStalenessOnExplicitRead - TimeSpan.FromSeconds(10));
@@ -3850,12 +3866,16 @@ namespace AppViewLite
             }
             return result;
         }
-        private IEnumerable<UserRecentPostWithScore> GetRecentPopularPostsEvenVeryRecent(Plc plc, bool couldBePluggablePost)
+
+        private IEnumerable<UserRecentPostWithScore>? GetRecentPopularPostsEvenVeryRecent(Plc plc, bool couldBePluggablePost, bool onlyIfAlreadyInRam)
         {
             while (true)
             {
                 if (UserToRecentPopularPosts.TryGetValue(plc, out var result))
                     return result;
+
+                if (onlyIfAlreadyInRam)
+                    return null;
 
                 // This code usually runs on the readonly replica, which can slightly lag behind the primary.
                 // UserToRecentPopularPosts is shared across primary and replica.
@@ -3875,12 +3895,14 @@ namespace AppViewLite
         }
 
 
-        private IEnumerable<RecentRepost> GetRecentRepostsEvenVeryRecent(Plc plc)
+        private IEnumerable<RecentRepost>? GetRecentRepostsEvenVeryRecent(Plc plc, bool onlyIfAlreadyInRam)
         {
             while (true)
             {
                 if (UserToRecentRepostsCache.TryGetValue(plc, out var result))
                     return result;
+
+                if (onlyIfAlreadyInRam) return null;
 
                 // This code usually runs on the readonly replica, which can slightly lag behind the primary.
                 // UserToRecentRepostsCache is shared across primary and replica.

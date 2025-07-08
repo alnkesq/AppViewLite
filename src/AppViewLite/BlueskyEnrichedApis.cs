@@ -2472,14 +2472,15 @@ namespace AppViewLite
 
         private static BalancedFeedCandidatesForFollowee GetBalancedFollowingFeedCandidatesForFollowee(BlueskyRelationships rels, Plc plc, bool couldBePluggablePost, DateTime minDate, Plc loggedInUser, FollowingFastResults possibleFollows, Func<PostIdTimeFirst, bool> isPostSeen)
         {
-            var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: couldBePluggablePost /*pluggables can only repost pluggables, atprotos can only repost atprotos*/);
+            var timedOut = BlueskyRelationships.CreateTimeoutFunc(BlueskyRelationships.FollowingFeedTimeout);
+            var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: couldBePluggablePost /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, onlyIfAlreadyInRam: timedOut());
 
-            var posts = postsFast
+            var posts = (postsFast ?? [])
                 .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
                 .Where(x => x.RKey.Date >= minDate)
                 .ToArray();
 
-            var reposts = rels.GetRecentReposts(plc, couldBePluggablePost: couldBePluggablePost)
+            var reposts = (rels.GetRecentReposts(plc, couldBePluggablePost: couldBePluggablePost, onlyIfAlreadyInRam: timedOut()) ?? [])
                 .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
                 .Where(x => x.RepostRKey.Date >= minDate)
                 .ToArray();

@@ -4276,6 +4276,7 @@ namespace AppViewLite
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
                 RepostersSinceLastReplicaSnapshot = this.RepostersSinceLastReplicaSnapshot.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
+                AvailableDiskSpaceMb = AvailableDiskSpace / (float)(1024 * 1024),
                 DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
                 ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
                 ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache.GetCounters(),

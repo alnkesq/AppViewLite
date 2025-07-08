@@ -192,8 +192,6 @@ namespace AppViewLite.Storage
         public static bool PrintDirectIoReads;
         public static Func<string, string> ToPhysicalPath = x => x;
         public static ConcurrentDictionary<string, long> DirectIoReadStats = new();
-        public static int DirectIoBlockCacheCapacityPerFile;
-        public static int DirectIoMultiBlockCacheCapacityPerFile;
 
         public static void Log(string text)
         {
@@ -225,7 +223,7 @@ namespace AppViewLite.Storage
         public abstract bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval);
 
         public static Func<string, SliceName, bool> IsPrunedSlice = (_, s) => (s.PruneId % 2) == 1;
-
+        public static DirectIoReadCache? DirectIoReadCache;
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>

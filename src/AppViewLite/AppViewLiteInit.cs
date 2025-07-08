@@ -1,9 +1,11 @@
+using Microsoft.Win32.SafeHandles;
 using AppViewLite.Storage;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 
 namespace AppViewLite
 {
@@ -16,8 +18,37 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
-            CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_PER_FILE) ?? 128;
-            CombinedPersistentMultiDictionary.DirectIoMultiBlockCacheCapacityPerFile = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_PER_FILE) ?? 32;
+            var directIoBlockCacheCapacityBytes = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_MB) ?? 128) * 1024 * 1024;
+            var directIoMultiBlockCacheCapacity = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_MULTIBLOCK_CACHE_CAPACITY) ?? 1024;
+
+            if (directIoBlockCacheCapacityBytes != 0)
+            {
+                var singleBlockCache = new ConcurrentFullEvictionCache<(long, SafeFileHandle), byte[]>(directIoBlockCacheCapacityBytes / CombinedPersistentMultiDictionary.DiskSectorSize);
+                var multiBlockCache = new ConcurrentFullEvictionCache<(long, int, SafeFileHandle), byte[]>(directIoMultiBlockCacheCapacity);
+                var multiBlockApproxSize = 0L;
+                multiBlockCache.AfterReset += () =>
+                {
+                    multiBlockApproxSize = 0;
+                };
+                multiBlockCache.ValueAdded += value =>
+                {
+                    var updated = Interlocked.Add(ref multiBlockApproxSize, value.Length);
+                    if (updated > directIoBlockCacheCapacityBytes)
+                        multiBlockCache.Reset();
+                };
+                CombinedPersistentMultiDictionary.DirectIoReadCache = new DirectIoReadCache(singleBlockCache.GetOrAdd, multiBlockCache.GetOrAdd, BlueskyRelationships.AllocUnaligned, () => 
+                {
+                    return new
+                    {
+                        SingleBlockCache = singleBlockCache.GetCounters(),
+                        MultiBlockCache = multiBlockCache.GetCounters(),
+                        MultiBlockCacheBytes = multiBlockCache.Dictionary.Values.Sum(x => x.Length),
+                        MultiBlockCacheApproxBytes = multiBlockApproxSize,
+
+                    };
+                });
+            }
+
             GitCommitVersion = TryGetGitCommit();
 
             var ignoreSlicesPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_IGNORE_SLICES_PATH);

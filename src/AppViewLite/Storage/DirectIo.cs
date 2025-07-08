@@ -50,7 +50,7 @@ namespace AppViewLite.Storage
                 var resultSpanRemaining = resultSpan;
                 if (blockCount >= 3)
                 {
-                    var cached = readCache.GetOrAddMultiblock((fileOffset, length), () =>
+                    var cached = readCache.GetOrAddMultiblock((fileOffset, length, handle), () =>
                     {
                         
                         var alignedArena = GetArenaForAlignedCacheReads(blockSize);
@@ -64,7 +64,7 @@ namespace AppViewLite.Storage
                 {
                     for (int blockIndex = 0; blockIndex < blockCount; blockIndex++)
                     {
-                        var blockSpan = readCache.GetOrAddSingleBlock(blockStartFileOffset, () =>
+                        var blockSpan = readCache.GetOrAddSingleBlock((blockStartFileOffset, handle), () =>
                         {
                             var alignedArena = GetArenaForAlignedCacheReads(blockSize);
                             var block = ReadAligned(handle, blockStartFileOffset, blockSize, alignedArena);
@@ -136,15 +136,18 @@ namespace AppViewLite.Storage
 
     public class DirectIoReadCache
     {
-        public DirectIoReadCache(Func<long, Func<byte[]>, byte[]> getOrAddSingleBlock, Func<(long FileOffset, int Length), Func<byte[]>, byte[]> getOrAddMultiBlock, Func<int, NativeMemoryRange> allocUnaligned)
+        public DirectIoReadCache(Func<(long BlockIndex, SafeFileHandle SourceFile), Func<byte[]>, byte[]> getOrAddSingleBlock, Func<(long FileOffset, int Length, SafeFileHandle SourceFile), Func<byte[]>, byte[]> getOrAddMultiBlock, Func<int, NativeMemoryRange> allocUnaligned, Func<object> getCounters)
         {
             GetOrAddSingleBlock = getOrAddSingleBlock;
             AllocUnaligned = allocUnaligned;
             GetOrAddMultiblock = getOrAddMultiBlock;
+            GetCounters = getCounters;
         }
-        internal readonly Func<long, Func<byte[]>, byte[]> GetOrAddSingleBlock;
-        internal readonly Func<(long FileOffset, int Length), Func<byte[]>, byte[]> GetOrAddMultiblock;
+        internal readonly Func<(long BlockIndex, SafeFileHandle SourceFile), Func<byte[]>, byte[]> GetOrAddSingleBlock;
+        internal readonly Func<(long FileOffset, int Length, SafeFileHandle SourceFile), Func<byte[]>, byte[]> GetOrAddMultiblock;
         internal readonly Func<int, NativeMemoryRange> AllocUnaligned;
+
+        public readonly Func<object> GetCounters;
     }
 }
 

@@ -24,6 +24,8 @@ namespace AppViewLite
         public ConcurrentDictionary<TKey, TValue> Dictionary => dict;
 
         public readonly HitMissCounter HitMissCounter = new();
+        public event Action? AfterReset;
+        public event Action<TValue>? ValueAdded;
 
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
@@ -39,7 +41,7 @@ namespace AppViewLite
             }
         }
 
-        public object GetCounters() => new { Count = Count, HitRatio = HitMissCounter.HitRatio, LastResetAgo = Stopwatch.GetElapsedTime(LastReset) };
+        public object GetCounters() => new { Count, ApproximateCount, HitRatio = HitMissCounter.HitRatio, LastResetAgo = Stopwatch.GetElapsedTime(LastReset) };
 
         public int Count => dict.Count;
         public int ApproximateCount => approximateCount;
@@ -61,7 +63,7 @@ namespace AppViewLite
             });
             if (wasAdded)
             {
-                IncrementApproximateCountAndMaybeReset();
+                IncrementApproximateCountAndMaybeReset(value);
             }
             return value;
         }
@@ -75,21 +77,28 @@ namespace AppViewLite
             });
             if (wasAdded)
             {
-                IncrementApproximateCountAndMaybeReset();
+                IncrementApproximateCountAndMaybeReset(value);
             }
             return wasAdded;
         }
 
-        private void IncrementApproximateCountAndMaybeReset()
+        private void IncrementApproximateCountAndMaybeReset(TValue value)
         {
+            ValueAdded?.Invoke(value);
             var incremented = Interlocked.Increment(ref approximateCount);
             if (incremented >= capacity)
             {
-                // It's ok to have races here. Count is only approximate.
-                dict = new();
-                approximateCount = 0;
-                LastReset = Stopwatch.GetTimestamp();
+                Reset();
             }
+        }
+
+        public void Reset()
+        {
+            // It's ok to have races here. Count is only approximate.
+            dict = new();
+            approximateCount = 0;
+            LastReset = Stopwatch.GetTimestamp();
+            AfterReset?.Invoke();
         }
 
         private long LastReset = Stopwatch.GetTimestamp();

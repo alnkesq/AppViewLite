@@ -4211,6 +4211,7 @@ namespace AppViewLite
                 DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
                 this.PlcDirectoryStaleness,
                 this.PlcDirectorySyncDate,
+                DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache?.GetCounters(),
                 PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
                 registerForNotificationsCache = this.registerForNotificationsCache.Count,
                 ReplicaAge = this.ReplicaAge?.Elapsed,
@@ -4351,6 +4352,11 @@ namespace AppViewLite
             }
         }
 
+        public static unsafe NativeMemoryRange AllocUnaligned(int length)
+        {
+            var ptr = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread!.Allocate(length);
+            return new NativeMemoryRange((nuint)ptr, (nuint)length);
+        }
     }
 
 

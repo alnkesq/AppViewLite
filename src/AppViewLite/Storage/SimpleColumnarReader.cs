@@ -1,3 +1,4 @@
+using Microsoft.Win32.SafeHandles;
 using AppViewLite;
 using AppViewLite.Storage;
 using System;
@@ -17,12 +18,7 @@ namespace AppViewLite.Storage
                 {
                     var file = new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true);
 
-                    if (CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile != 0) 
-                    {
-                        var singleBlockCache = new ConcurrentFullEvictionCache<long, byte[]>(CombinedPersistentMultiDictionary.DirectIoBlockCacheCapacityPerFile);
-                        var multiBlockCache = new ConcurrentFullEvictionCache<(long, int), byte[]>(CombinedPersistentMultiDictionary.DirectIoMultiBlockCacheCapacityPerFile);
-                        file.DirectIoReadCache = new DirectIoReadCache(singleBlockCache.GetOrAdd, multiBlockCache.GetOrAdd, AllocUnaligned);
-                    }
+                    file.DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache;
                     cols.Add(file);
                 }
             }
@@ -35,12 +31,6 @@ namespace AppViewLite.Storage
                 throw;
             }
             this.columns = cols.ToArray();
-        }
-
-        private static unsafe NativeMemoryRange AllocUnaligned(int length)
-        {
-            var ptr = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread!.Allocate(length);
-            return new NativeMemoryRange((nuint)ptr, (nuint)length);
         }
 
         public IReadOnlyList<MemoryMappedFileSlim> Columns => columns;

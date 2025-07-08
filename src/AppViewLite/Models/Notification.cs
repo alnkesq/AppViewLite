@@ -46,6 +46,8 @@ namespace AppViewLite.Models
         FollowedYouBack,
         LikedYourFeed,
         RepliedToADescendant,
+        LikedYourRepost,
+        RepostedYourRepost,
 
 
         DarkNotificationBase = 128,

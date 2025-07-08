@@ -179,17 +179,20 @@ namespace AppViewLite
                 if (commitPlc == default) return default;
 
                 Plc subjectPlc = default;
+                Plc viaPlc = default;
                 bool relationshipIsAbsent = false;
 
                 if (record is Like like && like.Subject!.Uri.Collection == Post.RecordType)
                 {
                     subjectPlc = rels.TrySerializeDidMaybeReadOnly(like.Subject!.Uri.Did!.Handler, ctx);
+                    viaPlc = like.Via?.Uri.Did is { } viaDid ? rels.TrySerializeDidMaybeReadOnly(viaDid.Handler, ctx) : default;
                     if (subjectPlc != default && !rels.Likes.HasActor(new PostIdTimeFirst(Tid.Parse(like.Subject.Uri.Rkey), subjectPlc), commitPlc, out _))
                         relationshipIsAbsent = true;
                 }
                 else if (record is Repost repost && repost.Subject!.Uri.Collection == Post.RecordType)
                 {
                     subjectPlc = rels.TrySerializeDidMaybeReadOnly(repost.Subject!.Uri.Did!.Handler, ctx);
+                    viaPlc = repost.Via?.Uri.Did is { } viaDid ? rels.TrySerializeDidMaybeReadOnly(viaDid.Handler, ctx) : default;
                     if (subjectPlc != default && !rels.Reposts.HasActor(new PostIdTimeFirst(Tid.Parse(repost.Subject.Uri.Rkey), subjectPlc), commitPlc, out _))
                         relationshipIsAbsent = true;
                 }
@@ -201,7 +204,7 @@ namespace AppViewLite
                 }
 
 
-                return (commitPlc, subjectPlc, relationshipIsAbsentAsOf: relationshipIsAbsent ? rels.Version : 0);
+                return (commitPlc, subjectPlc, viaPlc, relationshipIsAbsentAsOf: relationshipIsAbsent ? rels.Version : 0);
             }, ctx);
 
 
@@ -229,6 +232,7 @@ namespace AppViewLite
 
                         // So that Likes.GetApproximateActorCount can quickly skip most slices (MaximumKey)
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
+
 
                         var likeRkey = GetMessageTid(path, Like.RecordType + "/");
                         if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey), preresolved.relationshipIsAbsentAsOf))
@@ -259,6 +263,13 @@ namespace AppViewLite
                             relationships.NotifyPostStatsChange(postId, commitPlc);
 
 
+                            if (l.Via != null)
+                            {
+                                if (l.Via.Uri.Collection != Repost.RecordType) throw new UnexpectedFirehoseDataException("Like.via should be a repost URL.");
+                                var viaRepostPlc = relationships.SerializeDidWithHint(l.Via.Uri.Did!.Handler, ctx, preresolved.viaPlc);
+                                var viaRepostRkey = l.Via.Uri.Rkey;
+                                relationships.AddNotification(viaRepostPlc, NotificationKind.LikedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, likeRkey.Date);
+                            }
 
                             relationships.IncrementRecentPopularPostLikeCount(postId, null);
 
@@ -318,7 +329,18 @@ namespace AppViewLite
 
                         if (relationships.IsRegisteredForNotifications(commitPlc))
                             relationships.SeenPosts.Add(commitPlc, new PostEngagement(postId, PostEngagementKind.LikedOrBookmarked));
+
+                        if (r.Via != null)
+                        {
+                            if (r.Via.Uri.Collection != Repost.RecordType) throw new UnexpectedFirehoseDataException("Repost.via should be a repost URL.");
+                            var viaRepostPlc = relationships.SerializeDidWithHint(r.Via.Uri.Did!.Handler, ctx, preresolved.viaPlc);
+                            var viaRepostRkey = r.Via.Uri.Rkey;
+
+                            relationships.AddNotification(viaRepostPlc, NotificationKind.RepostedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, repostRKey.Date);
+                        }
                     }
+
+
 
                     relationships.AddRepostToRecentRepostCache(commitPlc, new RecentRepost(repostRKey, postId));
                 }

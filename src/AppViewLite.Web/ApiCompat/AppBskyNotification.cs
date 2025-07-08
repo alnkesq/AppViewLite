@@ -25,6 +25,52 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
+        public override Task<Results<ATResult<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
+        {
+            return new GetPreferencesOutput 
+            {
+                Preferences = new Preferences 
+                {
+                    Chat = new ChatPreference 
+                    {
+                        Include = "accepted",
+                        Push = false,
+                    },
+                    Follow = CreateFilterablePreference(),
+                    Like = CreateFilterablePreference(),
+                    LikeViaRepost = CreateFilterablePreference(),
+                    Mention = CreateFilterablePreference(),
+                    Quote = CreateFilterablePreference(),
+                    Reply = CreateFilterablePreference(),
+                    Repost = CreateFilterablePreference(),
+                    RepostViaRepost = CreateFilterablePreference(),
+                    StarterpackJoined = CreatePreference(),
+                    SubscribedPost = CreatePreference(),
+                    Unverified = CreatePreference(),
+                    Verified = CreatePreference(),
+                }
+            }.ToJsonResultOkTask();
+        }
+
+        private static FilterablePreference CreateFilterablePreference()
+        {
+            return new FilterablePreference
+            {
+                Include = "all",
+                List = true,
+                Push = true,
+            };
+        }
+
+        private static Preference CreatePreference()
+        {
+            return new Preference
+            {
+                List = true,
+                Push = true,
+            };
+        }
+
         public override Task<Results<ATResult<GetUnreadCountOutput>, ATErrorResult>> GetUnreadCountAsync([FromQuery] bool? priority = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
         {
             return new GetUnreadCountOutput
@@ -32,6 +78,12 @@ namespace AppViewLite.Web.ApiCompat
                 Count = apis.GetNotificationCount(ctx.Session, ctx, dark: false)
             }.ToJsonResultOkTask();
         }
+
+        public override Task<Results<ATResult<ListActivitySubscriptionsOutput>, ATErrorResult>> ListActivitySubscriptionsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            return new ListActivitySubscriptionsOutput { Subscriptions = [] }.ToJsonResultOkTask();
+        }
+
         public async override Task<Results<ATResult<ListNotificationsOutput>, ATErrorResult>> ListNotificationsAsync([FromQuery] List<string>? reasons = null, [FromQuery] int? limit = 50, [FromQuery] bool? priority = null, [FromQuery] string? cursor = null, [FromQuery] DateTime? seenAt = null, CancellationToken cancellationToken = default)
         {
             var notifications = await apis.GetNotificationsAsync(ctx, dark: false);
@@ -116,7 +168,17 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
+        public override Task<Results<ATResult<PutActivitySubscriptionOutput>, ATErrorResult>> PutActivitySubscriptionAsync([FromBody] PutActivitySubscriptionInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         public override Task<Results<Ok, ATErrorResult>> PutPreferencesAsync([FromBody] PutPreferencesInput input, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<PutPreferencesV2Output>, ATErrorResult>> PutPreferencesV2Async([FromBody] PutPreferencesV2Input input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

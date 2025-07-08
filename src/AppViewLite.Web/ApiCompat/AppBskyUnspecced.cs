@@ -35,6 +35,16 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOk();
         }
 
+        public override Task<Results<ATResult<GetPostThreadOtherV2Output>, ATErrorResult>> GetPostThreadOtherV2Async([FromQuery] ATUri anchor, [FromQuery] bool? prioritizeFollowedUsers = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetPostThreadV2Output>, ATErrorResult>> GetPostThreadV2Async([FromQuery] ATUri anchor, [FromQuery] bool? above = null, [FromQuery] int? below = 6, [FromQuery] int? branchingFactor = 10, [FromQuery] bool? prioritizeFollowedUsers = null, [FromQuery] string? sort = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
         public override Task<Results<ATResult<GetSuggestedFeedsOutput>, ATErrorResult>> GetSuggestedFeedsAsync([FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
         {
             return new GetSuggestedFeedsOutput

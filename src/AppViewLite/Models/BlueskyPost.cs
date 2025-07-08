@@ -11,7 +11,7 @@ namespace AppViewLite.Models
     {
         public required BlueskyProfile Author;
         public BlueskyProfile? RepostedBy;
-        public DateTime? RepostDate;
+        public Tid RepostedByOrLikeRKey;
         public required string RKey;
 
         public DateTime Date;

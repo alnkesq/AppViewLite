@@ -85,6 +85,7 @@ namespace AppViewLite.Web
                 {
                     var post = rels.GetPost(rels.GetPostId(x.did, x.rkey, ctx), ctx);
                     post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy, ctx), ctx) : null;
+                    post.RepostedByOrLikeRKey = x.repostedByRkey != null ? Tid.Parse(x.repostedByRkey) : default;
                     return post;
                 }).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid, ctx) : null;
@@ -248,7 +249,7 @@ namespace AppViewLite.Web
         private readonly static ConcurrentDictionary<string, ConnectionContext> connectionIdToCallback = new();
 
         public record struct ProfileRenderRequest(string nodeId, string did);
-        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy, int replyChainLength);
+        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy, string repostedByRkey, int replyChainLength);
     }
 
     class ConnectionContext : IDisposable

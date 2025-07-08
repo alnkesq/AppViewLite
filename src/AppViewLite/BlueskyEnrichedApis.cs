@@ -1115,7 +1115,7 @@ namespace AppViewLite
                             if (post != null && x.IsRepost)
                             {
                                 post.RepostedBy = profile ??= rels.GetProfile(plc, ctx);
-                                post.RepostDate = x.RKey.Date;
+                                post.RepostedByOrLikeRKey = x.RKey;
                             }
                             return post;
                         })
@@ -1266,11 +1266,11 @@ namespace AppViewLite
                             if (x.Kind == CollectionKind.Reposts)
                             {
                                 post.RepostedBy = (profile ??= rels.GetProfile(plc, ctx));
-                                post.RepostDate = x.RKey.Date;
+                                post.RepostedByOrLikeRKey = x.RKey;
                             }
                             else if (x.Kind == CollectionKind.Likes)
                             {
-                                post.RepostDate = x.RKey.Date;
+                                post.RepostedByOrLikeRKey = x.RKey;
                             }
                         }
 
@@ -2310,7 +2310,7 @@ namespace AppViewLite
                                 if (threadLength != 0)
                                 {
                                     post.RepostedBy = null;
-                                    post.RepostDate = null;
+                                    post.RepostedByOrLikeRKey = default;
                                 }
                                 alreadyReturnedPosts.Add(post.PostId);
                                 alreadySampledPost.Add(post.PostId);
@@ -2978,15 +2978,33 @@ namespace AppViewLite
         {
             await DeleteRecordAsync(Block.RecordType, rkey, ctx);
         }
-        public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RequestContext ctx)
+        public async Task<Tid> CreatePostLikeAsync(string did, Tid rkey, RelationshipStr viaRepost, RequestContext ctx)
         {
+            var via = await GetViaRepostAsync(viaRepost, ctx);
             var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
-            return await CreateRecordAsync(new Like { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
+            return await CreateRecordAsync(new Like { Via = via, Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
         }
-        public async Task<Tid> CreateRepostAsync(string did, Tid rkey, RequestContext ctx)
+        public async Task<Tid> CreateRepostAsync(string did, Tid rkey, RelationshipStr viaRepost, RequestContext ctx)
         {
+            var via = await GetViaRepostAsync(viaRepost, ctx);
             var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
-            return await CreateRecordAsync(new Repost { Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
+            return await CreateRecordAsync(new Repost { Via = via, Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
+        }
+
+        private async Task<StrongRef?> GetViaRepostAsync(RelationshipStr viaRepost, RequestContext ctx)
+        {
+            if (viaRepost == default) return null;
+            try
+            {
+
+                var repost = await GetRecordAsync(viaRepost.Did, Repost.RecordType, viaRepost.RKey, ctx);
+                return new StrongRef(repost.Uri, repost.Cid!) { Type = null! };
+            }
+            catch (Exception ex)
+            {
+                LogLowImportanceException("Could not retrieve repost for like or repost via creation.", ex);
+                return null;
+            }
         }
 
         public Tid CreatePostBookmark(string did, Tid rkey, RequestContext ctx)

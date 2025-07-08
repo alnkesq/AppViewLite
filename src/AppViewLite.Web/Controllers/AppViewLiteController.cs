@@ -22,13 +22,14 @@ namespace AppViewLite.Web
         }
 
         [HttpPost(nameof(CreatePostLike))]
-        public async Task<object> CreatePostLike([FromBody] DidAndRKey postId)
+        public async Task<object> CreatePostLike([FromBody] DidAndRKeyWithVia postId)
         {
             return new
             {
-                rkey = (await apis.CreatePostLikeAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
+                rkey = (await apis.CreatePostLikeAsync(postId.Did, Tid.Parse(postId.Rkey), postId.GetVia(), ctx)).ToString()
             };
         }
+
         [HttpPost(nameof(DeletePostLike))]
         public async Task DeletePostLike([FromBody] RKeyOnly rkey)
         {
@@ -52,11 +53,11 @@ namespace AppViewLite.Web
         }
 
         [HttpPost(nameof(CreateRepost))]
-        public async Task<object> CreateRepost([FromBody] DidAndRKey postId)
+        public async Task<object> CreateRepost([FromBody] DidAndRKeyWithVia postId)
         {
             return new
             {
-                rkey = (await apis.CreateRepostAsync(postId.Did, Tid.Parse(postId.Rkey), ctx)).ToString()
+                rkey = (await apis.CreateRepostAsync(postId.Did, Tid.Parse(postId.Rkey), postId.GetVia(), ctx)).ToString()
             };
         }
         [HttpPost(nameof(CreateFollow))]
@@ -286,6 +287,10 @@ namespace AppViewLite.Web
         }
 
         public record DidAndRKey(string Did, string Rkey);
+        public record DidAndRKeyWithVia(string Did, string Rkey, string? ViaDid, string? ViaRkey)
+        {
+            public RelationshipStr GetVia() => ViaDid != null && ViaRkey != null ? new RelationshipStr(ViaDid, ViaRkey) : default;
+        }
         public record RKeyOnly(string Rkey);
         public record DidOnly(string Did);
         public record ToggleFollowArgs(string Did, bool Private);

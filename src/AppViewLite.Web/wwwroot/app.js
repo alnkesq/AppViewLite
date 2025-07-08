@@ -1566,7 +1566,7 @@ function getOrCreateLikeToggler(did, rkey, postElement) {
         postElement.dataset.likerkey,
         async () => { 
             recordPostEngagement(postElement, 'LikedOrBookmarked');
-            return (await httpPost('CreatePostLike', { did, rkey })).rkey;
+            return (await httpPost('CreatePostLike', { did, rkey, viaDid: postElement.dataset.repostedby, viaRkey: postElement.dataset.repostedbyrkey })).rkey;
         },
         async (rkey) => (await httpPost('DeletePostLike', { rkey })),
         (count, have) => { 
@@ -1612,7 +1612,7 @@ function getOrCreateRepostToggler(did, rkey, postElement) {
         postElement.dataset.repostrkey,
         async () => {
             recordPostEngagement(postElement, 'LikedOrBookmarked');
-            return (await httpPost('CreateRepost', { did, rkey })).rkey
+            return (await httpPost('CreateRepost', { did, rkey, viaDid: postElement.dataset.repostedby, viaRkey: postElement.dataset.repostedbyrkey })).rkey
         },
         async (rkey) => (await httpPost('DeleteRepost', { rkey })),
         (count, have) => { 
@@ -1959,7 +1959,7 @@ async function updateLiveSubscriptions() {
         
         var sideWithQuotee = new URL(location.href).pathname.endsWith('/quotes')
         await safeSignalrInvoke('LoadPendingPosts',
-            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, replyChainLength: +x.dataset.replychainlength })),
+            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, repostedByRkey: x.dataset.repostedbyrkey, replyChainLength: +x.dataset.replychainlength })),
             sideWithQuotee,
             focalDid
         )

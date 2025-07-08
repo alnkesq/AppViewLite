@@ -107,14 +107,14 @@
         IsLiked = new AsyncStateToggler(
             Post.LikeCount, 
             Post.IsLikedBySelf, 
-            () => Apis.CreatePostLikeAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
+            () => Apis.CreatePostLikeAsync(Post.Did, Post.PostId.PostRKey, default, RequestContext),
             rkey => Apis.DeletePostLikeAsync(rkey, RequestContext), 
             StateHasChanged);
 
         IsReposted = new AsyncStateToggler(
             Post.RepostCount,
             Post.IsRepostedBySelf,
-            () => Apis.CreateRepostAsync(Post.Did, Post.PostId.PostRKey, RequestContext),
+            () => Apis.CreateRepostAsync(Post.Did, Post.PostId.PostRKey, default, RequestContext),
             rkey => Apis.DeleteRepostAsync(rkey, RequestContext),
             StateHasChanged);
 
@@ -173,6 +173,7 @@
     data-quotecount="@Post.QuoteCount"
     data-repostrkey="@Post.IsRepostedBySelf?.ToString()"
     data-repostedby="@Post.RepostedBy?.Did"
+    data-repostedbyrkey="@(Post.RepostedBy != null ? Post.RepostedByOrLikeRKey.ToString() : null)"
     data-renderflags="@RenderFlags"
     data-usebookmarkbutton="@(UseBookmarkButton ? 1 : 0)"
     data-replychainlength="@Post.ReplyChainLength"

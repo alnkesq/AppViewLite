@@ -2782,14 +2782,14 @@ namespace AppViewLite
                         {
                             var post = GetPost(x.PostId, ctx);
                             post.RepostedBy = (reposterProfile ??= GetProfile(reposter, ctx));
-                            post.RepostDate = x.RepostRKey.Date;
+                            post.RepostedByOrLikeRKey = x.RepostRKey;
                             requireFollowStillValid[post] = (reposter, default, default);
                             return post;
                         });
                 })
                 .WhereNonNull();
             var result =
-                SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostDate != null ? Tid.FromDateTime(x.RepostDate.Value) : x.PostId.PostRKey, new ReverseComparer<Tid>())
+                SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(usersRecentPosts.Concat(usersRecentReposts).ToArray(), x => x.RepostedByOrLikeRKey != default ? x.RepostedByOrLikeRKey : x.PostId.PostRKey, new ReverseComparer<Tid>())
                 .Where(x =>
                 {
                     var triplet = requireFollowStillValid[x];
@@ -3477,7 +3477,7 @@ namespace AppViewLite
             var post = GetPost(postId, ctx);
             if (repost != default)
             {
-                post.RepostDate = repost.RelationshipRKey.Date;
+                post.RepostedByOrLikeRKey = repost.RelationshipRKey;
                 post.RepostedBy = GetProfile(repost.Actor, ctx, canOmitDescription: true);
             }
             return post;
@@ -3692,7 +3692,7 @@ namespace AppViewLite
             }
             ancestors.Reverse();
             ancestors[0].RepostedBy = post.RepostedBy;
-            ancestors[0].RepostDate = post.RepostDate;
+            ancestors[0].RepostedByOrLikeRKey = post.RepostedByOrLikeRKey;
             var count = ancestors.Count + 1;
             post.ReplyChainLength = count;
             foreach (var item in ancestors)
@@ -3700,7 +3700,7 @@ namespace AppViewLite
                 item.ReplyChainLength = count;
             }
             post.RepostedBy = null;
-            post.RepostDate = null;
+            post.RepostedByOrLikeRKey = default;
             return ancestors;
         }
 

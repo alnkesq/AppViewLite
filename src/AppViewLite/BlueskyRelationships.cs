@@ -486,6 +486,7 @@ namespace AppViewLite
             }
 
             GarbageCollectOldSlices(allowTempFileDeletion: true);
+            UpdateAvailableDiskSpace();
             Log("Database loaded.");
         }
 
@@ -645,7 +646,10 @@ namespace AppViewLite
 
         public static int AliveBlueskyRelationshipsDatabases;
 
+        public readonly static long WarnOnLowDiskSpace = (AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_LOW_DISK_SPACE_WARNING_MB) ?? 4 * 1024) * 1024 * 1024;
+
         public event Action? BeforeCaptureCheckpoint;
+
 
         private void CaptureCheckpoint()
         {
@@ -2930,6 +2934,14 @@ namespace AppViewLite
                 table.Flush(false);
             }
             CaptureCheckpoint();
+            UpdateAvailableDiskSpace();
+        }
+
+
+        public long AvailableDiskSpace;
+        private void UpdateAvailableDiskSpace()
+        {
+            AvailableDiskSpace = new DriveInfo(this.BaseDirectory).AvailableFreeSpace;
         }
 
         public SubscriptionDictionary<PostId, LiveNotificationDelegate> PostLiveSubscribersThreadSafe = new();

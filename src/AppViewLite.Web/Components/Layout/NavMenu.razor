@@ -13,7 +13,14 @@
         NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext, dark: false) : -1;
         var staleness = Apis.PlcDirectoryStaleness;
 
-        if (staleness.TotalDays >= 7) 
+        var availableDiskSpace = Apis.primarySecondaryPair.relationshipsUnlocked.AvailableDiskSpace;
+
+        if (availableDiskSpace < BlueskyRelationships.WarnOnLowDiskSpace)
+        {
+
+            Announcement = $"This instance is running low on disk space ({StringUtils.ToHumanBytes(availableDiskSpace)}).";    
+        }
+        else if (staleness.TotalDays >= 7) 
         {
             Announcement = $"The PLC directory is still syncing ({staleness.TotalDays:0.0} days out of date). User search might be incomplete";
         }

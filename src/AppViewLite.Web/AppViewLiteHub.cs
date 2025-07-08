@@ -106,13 +106,13 @@ namespace AppViewLite.Web
 
 
 
-        public void MarkAsRead(string did, string rkey, string kind)
+        public void MarkAsRead(string did, string rkey, string kind, float weight)
         {
             var ctx = HubContext;
             if (ctx.MarkAsReadThrottler == null) return;
             lock (ctx.PostEngagementPending)
             {
-                ctx.PostEngagementPending.Add(new PostEngagementStr(new PostIdString(did, rkey), Enum.Parse<PostEngagementKind>(kind)));
+                ctx.PostEngagementPending.Add(new PostEngagementStr(new PostIdString(did, rkey), Enum.Parse<PostEngagementKind>(kind), weight));
             }
             ctx.MarkAsReadThrottler.Notify();
 

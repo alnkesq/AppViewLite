@@ -4144,7 +4144,7 @@ namespace AppViewLite
         public void MarkAsRead(PostEngagementStr[] postEngagementsStr, Plc loggedInUser, RequestContext ctx)
         {
             if (postEngagementsStr.Length == 0) return;
-            var creditsToConsume = new List<Plc>();
+            var creditsToConsume = new List<(Plc Plc, float Weight)>();
             WithRelationshipsWriteLock(rels =>
             {
                 var seenPostsSlices = rels.SeenPosts.GetValuesChunked(loggedInUser).ToArray();
@@ -4153,7 +4153,7 @@ namespace AppViewLite
                 {
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
                     if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0 && !BlueskyRelationships.IsPostSeen(postId, seenPostsSlices))
-                        creditsToConsume.Add(postId.Author);
+                        creditsToConsume.Add((postId.Author, engagementStr.Weight));
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
                     ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
@@ -4170,7 +4170,7 @@ namespace AppViewLite
                 {
                     foreach (var consume in creditsToConsume)
                     {
-                        ConsumeFollowingFeedCreditsMustHoldLock(ctx, consume);
+                        ConsumeFollowingFeedCreditsMustHoldLock(ctx, consume.Plc, weight: consume.Weight);
                     }
                 }
             }
@@ -4596,7 +4596,7 @@ namespace AppViewLite
                         if (ctx.UserContext.LastFeedCreditsTimeDecayAdjustment == default)
                             ctx.UserContext.LastFeedCreditsTimeDecayAdjustment = seenPost.Date;
 
-                        ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, seenPost.PostId.Author);
+                        ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, seenPost.PostId.Author, addCredits: false, weight: 1 /* HACK: should use proper weight instead of hardcoding 1 (images weight more)*/);
                         MaybeDecayFollowingFeedCreditsMustHoldCtxLock(ctx.UserContext, seenPost.Date);
                         accountedPosts.Add(seenPost.PostId);
                     }
@@ -4638,19 +4638,19 @@ namespace AppViewLite
             userCtx.LastFeedCreditsTimeDecayAdjustment = now;
         }
 
-        public void ConsumeFollowingFeedCreditsMustHoldLock(RequestContext ctx, Plc plc, bool addCredits = false)
+        public void ConsumeFollowingFeedCreditsMustHoldLock(RequestContext ctx, Plc plc, bool addCredits = false, float weight = 1)
         {
             // Must hold userCtx lock
 
             UpdateFollowingFeedMustHoldLock(ctx);
 
-            ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, plc, addCredits: addCredits);
+            ConsumeFollowingFeedCreditsMustHoldLockCore(ctx, plc, addCredits: addCredits, weight: weight);
         }
-        private static void ConsumeFollowingFeedCreditsMustHoldLockCore(RequestContext ctx, Plc plc, bool addCredits = false)
+        private static void ConsumeFollowingFeedCreditsMustHoldLockCore(RequestContext ctx, Plc plc, bool addCredits, float weight)
         {
             BlueskyRelationships.Assert(plc != default);
             // Must hold userCtx lock
-            var amount = addCredits ? 1 : -1;
+            var amount = addCredits ? weight : -weight;
             CollectionsMarshal.GetValueRefOrAddDefault(ctx.UserContext.FeedCredits!, plc, out _) += amount;
         }
 

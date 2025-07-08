@@ -17,7 +17,7 @@ namespace AppViewLite.Models
             return this.Kind.CompareTo(other.Kind);
         }
     }
-    public record struct PostEngagementStr(PostIdString PostId, PostEngagementKind Kind)
+    public record struct PostEngagementStr(PostIdString PostId, PostEngagementKind Kind, float Weight)
     {
     }
 

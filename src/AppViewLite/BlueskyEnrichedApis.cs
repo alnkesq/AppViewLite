@@ -2145,9 +2145,10 @@ namespace AppViewLite
                 var possibleFollows = rels.GetFollowingFast(ctx);
                 var isPostSeen = rels.GetIsPostSeenFuncForUserRequiresLock(ctx);
 
+                var timedOut = BlueskyRelationships.CreateTimeoutFunc(BlueskyRelationships.FollowingFeedTimeout);
                 var userPosts = possibleFollows.PossibleFollows.Select(pair =>
                 {
-                    return GetBalancedFollowingFeedCandidatesForFollowee(rels, pair.Plc, pair.IsPrivate, minDate, loggedInUser, possibleFollows, isPostSeen);
+                    return GetBalancedFollowingFeedCandidatesForFollowee(rels, pair.Plc, pair.IsPrivate, minDate, loggedInUser, possibleFollows, isPostSeen, timedOut);
                 }).Where(x => x.Plc != default).ToArray();
                 return (possibleFollows, userPosts);
             }, ctx);
@@ -2470,9 +2471,8 @@ namespace AppViewLite
             return new PostsAndContinuation(posts, ProducedEnoughPosts() ? string.Join(",", finalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
         }
 
-        private static BalancedFeedCandidatesForFollowee GetBalancedFollowingFeedCandidatesForFollowee(BlueskyRelationships rels, Plc plc, bool couldBePluggablePost, DateTime minDate, Plc loggedInUser, FollowingFastResults possibleFollows, Func<PostIdTimeFirst, bool> isPostSeen)
+        private static BalancedFeedCandidatesForFollowee GetBalancedFollowingFeedCandidatesForFollowee(BlueskyRelationships rels, Plc plc, bool couldBePluggablePost, DateTime minDate, Plc loggedInUser, FollowingFastResults possibleFollows, Func<PostIdTimeFirst, bool> isPostSeen, Func<bool> timedOut)
         {
-            var timedOut = BlueskyRelationships.CreateTimeoutFunc(BlueskyRelationships.FollowingFeedTimeout);
             var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: couldBePluggablePost /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, onlyIfAlreadyInRam: timedOut());
 
             var posts = (postsFast ?? [])

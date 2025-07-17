@@ -217,6 +217,11 @@ namespace AppViewLite.Web
                     }
                     apis.MarkAsRead(postEngagementPendingArray, userPlc.Value, RequestContext);
                 });
+
+                // In case notifications arrived while the websocket was broken or the browser tab was throttled or suspended
+                var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
+                var notificationCount = apis.GetNotificationCount(ctx.Session, ctx, false);
+                client.SendAsync("NotificationCount", notificationCount).FireAndForget();
             }
             return Task.CompletedTask;
         }

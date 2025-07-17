@@ -128,7 +128,7 @@ namespace AppViewLite
         public required PostId[] PostIds;
     }
 
-    public record FeedForInterleavingCandidate(FeedSubscription Subscription, RelationshipHashedRKey FeedId, DateTime LastSeen, FeedPostsForInterleaving? Posts, int RandomPriority);
+    public record FeedForInterleavingCandidate(FeedSubscription Subscription, RelationshipHashedRKey FeedId, DateTime LastSeen, PostId[]? PostIds, int RandomPriority);
 
 }
 

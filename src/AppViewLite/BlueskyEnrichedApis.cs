@@ -2154,7 +2154,10 @@ namespace AppViewLite
 
             var loggedInUser = ctx.LoggedInUser;
 
-            var (possibleFollows, users) = WithRelationshipsLock(rels =>
+
+            var postsFromFeedsBeforeFiltering = GetPostsFromFeedsForInterleaving(ctx);
+
+            var (possibleFollows, users, postsFromFeeds) = WithRelationshipsLock(rels =>
             {
 
                 var possibleFollows = rels.GetFollowingFast(ctx);
@@ -2165,10 +2168,10 @@ namespace AppViewLite
                 {
                     return GetBalancedFollowingFeedCandidatesForFollowee(rels, pair.Plc, pair.IsPrivate, minDate, loggedInUser, possibleFollows, isPostSeen, timedOut);
                 }).Where(x => x.Plc != default).ToArray();
-                return (possibleFollows, userPosts);
+                var postsFromFeeds = postsFromFeedsBeforeFiltering.Select(x => x with { PostIds = x.PostIds!.Where(x => !isPostSeen(x)).ToArray()}).Where(x => x.PostIds!.Length != 0).ToQueue();
+                return (possibleFollows, userPosts, postsFromFeeds);
             }, ctx);
 
-            var postsFromFeeds = GetPostsFromFeedsForInterleaving(ctx);
 
             var alreadySampledPost = new HashSet<PostId>();
             // last few posts from the previous page that aren't marked as read yet
@@ -2184,7 +2187,7 @@ namespace AppViewLite
                     {
                         var userScore = scoredSampler(user.Plc);
                         return user.Posts
-                            .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date, userScore)))
+                            .Select(x => new ScoredBlueskyPost(new(user.Plc, x.PostRKey), Repost: default, FromFeed: null, IsAuthorFollowed: true, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.PostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.PostRKey.Date, userScore)))
                             .OrderByDescending(x => x.PerUserScore)
                             .ToQueueWithOwner(user.Plc);
                     })
@@ -2196,7 +2199,7 @@ namespace AppViewLite
                     {
                         var userScore = scoredSampler(user.Plc);
                         return user.Reposts
-                                .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date, userScore)))
+                                .Select(x => new ScoredBlueskyPost(x.PostId, Repost: new Models.Relationship(user.Plc, x.RepostRKey), FromFeed: null, x.IsReposteeFollowed, x.LikeCount, GetBalancedFeedPerUserScore(x.LikeCount, now - x.RepostRKey.Date), GetBalancedFeedGlobalScore(x.LikeCount, now - x.RepostRKey.Date, userScore)))
                                 .OrderByDescending(x => x.PerUserScore)
                                 .ToQueueWithOwner(user.Plc);
                     })
@@ -2209,7 +2212,7 @@ namespace AppViewLite
             var mergedFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
             var mergedNonFollowedPosts = new Queue<ScoredBlueskyPostWithSource>();
 
-            while ((bestOriginalPostsByUser.Count != 0 || bestRepostsByUser.Count != 0) && !ProducedEnoughPosts())
+            while ((bestOriginalPostsByUser.Count != 0 || bestRepostsByUser.Count != 0 || postsFromFeeds.Count != 0) && !ProducedEnoughPosts())
             {
 
                 var followedPostsToEnqueue = new List<ScoredBlueskyPostWithSource>();
@@ -2299,7 +2302,7 @@ namespace AppViewLite
                                     if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPosts.Contains(reply) && !isPostSeen(reply))
                                     {
                                         var likeCount = rels.Likes.GetApproximateActorCount(reply);
-                                        replies.Add(new ScoredBlueskyPost(reply, default, true, likeCount, GetBalancedFeedPerUserScore(likeCount, now - reply.PostRKey.Date), 0));
+                                        replies.Add(new ScoredBlueskyPost(reply, default, FromFeed: null, true, likeCount, GetBalancedFeedPerUserScore(likeCount, now - reply.PostRKey.Date), 0));
                                     }
                                 }
                             }
@@ -2317,7 +2320,7 @@ namespace AppViewLite
                         {
                             if (!alreadyReturnedPosts.Add(postScore.PostId)) return false;
 
-                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost, ctx);
+                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost, postScore.FromFeed, ctx);
                             if (!ShouldInclude(post)) return false;
 
                             var threadLength = 0;
@@ -2418,7 +2421,7 @@ namespace AppViewLite
                         while (
                             !ProducedEnoughPosts() &&
                             enqueueEverything
-                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0
+                                ? populateFollowedFrom.Count != 0 || populateNonFollowedPostsFrom.Count != 0 || postsFromFeeds.Count != 0
                                 : populateFollowedFrom.Count != 0 && (!done && finalPosts.Count < 100)
                             )
                         {
@@ -2446,11 +2449,23 @@ namespace AppViewLite
                                     if (ProducedEnoughPosts()) { done = true; break; }
                                 }
                             }
+
+                            if (postsFromFeeds.TryDequeue(out var feed))
+                            {
+                                foreach (var postId in feed.PostIds!)
+                                {
+                                    if (MaybeAddToFinalPostList(new ScoredBlueskyPost(postId, default, feed.Subscription, false, 0, 0, 0)))
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+
                         }
                     }, ctx);
 
                     if (ProducedEnoughPosts()) break;
-                    if (usersDeservingFollowedPostResampling.Count == 0 && usersDeservingNonFollowedPostResampling.Count == 0) break;
+                    if (usersDeservingFollowedPostResampling.Count == 0 && usersDeservingNonFollowedPostResampling.Count == 0 && postsFromFeeds.Count == 0) break;
                     if (extraIterations >= 2)
                     {
                         lock (ctx.UserContext)
@@ -2504,18 +2519,18 @@ namespace AppViewLite
                         var feedId = new RelationshipHashedRKey(new Plc(x.FeedPlc), x.FeedRKey);
                         return new FeedForInterleavingCandidate(x, feedId, 
                             userCtx.FeedToLastInterleavedSeenDate.TryGetValue(feedId, out var lastSeen) ? lastSeen : default,
-                            userCtx.FeedPostsForInterleaving.TryGetValue(feedId, out var posts) && (now - posts.DateFetched <= FeedForInterleavingMaxAge) ? posts : default,
+                            userCtx.FeedPostsForInterleaving.TryGetValue(feedId, out var posts) && (now - posts.DateFetched <= FeedForInterleavingMaxAge) ? posts.PostIds : default,
                             random.Next()
                         );
                     })
                     .OrderBy(x => x.LastSeen)
-                    .ThenByDescending(x => x.Posts != null)
+                    .ThenByDescending(x => x.PostIds != null)
                     .ThenBy(x => x.RandomPriority)
                     .ToArray();
             }
 
 
-            var nextToPreload = feedSubscriptions.FirstOrDefault(x => x.Posts == null);
+            var nextToPreload = feedSubscriptions.FirstOrDefault(x => x.PostIds == null);
             if (nextToPreload != null)
             {
                 Task.Run(async () =>
@@ -2523,7 +2538,7 @@ namespace AppViewLite
                     await PrefetchFeedForInterleavingAsync(nextToPreload, ctx);
                 }).FireAndForget();
             }
-            return feedSubscriptions.Where(x => x.Posts != null && x.Posts.PostIds.Length != 0).ToArray();
+            return feedSubscriptions.Where(x => x.PostIds != null && x.PostIds.Length != 0).ToArray();
 
 
         }
@@ -2735,7 +2750,8 @@ namespace AppViewLite
         //    return postToMostRecentRepostDate;
         //}
 
-        record struct ScoredBlueskyPost(PostId PostId, Models.Relationship Repost, bool IsAuthorFollowed, long LikeCount, float PerUserScore, float GlobalScore)
+
+        record struct ScoredBlueskyPost(PostId PostId, Models.Relationship Repost, FeedSubscription? FromFeed, bool IsAuthorFollowed, long LikeCount, float PerUserScore, float GlobalScore)
         {
             public override string ToString()
             {

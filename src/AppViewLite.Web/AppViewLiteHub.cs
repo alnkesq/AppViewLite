@@ -79,13 +79,14 @@ namespace AppViewLite.Web
             BlueskyPost[] posts = null!;
             Plc? focalPlc = null;
             var ctx = this.RequestContext;
-            apis.WithRelationshipsLockForDids(requests.Select(x => x.did).Concat(requests.Select(x => x.repostedBy).WhereNonNull()).ToArray(), (_, rels) =>
+            apis.WithRelationshipsLockForDids(requests.Select(x => x.did).Concat(requests.Select(x => x.fromFeedDid).WhereNonNull()).Concat(requests.Select(x => x.repostedBy).WhereNonNull()).ToArray(), (_, rels) =>
             {
                 posts = requests.Select(x =>
                 {
                     var post = rels.GetPost(rels.GetPostId(x.did, x.rkey, ctx), ctx);
                     post.RepostedBy = x.repostedBy != null ? rels.GetProfile(rels.SerializeDid(x.repostedBy, ctx), ctx) : null;
                     post.RepostedByOrLikeRKey = x.repostedByRkey != null ? Tid.Parse(x.repostedByRkey) : default;
+                    post.FromFeed = x.fromFeedDid != null ? rels.GetFeedGenerator(rels.SerializeDid(x.fromFeedDid, ctx), x.fromFeedRkey!, ctx) : null;
                     return post;
                 }).ToArray();
                 focalPlc = focalDid != null ? rels.SerializeDid(focalDid, ctx) : null;
@@ -249,7 +250,7 @@ namespace AppViewLite.Web
         private readonly static ConcurrentDictionary<string, ConnectionContext> connectionIdToCallback = new();
 
         public record struct ProfileRenderRequest(string nodeId, string did);
-        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy, string repostedByRkey, int replyChainLength);
+        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy, string repostedByRkey, int replyChainLength, string? fromFeedDid, string? fromFeedRkey);
     }
 
     class ConnectionContext : IDisposable

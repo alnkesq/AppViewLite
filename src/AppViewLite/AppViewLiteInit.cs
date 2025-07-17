@@ -58,6 +58,7 @@ namespace AppViewLite
                 if (parts.Length != 2 || parts[0].Length == 0 || parts[1].Length == 0 || parts[0].AsSpan().ContainsAny('/', '\\', ' ')) throw new ArgumentException("Invalid line in APPVIEWLITE_IGNORE_SLICES_PATH: " + x);
                 return (parts[0], SliceName.ParseBaseName(parts[1]));
             }).ToHashSet() : [];
+            CombinedPersistentMultiDictionary.TreatMissingSlicesAsPruned = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_IGNORE_MISSING_SLICES, false);
             CombinedPersistentMultiDictionary.IsPrunedSlice = (directory, sliceName) =>
             {
                 if ((sliceName.PruneId % 2) == 1) return true;

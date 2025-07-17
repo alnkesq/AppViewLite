@@ -223,6 +223,7 @@ namespace AppViewLite.Storage
         public abstract bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval);
 
         public static Func<string, SliceName, bool> IsPrunedSlice = (_, s) => (s.PruneId % 2) == 1;
+        public static bool TreatMissingSlicesAsPruned;
         public static DirectIoReadCache? DirectIoReadCache;
     }
 
@@ -290,7 +291,17 @@ namespace AppViewLite.Storage
                         if (IsPrunedSlice(directory, sliceName)) this.prunedSlices.Add(sliceName);
                         else
                         {
-                            var s = OpenSlice(directory, sliceName, behavior, mandatory: true);
+                            SliceInfo s;
+                            try
+                            {
+                                s = OpenSlice(directory, sliceName, behavior, mandatory: true);
+                                
+                            }
+                            catch (FileNotFoundException) when (TreatMissingSlicesAsPruned)
+                            {
+                                this.prunedSlices.Add(sliceName);
+                                continue;
+                            }
                             AddToCaches(s, this.slices.Count);
                             this.slices.Add(s);
                         }

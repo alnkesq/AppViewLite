@@ -8,6 +8,8 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.IdentityModel.Tokens.Jwt;
 using System.Diagnostics;
+using System.Collections.Immutable;
+using System.Threading;
 
 namespace AppViewLite
 {
@@ -84,7 +86,7 @@ namespace AppViewLite
         public ConcurrentSet<PostId>? RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts;
         public DateTime RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset;
 
-        public Dictionary<Plc, float> UserEngagementCache;
+        public Dictionary<Plc, float>? UserEngagementCache;
         public long UserEngagementCacheVersion;
         public double AverageEngagementRatio;
         public float DefaultEngagementScore;
@@ -113,7 +115,20 @@ namespace AppViewLite
                 PrivateProfile = this.PrivateProfile?.GetCountersThreadSafe(),
             };
         }
+
+
+        public Lock FeedInterleavingLock = new();
+        public Dictionary<RelationshipHashedRKey, DateTime> FeedToLastInterleavedSeenDate = new();
+        public Dictionary<RelationshipHashedRKey, FeedPostsForInterleaving> FeedPostsForInterleaving = new();
     }
+
+    public class FeedPostsForInterleaving
+    {
+        public required DateTime DateFetched;
+        public required PostId[] PostIds;
+    }
+
+    public record FeedForInterleavingCandidate(FeedSubscription Subscription, RelationshipHashedRKey FeedId, DateTime LastSeen, FeedPostsForInterleaving? Posts, int RandomPriority);
 
 }
 

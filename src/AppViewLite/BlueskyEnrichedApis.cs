@@ -1542,53 +1542,15 @@ namespace AppViewLite
 
         public async Task<(BlueskyPost[] Posts, BlueskyFeedGenerator? Info, string? NextContinuation)> GetFeedAsync(string? did, string? rkey, string? continuation, RequestContext ctx, bool forGrid = false, int limit = default, Uri? customEndpoint = null)
         {
-            EnsureLimit(ref limit, 30);
             var feedGenInfo = did != null ? await GetFeedGeneratorAsync(did, rkey!, ctx) : null;
-            if (customEndpoint == null && !feedGenInfo!.Data!.ImplementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException("Only did:web: feed implementations are supported.");
 
-            var proxyViaPds = ctx.IsLoggedIn && customEndpoint == null;
-
-
-
-            AtFeedSkeletonResponse postsJson;
-            ATUri[] postsJsonParsed;
-
-
-            try
-            {
-                if (proxyViaPds)
-                {
-                    var feed = (await PerformPdsActionAsync(x =>
-                    {
-                        return x.GetFeedAsync(new ATUri($"at://{did}/app.bsky.feed.generator/{rkey}"), limit, continuation);
-                    }, ctx)).HandleResult()!;
-                    postsJson = new AtFeedSkeletonResponse
-                    {
-                        cursor = feed.Cursor,
-                        feed = feed.Feed.Select(x => new AtFeedSkeletonPost { post = x.Post.Uri.ToString() }).ToArray()
-                    };
-                }
-                else
-                {
-                    var suffix = $"limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
-                    var endpoint = customEndpoint?.AbsoluteUri ?? $"https://{feedGenInfo!.Data!.ImplementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{Uri.EscapeDataString(did!)}/app.bsky.feed.generator/{Uri.EscapeDataString(rkey!)}";
-                    var skeletonUrl = endpoint + (endpoint.Contains('?') ? '&' : '?') + suffix;
-
-                    postsJson = (await DefaultHttpClient.GetFromJsonAsync<AtFeedSkeletonResponse>(skeletonUrl))!;
-                }
-
-                postsJsonParsed = postsJson.feed?.Select(x => new ATUri(x.post)).ToArray() ?? [];
-            }
-            catch (Exception ex)
-            {
-                throw await CreateExceptionMessageForExternalServerErrorAsync($"The feed provider", ex, did, null, ctx);
-            }
+            var (postUrls, nextContinuation) = await GetFeedSkeletonAsync(did, rkey, continuation, limit, ctx, feedGenInfo?.Data!.ImplementationDid, customEndpoint);
 
             var posts = WithRelationshipsLockWithPreamble(
                 rels =>
                 {
                     var postIds = new List<PostId>();
-                    foreach (var item in postsJsonParsed)
+                    foreach (var item in postUrls)
                     {
                         if (item.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Incorrect collection for feed skeleton entry");
                         var author = rels.TrySerializeDidMaybeReadOnly(item.Did!.Handler, ctx);
@@ -1608,9 +1570,59 @@ namespace AppViewLite
 
             if (forGrid)
                 ctx.IncreaseTimeout(TimeSpan.FromSeconds(3)); // the grid doesn't support automatic refresh
-            return (await EnrichAsync(posts, ctx), feedGenInfo, !string.IsNullOrEmpty(postsJson.cursor) ? postsJson.cursor : null);
+            return (await EnrichAsync(posts, ctx), feedGenInfo, nextContinuation);
         }
 
+        private async Task<(ATUri[] PostsJsonParsed, string? NextContinuation)> GetFeedSkeletonAsync(string? did, string? rkey, string? continuation, int limit, RequestContext ctx, string? implementationDid, Uri? customEndpoint)
+        {
+            EnsureLimit(ref limit, 30);
+            if (customEndpoint == null && !implementationDid!.StartsWith("did:web:", StringComparison.Ordinal)) throw new NotSupportedException("Only did:web: feed implementations are supported.");
+
+            var proxyViaPds = ctx.IsLoggedIn && customEndpoint == null;
+
+
+
+            ATUri[] postsJsonParsed;
+            string? nextContinuation;
+
+
+            try
+            {
+                AtFeedSkeletonResponse postsJson;
+
+                if (proxyViaPds)
+                {
+                    var feed = (await PerformPdsActionAsync(x =>
+                    {
+                        return x.GetFeedAsync(new ATUri($"at://{did}/app.bsky.feed.generator/{rkey}"), limit, continuation);
+                    }, ctx)).HandleResult()!;
+                    postsJson = new AtFeedSkeletonResponse
+                    {
+                        cursor = feed.Cursor,
+                        feed = feed.Feed.Select(x => new AtFeedSkeletonPost { post = x.Post.Uri.ToString() }).ToArray()
+                    };
+                }
+                else
+                {
+                    var suffix = $"limit={limit}" + (continuation != null ? "&cursor=" + Uri.EscapeDataString(continuation) : null);
+                    var endpoint = customEndpoint?.AbsoluteUri ?? $"https://{implementationDid!.Substring(8)}/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://{Uri.EscapeDataString(did!)}/app.bsky.feed.generator/{Uri.EscapeDataString(rkey!)}";
+                    var skeletonUrl = endpoint + (endpoint.Contains('?') ? '&' : '?') + suffix;
+
+                    postsJson = (await DefaultHttpClient.GetFromJsonAsync<AtFeedSkeletonResponse>(skeletonUrl))!;
+                }
+
+                postsJsonParsed = postsJson.feed?.Select(x => new ATUri(x.post)).ToArray() ?? [];
+                nextContinuation = postsJson.cursor;
+                if (string.IsNullOrEmpty(nextContinuation))
+                    nextContinuation = null;
+            }
+            catch (Exception ex)
+            {
+                throw await CreateExceptionMessageForExternalServerErrorAsync($"The feed provider", ex, did, null, ctx);
+            }
+
+            return (postsJsonParsed, nextContinuation);
+        }
 
         private async Task<Exception> CreateExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, string? pds, RequestContext ctx)
         {
@@ -2127,6 +2139,8 @@ namespace AppViewLite
 
         record struct ScoredBlueskyPostWithSource(ScoredBlueskyPost Post, QueueWithOwner<ScoredBlueskyPost> Source);
 
+
+
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
         {
             ctx.IsStillFollowedCached ??= new();
@@ -2153,6 +2167,7 @@ namespace AppViewLite
                 return (possibleFollows, userPosts);
             }, ctx);
 
+            var postsFromFeeds = GetPostsFromFeedsForInterleaving(ctx);
 
             var alreadySampledPost = new HashSet<PostId>();
             // last few posts from the previous page that aren't marked as read yet
@@ -2469,6 +2484,84 @@ namespace AppViewLite
             var posts = finalPosts.ToArray();
             await EnrichAsync(posts, ctx);
             return new PostsAndContinuation(posts, ProducedEnoughPosts() ? string.Join(",", finalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
+        }
+
+
+        private readonly TimeSpan FeedForInterleavingMaxAge = TimeSpan.FromHours(3);
+        private FeedForInterleavingCandidate[] GetPostsFromFeedsForInterleaving(RequestContext ctx)
+        {
+            
+            var userCtx = ctx.UserContext;
+            var now = DateTime.UtcNow;
+            FeedForInterleavingCandidate[] feedSubscriptions;
+            lock (userCtx.FeedInterleavingLock)
+            {
+                var random = new Random((int)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerMinute) ^ ctx.LoggedInUser.PlcValue);
+                feedSubscriptions = ctx.PrivateProfile.FeedSubscriptions
+                    .Select(x =>
+                    {
+                        var feedId = new RelationshipHashedRKey(new Plc(x.FeedPlc), x.FeedRKey);
+                        return new FeedForInterleavingCandidate(x, feedId, 
+                            userCtx.FeedToLastInterleavedSeenDate.TryGetValue(feedId, out var lastSeen) ? lastSeen : default,
+                            userCtx.FeedPostsForInterleaving.TryGetValue(feedId, out var posts) && (now - posts.DateFetched <= FeedForInterleavingMaxAge) ? posts : default,
+                            random.Next()
+                        );
+                    })
+                    .OrderBy(x => x.LastSeen)
+                    .ThenByDescending(x => x.Posts != null)
+                    .ThenBy(x => x.RandomPriority)
+                    .ToArray();
+            }
+
+
+            var nextToPreload = feedSubscriptions.FirstOrDefault(x => x.Posts == null);
+            if (nextToPreload != null)
+            {
+                Task.Run(async () =>
+                {
+                    await PrefetchFeedForInterleavingAsync(nextToPreload, ctx);
+                }).FireAndForget();
+            }
+            return feedSubscriptions.Where(x => x.Posts != null && x.Posts.PostIds.Length != 0).ToArray();
+
+
+        }
+
+        private async Task PrefetchFeedForInterleavingAsync(FeedForInterleavingCandidate feed, RequestContext ctx)
+        {
+            var (did, feedInfo) = WithRelationshipsLock(rels =>
+            {
+                var did = rels.GetDid(feed.FeedId.Plc);
+                var feedInfo = rels.TryGetFeedGeneratorData(feed.FeedId);
+                return (did, feedInfo);
+            }, ctx);
+            PostId[] postIds;
+            try
+            {
+
+                if (feedInfo == null)
+                    feedInfo = await this.GetFeedGeneratorDataAsync(did, feed.Subscription.FeedRKey, ctx);
+
+                var (skeleton, _) = await this.GetFeedSkeletonAsync(did, feed.Subscription.FeedRKey, null, default, ctx, feedInfo.ImplementationDid, null);
+
+                postIds = WithRelationshipsLockForDids(skeleton.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
+                {
+                    return skeleton
+                        .Where(x => x.Collection == Post.RecordType)
+                        .Select(x => rels.GetPostId(x, ctx))
+                        .ToArray();
+                }, ctx);
+            }
+            catch (Exception ex)
+            {
+                LogNonCriticalException(ex);
+                postIds = [];
+            }
+
+            lock (ctx.UserContext.FeedInterleavingLock)
+            {
+                ctx.UserContext.FeedPostsForInterleaving[feed.FeedId] = new FeedPostsForInterleaving { DateFetched = DateTime.UtcNow, PostIds = postIds };
+            }
         }
 
         private static BalancedFeedCandidatesForFollowee GetBalancedFollowingFeedCandidatesForFollowee(BlueskyRelationships rels, Plc plc, bool couldBePluggablePost, DateTime minDate, Plc loggedInUser, FollowingFastResults possibleFollows, Func<PostIdTimeFirst, bool> isPostSeen, Func<bool> timedOut)

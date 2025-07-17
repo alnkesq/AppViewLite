@@ -1061,7 +1061,7 @@ namespace AppViewLite
         }
 
 
-        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool includeBookmarks, bool mediaOnly, int limit, string? continuation, RequestContext ctx)
+        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool includeBookmarks, bool mediaOnly, int limit, string? continuation, RequestContext ctx, bool forGrid = false)
         {
             EnsureLimit(ref limit);
 
@@ -1121,7 +1121,8 @@ namespace AppViewLite
                         })
                         .WhereNonNull()
                         .Take(canFetchFromServer && !mediaOnly ? 10 : 50),
-                        ctx
+                        ctx, 
+                        forGrid: forGrid
                         )
                         .ToArray();
                 }, ctx);
@@ -1300,7 +1301,7 @@ namespace AppViewLite
                     if (posts.Length == 0 && exceededIterations)
                         nextContinuation = null;
 
-                    posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts, ctx).ToArray(), ctx);
+                    posts = WithRelationshipsLock(rels => rels.EnumerateFeedWithNormalization(posts, ctx, forGrid: forGrid).ToArray(), ctx);
                     await EnrichAsync(posts, ctx);
                     return (posts, nextContinuation?.Serialize());
                 }
@@ -1562,7 +1563,7 @@ namespace AppViewLite
                 (p, rels) =>
                 {
                     var posts = p.Select(x => rels.GetPost(x, ctx));
-                    posts = rels.EnumerateFeedWithNormalization(posts, ctx, omitIfMuted: true);
+                    posts = rels.EnumerateFeedWithNormalization(posts, ctx, omitIfMuted: true, forGrid: forGrid);
                     return posts.ToArray();
                 }, ctx);
             if (continuation == null && posts.Length == 0)

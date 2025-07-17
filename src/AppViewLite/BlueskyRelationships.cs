@@ -2833,7 +2833,7 @@ namespace AppViewLite
         }
 
 
-        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, RequestContext ctx, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false, bool omitIfMuted = false)
+        internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, RequestContext ctx, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false, bool omitIfMuted = false, bool forGrid = false)
         {
             alreadyReturned ??= [];
             foreach (var post in posts)
@@ -2843,61 +2843,64 @@ namespace AppViewLite
 
                 if (alreadyReturned.Contains(postId)) continue;
 
-                if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
+                if (!forGrid)
                 {
-                    var chain = MakeFullReplyChainExcludingLeaf(post, ctx);
-                    if (omitIfMuted)
+                    if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                     {
+                        var chain = MakeFullReplyChainExcludingLeaf(post, ctx);
+                        if (omitIfMuted)
+                        {
+                            foreach (var item in chain)
+                            {
+                                PopulateViewerFlags(item, ctx);
+                            }
+
+                            if (chain.Any(x => x.IsMuted)) continue;
+                        }
                         foreach (var item in chain)
                         {
-                            PopulateViewerFlags(item, ctx);
+                            alreadyReturned.Add(item.PostId);
+                            yield return item;
                         }
-
-                        if (chain.Any(x => x.IsMuted)) continue;
                     }
-                    foreach (var item in chain)
+                    else
                     {
-                        alreadyReturned.Add(item.PostId);
-                        yield return item;
-                    }
-                }
-                else
-                {
-                    if (!post.IsRepost && post.InReplyToPostId is { } parentId && !onlyIfRequiresFullReplyChain)
-                    {
-                        if (!alreadyReturned.Contains(parentId))
+                        if (!post.IsRepost && post.InReplyToPostId is { } parentId && !onlyIfRequiresFullReplyChain)
                         {
-                            BlueskyPost? rootPost = null;
-                            var rootId = post.RootPostId;
-                            if (rootId != postId && rootId != parentId)
+                            if (!alreadyReturned.Contains(parentId))
                             {
-                                if (!alreadyReturned.Contains(rootId))
+                                BlueskyPost? rootPost = null;
+                                var rootId = post.RootPostId;
+                                if (rootId != postId && rootId != parentId)
                                 {
-
-                                    rootPost = GetPost(rootId, ctx);
-                                    if (omitIfMuted)
+                                    if (!alreadyReturned.Contains(rootId))
                                     {
-                                        PopulateViewerFlags(rootPost, ctx);
-                                        if (rootPost.IsMuted) continue;
+
+                                        rootPost = GetPost(rootId, ctx);
+                                        if (omitIfMuted)
+                                        {
+                                            PopulateViewerFlags(rootPost, ctx);
+                                            if (rootPost.IsMuted) continue;
+                                        }
                                     }
                                 }
-                            }
 
-                            var parentPost = GetPost(parentId, ctx);
-                            if (omitIfMuted)
-                            {
-                                PopulateViewerFlags(parentPost, ctx);
-                                if (parentPost.IsMuted) continue;
-                            }
+                                var parentPost = GetPost(parentId, ctx);
+                                if (omitIfMuted)
+                                {
+                                    PopulateViewerFlags(parentPost, ctx);
+                                    if (parentPost.IsMuted) continue;
+                                }
 
-                            if (rootPost != null)
-                            {
-                                alreadyReturned.Add(rootPost.PostId);
-                                yield return rootPost;
-                            }
+                                if (rootPost != null)
+                                {
+                                    alreadyReturned.Add(rootPost.PostId);
+                                    yield return rootPost;
+                                }
 
-                            alreadyReturned.Add(parentPost.PostId);
-                            yield return parentPost;
+                                alreadyReturned.Add(parentPost.PostId);
+                                yield return parentPost;
+                            }
                         }
                     }
                 }

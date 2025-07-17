@@ -81,7 +81,8 @@
                 mediaOnly: ShowMediaOnly,
                 limit: default,
                 continuation: Continuation,
-                ctx: RequestContext);
+                ctx: RequestContext,
+                forGrid: ShowMediaOnly);
         }
         RssError = Profile.RssFeedInfo?.RssErrorMessage;
         if(Profile.RssFeedInfo?.RedirectsTo != null)

@@ -563,7 +563,7 @@ async function recordPostEngagement(postElement, kind) {
     var hasImages = !!postElement.querySelector('.post-image-list') && !postElement.classList.contains('post-small-media-thumbnail');
     var hasExternalPreview = !!postElement.querySelector('.post-external-preview-image') && !postElement.querySelector('.post-external-preview-compact');
     var weight = hasImages || hasExternalPreview ? 2 : 1;
-    safeSignalrInvoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, kind, weight);
+    safeSignalrInvoke('MarkAsRead', postElement.dataset.postdid, postElement.dataset.postrkey, postElement.dataset.fromfeeddid, postElement.dataset.fromfeedrkey, kind, weight);
     postElement.wasMarkedAsRead = true;
 }
 

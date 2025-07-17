@@ -117,7 +117,7 @@ namespace AppViewLite
         }
 
 
-        public Lock FeedInterleavingLock = new();
+        public Lock FeedInterleavingLock = new(); // Lock ordering: must NOT hold relationships lock
         public Dictionary<RelationshipHashedRKey, DateTime> FeedToLastInterleavedSeenDate = new();
         public Dictionary<RelationshipHashedRKey, FeedPostsForInterleaving> FeedPostsForInterleaving = new();
     }

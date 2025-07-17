@@ -4255,10 +4255,13 @@ namespace AppViewLite
         {
             if (postEngagementsStr.Length == 0) return;
             var creditsToConsume = new List<(Plc Plc, float Weight)>();
+            var userCtx = ctx.UserContext;
+            var feedInterleavingSeen = new List<RelationshipHashedRKey>();  
+            var now = DateTime.UtcNow;
             WithRelationshipsWriteLock(rels =>
             {
                 var seenPostsSlices = rels.SeenPosts.GetValuesChunked(loggedInUser).ToArray();
-                var now = DateTime.UtcNow;
+
                 foreach (var engagementStr in postEngagementsStr)
                 {
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
@@ -4266,13 +4269,28 @@ namespace AppViewLite
                         creditsToConsume.Add((postId.Author, engagementStr.Weight));
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
-                    ctx.UserContext.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
+                    userCtx.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.TryAdd(postId);
                     now = now.AddTicks(1);
 
+                    if (engagementStr.FromFeed != default)
+                    {
+                        feedInterleavingSeen.Add(new RelationshipHashedRKey(rels.SerializeDid(engagementStr.FromFeed.Did, ctx), engagementStr.FromFeed.RKey));
+                    }
 
                 }
 
             }, ctx);
+
+            if (feedInterleavingSeen.Count != 0)
+            {
+                lock (userCtx.FeedInterleavingLock)
+                {
+                    foreach (var (index, feed) in feedInterleavingSeen.Index())
+                    {
+                        userCtx.FeedToLastInterleavedSeenDate[feed] = now.AddTicks(index);
+                    }
+                }
+            }
 
             if (creditsToConsume.Count != 0)
             {

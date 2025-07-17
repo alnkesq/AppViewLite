@@ -289,7 +289,7 @@ namespace AppViewLite.Web
         public record DidAndRKey(string Did, string Rkey);
         public record DidAndRKeyWithVia(string Did, string Rkey, string? ViaDid, string? ViaRkey)
         {
-            public RelationshipStr GetVia() => ViaDid != null && ViaRkey != null ? new RelationshipStr(ViaDid, ViaRkey) : default;
+            public RelationshipStr GetVia() => ViaDid != null && ViaRkey != null && Did != ViaDid ? new RelationshipStr(ViaDid, ViaRkey) : default;
         }
         public record RKeyOnly(string Rkey);
         public record DidOnly(string Did);

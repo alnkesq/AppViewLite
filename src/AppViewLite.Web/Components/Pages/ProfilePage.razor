@@ -218,7 +218,8 @@
             }
             @if (shouldShowFollowers)
             {
-                <a href="@followersUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@(data?.PluggableProtocolFollowerCount ?? Profile.Followers) Followers</a>
+                var followerCount = data?.PluggableProtocolFollowerCount ?? Profile.Followers;
+                <a href="@followersUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@(followerCount >= 10 ? StringUtils.FormatEngagementCount(followerCount) : null) Followers</a>
             }
             @if(shouldShowFollowers && shouldShowFollowing)
             {
@@ -226,7 +227,8 @@
             }
             @if (shouldShowFollowing)
             {
-                <a href="@followingUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@data?.PluggableProtocolFollowingCount Following</a>
+                var followingCount = data?.PluggableProtocolFollowingCount ?? 0;
+                <a href="@followingUrl" target="@anchorTargetForProfileUrl" class="underline-on-hover">@(followingCount != 0 ? StringUtils.FormatEngagementCount(followingCount) : null) Following</a>
             }
             @if (RequestContext.IsLoggedIn && RequestContext.LoggedInUser == SimpleProfile.Plc)
             {

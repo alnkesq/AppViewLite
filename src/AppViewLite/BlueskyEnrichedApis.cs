@@ -5051,7 +5051,7 @@ namespace AppViewLite
             FlushLog();
         }
 
-        public void GlobalFlush(string reason)
+        public void GlobalFlush(string reason, bool onlyIfNoPendingCompactations = false)
         {
             DrainAndCaptureFirehoseCursors();
 
@@ -5068,8 +5068,16 @@ namespace AppViewLite
                     }
                     Log("Global periodic flush...");
                     LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
-                    rels.GlobalFlushWithoutFirehoseCursorCapture();
-                    LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
+                    var ok = rels.GlobalFlushWithoutFirehoseCursorCapture(onlyIfNoPendingCompactations: onlyIfNoPendingCompactations);
+                    if (ok)
+                    {
+                        LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
+                    }
+                    else
+                    {
+                        Log("FlushIfNoPendingCompactations returned false, even though a preliminary AllMultidictionaries.Any(Compactation != null) check returned false.");
+                        LogInfo("====== END OF GLOBAL PERIODIC FLUSH (checkpoint not written due to pending compactations) ======");
+                    }
                     return null;
                 }, ctx);
 

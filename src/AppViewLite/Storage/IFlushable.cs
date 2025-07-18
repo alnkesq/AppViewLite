@@ -11,6 +11,7 @@ namespace AppViewLite.Storage
     {
         public void DisposeNoFlush();
         public void Flush(bool disposing);
+        public bool FlushIfNoPendingCompactations();
         public event EventHandler? BeforeFlush;
         public event EventHandler? AfterFlush;
         public event EventHandler<CancelEventArgs>? ShouldFlush;

@@ -453,6 +453,14 @@ namespace AppViewLite.Storage
 
         private int onBeforeFlushNotificationInProgress;
 
+
+        public bool FlushIfNoPendingCompactations()
+        {
+            if (pendingCompactation != null) return false;
+            Flush(disposing: false);
+            return true;
+        }
+
         public void Flush(bool disposing)
         {
             try

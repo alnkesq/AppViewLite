@@ -1212,9 +1212,9 @@ namespace AppViewLite
                         if (!didResumeWrites)
                             rels.AvoidFlushes--;
                     }
-                    rels.DidDocs.Flush(false);
-                    rels.ProfileSearchPrefix2.Flush(false);
-                    rels.ProfileSearchPrefix8.Flush(false);
+                    rels.DidDocs.FlushIfNoPendingCompactations();
+                    rels.ProfileSearchPrefix2.FlushIfNoPendingCompactations();
+                    rels.ProfileSearchPrefix8.FlushIfNoPendingCompactations();
 
                     rels.LastRetrievedPlcDirectoryEntry.Add(lastRetrievedDidDoc, 0);
                     rels.PlcDirectorySyncDate = lastRetrievedDidDoc;

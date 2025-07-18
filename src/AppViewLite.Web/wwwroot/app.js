@@ -177,20 +177,17 @@ var liveUpdatesConnectionFuture = (async () => {
     });
 
     if (!isNoLayout) { 
-        var retryCount = 0;
-        var retryPolicy = new CustomSignalrReconnectPolicy();
-        while (true) {
-            try {
-                await connection.start();
-                break;
-            } catch (e) { 
-                console.error(getDisplayTextForException(e));
-            }
-            var delayMs = retryPolicy.nextRetryDelayInMilliseconds({ previousRetryCount: retryCount })
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-            retryCount++;
-        }
+        await connectSignalrIfNecessary(connection);
 
+        async function scheduleReconnect() { 
+            setTimeout(async () => {
+                // retry policy alone doesn't always work
+                await connectSignalrIfNecessary(connection);
+                scheduleReconnect();
+            }, 30000);
+        }
+        
+        scheduleReconnect();
     }
 
     liveUpdatesConnection = connection;
@@ -210,6 +207,24 @@ function updateSearchAutoComplete() {
     }, 200)
 }
 
+async function connectSignalrIfNecessary(connection) {
+    if (connection.state != 'Disconnected') return;
+
+    var retryCount = 0;
+    var retryPolicy = new CustomSignalrReconnectPolicy();
+    while (true) {
+        if (connection.state == 'Connected') return;
+        try {
+            await connection.start();
+            break;
+        } catch (e) { 
+            console.error(getDisplayTextForException(e));
+        }
+        var delayMs = retryPolicy.nextRetryDelayInMilliseconds({ previousRetryCount: retryCount })
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        retryCount++;
+    }
+}
 
 function applyPageFocus() {
     

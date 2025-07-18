@@ -57,6 +57,8 @@ namespace AppViewLite.Numerics
             return this.TidValue.CompareTo(other.TidValue);
         }
         public string RkeyString => ToString()!;
+
+        public Tid GetNext() => new Tid(TidValue + 1);
     }
 }
 

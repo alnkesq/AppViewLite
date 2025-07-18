@@ -2585,6 +2585,16 @@ namespace AppViewLite
                 _ => default
             };
 
+            if (notification.Kind is NotificationKind.LikedYourRepost or NotificationKind.RepostedYourRepost)
+            {
+                var repostRkey = notification.RKey;
+                postId = this.UserToRecentReposts.GetValuesUnsorted(ctx.LoggedInUser, new RecentRepost(repostRkey, default), new RecentRepost(repostRkey.GetNext(), default))
+                    .FirstOrDefault(x => x.RepostRKey == repostRkey)
+                    .PostId;
+                if (postId == default) return null;
+                actor = notification.Actor;
+            }
+
             BlueskyFeedGenerator? feed = null;
             BlueskyList? list = null;
             if (notification.Kind == NotificationKind.LikedYourFeed)

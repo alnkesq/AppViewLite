@@ -46,6 +46,8 @@ namespace AppViewLite
                     NotificationKind.DetachedYourQuotePost => "detached your quote",
                     NotificationKind.LabeledYourPost => "labeled your post",
                     NotificationKind.LabeledYourProfile => "labeled your profile",
+                    NotificationKind.LikedYourRepost => "liked your repost",
+                    NotificationKind.RepostedYourRepost => "reposted your repost",
                     _ => throw AssertionLiteException.ThrowBadEnumException(Kind)
                 };
             }

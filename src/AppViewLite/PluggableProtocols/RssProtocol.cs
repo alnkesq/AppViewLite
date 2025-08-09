@@ -478,7 +478,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             var guid = GetValue(item, "guid");
 
-
+            string? authorUserName = null;
 
             var dateParsed = date != null ? DateTime.Parse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal) : DateTime.UtcNow;
 
@@ -491,6 +491,9 @@ namespace AppViewLite.PluggableProtocols.Rss
             var isRedditNativeVideo = false;
             if (feedUrl.HasHostSuffix("reddit.com"))
             {
+                var author = GetValue(GetChild(item, "author"), "name");
+                if (author != null && author.StartsWith("/u/", StringComparison.Ordinal))
+                    authorUserName = author.Substring(3);
                 var isUserRss = feedUrl.AbsolutePath.StartsWith("/user/", StringComparison.Ordinal);
                 if (!isUserRss) // for user RSS, we sort by new, so rank isn't meaningful
                     pluggableLikeCountForScoring = EstimateLikesFromRank(postIndex, 1.1);
@@ -667,8 +670,9 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             var data = new BlueskyPostData()
             {
+                PluggableAuthor = authorUserName,
                 PluggableLikeCountForScoring = pluggableLikeCountForScoring,
-                PluggableLikeCount = pluggableLikeCountForScoring // TODO temporary for debugging
+                PluggableLikeCount = pluggableLikeCountForScoring, // TODO temporary for debugging
             };
             if (url == null) hasFullContent = true;
 

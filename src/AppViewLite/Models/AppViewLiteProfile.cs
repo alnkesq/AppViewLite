@@ -134,7 +134,14 @@ namespace AppViewLite.Models
 
         private Func<string[], Uri[], BlueskyPost, bool> CreateMatcher()
         {
-
+            if (Word.StartsWith("u:", StringComparison.OrdinalIgnoreCase))
+            {
+                var user = Word.Substring(2);
+                return (text, urls, post) =>
+                {
+                    return string.Equals(post.Data?.PluggableAuthor, user, StringComparison.OrdinalIgnoreCase);
+                };
+            }
             if (Word.Contains('.') && !Word.Contains(' '))
             {
                 return (text, urls, post) =>

@@ -2,11 +2,12 @@
 @inject NavigationManager Navigation
 @inject BlueskyEnrichedApis Apis
 @inject RequestContext RequestContext
+@inject IHttpContextAccessor HttpContextAccessor
 
 @code{
     private long NotificationCount;
     string? Announcement;
-
+    private BlueskyProfile[] LoggedInAccounts = [];
     [Parameter] public bool NeedsNotificationCount { get; set; }
     protected override void OnParametersSet()
     {
@@ -23,6 +24,21 @@
         else if (staleness.TotalDays >= 7) 
         {
             Announcement = $"The PLC directory is still syncing ({staleness.TotalDays:0.0} days out of date). User search might be incomplete";
+        }
+
+        if (Session.IsLoggedIn)
+        {
+            var cookie = ParsedMultisessionCookie.Parse(HttpContextAccessor.HttpContext!.Request.Cookies[ParsedMultisessionCookie.CookieName]);
+            if (cookie.Sessions.Length == 1)
+            {
+                LoggedInAccounts = [RequestContext.UserContext.Profile!];
+            }
+            else
+            {
+                LoggedInAccounts = Apis.WithRelationshipsLock(rels => cookie.Sessions.Select(x => rels.GetProfile(rels.SerializeDid(x.UnverifiedDid, RequestContext))).ToArray(), RequestContext);
+
+            }
+
         }
 
     }
@@ -125,11 +141,54 @@
 
     @if (RequestContext.IsLoggedIn)
     {
-        <div class="sidebar-item-small">
-            <NavLink href="/logout" data-enhance-nav="false">
-                Logout
-            </NavLink>
-        </div>
+        @if (LoggedInAccounts.Length == 1)
+        {
+            <div class="sidebar-item-small">
+                <NavLink href="/login" data-enhance-nav="false">
+                    Log in to other account
+                </NavLink>
+            </div>
+
+
+            <div class="sidebar-item-small">
+                <NavLink href="/logout" data-enhance-nav="false">
+                    Log out
+                </NavLink>
+            </div>
+        }
+        else
+        {
+            @foreach (var session in LoggedInAccounts)
+            {
+                if (session.Did == RequestContext.UserContext.Did)
+                {
+                    
+                    <div class="sidebar-item-small">
+                        <b>@session.DisplayNameOrFallback</b>
+                    </div>
+                    <div class="sidebar-item-small">
+                        <NavLink href="/logout" data-enhance-nav="false">
+                            &nbsp;&nbsp;&nbsp;&nbsp;Log out
+                        </NavLink>
+                    </div>
+                }
+                else
+                {
+                    <div class="sidebar-item-small">
+                        <NavLink href="@("/set-active-profile?did=" + Uri.EscapeDataString(session.Did))" data-enhance-nav="false">
+                            @session.DisplayNameOrFallback
+                        </NavLink>
+                    </div>
+                }
+            }
+            <div class="sidebar-item-small">
+                <NavLink href="/login" data-enhance-nav="false">
+                    Log in to other account
+                </NavLink>
+            </div>
+
+
+        }
     }
 </nav>
 

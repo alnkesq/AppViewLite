@@ -5,7 +5,7 @@
 @inject BlueskyEnrichedApis Apis
 
 <PageTitle>Login</PageTitle>
-<h1>Login</h1>
+<h1>@(RequestContext.IsLoggedIn ? "Add a logged in account" : "Login")</h1>
 <form method="post" @onsubmit="Submit" @formname="loginForm" class="main-padding">
     <AntiforgeryToken />
     <div>
@@ -39,7 +39,7 @@
 
     protected override void OnInitialized()
     {
-        if (RequestContext.IsLoggedIn) Navigation.NavigateTo("/following", true);
+        // if (RequestContext.IsLoggedIn) Navigation.NavigateTo("/following", true);
         Model ??= new();
     }
 
@@ -47,8 +47,9 @@
     {
         if (!string.IsNullOrEmpty(Model!.Handle) && !string.IsNullOrEmpty(Model!.Password))
         {
-            var (session, cookie) = await Apis.LogInAsync(Model.Handle, Model.Password, RequestContext);
-            HttpContextAccessor.HttpContext!.Response.Cookies.Append("appviewliteSessionId", cookie, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
+            var cookies = ParsedMultisessionCookie.Parse(HttpContextAccessor.HttpContext!.Request.Cookies[ParsedMultisessionCookie.CookieName]);
+            var (session, cookie, allSessions) = await Apis.AddToLogInAsync(Model.Handle, Model.Password, cookies, RequestContext);
+            HttpContextAccessor.HttpContext!.Response.AppendEssentialCookie(ParsedMultisessionCookie.CookieName, allSessions.ToString()!);
             Navigation.NavigateTo(Return ?? "/following", true);
         }
     }

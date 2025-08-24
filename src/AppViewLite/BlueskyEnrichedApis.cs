@@ -14,6 +14,7 @@ using FishyFlip.Models;
 using FishyFlip.Tools;
 using Ipfs;
 using Microsoft.Extensions.ObjectPool;
+using Microsoft.IdentityModel.Abstractions;
 using PeterO.Cbor;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
@@ -23,6 +24,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -533,7 +535,7 @@ namespace AppViewLite
         {
             if (posts.Length == 0) return posts;
 
-            
+
 
 
             void OnPostDataAvailable(BlueskyRelationships rels, BlueskyPost post)
@@ -1121,7 +1123,7 @@ namespace AppViewLite
                         })
                         .WhereNonNull()
                         .Take(canFetchFromServer && !mediaOnly ? 10 : 50),
-                        ctx, 
+                        ctx,
                         forGrid: forGrid
                         )
                         .ToArray();
@@ -2168,7 +2170,7 @@ namespace AppViewLite
                 {
                     return GetBalancedFollowingFeedCandidatesForFollowee(rels, pair.Plc, pair.IsPrivate, minDate, loggedInUser, possibleFollows, isPostSeen, timedOut);
                 }).Where(x => x.Plc != default).ToArray();
-                var postsFromFeeds = postsFromFeedsBeforeFiltering.Select(x => x with { PostIds = x.PostIds!.Where(x => !isPostSeen(x)).ToArray()}).Where(x => x.PostIds!.Length != 0).ToQueue();
+                var postsFromFeeds = postsFromFeedsBeforeFiltering.Select(x => x with { PostIds = x.PostIds!.Where(x => !isPostSeen(x)).ToArray() }).Where(x => x.PostIds!.Length != 0).ToQueue();
                 return (possibleFollows, userPosts, postsFromFeeds);
             }, ctx);
 
@@ -2506,7 +2508,7 @@ namespace AppViewLite
         private readonly TimeSpan FeedForInterleavingMaxAge = TimeSpan.FromHours(3);
         private FeedForInterleavingCandidate[] GetPostsFromFeedsForInterleaving(RequestContext ctx)
         {
-            
+
             var userCtx = ctx.UserContext;
             var now = DateTime.UtcNow;
             FeedForInterleavingCandidate[] feedSubscriptions;
@@ -2517,7 +2519,7 @@ namespace AppViewLite
                     .Select(x =>
                     {
                         var feedId = new RelationshipHashedRKey(new Plc(x.FeedPlc), x.FeedRKey);
-                        return new FeedForInterleavingCandidate(x, feedId, 
+                        return new FeedForInterleavingCandidate(x, feedId,
                             userCtx.FeedToLastInterleavedSeenDate.TryGetValue(feedId, out var lastSeen) ? lastSeen : default,
                             userCtx.FeedPostsForInterleaving.TryGetValue(feedId, out var posts) && (now - posts.DateFetched <= FeedForInterleavingMaxAge) ? posts.PostIds : default,
                             random.Next()
@@ -2966,7 +2968,7 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                LogOut(ctx.Session.SessionToken, ctx.Session.Did!, ctx);
+                LogOut(new(ctx.Session.Did!, ctx.Session.SessionToken!), ctx);
                 throw new LoggedOutException("You have been logged out.", ex);
             }
 
@@ -3941,7 +3943,7 @@ namespace AppViewLite
                 {
                     rels.AddHandleToDidVerification(handle, default);
                 }, ctx);
-                throw new UnexpectedFirehoseDataException($"Could not resolve handle: " + (attemptingWellKnown && ex is HttpRequestException {StatusCode: { } sc } hre ? "HTTP " + (int)sc + " " + sc : ex.Message), ex);
+                throw new UnexpectedFirehoseDataException($"Could not resolve handle: " + (attemptingWellKnown && ex is HttpRequestException { StatusCode: { } sc } hre ? "HTTP " + (int)sc + " " + sc : ex.Message), ex);
             }
         }
 
@@ -4256,7 +4258,7 @@ namespace AppViewLite
             if (postEngagementsStr.Length == 0) return;
             var creditsToConsume = new List<(Plc Plc, float Weight)>();
             var userCtx = ctx.UserContext;
-            var feedInterleavingSeen = new List<RelationshipHashedRKey>();  
+            var feedInterleavingSeen = new List<RelationshipHashedRKey>();
             var now = DateTime.UtcNow;
             WithRelationshipsWriteLock(rels =>
             {
@@ -4455,29 +4457,31 @@ namespace AppViewLite
 
         public static string? TryGetSessionIdFromCookie(string? cookie, out string? unverifiedDid)
         {
-            if (cookie != null)
+            var parsed = ParsedMultisessionCookie.Parse(cookie);
+            if (parsed.ActiveDid != null)
             {
-                var r = cookie.Split('=');
-                unverifiedDid = r[1];
-                return r[0];
+                var r = parsed.Sessions.First(x => x.UnverifiedDid == parsed.ActiveDid);
+                unverifiedDid = r.UnverifiedDid;
+                return r.SecretKey;
             }
             unverifiedDid = null;
             return null;
         }
 
-        public AppViewLiteSession? TryGetSessionFromCookie(string? sessionIdCookie)
+        
+        public AppViewLiteSession? TryGetSessionFromCookie(SessionIdWithUnverifiedDid sessionIdCookie)
         {
-            if (sessionIdCookie == null) return null;
+            if (sessionIdCookie == default) return null;
             var apis = BlueskyEnrichedApis.Instance;
             var now = DateTime.UtcNow;
-            var sessionId = TryGetSessionIdFromCookie(sessionIdCookie, out var unverifiedDid);
+            var sessionId = sessionIdCookie.SecretKey;
             if (sessionId != null)
             {
                 if (!SessionDictionary.TryGetValue(sessionId, out var session))
                 {
 
                     var temporaryCtx = RequestContext.CreateForRequest(AppViewLiteSession.CreateAnonymous());
-                    var unverifiedUserContext = GetOrCreateUserContext(unverifiedDid!, temporaryCtx);
+                    var unverifiedUserContext = GetOrCreateUserContext(sessionIdCookie.UnverifiedDid!, temporaryCtx);
 
                     var sessionProto = unverifiedUserContext.TryGetAppViewLiteSession(sessionId);
                     if (sessionProto == null) return null;
@@ -4538,20 +4542,12 @@ namespace AppViewLite
 
 
 
-        public void LogOut(string cookie, RequestContext ctx)
-        {
-            var id = BlueskyEnrichedApis.TryGetSessionIdFromCookie(cookie, out var unverifiedDid);
-            if (id != null)
-            {
-                LogOut(id, unverifiedDid!, ctx);
-            }
 
-        }
 
-        public void LogOut(string? id, string unverifiedDid, RequestContext ctx)
-        {
-            var unverifiedUserContext = GetOrCreateUserContext(unverifiedDid, ctx);
-            var session = unverifiedUserContext.TryGetAppViewLiteSession(id);
+        public void LogOut(SessionIdWithUnverifiedDid cookie, RequestContext ctx)
+        {            
+            var unverifiedUserContext = GetOrCreateUserContext(cookie.UnverifiedDid, ctx);
+            var session = unverifiedUserContext.TryGetAppViewLiteSession(cookie.SecretKey);
             if (session != null)
             {
                 // now verified.
@@ -4572,7 +4568,13 @@ namespace AppViewLite
 
         public static bool AllowPublicReadOnlyFakeLogin = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ALLOW_PUBLIC_READONLY_FAKE_LOGIN) ?? false;
 
-        public async Task<(AppViewLiteSession Session, string Cookie)> LogInAsync(string handle, string password, RequestContext ctx)
+
+        public async Task<(AppViewLiteSession Session, SessionIdWithUnverifiedDid Id, ParsedMultisessionCookie AllSessions)> AddToLogInAsync(string handle, string password, ParsedMultisessionCookie previousCookie, RequestContext ctx)
+        {
+            var newSession = await LogInAsync(handle, password, ctx);
+            return (newSession.Session, newSession.Id, new ParsedMultisessionCookie(newSession.Id.UnverifiedDid, previousCookie.Sessions.Where(x => x.UnverifiedDid != newSession.Id.UnverifiedDid).Append(newSession.Id).ToImmutableArray()));
+        }
+        public async Task<(AppViewLiteSession Session, SessionIdWithUnverifiedDid Id)> LogInAsync(string handle, string password, RequestContext ctx)
         {
             var apis = BlueskyEnrichedApis.Instance;
             if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(password)) throw new ArgumentException("Empty handle or password.");
@@ -4633,7 +4635,7 @@ namespace AppViewLite
 
             SessionDictionary[id] = session;
 
-            return (session, id + "=" + did);
+            return (session, new SessionIdWithUnverifiedDid(did, id));
         }
 
 
@@ -4893,7 +4895,7 @@ namespace AppViewLite
                 AlignedArenaPool = GetAllPooledObjects(AlignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
                 UnalignedArenaPool = GetAllPooledObjects(UnalignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
                 EfficientTextCompressor_TokenizerPool = GetAllPooledObjects(EfficientTextCompressor.TokenizerPool).Count,
-                GCMemoryInfo = new  
+                GCMemoryInfo = new
                 {
                     gcMemoryInfo.FinalizationPendingCount,
                     gcMemoryInfo.FragmentedBytes,
@@ -4908,12 +4910,12 @@ namespace AppViewLite
                     gcMemoryInfo.TotalAvailableMemoryBytes,
                     gcMemoryInfo.TotalCommittedBytes,
                 },
-                ProcessInfo = new 
+                ProcessInfo = new
                 {
                     proc.HandleCount,
                     //MaxWorkingSet = (long)proc.MaxWorkingSet,
                     //MinWorkingSet = (long)proc.MinWorkingSet,
-                    Memory = new 
+                    Memory = new
                     {
                         Private = proc.PrivateMemorySize64,
                         Virtual = proc.VirtualMemorySize64,
@@ -4936,7 +4938,7 @@ namespace AppViewLite
             };
         }
 
-        internal static IReadOnlyList<T> GetAllPooledObjects<T>(ObjectPool<T> pool) where T: class
+        internal static IReadOnlyList<T> GetAllPooledObjects<T>(ObjectPool<T> pool) where T : class
         {
             var items = (ConcurrentQueue<T>)pool.GetType().GetField("_items", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(pool)!;
             var fastItem = (T?)pool.GetType().GetField("_fastItem", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(pool);
@@ -5102,7 +5104,7 @@ namespace AppViewLite
                 {
                     Indexer.CaptureFirehoseCursors?.Invoke();
                 }
-                
+
             }
         }
 

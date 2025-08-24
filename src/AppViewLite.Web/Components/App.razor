@@ -2,7 +2,7 @@
 @inject RequestContext RequestContext
 @inject NavigationManager NavigationManager
 <!DOCTYPE html>
-<html lang="en" class="theme-@(RequestContext.IsLoggedIn ? RequestContext.PrivateProfile.Theme : Theme.SystemDefault) accent-color-@RequestContext.AccentColor" data-ssr-page-url="@NavigationManager.Uri">
+<html lang="en" data-currentlyactivedid="@(RequestContext.IsLoggedIn ? RequestContext.UserContext.Did : string.Empty)" class="theme-@(RequestContext.IsLoggedIn ? RequestContext.PrivateProfile.Theme : Theme.SystemDefault) accent-color-@RequestContext.AccentColor" data-ssr-page-url="@NavigationManager.Uri">
 
 <head>
     <meta charset="utf-8" />

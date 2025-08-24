@@ -174,7 +174,7 @@ namespace AppViewLite.Web
                         if (ctx.Request.Method == "GET" && ctx.Request.Headers["sec-fetch-dest"].FirstOrDefault() != "empty")
                         {
                             // the refresh token will expire soon. require a new login to avoid broken POST/like later.
-                            apis.LogOut(reqCtx.Session.SessionToken!, reqCtx.Session.Did!, reqCtx);
+                            apis.LogOut(new(reqCtx.Session.Did!, reqCtx.Session.SessionToken!), reqCtx);
                             ctx.Response.Redirect("/login?return=" + Uri.EscapeDataString(ctx.Request.GetEncodedPathAndQuery()));
                             return;
                         }
@@ -377,12 +377,14 @@ namespace AppViewLite.Web
 
         public static AppViewLiteSession? TryGetSession(HttpContext? httpContext)
         {
-            return BlueskyEnrichedApis.Instance.TryGetSessionFromCookie(TryGetSessionCookie(httpContext));
+            return BlueskyEnrichedApis.Instance.TryGetSessionFromCookie(TryGetSessionCookie(httpContext) ?? default);
         }
 
-        public static string? TryGetSessionCookie(HttpContext? httpContext)
+
+        public static SessionIdWithUnverifiedDid? TryGetSessionCookie(HttpContext? httpContext)
         {
             if (httpContext == null) return null;
+            if (httpContext.Request.Path.StartsWithSegments("/lib")) return null;
             if (httpContext.Request.Path.StartsWithSegments("/xrpc"))
             {
                 var authorization = httpContext.Request.Headers.Authorization.FirstOrDefault();
@@ -398,11 +400,24 @@ namespace AppViewLite.Web
                     }
                     if (!BlueskyEnrichedApis.IsValidDid(unverifiedDid))
                         throw new Exception("A valid DID identifier was not found inside the Subject or Issue field of the JWT token. https://github.com/alnkesq/AppViewLite/pull/215");
-                    return unverifiedJwtToken + "=" + unverifiedDid;
+                    return new SessionIdWithUnverifiedDid(unverifiedDid, unverifiedJwtToken);
                 }
                 return null;
             }
-            return httpContext.Request.Cookies.TryGetValue("appviewliteSessionId", out var id) && !string.IsNullOrEmpty(id) ? id : null;
+            var allSessions = ParsedMultisessionCookie.Parse(httpContext.Request.Cookies[ParsedMultisessionCookie.CookieName]);
+            var xhrPreferredDid = httpContext.Request.Headers["X-AppViewLitePreferredDid"].FirstOrDefault();
+            if (xhrPreferredDid == null && httpContext.Request.Path.StartsWithSegments("/api/live-updates"))
+            {
+                xhrPreferredDid = httpContext.Request.Query["activedid"].FirstOrDefault();
+            }
+            if (!string.IsNullOrEmpty(xhrPreferredDid))
+            {
+                var session = allSessions.Sessions.FirstOrDefault(x => x.UnverifiedDid == xhrPreferredDid);
+                if (session == default) throw new Exception("The session you're trying to use has been logged out. Please refresh the page.");
+                return session;
+            }
+            if (allSessions.ActiveDid == null) return null;
+            return allSessions.Sessions.First(x => x.UnverifiedDid == allSessions.ActiveDid);
         }
 
         public static Uri? GetNextContinuationUrl(this NavigationManager url, string? nextContinuation)
@@ -414,6 +429,12 @@ namespace AppViewLite.Web
         {
             return url.ToAbsoluteUri(url.Uri).WithQueryParameter(name, value);
         }
+
+        public static void AppendEssentialCookie(this HttpResponse response, string name, string value)
+        {
+            response.Cookies.Append(name, value, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
+        }
+
         public static Uri WithQueryParameter(this Uri url, string name, string? value)
         {
             var query = QueryHelpers.ParseQuery(url.Query);

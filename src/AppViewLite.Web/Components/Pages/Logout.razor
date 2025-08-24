@@ -1,4 +1,5 @@
 @page "/logout"
+@using System.Collections.Immutable
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
 @inject BlueskyEnrichedApis Apis
@@ -25,10 +26,14 @@
     private void Submit()
     {
 
-        var cookie = Program.TryGetSessionCookie(HttpContextAccessor.HttpContext!);
-        if (cookie != null)
+        var allSessions = ParsedMultisessionCookie.Parse(HttpContextAccessor.HttpContext!.Request.Cookies[ParsedMultisessionCookie.CookieName]);
+        if (allSessions.ActiveDid != null)
         {
-            Apis.LogOut(cookie, RequestContext);
+            Apis.LogOut(allSessions.Sessions.First(x => x.UnverifiedDid == allSessions.ActiveDid), RequestContext);
+            var remainingSessions = allSessions.Sessions.Where(x => x.UnverifiedDid != allSessions.ActiveDid).ToImmutableArray();
+
+            allSessions = new ParsedMultisessionCookie(remainingSessions.FirstOrDefault().UnverifiedDid, remainingSessions);
+            HttpContextAccessor.HttpContext!.Response.AppendEssentialCookie(ParsedMultisessionCookie.CookieName, allSessions.ToString() ?? string.Empty);
         }
         Navigation.NavigateTo("/", true);
         

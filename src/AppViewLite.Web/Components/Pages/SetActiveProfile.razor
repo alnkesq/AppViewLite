@@ -1,0 +1,58 @@
+@page "/set-active-profile"
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+@inject BlueskyEnrichedApis Apis
+@inject RequestContext RequestContext
+
+<form method="post" @onsubmit="Submit" @formname="setActiveProfileForm" id="setActiveProfileForm">
+    <AntiforgeryToken />
+    Switching profiles...
+</form>
+<script>
+    document.getElementById('setActiveProfileForm').submit();
+</script>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginData? Model { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Did { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/login", true);
+        Model ??= new();
+    }
+
+    private void Submit()
+    {
+        var cookies = ParsedMultisessionCookie.Parse(HttpContextAccessor.HttpContext!.Request.Cookies[ParsedMultisessionCookie.CookieName]);
+        if (Did == null || !cookies.Sessions.Any(x => x.UnverifiedDid == Did))
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+
+        cookies = new ParsedMultisessionCookie(Did, cookies.Sessions);
+        var stillActive = BlueskyEnrichedApis.Instance.TryGetSessionFromCookie(cookies.Sessions.First(x => x.UnverifiedDid == Did));
+        if (stillActive == null)
+        {
+            Navigation.NavigateTo("/login", true);
+
+        }
+        else
+        {
+            HttpContextAccessor.HttpContext!.Response.AppendEssentialCookie(ParsedMultisessionCookie.CookieName, cookies.ToString()!);
+
+            Navigation.NavigateTo("/", true);
+        }
+
+    }
+
+    public class LoginData
+    {
+    }
+}
+
+

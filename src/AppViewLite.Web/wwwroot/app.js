@@ -111,7 +111,7 @@ var liveUpdatesConnectionFuture = (async () => {
 
 
     var connection = new signalR.HubConnectionBuilder()
-        .withUrl("/api/live-updates")
+        .withUrl("/api/live-updates?activedid=" + encodeURIComponent(document.documentElement.dataset.currentlyactivedid || ''))
         .configureLogging(signalR.LogLevel.Information) 
         .withAutomaticReconnect(new CustomSignalrReconnectPolicy())
         .build();
@@ -410,7 +410,7 @@ function fastNavigateIfLink(event) {
 }
 
 var NO_FETCH_REUSE_PATHS = ['/notifications', '/history', '/debug/event-charts'];
-var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/settings/mute', '/debug/locks', '/debug/requests', '/debug/log'];
+var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/set-active-profile', '/settings/mute', '/debug/locks', '/debug/requests', '/debug/log'];
 
 function canFastNavigateTo(url) { 
     if (url.host != window.location.host) return false;
@@ -1510,6 +1510,9 @@ class ActionStateToggler {
 }
 
 async function fetchCore(input, init) { 
+    init ??= {};
+    init.headers ??= {};
+    init.headers['X-AppViewLitePreferredDid'] = document.documentElement.dataset.currentlyactivedid;
     try {
         return await fetch(input, init);
     } catch (e) {

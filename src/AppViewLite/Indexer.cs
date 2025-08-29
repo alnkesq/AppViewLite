@@ -268,7 +268,8 @@ namespace AppViewLite
                                 if (l.Via.Uri.Collection != Repost.RecordType) throw new UnexpectedFirehoseDataException("Like.via should be a repost URL.");
                                 var viaRepostPlc = relationships.SerializeDidWithHint(l.Via.Uri.Did!.Handler, ctx, preresolved.viaPlc);
                                 var viaRepostRkey = l.Via.Uri.Rkey;
-                                relationships.AddNotification(viaRepostPlc, NotificationKind.LikedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, likeRkey.Date);
+                                if (viaRepostPlc != postId.Author)
+                                    relationships.AddNotification(viaRepostPlc, NotificationKind.LikedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, likeRkey.Date);
                             }
 
                             relationships.IncrementRecentPopularPostLikeCount(postId, null);
@@ -336,7 +337,8 @@ namespace AppViewLite
                             var viaRepostPlc = relationships.SerializeDidWithHint(r.Via.Uri.Did!.Handler, ctx, preresolved.viaPlc);
                             var viaRepostRkey = r.Via.Uri.Rkey;
 
-                            relationships.AddNotification(viaRepostPlc, NotificationKind.RepostedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, repostRKey.Date);
+                            if (viaRepostPlc != postId.Author)
+                                relationships.AddNotification(viaRepostPlc, NotificationKind.RepostedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, repostRKey.Date);
                         }
                     }
 

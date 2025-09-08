@@ -20,11 +20,13 @@ namespace AppViewLite.PluggableProtocols.HackerNews
             if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_HACKERNEWS, false))
                 return;
 
+            var useReposts = false;
+
             await PluggableProtocol.RetryInfiniteLoopAsync("HackerNews", async ct =>
             {
 
 
-                OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"), willOnlyRepost: true);
+                OnProfileDiscovered(HackerNewsMainDid, new BlueskyProfileBasicInfo { DisplayName = "Hacker News" }, RequestContext.CreateForFirehose("HackerNews"), willOnlyRepost: useReposts);
                 while (true)
                 {
                     await Task.Delay(TimeSpan.FromMinutes(10), ct);
@@ -63,11 +65,9 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                             ExternalUrl = hasExternalLink ? titleUrl.AbsoluteUri : null,
                         };
 
-#if true
-                        var postDid = DidPrefix + username;
-#else
-                        var postDid = HackerNewsMainDid;
-#endif
+
+                        var postDid = useReposts ? DidPrefix + username : HackerNewsMainDid;
+
                         var postId = new QualifiedPluggablePostId(postDid, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id));
                         var assignedPostId = OnPostDiscovered(postId, null, null, data, ctx);
 

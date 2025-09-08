@@ -2155,7 +2155,7 @@ namespace AppViewLite
             var minDate = now - BlueskyRelationships.BalancedFeedMaximumAge;
 
             var loggedInUser = ctx.LoggedInUser;
-
+            var random = new Random((now.Ticks / TimeSpan.TicksPerMinute + "|" + continuation).GetHashCode());
 
             var postsFromFeedsBeforeFiltering = GetPostsFromFeedsForInterleaving(ctx);
 
@@ -2452,7 +2452,7 @@ namespace AppViewLite
                                 }
                             }
 
-                            if (postsFromFeeds.TryDequeue(out var feed))
+                            if (random.NextDouble() > 0.5 && postsFromFeeds.TryDequeue(out var feed))
                             {
                                 foreach (var postId in feed.PostIds!)
                                 {

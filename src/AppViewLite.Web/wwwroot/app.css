@@ -1342,6 +1342,11 @@ a[disabled]{
     pointer-events: none;
 }
 
+.menu-item[disabled]{
+    background: transparent;
+    color: gray;
+}
+
 
 .sidebar-item-small {
     font-size: 12pt;

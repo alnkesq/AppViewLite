@@ -52,6 +52,8 @@ namespace AppViewLite.Models
         public bool IsRepost => RepostedBy != null;
         public object? EmbedRecord;
 
+        public bool CanQuote = true;
+
         public bool RequiresLateOpenGraphData =>
             LateOpenGraphData == null &&
             PluggableProtocol?.RequiresLateOpenGraphData(this) == true;

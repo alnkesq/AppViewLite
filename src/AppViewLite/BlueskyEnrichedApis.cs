@@ -594,6 +594,16 @@ namespace AppViewLite
                     }
                 }
 
+                if (ctx.LoggedInUser != post.AuthorId)
+                {
+                    var postgate = rels.TryGetPostgate(post.PostId);
+                    if (postgate != null)
+                    {
+                        if (postgate.DisallowQuotes)
+                            post.CanQuote = false;
+                    }
+                }
+
 
                 if (post.RootAndAuthorBlockReason != default)
                 {

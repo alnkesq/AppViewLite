@@ -1184,35 +1184,68 @@ namespace AppViewLite
                 includeBookmarks ? Tid.MaxValue : default,
                 []);
 
-            BlueskyPost? GetPostIfRelevant(BlueskyRelationships rels, PostId postId, CollectionKind kind)
+            IReadOnlyList<BlueskyPost> GetPostIfRelevant(BlueskyRelationships rels, PostId postId, CollectionKind kind)
             {
-                var post = rels.GetPost(postId, ctx);
-
-                if (kind == CollectionKind.Posts)
+                if (kind == CollectionKind.Posts && includeReplies == AuthorFeedShowReplies.RepliesToOwnPostsOnly)
                 {
-                    if (includeReplies != AuthorFeedShowReplies.AllReplies)
+                    var posts = new List<BlueskyPost>();
+                    var plc = postId.Author;
+                    while (true)
                     {
-                        var feedPlc = profile.Plc;
+                        var post = rels.GetPost(postId, ctx);
+                        posts.Add(post);
 
-                        if (!post.IsRootPost && !(post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true))
+                        if (post.Data != null)
                         {
-                            if (includeReplies == AuthorFeedShowReplies.NoReplies) return null;
+                            if (post.Data.InReplyToPostId != null)
+                            {
+                                if (post.Data.InReplyToPostId.Value.Author == plc)
+                                {
+                                    postId = post.Data.InReplyToPostId.Value; // We can continue
+                                }
+                                else
+                                {
+                                    return []; // Not a fully own thread. Return nothing.
+                                }
+                            }
                             else
                             {
-                                if (post.InReplyToPostId?.Author == feedPlc && post.RootPostId.Author == feedPlc)
-                                {
-                                    // ok
-                                }
-                                else return null;
+                                break; // We reached the root post
                             }
                         }
+                        else
+                        {
+                            break; // Chain interrupted by missing data.
+                        }
                     }
-                    
-                }
+                    if (posts.Any(x => x.Data == null))
+                    {
+                        if (posts[0].Data == null) return [posts[0]]; // Return the (not loaded yet) leaf, hoping it's a root post.
+                        else return []; // Be conservative and return nothing.
+                    }
 
-                if (mediaOnly && post.Data?.Media == null)
-                    return null;
-                return post;
+                    posts.Reverse();
+                    return posts;
+                }
+                else
+                {
+                    var post = rels.GetPost(postId, ctx);
+
+                    if (kind == CollectionKind.Posts)
+                    {
+                        if (includeReplies != AuthorFeedShowReplies.AllReplies)
+                        {
+                            var feedPlc = profile.Plc;
+
+                            if (includeReplies == AuthorFeedShowReplies.NoReplies && !post.IsRootPost && !(post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)) return [];
+                        }
+
+                    }
+
+                    if (mediaOnly && post.Data?.Media == null)
+                        return [];
+                    return [post];
+                }
             }
 
             var canFetchFromServer = BlueskyRelationships.IsNativeAtProtoDid(did);
@@ -1234,17 +1267,17 @@ namespace AppViewLite
 
                     return rels.EnumerateFeedWithNormalization(
                         SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([recentPosts, recentReposts], x => x.RKey, new ReverseComparer<Tid>())
-                        .Select(x =>
+                        .SelectMany(x =>
                         {
-                            var post = GetPostIfRelevant(rels, x.PostId, x.IsRepost ? CollectionKind.Reposts : CollectionKind.Posts);
-                            if (post != null && x.IsRepost)
+                            var posts = GetPostIfRelevant(rels, x.PostId, x.IsRepost ? CollectionKind.Reposts : CollectionKind.Posts);
+                            if (posts.Count != 0 && x.IsRepost)
                             {
+                                var post = posts[^1];
                                 post.RepostedBy = profile ??= rels.GetProfile(plc, ctx);
                                 post.RepostedByOrLikeRKey = x.RKey;
                             }
-                            return post;
+                            return posts;
                         })
-                        .WhereNonNull()
                         .Take(canFetchFromServer && !mediaOnly ? 10 : 50),
                         ctx,
                         forGrid: forGrid
@@ -1375,7 +1408,7 @@ namespace AppViewLite
                 {
                     var plc = rels.SerializeDid(did, ctx);
                     BlueskyProfile? profile = null;
-                    return merged.Select(x =>
+                    return merged.SelectMany(x =>
                     {
                         var postId = rels.GetPostId(x.PostId.Did, x.PostId.RKey, ctx);
 
@@ -1385,10 +1418,11 @@ namespace AppViewLite
                         }
 
 
-                        var post = GetPostIfRelevant(rels, postId, x.Kind);
-                        if (post != null)
+                        var posts = GetPostIfRelevant(rels, postId, x.Kind);
+                        if (posts.Count != 0)
                         {
-                            if (fastReturnedPostsSet.Contains(post.PostIdStr)) return null;
+                            var post = posts[^1];
+                            if (fastReturnedPostsSet.Contains(post.PostIdStr)) return [];
                             if (x.Kind == CollectionKind.Reposts)
                             {
                                 post.RepostedBy = (profile ??= rels.GetProfile(plc, ctx));
@@ -1400,8 +1434,9 @@ namespace AppViewLite
                             }
                         }
 
-                        return post;
-                    }).WhereNonNull().ToArray();
+                        return posts;
+                    })
+                        .ToArray();
 
                 }
 

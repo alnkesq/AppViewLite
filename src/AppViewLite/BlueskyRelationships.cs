@@ -2939,29 +2939,17 @@ namespace AppViewLite
             AppViewLiteProfiles.AddRange(userContext.LoggedInUser!.Value, SerializeProto(userContext.PrivateProfile));
         }
 
-        public bool GlobalFlushWithoutFirehoseCursorCapture(bool onlyIfNoPendingCompactations = false)
+        public void GlobalFlushWithoutFirehoseCursorCapture()
         {
             if (IsReadOnly) throw new InvalidOperationException("Cannot GlobalFlush when IsReadOnly.");
-            var ok = true;
             foreach (var table in disposables)
             {
-                if (onlyIfNoPendingCompactations)
-                {
-                    if (!table.FlushIfNoPendingCompactations())
-                        ok = false;
-                }
-                else
-                {
-                    table.Flush(false);
-                }
+                table.Flush(false);
             }
 
-            if (ok)
-            {
-                CaptureCheckpoint();
-            }
+
+            CaptureCheckpoint();
             UpdateAvailableDiskSpace();
-            return ok;
         }
 
 

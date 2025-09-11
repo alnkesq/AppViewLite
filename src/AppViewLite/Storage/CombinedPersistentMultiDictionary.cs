@@ -61,7 +61,6 @@ namespace AppViewLite.Storage
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
 
-        public abstract Task? HasPendingCompactationNotReadyForCommitYet { get; }
         public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             if (TryGetSpan(enumerable, out var span))
@@ -429,8 +428,6 @@ namespace AppViewLite.Storage
 
         public void DisposeNoFlush()
         {
-            if (pendingCompactation != null) throw new Exception();
-
             if (Caches != null && ownsCaches)
             {
                 foreach (var cache in Caches)
@@ -454,14 +451,7 @@ namespace AppViewLite.Storage
         private int onBeforeFlushNotificationInProgress;
 
 
-        public bool FlushIfNoPendingCompactations()
-        {
-            if (pendingCompactation != null) return false;
-            Flush(disposing: false);
-            return true;
-        }
-
-        public void Flush(bool disposing)
+        public void Flush(bool disposing = false)
         {
             try
             {
@@ -477,7 +467,7 @@ namespace AppViewLite.Storage
         {
             if (onBeforeFlushNotificationInProgress != 0) return;
 
-            MaybeCommitPendingCompactation(forceWait: true);
+            MaybeCommitPendingCompactation();
 
             if (queue.GroupCount != 0)
             {
@@ -600,7 +590,7 @@ namespace AppViewLite.Storage
 
         public void MaybeStartCompactation()
         {
-            if (pendingCompactation != null) throw new InvalidOperationException();
+            if (pendingCompactation != null) return;
 
             if (slices.Count <= TargetSliceCount) return;
 
@@ -619,6 +609,7 @@ namespace AppViewLite.Storage
         private void StartCompactation(int groupStart, int groupLength, CompactationCandidate compactationCandidate)
         {
             if (groupLength <= 1) return;
+            var allOriginalSlices = slices.ToArray();
             var inputs = slices.Slice(groupStart, groupLength);
             for (int i = 1; i < slices.Count; i++)
             {
@@ -631,18 +622,19 @@ namespace AppViewLite.Storage
 
             var writer = new ImmutableMultiDictionaryWriter<TKey, TValue>(mergedPrefix, behavior);
 
+            if (pendingCompactation != null) throw new Exception();
 
-            var inputSlices = inputs.Select(x => x.Reader).ToArray();
+            var inputSlices = inputs.Select(x => x.ReaderHandle.AddRef()).ToArray(); // AddRef, so that disposing the whole database while a compactation is running doesn't create access violations on the compactation thread.
             var sw = Stopwatch.StartNew();
 
-            if (pendingCompactation != null) throw new Exception();
+            
 
             var compactationThread = Task.Factory.StartNew(() =>
             {
                 try
                 {
                     CompactationSemaphore.Wait();
-                    Compact(inputSlices, writer, OnCompactation);
+                    Compact(inputSlices.Select(x => x.Value).ToArray(), writer, OnCompactation);
                 }
                 catch (Exception ex)
                 {
@@ -650,6 +642,10 @@ namespace AppViewLite.Storage
                 }
                 finally
                 {
+                    foreach (var handle in inputSlices)
+                    {
+                        handle.Dispose();
+                    }
                     CompactationSemaphore.Release();
                 }
                 sw.Stop();
@@ -660,6 +656,9 @@ namespace AppViewLite.Storage
                     var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
                     CompactationWriteBytes += size;
                     Log("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
+
+                    Assert(this.slices.ToArray().AsSpan().StartsWith(allOriginalSlices));
+                    if (allOriginalSlices.Length != this.slices.Count)
 
                     foreach (var input in inputs)
                     {
@@ -1058,7 +1057,6 @@ namespace AppViewLite.Storage
         private void MaybeFlush()
         {
             MaybeCommitPendingCompactation();
-            if (pendingCompactation != null) return;
 
             if (InMemorySize >= WriteBufferSize || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
@@ -1077,26 +1075,12 @@ namespace AppViewLite.Storage
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
         private Task<Action>? pendingCompactation;
 
-        public override Task? HasPendingCompactationNotReadyForCommitYet => pendingCompactation != null && !pendingCompactation.IsCompleted ? pendingCompactation : null;
-
-        private void MaybeCommitPendingCompactation(bool forceWait = false)
+        private void MaybeCommitPendingCompactation()
         {
             try
             {
                 if (pendingCompactation == null) return;
-                if (forceWait)
-                {
-                    var sw = Stopwatch.StartNew();
-                    Log("Synchronously waiting for pending compactation to complete, because forceWait=true: " + Name);
-                    pendingCompactation.GetAwaiter().GetResult();
-                    if (sw.Elapsed.TotalMilliseconds > 100)
-                        Log("  This synchronous wait for pending compactation took " + sw.Elapsed + ": " + Name);
-                }
-                if (!pendingCompactation.IsCompleted)
-                {
-                    if (forceWait) throw new Exception();
-                    return;
-                }
+                if (!pendingCompactation.IsCompleted) return;
                 pendingCompactation.Result();
                 pendingCompactation = null;
             }
@@ -1106,6 +1090,7 @@ namespace AppViewLite.Storage
             }
         }
 
+        
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)
         {
             using var _ = new ThreadPriorityScope(System.Threading.ThreadPriority.Lowest);

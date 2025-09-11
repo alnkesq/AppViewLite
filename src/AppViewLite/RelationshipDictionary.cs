@@ -401,20 +401,6 @@ namespace AppViewLite
             relationshipIdHashToApproxTarget?.Flush(disposing);
         }
 
-        public bool FlushIfNoPendingCompactations()
-        {
-            var ok = true;
-
-            if (!creations.FlushIfNoPendingCompactations()) ok = false;
-            if (!deletions.FlushIfNoPendingCompactations()) ok = false;
-            if (!deletionCounts.FlushIfNoPendingCompactations()) ok = false;
-            if (relationshipIdHashToApproxTarget != null)
-            {
-                if (!relationshipIdHashToApproxTarget.FlushIfNoPendingCompactations()) ok = false;
-            }
-            return ok;
-        }
-
         public long GetApproximateActorCount(TTarget key)
         {
             return creations.GetValueCount(key);

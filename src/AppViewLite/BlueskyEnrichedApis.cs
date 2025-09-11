@@ -5057,36 +5057,16 @@ namespace AppViewLite
         {
             DrainAndCaptureFirehoseCursors();
 
-            while (true)
+            var ctx = RequestContext.CreateForFirehose(reason);
+            WithRelationshipsWriteLock(rels =>
             {
-                var ctx = RequestContext.CreateForFirehose(reason);
-                var retryLater = WithRelationshipsWriteLock(rels =>
-                {
-                    var f = rels.AllMultidictionaries.Select(x => (Table: x, Compactation: x.HasPendingCompactationNotReadyForCommitYet)).FirstOrDefault(x => x.Compactation != null);
-                    if (f.Compactation != null)
-                    {
-                        Log($"Global flush requested, but one of the tables ({f.Table.Name}) is performing a compactation. Postponing the flush in order to avoid a sync wait while holding the primary lock.");
-                        return f.Compactation;
-                    }
-                    Log("Global periodic flush...");
-                    LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
-                    var ok = rels.GlobalFlushWithoutFirehoseCursorCapture(onlyIfNoPendingCompactations: onlyIfNoPendingCompactations);
-                    if (ok)
-                    {
-                        LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
-                    }
-                    else
-                    {
-                        Log("FlushIfNoPendingCompactations returned false, even though a preliminary AllMultidictionaries.Any(Compactation != null) check returned false.");
-                        LogInfo("====== END OF GLOBAL PERIODIC FLUSH (checkpoint not written due to pending compactations) ======");
-                    }
-                    return null;
-                }, ctx);
+                Log("Global periodic flush...");
+                LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
+                rels.GlobalFlushWithoutFirehoseCursorCapture();
+                LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
+            }, ctx);
 
-                if (retryLater == null) break;
-
-                retryLater.GetAwaiter().GetResult();
-            }
+            
         }
 
         internal void DrainAndCaptureFirehoseCursors()

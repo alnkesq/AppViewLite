@@ -1819,7 +1819,7 @@ namespace AppViewLite
             if (post.Data is { Deleted: true }) return false;
             if (threadgate != null)
             {
-                if (!ThreadgateAllowsUser(post.RootPostId, threadgate, post.AuthorId)) return false;
+                if (!ThreadgateAllowsUser(post.RootPostId, threadgate, post.AuthorId, ctx)) return false;
                 if (threadgate.IsHiddenReply(post.PostId)) return false;
             }
             return true;
@@ -3138,8 +3138,12 @@ namespace AppViewLite
             return null;
         }
 
+        public bool ThreadgateAllowsUser(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor, RequestContext ctx)
+        {
+            return ctx.ThreadgateAllowsUserCache.GetOrAdd((rootPostId, replyAuthor), _ => ThreadgateAllowsUserCore(rootPostId, threadgate, replyAuthor));
+        }
 
-        public bool ThreadgateAllowsUser(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor)
+        private bool ThreadgateAllowsUserCore(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor)
         {
             if (replyAuthor == rootPostId.Author) return true;
 

@@ -578,6 +578,7 @@ namespace AppViewLite
 
 
                 post.Threadgate = rels.TryGetThreadgate(post.RootPostId);
+
                 if (post.Threadgate != null)
                 {
                     if (post.Threadgate.IsHiddenReply(post.PostId))
@@ -586,7 +587,7 @@ namespace AppViewLite
                             post.PostBlockReason = PostBlockReasonKind.HiddenReply;
                         post.ViolatesThreadgate = true;
                     }
-                    else if (!rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, post.PostId.Author))
+                    else if (!rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, post.PostId.Author, ctx))
                     {
                         if (post.PostBlockReason == default)
                             post.PostBlockReason = PostBlockReasonKind.NotAllowlistedReply;
@@ -594,7 +595,7 @@ namespace AppViewLite
                     }
                     if (ctx.IsLoggedIn)
                     {
-                        post.CanReply = rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, ctx.LoggedInUser);
+                        post.CanReply = rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, ctx.LoggedInUser, ctx);
                     }
                 }
 

@@ -377,6 +377,7 @@ namespace AppViewLite
             Post? response = null;
             PostIdString? rootPostId = null;
             Task<long>? loadThreadgate = null;
+            var loadPostgate = FetchAndStorePostgateDict.GetValueAsync(postId, ctx);
             try
             {
                 response = (Post)(await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, ctx)).Value;
@@ -418,9 +419,26 @@ namespace AppViewLite
                     return rels.Version;
                 }, ctx);
 
+
+
+            try
+            {
+                version = Math.Max(version, await loadPostgate);
+            }
+            catch (Exception ex)
+            {
+                LogNonCriticalException(ex);
+            }
             if (loadThreadgate != null)
             {
-                version = Math.Max(version, await loadThreadgate);
+                try
+                {
+                    version = Math.Max(version, await loadThreadgate);
+                }
+                catch (Exception ex)
+                {
+                    LogNonCriticalException(ex);
+                }
             }
             return version;
         }

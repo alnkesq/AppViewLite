@@ -54,7 +54,7 @@ namespace AppViewLite.Storage
         public long CompactationWriteBytes;
         public PersistentDictionaryBehavior Behavior => behavior;
 
-        internal readonly static SemaphoreSlim CompactationSemaphore = new SemaphoreSlim(1);
+        internal readonly static SemaphoreSlim CompactationSemaphore = new SemaphoreSlim(2);
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
 

@@ -373,29 +373,54 @@ namespace AppViewLite
         private async Task<long> FetchAndStorePostCoreAsync(PostIdString postId, RequestContext ctx)
         {
             Post? response = null;
+            PostIdString? rootPostId = null;
+            Task<long>? loadThreadgate = null;
             try
             {
                 response = (Post)(await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, ctx)).Value;
+
+                if (response.Reply != null)
+                    rootPostId = BlueskyRelationships.GetPostIdStr(response.Reply.Root);
+                else
+                    rootPostId = postId;
             }
             catch (Exception)
             {
             }
 
-            return WithRelationshipsWriteLock(rels =>
+            
+            if (
+                rootPostId != null &&
+                (
+                    rootPostId == postId /* if this post is the root, it's unlikely we already have the threadgate, so don't bother checking in rels.Threadgates */ ||
+                    !WithRelationshipsLock(rels => rels.Threadgates.ContainsKey(rels.GetPostId(rootPostId.Did, rootPostId.RKey, ctx)), ctx))
+                )
             {
-                var id = rels.GetPostId(postId.Did, postId.RKey, ctx);
+                loadThreadgate = FetchAndStoreThreadgateDict.GetValueAsync(rootPostId, RequestContext.CreateForTaskDictionary(ctx));
+            }
+            
 
-                if (response != null)
+            var version = WithRelationshipsWriteLock(rels =>
                 {
-                    rels.StorePostInfo(id, response, postId.Did, ctx);
-                }
-                else
-                {
-                    rels.FailedPostLookups.Add(id, DateTime.UtcNow);
-                }
+                    var id = rels.GetPostId(postId.Did, postId.RKey, ctx);
 
-                return rels.Version;
-            }, ctx);
+                    if (response != null)
+                    {
+                        rels.StorePostInfo(id, response, postId.Did, ctx);
+                    }
+                    else
+                    {
+                        rels.FailedPostLookups.Add(id, DateTime.UtcNow);
+                    }
+
+                    return rels.Version;
+                }, ctx);
+
+            if (loadThreadgate != null)
+            {
+                version = Math.Max(version, await loadThreadgate);
+            }
+            return version;
         }
 
         private async Task<long> FetchAndStoreThreadgateCoreAsync(PostIdString rootPostId, RequestContext ctx)

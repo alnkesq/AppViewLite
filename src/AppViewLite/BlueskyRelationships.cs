@@ -4419,6 +4419,25 @@ namespace AppViewLite
             var ptr = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread!.Allocate(length);
             return new NativeMemoryRange((nuint)ptr, (nuint)length);
         }
+
+
+        public void StoreThreadgate(string commitAuthor, Plc commitPlc, Tid rkey, Threadgate threadGate, RequestContext ctx)
+        {
+            if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
+            if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
+            if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
+            Threadgates.AddRange(new PostId(commitPlc, rkey), SerializeThreadgateToBytes(threadGate, ctx, out var threadgateProto));
+            if (threadgateProto.HiddenReplies != null)
+            {
+                foreach (var hiddenReply in threadgateProto.HiddenReplies)
+                {
+                    var replyId = hiddenReply.PostId;
+                    var replyRkey = replyId.PostRKey;
+                    var now = threadGate.CreatedAt ?? replyRkey.Date;
+                    AddNotificationDateInvariant(replyId.Author, NotificationKind.HidYourReply, commitPlc, replyRkey, ctx, now, replyRkey.Date < now ? replyRkey.Date : now);
+                }
+            }
+        }
     }
 
 

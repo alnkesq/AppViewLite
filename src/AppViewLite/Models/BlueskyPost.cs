@@ -53,6 +53,7 @@ namespace AppViewLite.Models
         public object? EmbedRecord;
 
         public bool CanQuote = true;
+        public bool CanReply = true;
 
         public bool RequiresLateOpenGraphData =>
             LateOpenGraphData == null &&

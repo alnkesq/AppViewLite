@@ -592,6 +592,10 @@ namespace AppViewLite
                             post.PostBlockReason = PostBlockReasonKind.NotAllowlistedReply;
                         post.ViolatesThreadgate = true;
                     }
+                    if (ctx.IsLoggedIn)
+                    {
+                        post.CanReply = rels.ThreadgateAllowsUser(post.RootPostId, post.Threadgate, ctx.LoggedInUser);
+                    }
                 }
 
                 if (ctx.LoggedInUser != post.AuthorId)

@@ -66,6 +66,7 @@ namespace AppViewLite
             FetchAndStoreAccountStateFromPdsDict = new(FetchAndStoreAccountStateFromPdsCoreAsync);
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
+            FetchAndStoreThreadgateDict = new(FetchAndStoreThreadgateCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
             HandleToDidAndStoreDict = new(HandleToDidAndStoreCoreAsync);
             CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, ctx: extraArgs.Ctx, authenticatedCtx: extraArgs.AuthenticatedCtx, extraArgs.SlowImport));
@@ -184,6 +185,7 @@ namespace AppViewLite
         public TaskDictionary<string, RequestContext, Versioned<AccountState>> FetchAndStoreAccountStateFromPdsDict;
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
+        public TaskDictionary<PostIdString, RequestContext, long> FetchAndStoreThreadgateDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreOpenGraphDict;
         public TaskDictionary<string, RequestContext, Versioned<string>> HandleToDidAndStoreDict;
 
@@ -396,6 +398,30 @@ namespace AppViewLite
             }, ctx);
         }
 
+        private async Task<long> FetchAndStoreThreadgateCoreAsync(PostIdString rootPostId, RequestContext ctx)
+        {
+            Threadgate? response = null;
+            try
+            {
+                response = (Threadgate)(await GetRecordAsync(rootPostId.Did, Threadgate.RecordType, rootPostId.RKey, ctx)).Value;
+            }
+            catch (Exception)
+            {
+            }
+
+            return WithRelationshipsWriteLock(rels =>
+            {
+                var id = rels.GetPostId(rootPostId.Did, rootPostId.RKey, ctx);
+
+                if (response != null)
+                {
+                    rels.StoreThreadgate(rootPostId.Did, id.Author, id.PostRKey, response, ctx);
+                }
+
+                return rels.Version;
+            }, ctx);
+        }
+
 
         public async Task<string?> TryDidToHandleAsync(string did, RequestContext ctx)
         {
@@ -532,8 +558,6 @@ namespace AppViewLite
         public async Task<BlueskyPost[]> EnrichAsync(BlueskyPost[] posts, RequestContext ctx, Action<BlueskyPost>? onPostDataAvailable = null, bool loadQuotes = true, bool sideWithQuotee = false, Plc? focalPostAuthor = null, CancellationToken ct = default)
         {
             if (posts.Length == 0) return posts;
-
-
 
 
             void OnPostDataAvailable(BlueskyRelationships rels, BlueskyPost post)

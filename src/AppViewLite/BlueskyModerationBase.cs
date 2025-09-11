@@ -15,7 +15,7 @@ namespace AppViewLite
         public string? NicknameOrDisplayName => PrivateNickname ?? DisplayNameOrFallback;
         public string? PrivateNickname;
         public abstract string? Description { get; }
-        public abstract string GetAvatarUrl(RequestContext ctx);
+        public abstract string? GetAvatarUrl(RequestContext ctx);
         public abstract string? BaseUrl { get; }
         public abstract FacetData[]? DescriptionFacets { get; }
         public ModerationBehavior Mode;

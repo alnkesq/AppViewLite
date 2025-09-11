@@ -22,7 +22,7 @@ namespace AppViewLite
 
         public override FacetData[]? DescriptionFacets => null;
 
-        public override string GetAvatarUrl(RequestContext ctx)
+        public override string? GetAvatarUrl(RequestContext ctx)
         {
             return null;
         }

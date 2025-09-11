@@ -67,7 +67,7 @@ namespace AppViewLite
         //public static ConcurrentDictionary<nuint, long> CacheMisses = new();
         public static Dictionary<nuint, long> CacheMisses = new();
 
-        public static IReadOnlyList<(string TableName, long CacheMisses)> GetStats(Func<nuint, string> pageToSection)
+        public static IReadOnlyList<(string TableName, long CacheMisses)> GetStats(Func<nuint, string?> pageToSection)
         {
             lock (LruCache)
             {

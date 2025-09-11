@@ -629,8 +629,6 @@ namespace AppViewLite.Storage
             var inputSlices = inputs.Select(x => x.ReaderHandle.AddRef()).ToArray(); // AddRef, so that disposing the whole database while a compactation is running doesn't create access violations on the compactation thread.
             var sw = Stopwatch.StartNew();
 
-            
-
             var compactationThread = Task.Factory.StartNew(() =>
             {
                 try
@@ -1644,6 +1642,7 @@ namespace AppViewLite.Storage
 
             public virtual void OnSliceAdded(int insertedAt, SliceInfo slice) { }
             public virtual void OnSliceRemoved(int removedAt) { }
+            public virtual void AssertSliceCount(int count) { }
             public virtual void Dispose() { }
             public abstract object? GetCounters();
             public abstract void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior);

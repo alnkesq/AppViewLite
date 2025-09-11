@@ -341,13 +341,6 @@ namespace AppViewLite.Storage
 
                     if (offsetInBytes + lengthInBytes + (long)directIoArena.Alignment < (long)fileHandle.Length) // reads very close to the end can't be done (end might not be aligned)
                     {
-                        if (false)
-                        {
-                            var s = Stopwatch.GetTimestamp();
-                            while (Stopwatch.GetElapsedTime(s).TotalMilliseconds < 20)
-                            {
-                            }
-                        }
                         if (CombinedPersistentMultiDictionary.PrintDirectIoReads)
                         {
                             var sliceKind = Path.GetFileName(fileHandle.Path);

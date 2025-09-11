@@ -1,7 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
-using AppViewLite.Storage;
 using DnsClient;
 using FishyFlip;
 using FishyFlip.Lexicon;
@@ -14,7 +13,6 @@ using FishyFlip.Models;
 using FishyFlip.Tools;
 using Ipfs;
 using Microsoft.Extensions.ObjectPool;
-using Microsoft.IdentityModel.Abstractions;
 using PeterO.Cbor;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
@@ -2688,7 +2686,7 @@ namespace AppViewLite
                     }
                 }
             }
-            return userCtx.UserEngagementCache;
+            return userCtx.UserEngagementCache!;
         }
 
         public UserEngagementStats[] GetUserEngagementRawScores(RequestContext ctx, bool followeesOnly)
@@ -3524,7 +3522,7 @@ namespace AppViewLite
             return (await EnrichAsync(feeds.ToArray(), ctx), null);
         }
 
-        public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> SearchFeedsAsync(string query, string? continuation, int limit, RequestContext ctx)
+        public async Task<(BlueskyFeedGenerator[] Feeds, string? NextContinuation)> SearchFeedsAsync(string? query, string? continuation, int limit, RequestContext ctx)
         {
             EnsureLimit(ref limit);
 
@@ -3550,7 +3548,7 @@ namespace AppViewLite
 
 
 
-        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null)
+        public async Task<ProfilesAndContinuation> SearchProfilesAsync(string? query, bool allowPrefixForLastWord, string? continuation, int limit, RequestContext ctx, Action<BlueskyProfile>? onLateDataAvailable = null)
         {
             EnsureLimit(ref limit);
 

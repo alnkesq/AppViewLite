@@ -18,9 +18,9 @@ namespace AppViewLite.Models
         public string BlueskyUrl => $"https://bsky.app/profile/{ModeratorDid}/lists/{ListId.RelationshipRKey}";
         public RelationshipStr ListIdStr;
         public string RKey => ListIdStr.RKey;
-        public override string BaseUrl => $"{Moderator.BaseUrl}/lists/{RKey}";
+        public override string BaseUrl => $"{Moderator!.BaseUrl}/lists/{RKey}";
 
-        public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(ModeratorDid, Data?.AvatarCid, Moderator.Pds);
+        public string? AvatarUrl => BlueskyEnrichedApis.Instance.GetAvatarUrl(ModeratorDid!, Data?.AvatarCid, Moderator!.Pds);
         
         public ATUri AtUri => new ATUri($"at://{ModeratorDid}/app.bsky.graph.list/{RKey}");
 

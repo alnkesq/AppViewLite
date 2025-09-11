@@ -88,7 +88,7 @@ namespace AppViewLite.PluggableProtocols.Reddit
         public string author_flair_type { get; set; }
         public string domain { get; set; }
         public bool allow_live_comments { get; set; }
-        public string? selftext_html { get; set; }
+        public string selftext_html { get; set; }
         public object likes { get; set; }
         public object suggested_sort { get; set; }
         public object banned_at_utc { get; set; }

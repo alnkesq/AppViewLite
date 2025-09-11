@@ -76,7 +76,7 @@
 
     <AntiforgeryToken />
     <div>
-        <InputRadioGroup @bind-Value="@Model.Kind">
+        <InputRadioGroup @bind-Value="@Model!.Kind">
             Collection:
             <br />
             @foreach (var kind in Enum.GetValues<RepositoryImportKind>().Where(x => x != RepositoryImportKind.None))

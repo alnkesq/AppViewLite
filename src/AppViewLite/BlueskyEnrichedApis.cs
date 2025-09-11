@@ -67,6 +67,7 @@ namespace AppViewLite
             FetchAndStoreListMetadataDict = new(FetchAndStoreListMetadataCoreAsync);
             FetchAndStorePostDict = new(FetchAndStorePostCoreAsync);
             FetchAndStoreThreadgateDict = new(FetchAndStoreThreadgateCoreAsync);
+            FetchAndStorePostgateDict = new(FetchAndStorePostgateCoreAsync);
             FetchAndStoreOpenGraphDict = new(FetchOpenGraphDictCoreAsync);
             HandleToDidAndStoreDict = new(HandleToDidAndStoreCoreAsync);
             CarImportDict = new((args, extraArgs) => ImportCarIncrementalCoreAsync(extraArgs.Did, args.Kind, args.Plc, args.Incremental ? new Tid(extraArgs.Previous?.LastRevOrTid ?? default) : default, default, ctx: extraArgs.Ctx, authenticatedCtx: extraArgs.AuthenticatedCtx, extraArgs.SlowImport));
@@ -186,6 +187,7 @@ namespace AppViewLite
         public TaskDictionary<RelationshipStr, RequestContext, long> FetchAndStoreListMetadataDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostDict;
         public TaskDictionary<PostIdString, RequestContext, long> FetchAndStoreThreadgateDict;
+        public TaskDictionary<PostIdString, RequestContext, long> FetchAndStorePostgateDict;
         public TaskDictionary<string, RequestContext, long> FetchAndStoreOpenGraphDict;
         public TaskDictionary<string, RequestContext, Versioned<string>> HandleToDidAndStoreDict;
 
@@ -441,6 +443,30 @@ namespace AppViewLite
                 if (response != null)
                 {
                     rels.StoreThreadgate(rootPostId.Did, id.Author, id.PostRKey, response, ctx);
+                }
+
+                return rels.Version;
+            }, ctx);
+        }
+
+        private async Task<long> FetchAndStorePostgateCoreAsync(PostIdString postId, RequestContext ctx)
+        {
+            Postgate? response = null;
+            try
+            {
+                response = (Postgate)(await GetRecordAsync(postId.Did, Postgate.RecordType, postId.RKey, ctx)).Value;
+            }
+            catch (Exception)
+            {
+            }
+
+            return WithRelationshipsWriteLock(rels =>
+            {
+                var id = rels.GetPostId(postId.Did, postId.RKey, ctx);
+
+                if (response != null)
+                {
+                    rels.StorePostgate(postId.Did, id.Author, id.PostRKey, response, ctx);
                 }
 
                 return rels.Version;

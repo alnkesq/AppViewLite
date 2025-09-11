@@ -224,6 +224,7 @@ namespace AppViewLite.Storage
         public static Func<string, SliceName, bool> IsPrunedSlice = (_, s) => (s.PruneId % 2) == 1;
         public static bool TreatMissingSlicesAsPruned;
         public static DirectIoReadCache? DirectIoReadCache;
+        public abstract bool HasPendingCompactation { get; }
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -1161,6 +1162,7 @@ namespace AppViewLite.Storage
         public bool HasOffsets => !IsSingleValueOrKeySet;
         public bool HasValues => behavior != PersistentDictionaryBehavior.KeySetOnly;
 
+        public override bool HasPendingCompactation => pendingCompactation != null;
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {

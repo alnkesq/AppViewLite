@@ -528,6 +528,7 @@ namespace AppViewLite.Storage
                 foreach (var cache in Caches)
                 {
                     cache.OnSliceAdded(insertedAt, this.slices[insertedAt]);
+                    cache.AssertSliceCount(this.slices.Count);
                 }
             }
         }

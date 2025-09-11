@@ -68,6 +68,10 @@ namespace AppViewLite.Storage
             LoadCacheFile(slice, cachePath, insertedAt);
             BumpVersion();
         }
+        public override void AssertSliceCount(int count)
+        {
+            CombinedPersistentMultiDictionary.Assert(this.cacheSlices.Count == count);
+        }
     }
 }
 

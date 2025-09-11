@@ -658,7 +658,6 @@ namespace AppViewLite.Storage
                     Log("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     Assert(this.slices.ToArray().AsSpan().StartsWith(allOriginalSlices));
-                    if (allOriginalSlices.Length != this.slices.Count)
 
                     foreach (var input in inputs)
                     {

@@ -42,7 +42,7 @@ namespace AppViewLite.Web.ApiCompat
         public async override Task<Results<ATResult<GetActorLikesOutput>, ATErrorResult>> GetActorLikesAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
                     
-            var likes = await apis.GetUserPostsAsync(((ATDid)actor).Handler, includePosts: false, includeReplies: false, includeReposts: false, includeLikes: true, includeBookmarks: false, mediaOnly: false, limit ?? default, cursor, ctx);
+            var likes = await apis.GetUserPostsAsync(((ATDid)actor).Handler, includePosts: false, includeReplies: AuthorFeedShowReplies.NoReplies, includeReposts: false, includeLikes: true, includeBookmarks: false, mediaOnly: false, limit ?? default, cursor, ctx);
 
             return new GetActorLikesOutput
             {
@@ -60,7 +60,13 @@ namespace AppViewLite.Web.ApiCompat
 
             var (posts, nextContinuation) = await apis.GetUserPostsAsync(((ATDid)actor).Handler,
                 includePosts: true,
-                includeReplies: filterEnum != GetUserPostsFilter.posts_no_replies,
+                includeReplies: filterEnum switch
+                {
+                    GetUserPostsFilter.posts_with_replies => AuthorFeedShowReplies.AllReplies,
+                    GetUserPostsFilter.posts_no_replies => AuthorFeedShowReplies.NoReplies,
+                    GetUserPostsFilter.posts_and_author_threads => AuthorFeedShowReplies.RepliesToOwnPostsOnly,
+                    _ => AuthorFeedShowReplies.NoReplies
+                },
                 includeReposts: filterEnum == GetUserPostsFilter.posts_no_replies,
                 includeLikes: false,
                 includeBookmarks: false,

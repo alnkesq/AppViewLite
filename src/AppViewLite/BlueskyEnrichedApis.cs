@@ -1169,7 +1169,7 @@ namespace AppViewLite
         }
 
 
-        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, bool includeReplies, bool includeReposts, bool includeLikes, bool includeBookmarks, bool mediaOnly, int limit, string? continuation, RequestContext ctx, bool forGrid = false)
+        public async Task<PostsAndContinuation> GetUserPostsAsync(string did, bool includePosts, AuthorFeedShowReplies includeReplies, bool includeReposts, bool includeLikes, bool includeBookmarks, bool mediaOnly, int limit, string? continuation, RequestContext ctx, bool forGrid = false)
         {
             EnsureLimit(ref limit);
 
@@ -1190,7 +1190,24 @@ namespace AppViewLite
 
                 if (kind == CollectionKind.Posts)
                 {
-                    if (!includeReplies && !post.IsRootPost && !(post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)) return null;
+                    if (includeReplies != AuthorFeedShowReplies.AllReplies)
+                    {
+                        var feedPlc = profile.Plc;
+
+                        if (!post.IsRootPost && !(post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true))
+                        {
+                            if (includeReplies == AuthorFeedShowReplies.NoReplies) return null;
+                            else
+                            {
+                                if (post.InReplyToPostId?.Author == feedPlc && post.RootPostId.Author == feedPlc)
+                                {
+                                    // ok
+                                }
+                                else return null;
+                            }
+                        }
+                    }
+                    
                 }
 
                 if (mediaOnly && post.Data?.Media == null)
@@ -5245,6 +5262,12 @@ namespace AppViewLite
     }
 
     internal record struct BalancedFeedCandidatesForFollowee(Plc Plc, (Tid PostRKey, int LikeCount)[] Posts, (PostId PostId, Tid RepostRKey, bool IsReposteeFollowed, long LikeCount)[] Reposts);
+    public enum AuthorFeedShowReplies
+    { 
+        NoReplies,
+        AllReplies,
+        RepliesToOwnPostsOnly,
+    }
 }
 
 

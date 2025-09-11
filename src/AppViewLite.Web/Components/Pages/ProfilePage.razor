@@ -74,7 +74,7 @@
             (Posts, NextContinuation) = await Apis.GetUserPostsAsync(
                 Did,
                 includePosts: !ShowLikes && !ShowBookmarks,
-                includeReplies: ShowReplies,
+                includeReplies: ShowReplies ? AuthorFeedShowReplies.AllReplies : AuthorFeedShowReplies.RepliesToOwnPostsOnly,
                 includeReposts: ShowReposts,
                 includeLikes: ShowLikes,
                 includeBookmarks: ShowBookmarks,

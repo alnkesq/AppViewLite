@@ -670,7 +670,7 @@ namespace AppViewLite
 
 
 
-                post.Threadgate = rels.TryGetThreadgate(post.RootPostId);
+                post.Threadgate = rels.TryGetThreadgate(post.RootPostId, ctx);
 
                 if (post.Threadgate != null)
                 {
@@ -1590,7 +1590,7 @@ namespace AppViewLite
             PostId? parsedContinuation = continuation != null ? PostIdTimeFirst.Deserialize(continuation) : null;
             var otherReplyGroups = WithRelationshipsLock(rels =>
             {
-                var threadgate = focalPostId.Author == focalPost.RootPostId.Author ? rels.TryGetThreadgate(focalPost.RootPostId) : null;
+                var threadgate = focalPostId.Author == focalPost.RootPostId.Author ? rels.TryGetThreadgate(focalPost.RootPostId, ctx) : null;
 
                 var groups = new List<List<BlueskyPost>>();
 
@@ -1646,7 +1646,7 @@ namespace AppViewLite
                 {
                     WithRelationshipsLock(rels =>
                     {
-                        var threadgate = rels.TryGetThreadgate(rootPostId);
+                        var threadgate = rels.TryGetThreadgate(rootPostId, ctx);
                         if (threadgate != null && threadgate.AllowlistedOnly)
                         {
                             if (threadgate.AllowFollowing)

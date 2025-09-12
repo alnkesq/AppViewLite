@@ -55,6 +55,7 @@ namespace AppViewLite
         public ConcurrentDictionary<Plc, List<Relationship>> SubscribedBlocklistsCache = new();
         public ConcurrentDictionary<Relationship, BlueskyList> ListCache = new();
         public ConcurrentDictionary<(PostId RootPostId, Plc ReplyAuthor), bool> ThreadgateAllowsUserCache = new();
+        public ConcurrentDictionary<PostId, BlueskyThreadgate?> ThreadgateCache = new();
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();

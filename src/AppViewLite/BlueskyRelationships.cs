@@ -3129,7 +3129,11 @@ namespace AppViewLite
             }
             return null;
         }
-        public BlueskyThreadgate? TryGetThreadgate(PostId postid)
+        public BlueskyThreadgate? TryGetThreadgate(PostId postid, RequestContext ctx)
+        {
+            return ctx.ThreadgateCache.GetOrAdd(postid, postid => TryGetThreadgateCore(postid));
+        }
+        private BlueskyThreadgate? TryGetThreadgateCore(PostId postid)
         {
             if (Threadgates.TryGetPreserveOrderSpanLatest(postid, out var threadgateBytes))
             {

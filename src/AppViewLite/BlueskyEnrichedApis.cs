@@ -692,7 +692,7 @@ namespace AppViewLite
                     }
                 }
 
-                if (ctx.LoggedInUser != post.AuthorId)
+                if (ctx.IsLoggedIn && ctx.LoggedInUser != post.AuthorId)
                 {
                     var postgate = rels.TryGetPostgate(post.PostId);
                     if (postgate != null)

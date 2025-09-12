@@ -99,6 +99,7 @@ namespace AppViewLite.Web
                 apis.PopulateViewerFlags(new[] { p.Author, p.RepostedBy, p.QuotedPost?.Author }.WhereNonNull().ToArray(), RequestContext);
                 var req = requests[index];
                 p.ReplyChainLength = req.replyChainLength;
+                p.IsKnownContinuationOfPreviousPost = req.isKnownContinuationOfPreviousPost;
                 var html = await Program.RenderComponentAsync<PostRow>(PostRow.CreateParametersForRenderFlags(p, req.renderFlags, RequestContext));
                 Program.AppViewLiteHubContext.Clients.Client(connectionId).SendAsync("PostRendered", req.nodeId, html).FireAndForget();
             }, sideWithQuotee: sideWithQuotee, focalPostAuthor: focalPlc).FireAndForget();
@@ -255,7 +256,7 @@ namespace AppViewLite.Web
         private readonly static ConcurrentDictionary<string, ConnectionContext> connectionIdToCallback = new();
 
         public record struct ProfileRenderRequest(string nodeId, string did);
-        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy, string repostedByRkey, int replyChainLength, string? fromFeedDid, string? fromFeedRkey);
+        public record struct PostRenderRequest(string nodeId, string did, string rkey, string renderFlags, string repostedBy, string repostedByRkey, int replyChainLength, string? fromFeedDid, string? fromFeedRkey, bool isKnownContinuationOfPreviousPost);
     }
 
     class ConnectionContext : IDisposable

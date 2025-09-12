@@ -15,6 +15,7 @@
     [Parameter] public bool FocalVideoAutoPlay { get; set; }
     [Parameter] public string EmptyListText { get; set; } = "No posts.";
 
+
     private Uri? continuationUrl;
     private Plc? focalPostPlc;
 
@@ -27,6 +28,7 @@
     static bool IsLastOfGroup(BlueskyPost post, BlueskyPost? next)
     {
         if (next == null) return true;
+        if (next.IsKnownContinuationOfPreviousPost) return false;
         return next?.Data?.InReplyToPostId != post.PostId && next?.Data?.RootPostId != post.PostId;
     }
 
@@ -77,7 +79,7 @@
                     (ShowInReplyTo && (prev?.RootPostId != post.RootPostId && prev?.PostId.Author != postId.Author)) || 
                     (post.IsNativeReply && ((prev == null || (IsLastOfGroup(prev, post) && post.InReplyToPostId!.Value.Author != focalPostPlc)))))"
                 IsLastOfGroup="@IsLastOfGroup(post, next)"
-                ShowRestOfThreadLink="@(prev?.PostId == post.RootPostId && prev.PostId != post.InReplyToPostId)"
+                ShowRestOfThreadLink="@((prev?.PostId == post.RootPostId || post.IsKnownContinuationOfPreviousPost) && prev!.PostId != post.InReplyToPostId)"
                 IsFocalPost="@isFocalPost" 
                 IsThreadView="@(focalPostPlc != null)"
                 IsQuoteList="@IsQuoteList"

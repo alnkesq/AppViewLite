@@ -1980,7 +1980,7 @@ async function updateLiveSubscriptions() {
         
         var sideWithQuotee = new URL(location.href).pathname.endsWith('/quotes')
         await safeSignalrInvoke('LoadPendingPosts',
-            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, repostedByRkey: x.dataset.repostedbyrkey, replyChainLength: +x.dataset.replychainlength, fromFeedDid: x.dataset.fromfeeddid, fromFeedRkey: x.dataset.fromfeedrkey })),
+            postsToLoad.map(x => ({ nodeId: x.dataset.nodeid, did: x.dataset.postdid, rkey: x.dataset.postrkey, renderFlags: x.dataset.renderflags, repostedBy: x.dataset.repostedby, repostedByRkey: x.dataset.repostedbyrkey, replyChainLength: +x.dataset.replychainlength, fromFeedDid: x.dataset.fromfeeddid, fromFeedRkey: x.dataset.fromfeedrkey, isKnownContinuationOfPreviousPost: !!(+x.dataset.isknowncontinuationofpreviouspost) })),
             sideWithQuotee,
             focalDid
         )

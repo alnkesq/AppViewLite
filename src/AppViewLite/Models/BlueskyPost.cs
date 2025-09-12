@@ -36,13 +36,13 @@ namespace AppViewLite.Models
 
         public BlueskyPost? InReplyToFullPost;
         public BlueskyPost? RootFullPost;
-
+        public bool IsKnownContinuationOfPreviousPost;
         public ATUri AtUri => new ATUri($"at://{Did}/app.bsky.feed.post/{RKey}");
-
+        internal bool SkipChainNormalization;
         public bool IsReply => Data?.InReplyToPlc != null || Data?.IsReplyToUnspecifiedPost == true;
         public bool IsNativeReply => Data?.InReplyToPlc != null;
         public bool IsRootPost => !IsReply;
-
+        
         public PostId? InReplyToPostId => Data?.InReplyToPostId;
         public PostId RootPostId => Data?.RootPostId ?? this.PostId;
 

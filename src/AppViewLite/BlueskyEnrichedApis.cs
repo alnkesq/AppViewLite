@@ -1177,6 +1177,9 @@ namespace AppViewLite
             if (!profile.IsActive)
                 return new();
 
+
+            var alreadyIncludedAuthorThreads = new HashSet<PostId>();
+
             var defaultContinuation = new ProfilePostsContinuation(
                 includePosts ? Tid.MaxValue : default,
                 includeReposts ? Tid.MaxValue : default,
@@ -1193,6 +1196,8 @@ namespace AppViewLite
                     while (true)
                     {
                         var post = rels.GetPost(postId, ctx);
+                        if (alreadyIncludedAuthorThreads.Contains(post.RootPostId)) return [];
+
                         posts.Add(post);
 
                         if (post.Data != null)
@@ -1225,6 +1230,20 @@ namespace AppViewLite
                     }
 
                     posts.Reverse();
+
+                    var BEGIN_POSTS = 3;
+                    var END_POSTS = 1;
+                    if (posts.Count > BEGIN_POSTS + END_POSTS)
+                    {
+                        posts = posts.Take(BEGIN_POSTS).Concat(posts.Skip(posts.Count - END_POSTS)).ToList();
+                    }
+                    foreach (var post in posts)
+                    {
+                        post.IsKnownContinuationOfPreviousPost = true;
+                        post.SkipChainNormalization = true;
+                    }
+                    posts[0].IsKnownContinuationOfPreviousPost = false;
+                    alreadyIncludedAuthorThreads.Add(posts[0].PostId);
                     return posts;
                 }
                 else
@@ -1267,7 +1286,7 @@ namespace AppViewLite
 
                     return rels.EnumerateFeedWithNormalization(
                         SimpleJoin.ConcatPresortedEnumerablesKeepOrdered([recentPosts, recentReposts], x => x.RKey, new ReverseComparer<Tid>())
-                        .SelectMany(x =>
+                        .Select(x =>
                         {
                             var posts = GetPostIfRelevant(rels, x.PostId, x.IsRepost ? CollectionKind.Reposts : CollectionKind.Posts);
                             if (posts.Count != 0 && x.IsRepost)
@@ -1278,7 +1297,10 @@ namespace AppViewLite
                             }
                             return posts;
                         })
-                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50),
+                        .Where(x => x.Count != 0)
+                        .Take(canFetchFromServer && !mediaOnly ? 10 : 50)
+                        .SelectMany(x => x)
+                        ,
                         ctx,
                         forGrid: forGrid
                         )

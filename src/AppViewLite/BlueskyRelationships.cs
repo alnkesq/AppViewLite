@@ -2853,7 +2853,7 @@ namespace AppViewLite
 
                 if (alreadyReturned.Contains(postId)) continue;
 
-                if (!forGrid)
+                if (!forGrid && !post.SkipChainNormalization)
                 {
                     if (post.InReplyToPostId != null && post.PluggableProtocol?.ShouldIncludeFullReplyChain(post) == true)
                     {

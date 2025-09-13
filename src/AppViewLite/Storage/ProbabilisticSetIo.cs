@@ -24,8 +24,7 @@ namespace AppViewLite.Storage
             var buffer = new ulong[8 * 1024];
             while (true)
             {
-
-                var bufferAsBytes = MemoryMarshal.AsBytes<ulong>(buffer);
+                Span<byte> bufferAsBytes = MemoryMarshal.AsBytes<ulong>(buffer.AsSpan());
                 var readBytes = stream.ReadAtLeast(bufferAsBytes, bufferAsBytes.Length, throwOnEndOfStream: false);
                 if (readBytes == 0) yield break;
                 yield return new ReadOnlyMemory<ulong>(buffer, 0, readBytes / 8);

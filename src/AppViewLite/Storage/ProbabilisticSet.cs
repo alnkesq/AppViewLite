@@ -12,7 +12,7 @@ namespace AppViewLite
     public class ProbabilisticSet<T> where T : unmanaged
     {
         public readonly ulong[] Array;
-        public Span<byte> ArrayAsBytes => MemoryMarshal.AsBytes<ulong>(Array);
+        public Span<byte> ArrayAsBytes => MemoryMarshal.AsBytes<ulong>((Span<ulong>)Array);
         private readonly int _hashFunctions;
         private readonly int _bitsPerFunction;
         private readonly ulong _getFunctionBitsMask;

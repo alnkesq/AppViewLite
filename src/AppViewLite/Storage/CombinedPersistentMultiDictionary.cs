@@ -58,9 +58,16 @@ namespace AppViewLite.Storage
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
 
+        public event Action? PendingCompactationReadyForCommit;
+        protected void OnPendingCompactationReadyForCommit()
+        {
+            PendingCompactationReadyForCommit?.Invoke();
+        }
+
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
-
+        public abstract void MaybeCommitPendingCompactation();
+        
         public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             if (TryGetSpan(enumerable, out var span))
@@ -225,6 +232,8 @@ namespace AppViewLite.Storage
         public static bool TreatMissingSlicesAsPruned;
         public static DirectIoReadCache? DirectIoReadCache;
         public abstract bool HasPendingCompactation { get; }
+
+        
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -635,19 +644,18 @@ namespace AppViewLite.Storage
                 {
                     CompactationSemaphore.Wait();
                     Compact(inputSlices.Select(x => x.Value).ToArray(), writer, OnCompactation);
+
+                    CompactationSemaphore.Release(); // finally not needed because of catch -> Abort
+                    foreach (var handle in inputSlices)
+                    {
+                        handle.Dispose();
+                    }
                 }
                 catch (Exception ex)
                 {
                     CombinedPersistentMultiDictionary.Abort(ex);
                 }
-                finally
-                {
-                    foreach (var handle in inputSlices)
-                    {
-                        handle.Dispose();
-                    }
-                    CompactationSemaphore.Release();
-                }
+
                 sw.Stop();
 
                 return new Action(() =>
@@ -680,6 +688,12 @@ namespace AppViewLite.Storage
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
             }, TaskCreationOptions.LongRunning);
+
+            compactationThread.ConfigureAwait(false).GetAwaiter().OnCompleted(() =>
+            {
+                Assert(compactationThread.IsCompleted);
+                OnPendingCompactationReadyForCommit();
+            });
 
             pendingCompactation = compactationThread;
 
@@ -1073,8 +1087,8 @@ namespace AppViewLite.Storage
 
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
         private Task<Action>? pendingCompactation;
-
-        private void MaybeCommitPendingCompactation()
+        
+        public override void MaybeCommitPendingCompactation()
         {
             try
             {

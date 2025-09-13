@@ -106,7 +106,21 @@ namespace AppViewLite
 
             relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(relationships);
+
             var apis = new BlueskyEnrichedApis(primarySecondaryPair);
+
+            foreach (var table in relationships.AllMultidictionaries)
+            {
+                table.PendingCompactationReadyForCommit += () =>
+                {
+                    apis.WithRelationshipsWriteLock(rels => 
+                    {
+                        table.MaybeCommitPendingCompactation();
+                    }, RequestContext.CreateForFirehose("CommitCompactation"));
+                };
+            }
+
+
             Indexer.InitializeFirehoseThreadpool(apis);
 
             apis.RegisterPluggableProtocol(typeof(AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol));

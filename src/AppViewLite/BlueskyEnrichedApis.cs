@@ -2323,8 +2323,26 @@ namespace AppViewLite
         record struct ScoredBlueskyPostWithSource(ScoredBlueskyPost Post, QueueWithOwner<ScoredBlueskyPost> Source);
 
 
-
         public async Task<PostsAndContinuation> GetBalancedFollowingFeedAsync(string? continuation, int limit, RequestContext ctx)
+        {
+            (List<BlueskyPost> FinalPosts, bool ProducedEnoughPosts) result;
+            var prevName = Thread.CurrentThread.Name;
+            try
+            {
+                Thread.CurrentThread.Name = "***GET BALANCED FOLLOWING FEED***";  // TODO temporary code
+                result = GetBalancedFollowingFeed(continuation, limit, ctx);
+            }
+            finally
+            {
+                Thread.CurrentThread.Name = prevName;
+            }
+
+            var posts = result.FinalPosts.ToArray();
+            await EnrichAsync(posts, ctx);
+            return new PostsAndContinuation(posts, result.ProducedEnoughPosts ? string.Join(",", result.FinalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
+        }
+
+        public (List<BlueskyPost> FinalPosts, bool ProducedEnoughPosts) GetBalancedFollowingFeed(string? continuation, int limit, RequestContext ctx)
         {
             ctx.IsStillFollowedCached ??= new();
 
@@ -2679,9 +2697,7 @@ namespace AppViewLite
 
             }
 
-            var posts = finalPosts.ToArray();
-            await EnrichAsync(posts, ctx);
-            return new PostsAndContinuation(posts, ProducedEnoughPosts() ? string.Join(",", finalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
+            return (finalPosts, ProducedEnoughPosts());
         }
 
 

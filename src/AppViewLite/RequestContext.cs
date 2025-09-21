@@ -39,6 +39,7 @@ namespace AppViewLite
         public long StopwatchTicksSpentInsideSecondaryLock;
         public long StopwatchTicksSpentInsidePrimaryLock;
         public int MaxOccurredGarbageCollectionGenerationInsideLock = -1;
+        public readonly Guid Guid = Guid.NewGuid();
 
         public AccentColor AccentColor => IsLoggedIn ? PrivateProfile.AccentColor : AccentColor.Blue;
 
@@ -56,6 +57,7 @@ namespace AppViewLite
         public ConcurrentDictionary<Relationship, BlueskyList> ListCache = new();
         public ConcurrentDictionary<(PostId RootPostId, Plc ReplyAuthor), bool> ThreadgateAllowsUserCache = new();
         public ConcurrentDictionary<PostId, BlueskyThreadgate?> ThreadgateCache = new();
+        public ConcurrentBag<OperationLogEntry> OperationLogEntries = new();
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();
@@ -217,6 +219,38 @@ namespace AppViewLite
             return _administratorDids.Contains("*") || (IsLoggedIn && _administratorDids.Contains(this.UserContext.Did!));
         }
 
+        public IReadOnlyList<OperationLogEntry> GetOperationEntriesWithoutHoles()
+        {
+            var entries = OperationLogEntries.OrderBy(x => x.Start.StopwatchTicks);
+            var result = new List<OperationLogEntry>();
+            OperationLogEntry? prev = null;
+            foreach (var entry in entries)
+            {
+                if (prev != null)
+                {
+                    result.Add(new OperationLogEntry(prev.End, entry.Start, null, null, null));
+                }
+                result.Add(entry);
+                prev = entry;
+            }
+            return result;
+        }
+
+    }
+
+    public record OperationLogEntry(PerformanceSnapshot Start, PerformanceSnapshot End, string? TableName, string? Operation, object? Argument)
+    {
+        public PerformanceSnapshot Delta => End - Start;
+        public string TooltipText 
+        {
+            get
+            {
+                var delta = Delta;
+                return
+                    (Operation != null ? TableName + "/" + Operation + (Argument != null ? ": " + Argument.ToString() : null) : "(Unknown)") +
+                    (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null);
+            }
+        }
     }
 
 }

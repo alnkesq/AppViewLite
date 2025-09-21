@@ -2160,3 +2160,18 @@ input[type=radio], input[type=checkbox]{
     color: var(--light-text);
     margin-top: 5px;
 }
+
+.performance-timeline{
+    height: 50px;
+    position: relative;
+    margin-left: 10px;
+    margin-right: 10px;
+    border: 1px solid var(--black);
+}
+
+.performance-timeline-entry{
+    position: absolute;
+    overflow: hidden;
+    height: 100%;
+    font-size: 7pt;
+}

@@ -153,6 +153,7 @@ namespace AppViewLite
         }
 
 
+        [ThreadStatic] public static RequestContext? CurrentThreadRequestContext;
 
 
         public T WithRelationshipsLock<T>(Func<BlueskyRelationships, T> func, RequestContext ctx, bool urgent)
@@ -186,6 +187,7 @@ namespace AppViewLite
                     {
                         replica.EnsureNotDisposed();
                         SetupArena();
+                        using var _ = SetupCurrentRequestContext(ctx);
                         return func(replica);
                     }
                     finally
@@ -224,6 +226,7 @@ namespace AppViewLite
 
                 begin = PerformanceSnapshot.Capture();
                 SetupArena();
+                using var _ = SetupCurrentRequestContext(ctx);
                 var result = func(rels);
                 return result;
             }
@@ -268,6 +271,7 @@ namespace AppViewLite
                 {
                     if (!alreadyHasArena)
                         SetupArena();
+                    using var _ = SetupCurrentRequestContext(ctx);
                     return func(relationshipsUnlocked);
                 }
                 finally
@@ -307,6 +311,15 @@ namespace AppViewLite
             return (T)tcs.Task.GetAwaiter().GetResult()!;
         }
 
+        private static IDisposable SetupCurrentRequestContext(RequestContext ctx)
+        {
+            var prev = CurrentThreadRequestContext;
+            CurrentThreadRequestContext = ctx;
+            return new DelegateDisposable(() => 
+            {
+                CurrentThreadRequestContext = prev;
+            });
+        }
 
         protected readonly static ObjectPool<NativeArenaSlim> UnalignedArenaPool = ObjectPool.Create(new NativeArenaSlimPoolingPolicy(64 * 1024));
         protected static readonly ObjectPool<AlignedNativeArena> AlignedArenaPool = ObjectPool.Create(new AlignedNativeArenaPoolingPolicy(CombinedPersistentMultiDictionary.DiskSectorSize, 256 * 1024));
@@ -418,6 +431,7 @@ namespace AppViewLite
 
                 begin = PerformanceSnapshot.Capture();
                 SetupArena();
+                using var __ = SetupCurrentRequestContext(ctx);
                 result = func(relationshipsUnlocked);
             }
             finally
@@ -459,6 +473,7 @@ namespace AppViewLite
 
                 begin = PerformanceSnapshot.Capture();
                 SetupArena();
+                using var _ = SetupCurrentRequestContext(ctx);
                 var result = func(relationshipsUnlocked);
                 return result;
             }
@@ -528,14 +543,9 @@ namespace AppViewLite
             if (begin == default) return;
 
             var end = PerformanceSnapshot.Capture();
+            var delta = end - begin;
 
-            var maxGcGeneration =
-                begin.Gc2Count != end.Gc2Count ? 2 :
-                begin.Gc1Count != end.Gc1Count ? 1 :
-                begin.Gc0Count != end.Gc0Count ? 0 :
-                -1;
-
-            var elapsedStopwatchTicks = end.StopwatchTicks - begin.StopwatchTicks;
+            var maxGcGeneration = delta.MaxGcGeneration;
 
             // not thread safe, but not important
             ctx.MaxOccurredGarbageCollectionGenerationInsideLock = Math.Max(ctx.MaxOccurredGarbageCollectionGenerationInsideLock, maxGcGeneration);
@@ -545,9 +555,9 @@ namespace AppViewLite
 
             long totalStopwatchTicks;
             if (isSecondary)
-                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsideSecondaryLock, elapsedStopwatchTicks);
+                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsideSecondaryLock, delta.StopwatchTicks);
             else
-                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsidePrimaryLock, elapsedStopwatchTicks);
+                totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsidePrimaryLock, delta.StopwatchTicks);
 
             var isAboveThreshold = StopwatchTicksToTimespan(totalStopwatchTicks) >= (isSecondary ? PrintLongSecondaryLocks : PrintLongPrimaryLocks);
             if (ctx.IsUrgent || isAboveThreshold)
@@ -576,7 +586,7 @@ namespace AppViewLite
                         break;
                 }
 
-                var elapsed = StopwatchTicksToTimespan(elapsedStopwatchTicks);
+                var elapsed = StopwatchTicksToTimespan(delta.StopwatchTicks);
 
                 LogInfo("Time spent inside the " + lockKind + " lock: " + elapsed.TotalMilliseconds.ToString("0.0") + " ms" + (maxGcGeneration != -1 ? $" (includes {maxGcGeneration}gen GCs)" : null) + " " + ctx.DebugText);
                 foreach (var frame in frames)

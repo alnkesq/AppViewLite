@@ -1,0 +1,74 @@
+@page "/debug/requests/{Guid:guid}"
+@using System.Runtime.InteropServices
+@layout AppViewLite.Web.Components.Layout.NoLayout
+@inject NavigationManager Navigation
+
+@code {
+
+    [Parameter] public Guid Guid { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Zoom { get; set; }
+
+    public int PixelsPerSecond => Zoom ?? 1024;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+    }
+
+    private double StopwatchTicksToPixels(long stopwatchTicks)
+    {
+        var timespan = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(stopwatchTicks);
+        return timespan.TotalSeconds * PixelsPerSecond;
+    }
+
+    public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MemoryMarshal.AsBytes(seed));
+
+    public static string HashToCssColor(ReadOnlySpan<byte> seed)
+    {
+        var seedInt = (int)System.IO.Hashing.XxHash32.HashToUInt32(seed);
+        var rng = new Random(seedInt);
+
+        int hue = rng.Next(0, 360);
+        int sat = rng.Next(50, 91);
+        int light = rng.Next(50, 80);
+        return $"hsl({hue}, {sat}%, {light}%)";
+    }
+}
+
+@{
+    var req = RequestContext.RecentRequestContextsUrgent.Concat(RequestContext.RecentRequestContextsNonUrgent)
+        .FirstOrDefault(x => x.Guid == Guid);
+    if (req == null) Navigation.NavigateTo("/debug/requests");
+    var entries = req!.GetOperationEntriesWithoutHoles();
+    var firstStopwatchTicks = entries.FirstOrDefault()?.Start.StopwatchTicks ?? 0;
+}
+
+<PageTitle>@req.ToString()</PageTitle>
+<h3>@req.ToString()</h3>
+<script>
+document.documentElement.style.overflowX = 'scroll';
+</script>
+<a class="blue-link" href="/debug/requests">Back</a> |
+<a class="blue-link" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 1024 * 1024))">Zoom in</a> |
+<a class="blue-link" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 0))">Zoom out</a>
+<br>
+<br>
+
+<div style="margin-left: 20px; width: 128px; text-align: center; border-top: 1px solid black">@((128 / (double)PixelsPerSecond).ToString("0.0000")) ms</div>
+
+<br>
+<br>
+<div class="performance-timeline" style="width: @(entries.Count != 0 ? (Math.Min(StopwatchTicksToPixels(entries.Max(x => x.End.StopwatchTicks) - firstStopwatchTicks), 1024 * 1024)) : 64)px">
+
+    @foreach (var b in entries)
+    {
+        var delta = b.End - b.Start;
+
+        <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(b.TableName != null ? HashToCssColor(b.TableName + "|" + b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+            @b.TableName
+            @b.Operation
+        </div>
+        
+
+    }
+</div>

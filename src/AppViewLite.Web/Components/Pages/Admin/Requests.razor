@@ -57,7 +57,7 @@
         var writeTime = new TimeSpan((long)(double)req.StopwatchTicksSpentInsidePrimaryLock * TimeSpan.TicksPerSecond / System.Diagnostics.Stopwatch.Frequency);
         if ((readsFromSecondary == 0 && readsFromPrimaryStolen == 0 && readsFromPrimaryLate == 0 && writes == 0) || req.RequestUrl == "/debug/requests") continue;
         <tr>
-            <td style="text-align: left">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</td>
+            <td style="text-align: left"><a href="/debug/requests/@req.Guid" class="blue-link">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</a></td>
             <td style="text-align: left; white-space: nowrap; max-width: 600px; text-overflow: ellipsis; overflow: hidden;">@req.DebugText</td>
             <td>@(readsFromSecondary != 0 ? readsFromSecondary : "-")</td>
             <td>@(readsFromPrimary != 0 ? readsFromPrimary : "-")</td>

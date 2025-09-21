@@ -15,6 +15,7 @@ namespace AppViewLite
         {
             AppViewLiteConfiguration.ReadEnvAndArgs(args);
             LoggableBase.Initialize();
+            CombinedPersistentMultiDictionary.LogOperationCallback = LogOperationCallback;
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
@@ -133,8 +134,22 @@ namespace AppViewLite
             return apis;
         }
 
+        private static IDisposable? LogOperationCallback(string tableName, string operation, object? arg)
+        {
+            var ctx = BlueskyRelationshipsClientBase.CurrentThreadRequestContext!;
+            if (ctx == null) return null;
+            var begin = PerformanceSnapshot.Capture();
+            
+            return new DelegateDisposable(() => 
+            {
+                var end = PerformanceSnapshot.Capture();
+
+                ctx.OperationLogEntries.Add(new OperationLogEntry(begin, end, tableName, operation, arg));
+            });
+        }
 
         public static string? GitCommitVersion;
+
         private static string? TryGetGitCommit()
         {
             try
@@ -159,6 +174,7 @@ namespace AppViewLite
                 return null;
             }
         }
+
     }
 }
 

@@ -1,19 +1,18 @@
 using AppViewLite;
+using DuckDbSharp.Bindings;
 using AppViewLite.Storage;
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Collections;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Collections.Concurrent;
-using DuckDbSharp.Bindings;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AppViewLite.Storage
 {
@@ -66,6 +65,14 @@ namespace AppViewLite.Storage
 
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
+
+        public IDisposable? LogOperation(string operation, object? arg)
+        {
+            return LogOperationCallback?.Invoke(this.Name, operation, arg);
+        }
+
+        public static Func<string, string, object?, IDisposable?>? LogOperationCallback;
+
         public abstract void MaybeCommitPendingCompactation();
         
         public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
@@ -702,6 +709,8 @@ namespace AppViewLite.Storage
 
         public bool TryGetLatestValue(TKey key, out TValue value)
         {
+            using var _ = LogOperation("TryGetLatestValue", key);
+
             foreach (var item in GetValuesChunkedLatestFirst(key))
             {
                 value = item[item.Count - 1];
@@ -713,6 +722,8 @@ namespace AppViewLite.Storage
 
         public bool TryGetSingleValue(TKey key, out TValue value, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation("TryGetSingleValue", key);
+
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (GetKeyProbabilisticCache()?.PossiblyContainsKey(key) == false)
@@ -807,6 +818,7 @@ namespace AppViewLite.Storage
 
         public bool TryGetPreserveOrderSpanAny(TKey key, out HugeReadOnlySpan<TValue> val, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation("TryGetPreserveOrderSpanAny", key);
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             foreach (var slice in slices)
@@ -830,6 +842,7 @@ namespace AppViewLite.Storage
         }
         public bool TryGetPreserveOrderSpanLatest(TKey key, out HugeReadOnlySpan<TValue> val)
         {
+            using var _ = LogOperation("TryGetPreserveOrderSpanLatest", key);
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (queue.TryGetValues(key, out var extra))
             {
@@ -850,6 +863,7 @@ namespace AppViewLite.Storage
             return false;
 
         }
+
         public IEnumerable<TValue> GetDistinctValuesSorted(TKey key)
         {
             return GetValuesSorted(key).DistinctAssumingOrderedInput();

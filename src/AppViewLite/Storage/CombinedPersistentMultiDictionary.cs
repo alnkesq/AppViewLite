@@ -66,16 +66,16 @@ namespace AppViewLite.Storage
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
 
-        public IDisposable? LogOperation(string operation, object? arg = null)
+        public IDisposable? LogOperation(string operation, object? arg = null, bool skipLogging = false)
         {
-            return LogOperationCallback?.Invoke(this.Name, operation, arg);
+            return skipLogging ? null : LogOperationCallback?.Invoke(this.Name, operation, arg);
         }
-        public Func<IEnumerable<T>, IEnumerable<T>> LogOperationForEnumerable<T>(string operation, object? arg = null)
+        public Func<IEnumerable<T>, IEnumerable<T>> LogOperationForEnumerable<T>(string operation, object? arg = null, bool skipLogging = false)
         {
             // Use LogOperationForEnumerable instead of LogOperation *if*
             // the caller returns IEnumerable<> AND it's not an iterator generator (no yield return)
 
-            var disposable = LogOperation(operation, arg);
+            var disposable = LogOperation(operation, arg, skipLogging: skipLogging);
             if (disposable == null)
                 return enumerable => enumerable;
             
@@ -791,9 +791,9 @@ namespace AppViewLite.Storage
             return false;
         }
 
-        public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
+        public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default, bool skipLogging = false)
         {
-            var wrapEnumerable = LogOperationForEnumerable<DangerousHugeReadOnlyMemory<TValue>>(nameof(GetValuesChunked), key);
+            var wrapEnumerable = LogOperationForEnumerable<DangerousHugeReadOnlyMemory<TValue>>(nameof(GetValuesChunked), key, skipLogging: skipLogging);
 
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
@@ -906,21 +906,23 @@ namespace AppViewLite.Storage
             InitializeIoPreferenceForKey(key, ref preference);
             if (minExclusive != null && maxExclusive == null)
             {
-                var chunks = GetValuesChunked(key);
+                var chunks = GetValuesChunked(key, skipLogging: true);
                 return wrapEnumerable(chunks.SelectMany(chunk => chunk.Reverse().TakeWhile(x => minExclusive.Value.CompareTo(x) < 0)));
             }
-            return wrapEnumerable(GetValuesChunked(key, minExclusive, maxExclusive).SelectMany(x => x));
+            return wrapEnumerable(GetValuesChunked(key, minExclusive, maxExclusive, skipLogging: true).SelectMany(x => x));
         }
 
 
 
         public IEnumerable<TValue> GetValuesSorted(TKey key, TValue? minExclusive = null)
         {
-            var chunks = GetValuesChunked(key, minExclusive).ToArray();
-            if (chunks.Length == 0) return [];
-            if (chunks.Length == 1) return chunks[0].AsEnumerable();
+            var wrapEnumerable = LogOperationForEnumerable<TValue>(nameof(GetValuesSorted), key);
+
+            var chunks = GetValuesChunked(key, minExclusive, skipLogging: true).ToArray();
+            if (chunks.Length == 0) return wrapEnumerable([]);
+            if (chunks.Length == 1) return wrapEnumerable(chunks[0].AsEnumerable());
             var chunksEnumerables = chunks.Select(x => x.AsEnumerable()).ToArray();
-            return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x);
+            return wrapEnumerable(SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x));
         }
 
         public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive, TValue? maxExclusive)
@@ -930,7 +932,7 @@ namespace AppViewLite.Storage
 
             var wrapEnumerable = LogOperationForEnumerable<TValue>(nameof(GetValuesSortedDescending), key);
 
-            var chunks = GetValuesChunked(key, minExclusive, maxExclusive).ToArray();
+            var chunks = GetValuesChunked(key, minExclusive, maxExclusive, skipLogging: true).ToArray();
             if (chunks.Length == 0) return wrapEnumerable([]);
             if (chunks.Length == 1) return wrapEnumerable(chunks[0].Reverse());
             var chunksEnumerables = chunks.Select(x => x.Reverse()).ToArray();

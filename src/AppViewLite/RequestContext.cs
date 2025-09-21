@@ -221,7 +221,7 @@ namespace AppViewLite
             return _administratorDids.Contains("*") || (IsLoggedIn && _administratorDids.Contains(this.UserContext.Did!));
         }
 
-        public IReadOnlyList<OperationLogEntry> GetOperationEntriesWithoutHoles()
+        public IReadOnlyList<OperationLogEntry> GetOperationEntriesPlusImportant()
         {
             var entries = OperationLogEntries.OrderBy(x => x.Start.StopwatchTicks);
             var result = new List<OperationLogEntry>();
@@ -230,7 +230,9 @@ namespace AppViewLite
             {
                 if (prev != null)
                 {
-                    result.Add(new OperationLogEntry(prev.End, entry.Start, null, null, null));
+                    var delta = prev.End - entry.Start;
+                    if (delta.MaxGcGeneration != -1)
+                        result.Add(new OperationLogEntry(prev.End, entry.Start, null, null, null));
                 }
                 result.Add(entry);
                 prev = entry;

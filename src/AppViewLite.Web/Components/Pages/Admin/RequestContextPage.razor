@@ -40,7 +40,7 @@
     var req = RequestContext.RecentRequestContextsUrgent.Concat(RequestContext.RecentRequestContextsNonUrgent)
         .FirstOrDefault(x => x.Guid == Guid);
     if (req == null) Navigation.NavigateTo("/debug/requests");
-    var entries = req!.GetOperationEntriesWithoutHoles();
+    var entries = req!.GetOperationEntriesPlusImportant();
     var lockLogs = req.LockLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
     var allEntriesAndLogs = lockLogs.Concat(entries).ToArray();
     var firstStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Min(x => x.Start.StopwatchTicks) : 0;
@@ -92,9 +92,10 @@
     {
         var delta = b.End - b.Start;
 
-        <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(b.TableName != null ? HashToCssColor(b.TableName, b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+        <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(delta.MaxGcGeneration != -1 ? "red" : b.TableName != null ? HashToCssColor(b.TableName, b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
             @b.TableName
             @b.Operation
+            @(delta.MaxGcGeneration != -1 ? $" [GC {delta.MaxGcGeneration}]" : null)
         </div>
         
 

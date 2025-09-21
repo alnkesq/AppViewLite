@@ -684,6 +684,19 @@ namespace AppViewLite
             if (date.Year == DateTime.UtcNow.Year) return date.ToString("MMM d");
             return date.ToString("MMM d, yyyy");
         }
+        public static string ToHumanTimeSpanForProfiler(TimeSpan ts)
+        {
+            var micros = ts.TotalMicroseconds;
+            var (unitMicros, unitString) =
+                micros >= 1_000_000 ? (1_000_000, "s") :
+                micros >= 1_000 ? (1_000, "ms") :
+                (1, "μs");
+            var unitCount = micros / unitMicros;
+            var n = unitCount.ToString("0.0");
+            if (n.EndsWith(".0", StringComparison.Ordinal))
+                n = unitCount.ToString("0");
+            return n + " " + unitString;
+        }
         public static string ToHumanTimeSpan(TimeSpan ts, bool showSeconds = false, bool twoSignificantDigits = true)
         {
             string Format(double value) => twoSignificantDigits ? FormatTwoSignificantDigits(value) : ((int)value).ToString();

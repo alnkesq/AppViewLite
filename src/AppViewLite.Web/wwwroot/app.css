@@ -2203,3 +2203,10 @@ input[type=radio], input[type=checkbox]{
 .performance-timeline-lock-SecondaryRead{
     background-color: rgb(194, 255, 103);
 }
+.performance-timeline-summary-group{
+    text-wrap: nowrap;
+}
+
+.performance-timeline-summary-table th {
+    text-align: left;
+}

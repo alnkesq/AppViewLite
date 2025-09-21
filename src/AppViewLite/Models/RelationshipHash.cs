@@ -1,3 +1,4 @@
+using AppViewLite.Numerics;
 using System;
 using System.Runtime.InteropServices;
 
@@ -12,6 +13,8 @@ namespace AppViewLite.Models
             if (z != 0) return z;
             return Low.CompareTo(other.Low);
         }
+
+        public override string ToString() => $"{nameof(RelationshipHash)}({new UInt48(High, Low)})";
     }
 }
 

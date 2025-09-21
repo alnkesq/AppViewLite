@@ -30,6 +30,8 @@ namespace AppViewLite.Models
             var a = s.Split('_');
             return new RelationshipHashedRKey(new Plc(int.Parse(a[0])), ulong.Parse(a[1]));
         }
+
+        public override string ToString() => $"{nameof(RelationshipHashedRKey)}({Plc.PlcValue}, {RKeyHash})";
     }
 }
 

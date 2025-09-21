@@ -821,7 +821,7 @@ namespace AppViewLite.Storage
                     extraArr = ToNativeArray(extra);
                 }
             }
-            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0).Select(x => (DangerousHugeReadOnlyMemory<TValue>)x);
+            var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);
             return wrapEnumerable(z);

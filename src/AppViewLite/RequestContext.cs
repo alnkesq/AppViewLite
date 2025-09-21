@@ -252,7 +252,8 @@ namespace AppViewLite
                 var delta = Delta;
                 return
                     (Operation != null ? TableName + "/" + Operation + (Argument != null ? ": " + Argument.ToString() : null) : "(Unknown)") +
-                    (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null);
+                    (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null) + 
+                    "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks));
             }
         }
     }

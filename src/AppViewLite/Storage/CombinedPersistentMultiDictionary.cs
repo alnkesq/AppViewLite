@@ -66,7 +66,7 @@ namespace AppViewLite.Storage
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
 
-        public IDisposable? LogOperation(string operation, object? arg)
+        public IDisposable? LogOperation(string operation, object? arg = null)
         {
             return LogOperationCallback?.Invoke(this.Name, operation, arg);
         }
@@ -709,7 +709,7 @@ namespace AppViewLite.Storage
 
         public bool TryGetLatestValue(TKey key, out TValue value)
         {
-            using var _ = LogOperation("TryGetLatestValue", key);
+            using var _ = LogOperation(nameof(TryGetLatestValue), key);
 
             foreach (var item in GetValuesChunkedLatestFirst(key))
             {
@@ -722,7 +722,7 @@ namespace AppViewLite.Storage
 
         public bool TryGetSingleValue(TKey key, out TValue value, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation("TryGetSingleValue", key);
+            using var _ = LogOperation(nameof(TryGetSingleValue), key);
 
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
@@ -766,6 +766,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation(nameof(GetValuesChunked), key);
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             DangerousHugeReadOnlyMemory<TValue> extraArr = default;
@@ -801,6 +802,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunkedLatestFirst(TKey key, bool omitQueue = false, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation(nameof(GetValuesChunkedLatestFirst), key);
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (!omitQueue && queue.TryGetValues(key, out var extra))
@@ -818,7 +820,7 @@ namespace AppViewLite.Storage
 
         public bool TryGetPreserveOrderSpanAny(TKey key, out HugeReadOnlySpan<TValue> val, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation("TryGetPreserveOrderSpanAny", key);
+            using var _ = LogOperation(nameof(TryGetPreserveOrderSpanAny), key);
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             foreach (var slice in slices)
@@ -842,7 +844,7 @@ namespace AppViewLite.Storage
         }
         public bool TryGetPreserveOrderSpanLatest(TKey key, out HugeReadOnlySpan<TValue> val)
         {
-            using var _ = LogOperation("TryGetPreserveOrderSpanLatest", key);
+            using var _ = LogOperation(nameof(TryGetPreserveOrderSpanLatest), key);
             if (behavior != PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             if (queue.TryGetValues(key, out var extra))
             {
@@ -871,6 +873,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation("GetValuesUnsorted_Range", key);
             InitializeIoPreferenceForKey(key, ref preference);
             if (minExclusive != null && maxExclusive == null)
             {
@@ -884,6 +887,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesSorted(TKey key, TValue? minExclusive = null)
         {
+            // TODO: log
             var chunks = GetValuesChunked(key, minExclusive).ToArray();
             if (chunks.Length == 0) return [];
             if (chunks.Length == 1) return chunks[0].AsEnumerable();
@@ -893,6 +897,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive, TValue? maxExclusive)
         {
+            // TODO: log
             if (minExclusive != null && maxExclusive == null)
                 return GetValuesSortedDescending(key, null, null).TakeWhile(x => minExclusive.Value.CompareTo(x) < 0); // avoids binary searches
             var chunks = GetValuesChunked(key, minExclusive, maxExclusive).ToArray();
@@ -904,6 +909,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesUnsorted(TKey key)
         {
+            using var _ = LogOperation(nameof(GetValuesUnsorted), key);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder)
             {
                 var q = queue.TryGetValues(key);
@@ -952,6 +958,7 @@ namespace AppViewLite.Storage
 
         public bool Contains(TKey key, TValue value, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation(nameof(Contains));
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
 
             if (GetKeyValueProbabilisticCache()?.PossiblyContains(key, value) == false) return false;
@@ -961,6 +968,7 @@ namespace AppViewLite.Storage
         }
         public bool ContainsKey(TKey key, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation(nameof(ContainsKey));
             if (GetKeyProbabilisticCache()?.PossiblyContainsKey(key) == false) return false;
 
             InitializeIoPreferenceForKey(key, ref preference);
@@ -1172,6 +1180,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> EnumerateUnsortedGrouped()
         {
+            using var _ = LogOperation(nameof(EnumerateUnsortedGrouped));
             foreach (var slice in slices)
             {
                 foreach (var group in slice.Reader.Enumerate())
@@ -1193,6 +1202,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {
+            // TODO: log
             if (IsSingleValueOrKeySet) throw new InvalidOperationException();
             var s = slices.Select((x, sliceIndex) => x.Reader.Enumerate().Select(x => (KeyAndSliceIndex: (x.Key, sliceIndex), Values: x.Values)));
             if (queue.GroupCount != 0)
@@ -1212,6 +1222,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateUnsorted()
         {
+            using var _ = LogOperation(nameof(EnumerateUnsorted));
             foreach (var slice in slices)
             {
                 foreach (var group in slice.Reader.Enumerate())
@@ -1272,6 +1283,8 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive, MultiDictionaryIoPreference preference = default)
         {
+            using var _ = LogOperation(nameof(GetInRangeUnsorted));
+
             InitializeIoPreferenceForKey(min, ref preference);
             foreach (var q in queue)
             {
@@ -1466,6 +1479,7 @@ namespace AppViewLite.Storage
 
         public TValue? GetValueWithPrefix(TKey key, TValue valueOrPrefix, Func<TValue, bool> hasDesiredPrefix)
         {
+            using var _ = LogOperation(nameof(GetValueWithPrefix), key);
             foreach (var chunk in GetValuesChunkedLatestFirst(key))
             {
                 var span = chunk.AsSpan();
@@ -1477,6 +1491,7 @@ namespace AppViewLite.Storage
         }
         public TValue? GetValueWithPrefixLatest(TKey key, TValue valueOrPrefix, Func<TValue, bool> hasDesiredPrefix)
         {
+            using var _ = LogOperation(nameof(GetValueWithPrefixLatest), key);
             foreach (var chunk in GetValuesChunkedLatestFirst(key))
             {
                 var span = chunk.AsSpan();

@@ -70,6 +70,33 @@ namespace AppViewLite.Storage
         {
             return LogOperationCallback?.Invoke(this.Name, operation, arg);
         }
+        public Func<IEnumerable<T>, IEnumerable<T>> LogOperationForEnumerable<T>(string operation, object? arg = null)
+        {
+            // Use LogOperationForEnumerable instead of LogOperation *if*
+            // the caller returns IEnumerable<> AND it's not an iterator generator (no yield return)
+
+            var disposable = LogOperation(operation, arg);
+            if (disposable == null)
+                return enumerable => enumerable;
+            
+            return enumerable => EnumerateThenDispose(enumerable, disposable);
+        }
+
+        private static IEnumerable<T> EnumerateThenDispose<T>(IEnumerable<T> enumerable, IDisposable disposable)
+        {
+            try
+            {
+                foreach (var item in enumerable)
+                {
+                    yield return item;
+                }
+
+            }
+            finally
+            {
+                disposable.Dispose();
+            }
+        }
 
         public static Func<string, string, object?, IDisposable?>? LogOperationCallback;
 
@@ -766,7 +793,8 @@ namespace AppViewLite.Storage
 
         public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation(nameof(GetValuesChunked), key);
+            var wrapEnumerable = LogOperationForEnumerable<DangerousHugeReadOnlyMemory<TValue>>(nameof(GetValuesChunked), key);
+
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
             DangerousHugeReadOnlyMemory<TValue> extraArr = default;
@@ -796,7 +824,7 @@ namespace AppViewLite.Storage
             var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0).Select(x => (DangerousHugeReadOnlyMemory<TValue>)x);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);
-            return z;
+            return wrapEnumerable(z);
         }
 
 
@@ -873,21 +901,21 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesUnsorted(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation("GetValuesUnsorted_Range", key);
+            var wrapEnumerable = LogOperationForEnumerable<TValue>("GetValuesUnsorted_Range", key);
+
             InitializeIoPreferenceForKey(key, ref preference);
             if (minExclusive != null && maxExclusive == null)
             {
                 var chunks = GetValuesChunked(key);
-                return chunks.SelectMany(chunk => chunk.Reverse().TakeWhile(x => minExclusive.Value.CompareTo(x) < 0));
+                return wrapEnumerable(chunks.SelectMany(chunk => chunk.Reverse().TakeWhile(x => minExclusive.Value.CompareTo(x) < 0)));
             }
-            return GetValuesChunked(key, minExclusive, maxExclusive).SelectMany(x => x);
+            return wrapEnumerable(GetValuesChunked(key, minExclusive, maxExclusive).SelectMany(x => x));
         }
 
 
 
         public IEnumerable<TValue> GetValuesSorted(TKey key, TValue? minExclusive = null)
         {
-            // TODO: log
             var chunks = GetValuesChunked(key, minExclusive).ToArray();
             if (chunks.Length == 0) return [];
             if (chunks.Length == 1) return chunks[0].AsEnumerable();
@@ -897,14 +925,16 @@ namespace AppViewLite.Storage
 
         public IEnumerable<TValue> GetValuesSortedDescending(TKey key, TValue? minExclusive, TValue? maxExclusive)
         {
-            // TODO: log
             if (minExclusive != null && maxExclusive == null)
                 return GetValuesSortedDescending(key, null, null).TakeWhile(x => minExclusive.Value.CompareTo(x) < 0); // avoids binary searches
+
+            var wrapEnumerable = LogOperationForEnumerable<TValue>(nameof(GetValuesSortedDescending), key);
+
             var chunks = GetValuesChunked(key, minExclusive, maxExclusive).ToArray();
-            if (chunks.Length == 0) return [];
-            if (chunks.Length == 1) return chunks[0].Reverse();
+            if (chunks.Length == 0) return wrapEnumerable([]);
+            if (chunks.Length == 1) return wrapEnumerable(chunks[0].Reverse());
             var chunksEnumerables = chunks.Select(x => x.Reverse()).ToArray();
-            return SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x, new ReverseComparer<TValue>());
+            return wrapEnumerable(SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(chunksEnumerables, x => x, new ReverseComparer<TValue>()));
         }
 
         public IEnumerable<TValue> GetValuesUnsorted(TKey key)
@@ -988,6 +1018,7 @@ namespace AppViewLite.Storage
         public long GetValueCount(TKey key, MultiDictionaryIoPreference preference = default)
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
+            using var _ = LogOperation(nameof(GetValueCount), key);
             InitializeIoPreferenceForKey(key, ref preference);
             long num = 0;
             foreach (var slice in slices)
@@ -1202,14 +1233,14 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {
-            // TODO: log
+            var wrapEnumerable = LogOperationForEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)>(nameof(EnumerateSortedGrouped));
             if (IsSingleValueOrKeySet) throw new InvalidOperationException();
             var s = slices.Select((x, sliceIndex) => x.Reader.Enumerate().Select(x => (KeyAndSliceIndex: (x.Key, sliceIndex), Values: x.Values)));
             if (queue.GroupCount != 0)
             {
                 s = s.Append(queue.OrderBy(x => x.Key).Select(x => ((x.Key, int.MaxValue), Values: ToNativeArray(x.Values.ValuesUnsorted))));
             }
-            return SimpleJoin
+            return wrapEnumerable(SimpleJoin
                 .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.KeyAndSliceIndex)
                 .GroupAssumingOrderedInput(x => x.KeyAndSliceIndex.Key)
                 .Select(x =>
@@ -1217,7 +1248,7 @@ namespace AppViewLite.Storage
                     if (behavior == PersistentDictionaryBehavior.PreserveOrder)
                         return (x.Key, new[] { x.Values[x.Values.Count - 1].Values });
                     return (x.Key, x.Values.Select(x => x.Values).ToArray());
-                });
+                }));
         }
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateUnsorted()
@@ -1246,6 +1277,7 @@ namespace AppViewLite.Storage
         }
         public IEnumerable<DangerousHugeReadOnlyMemory<TKey>> EnumerateKeyChunks()
         {
+            using var _ = LogOperation(nameof(EnumerateKeyChunks));
             foreach (var slice in slices)
             {
                 yield return (DangerousHugeReadOnlyMemory<TKey>)slice.Reader.Keys;

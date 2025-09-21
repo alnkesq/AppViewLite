@@ -40,7 +40,10 @@
         .FirstOrDefault(x => x.Guid == Guid);
     if (req == null) Navigation.NavigateTo("/debug/requests");
     var entries = req!.GetOperationEntriesWithoutHoles();
-    var firstStopwatchTicks = entries.FirstOrDefault()?.Start.StopwatchTicks ?? 0;
+    var lockLogs = req.LockLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
+    var allEntriesAndLogs = lockLogs.Concat(entries).ToArray();
+    var firstStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Min(x => x.Start.StopwatchTicks) : 0;
+    var finalStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Max(x => x.End.StopwatchTicks) : 64;
 }
 
 <PageTitle>@req.ToString()</PageTitle>
@@ -54,11 +57,11 @@ document.documentElement.style.overflowX = 'scroll';
 <br>
 <br>
 
-<div style="margin-left: 20px; width: 128px; text-align: center; border-top: 1px solid black">@((128 / (double)PixelsPerSecond).ToString("0.0000")) ms</div>
+<div style="margin-left: 20px; width: 128px; text-align: center; border-top: 1px solid black">@((1000 * 128 / (double)PixelsPerSecond).ToString("0.0000")) ms</div>
 
 <br>
 <br>
-<div class="performance-timeline" style="width: @(entries.Count != 0 ? (Math.Min(StopwatchTicksToPixels(entries.Max(x => x.End.StopwatchTicks) - firstStopwatchTicks), 1024 * 1024)) : 64)px">
+<div class="performance-timeline" style="width: @(entries.Count != 0 ? (Math.Min(StopwatchTicksToPixels(finalStopwatchTicks - firstStopwatchTicks), 1024 * 1024)) : 64)px">
 
     @foreach (var b in entries)
     {
@@ -70,5 +73,14 @@ document.documentElement.style.overflowX = 'scroll';
         </div>
         
 
+    }
+
+    @foreach (var b in lockLogs)
+    {
+        var delta = b.End - b.Start;
+
+        <div title="@b.Operation" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+            @b.Operation
+        </div>
     }
 </div>

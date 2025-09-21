@@ -2162,7 +2162,7 @@ input[type=radio], input[type=checkbox]{
 }
 
 .performance-timeline{
-    height: 50px;
+    height: 70px;
     position: relative;
     margin-left: 10px;
     margin-right: 10px;
@@ -2172,6 +2172,34 @@ input[type=radio], input[type=checkbox]{
 .performance-timeline-entry{
     position: absolute;
     overflow: hidden;
-    height: 100%;
+    height: 50px;
     font-size: 7pt;
+}
+
+.performance-timeline-lock{
+    position: absolute;
+    top: 50px;
+    height: 20px;
+    overflow: hidden;
+    font-size: 7pt;
+    background-color: magenta;
+    border-left: 1px solid gray;
+    padding-top: 3px;
+    box-sizing: border-box;
+}
+
+.performance-timeline-lock-PrimaryRead,
+.performance-timeline-lock-PrimaryReadUrgent{
+    background-color: rgb(144, 214, 38);
+}
+
+.performance-timeline-lock-PrimaryWrite,
+.performance-timeline-lock-PrimaryWriteUrgent{
+    background-color: rgb(255, 184, 103);
+}
+.performance-timeline-lock-PrimaryUpgradeable{
+    background-color: rgb(255, 209, 156);
+}
+.performance-timeline-lock-SecondaryRead{
+    background-color: rgb(194, 255, 103);
 }

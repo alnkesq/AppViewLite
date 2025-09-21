@@ -543,6 +543,7 @@ namespace AppViewLite
             if (begin == default) return;
 
             var end = PerformanceSnapshot.Capture();
+            ctx.LockLogEntries.Add(new OperationLogEntry(begin, end, null, lockKind.ToString(), null));
             var delta = end - begin;
 
             var maxGcGeneration = delta.MaxGcGeneration;

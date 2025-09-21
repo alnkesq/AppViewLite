@@ -18,6 +18,8 @@ namespace AppViewLite.Models
             var a = s.Split('/');
             return new PostIdString(a[0], a[1]);
         }
+
+        public override string ToString() => $"{nameof(PostIdString)}({Did}, {RKey})";
     }
 }
 

@@ -15,6 +15,8 @@ namespace AppViewLite.Models
         }
         public string Serialize() => ((PostIdTimeFirst)this).Serialize();
         public static PostId Deserialize(string s) => PostIdTimeFirst.Deserialize(s);
+
+        public override string ToString() => $"{nameof(PostId)}({Author.PlcValue}, {PostRKey})";
     }
 }
 

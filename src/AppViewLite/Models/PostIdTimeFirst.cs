@@ -22,6 +22,8 @@ namespace AppViewLite.Models
             var parts = s.Split('_');
             return new PostIdTimeFirst(new Tid(long.Parse(parts[0])), new Plc(int.Parse(parts[1])));
         }
+
+        public override string ToString() => $"{nameof(PostIdTimeFirst)}({PostRKey}, {Author.PlcValue})";
     }
 }
 

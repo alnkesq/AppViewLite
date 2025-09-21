@@ -687,6 +687,7 @@ namespace AppViewLite
         public static string ToHumanTimeSpanForProfiler(TimeSpan ts)
         {
             var micros = ts.TotalMicroseconds;
+            if (micros < 1) return ts.TotalNanoseconds.ToString("0") + " ns";
             var (unitMicros, unitString) =
                 micros >= 1_000_000 ? (1_000_000, "s") :
                 micros >= 1_000 ? (1_000, "ms") :

@@ -204,6 +204,7 @@ namespace AppViewLite
 
         public required LabelerSubscription[] LabelSubscriptions;
         private HashSet<LabelId>? _needsLabels;
+        public long CompletionTimeStopwatchTicks;
 
         public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash))).ToHashSet();
 

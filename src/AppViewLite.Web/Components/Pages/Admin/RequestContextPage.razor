@@ -8,7 +8,7 @@
     [Parameter] public Guid Guid { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Zoom { get; set; }
 
-    public int PixelsPerSecond => Zoom ?? 1024;
+    public int PixelsPerSecond => Zoom ?? 4096;
 
     protected override void OnParametersSet()
     {
@@ -43,7 +43,7 @@
     var lockLogs = req.LockLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
     var allEntriesAndLogs = lockLogs.Concat(entries).ToArray();
     var firstStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Min(x => x.Start.StopwatchTicks) : 0;
-    var finalStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Max(x => x.End.StopwatchTicks) : 64;
+    var finalStopwatchTicks = req.CompletionTimeStopwatchTicks != 0 ? req.CompletionTimeStopwatchTicks : allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Max(x => x.End.StopwatchTicks) : 64;
 }
 
 <PageTitle>@req.ToString()</PageTitle>

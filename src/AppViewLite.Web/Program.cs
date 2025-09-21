@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.WebUtilities;
 using AppViewLite.Storage;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -153,6 +154,15 @@ namespace AppViewLite.Web
             app.UseStatusCodePagesWithReExecute("/ErrorHttpStatus", "?code={0}");
             app.UseAntiforgery();
 
+            app.Use(async (ctx, req) =>
+            {
+                await req();
+                var requestContext = ctx.RequestServices.GetService<RequestContext>();
+                if (requestContext != null)
+                {
+                    requestContext.CompletionTimeStopwatchTicks = Stopwatch.GetTimestamp();
+                }
+            });
 
             app.MapStaticAssets();
             app.Use(async (ctx, req) =>

@@ -2207,6 +2207,9 @@ input[type=radio], input[type=checkbox]{
     text-wrap: nowrap;
 }
 
+.performance-timeline-summary-table {
+    margin-left: 10px;
+}
 .performance-timeline-summary-table th {
     text-align: left;
 }

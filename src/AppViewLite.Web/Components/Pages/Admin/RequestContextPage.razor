@@ -49,9 +49,10 @@
 
 <PageTitle>@req.ToString()</PageTitle>
 
-<div style="position: fixed; margin-left: 20px;">
+<div style="position: fixed; margin-left: 10px;">
     <h3>@req.ToString()</h3>
-    <a class="blue-link" href="/debug/requests">Back</a> |
+    <a class="blue-link" href="/debug">Debug</a> |
+    <a class="blue-link" href="/debug/requests">Requests</a> |
     <a class="blue-link" id="request-profiler-zoom-in" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 4 * 1024 * 1024))">Zoom in</a> |
     <a class="blue-link" id="request-profiler-zoom-out" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 32))">Zoom out</a>
 </div>
@@ -70,6 +71,8 @@
 <br>
 <br>
 <br>
+<br>
+<br>
 
 @foreach (var exponent in Enumerable.Range(1, 10))
 {
@@ -78,7 +81,7 @@
     var pixels = timespan.TotalSeconds * PixelsPerSecond;
     if (pixels >= 64)
     {
-        <div style="position: fixed; height: 12px; margin-left: 20px; border-left: 1px solid black; border-right: 1px solid black; width: @(pixels)px; text-align: center; border-top: 1px solid black">@StringUtils.ToHumanTimeSpanForProfiler(timespan)</div>
+        <div style="position: fixed; height: 12px; margin-left: 10px; border-left: 1px solid black; border-right: 1px solid black; width: @(pixels)px; text-align: center; border-top: 1px solid black">@StringUtils.ToHumanTimeSpanForProfiler(timespan)</div>
         break;
     }
 }
@@ -105,7 +108,7 @@
     {
         var delta = b.End - b.Start;
 
-        <div title="@b.Operation" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+        <div title="@(b.Operation + "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks)))" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
             @b.Operation
         </div>
     }
@@ -113,28 +116,27 @@
 <br>
 <br>
 <br>
-<div>
-    <table class="performance-timeline-summary-table">
-        <tr>
-            <th>Table</th>
-            <th>Operation</th>
-            <th>Count</th>
-            <th>Duration</th>
-        </tr>
+<table class="performance-timeline-summary-table">
+    <tr>
+        <th style="width: 250px;">Table</th>
+        <th>Operation</th>
+        <th>Count</th>
+        <th>Duration</th>
+    </tr>
     
-    @foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks))).OrderByDescending(x => x.StopwatchTicks))
-    {
-            <tr>
-                <td>@item.TableName</td>
-                <td>@item.Operation</td>
-                <td>@item.Count</td>
-                <td>
+@foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks))).OrderByDescending(x => x.StopwatchTicks))
+{
+        <tr>
+            <td>@item.TableName</td>
+            <td>@item.Operation</td>
+            <td>@item.Count</td>
+            <td>
                     
-                    <div class="performance-timeline-summary-group" style="background: @HashToCssColor(item.TableName!, item.Operation!); width: @StopwatchTicksToPixels(item.StopwatchTicks)px;">
-                        @StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(item.StopwatchTicks))
-                    </div>
-                </td>
-        </tr>
-    }
-    </table>
-</div>
+                <div class="performance-timeline-summary-group" style="background: @HashToCssColor(item.TableName!, item.Operation!); width: @StopwatchTicksToPixels(item.StopwatchTicks)px;">
+                    @StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(item.StopwatchTicks))
+                </div>
+            </td>
+    </tr>
+}
+</table>
+

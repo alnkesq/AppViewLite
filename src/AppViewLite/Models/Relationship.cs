@@ -21,6 +21,8 @@ namespace AppViewLite.Models
             var parts = s.Split('_');
             return new Relationship(new Plc(int.Parse(parts[0])), new Tid(long.Parse(parts[1])));
         }
+
+        public override string ToString() => $"{nameof(Relationship)}({Actor.PlcValue}, {RelationshipRKey})";
     }
 }
 

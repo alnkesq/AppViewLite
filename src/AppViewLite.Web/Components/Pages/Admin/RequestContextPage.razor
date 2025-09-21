@@ -47,17 +47,46 @@
 }
 
 <PageTitle>@req.ToString()</PageTitle>
-<h3>@req.ToString()</h3>
+
+<div style="position: fixed; margin-left: 20px;">
+    <h3>@req.ToString()</h3>
+    <a class="blue-link" href="/debug/requests">Back</a> |
+    <a class="blue-link" id="request-profiler-zoom-in" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 4 * 1024 * 1024))">Zoom in</a> |
+    <a class="blue-link" id="request-profiler-zoom-out" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 32))">Zoom out</a>
+</div>
 <script>
-document.documentElement.style.overflowX = 'scroll';
+    document.documentElement.style.overflowX = 'scroll';
+    document.addEventListener('keydown', e => {
+        if(e.key == '+'){
+            document.getElementById('request-profiler-zoom-in').click();
+        }
+        if(e.key == '-'){
+            document.getElementById('request-profiler-zoom-out').click();
+        }
+    });
 </script>
-<a class="blue-link" href="/debug/requests">Back</a> |
-<a class="blue-link" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 1024 * 1024))">Zoom in</a> |
-<a class="blue-link" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 0))">Zoom out</a>
+<br>
+<br>
 <br>
 <br>
 
-<div style="margin-left: 20px; width: 128px; text-align: center; border-top: 1px solid black">@((1000 * 128 / (double)PixelsPerSecond).ToString("0.0000")) ms</div>
+@foreach (var exponent in Enumerable.Range(1, 10))
+{
+    var micros = Math.Pow(10, exponent);
+    var timespan = TimeSpan.FromMicroseconds(micros);
+    var pixels = timespan.TotalSeconds * PixelsPerSecond;
+    if (pixels >= 64)
+    {
+        var (unitMicros, unitString) =
+            micros >= 1_000_000 ? (1_000_000, "s") :
+            micros >= 1_000 ? (1_000, "ms") :
+            (1, "μs");
+        var unitCount = micros / unitMicros;
+        <div style="position: fixed; height: 12px; margin-left: 20px; border-left: 1px solid black; border-right: 1px solid black; width: @(pixels)px; text-align: center; border-top: 1px solid black">@unitCount @unitString</div>
+        break;
+    }
+}
+
 
 <br>
 <br>

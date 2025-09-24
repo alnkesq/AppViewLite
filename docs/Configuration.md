@@ -20,6 +20,7 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_READONLY`: Forbids database writes (useful for debugging data issues without the firehose interfering).
 * `APPVIEWLITE_EXTERNAL_PREVIEW_SMALL_THUMBNAIL_DOMAINS`: External previews to these domains will be always displayed in compact format (not just when quoted or the post was already seen by the user), because the image doesn't generally contain useful information or is always the same for the whole site (e.g. `x.com,twitter.com,arxiv.org,paypal.me,paypal.com,t.me,cash.app`). Defaults to none.
 * `APPVIEWLITE_EXTERNAL_PREVIEW_DISABLE_AUTOMATIC_FOR_DOMAINS`: Disables OpenGraph previews for the specified domains, unless already set by a post record. Use this when the OpenGraph for that domain doesn't generally contain useful information, only branding or wasted space (e.g. `x.com,twitter.com,t.me,redd.it`). Defaults to none.
+* `APPVIEWLITE_EXTERNAL_PREVIEW_IGNORE_DESCRIPTION_FOR_DOMAINS`: Ignore OpenGraph descriptions for external links to the specified domains. Defaults to none.
 * `APPVIEWLITE_GLOBAL_PERIODIC_FLUSH_SECONDS`: Flushes the database to disk every this number of seconds. Defaults to `600` (10 minutes). If you abruptly close the process without using a proper `CTRL+C` (`SIGINT`), you will lose at most this amount of recent data. However, consistency is still guaranteeded. Abrupt exits during a flush are also consistency-safe. Fast-growing tables might be flushed to disk earlier (but still consistency-safe).
 * `APPVIEWLITE_ADMINISTRATIVE_DIDS`: List of DIDs that, when logged in, can perform privileged operations. Defaults to none. You can use `*` for local development.
 * `APPVIEWLITE_CONFIGURATION`: Path to an env file that will be loaded into the environment at startup. Prior environment variables take the precendence.
@@ -51,7 +52,10 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_DIRECT_IO_PRINT_READS`: Prints to stderr every time a direct IO read is performed, with path, offset and length.
 * `APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE`: how many pending records to process can accumulate before the firehose websocket listener blocks waiting for work to complete. Defaults to `100000`.
 * `APPVIEWLITE_RESET_FIREHOSE_CURSORS`: URLs of the firehoses whose cursors should be reset on startup. Defaults to `*` to avoid a known [JetStream issue](https://github.com/bluesky-social/jetstream/issues/27).
-
+* `APPVIEWLITE_DRAIN_FIREHOSE_BEFORE_CURSOR_CAPTURE`: Uses a more precise checkpointing for firehose cursor save and restore (experimental). Defaults to `0`.
+* `APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_MB`: Size of the direct IO read cache for very small reads (≤ 2 sectors), in megabytes. Defaults to `128`.
+* `APPVIEWLITE_DIRECT_IO_MULTIBLOCK_CACHE_CAPACITY`: Size of the direct IO read cache for medium-sized reads (≥ 3 sectors, but small enough that mmap is not used), in megabytes. Defaults to `128`.
+* `APPVIEWLITE_LOW_DISK_SPACE_WARNING_MB`: Displays a warning on the sidebar when the available disk space is below this threshold, in megabytes. Defaults to `4096` (4 GB), enough for 1-2 days of firehose data.
 
 ## Handle and DID doc resolution
 * `APPVIEWLITE_DNS_SERVER`: DNS server for TXT resolutions. Defaults to `1.1.1.1`
@@ -152,3 +156,4 @@ The neighborhood score for a user is the sum of:
    * 1 for each like they send to a followee of an AppViewLite user
 
 * `APPVIEWLITE_IGNORE_SLICES_PATH`: Alternatively, instead of pruning as described above, you can manually remove database slices altogether. `APPVIEWLITE_IGNORE_SLICES_PATH` is the path to a text file where each line is a database slice (example: `post-data-time-first-2/638754262903104348-638793205252577381`, without column number or ext) that AppViewLite should ignore (for example, because you manually deleted it or migrated offline). Be careful, not all tables can be safely ignored. Known SAFE tables are `user-to-recent-posts-2`, `post-text-approx-time-32`, `post-data-time-first-2`.
+* `APPVIEWLITE_IGNORE_MISSING_SLICES`: If a slice is missing from the file system, ignore that slice instead of failing to start. Defaults to `0`.

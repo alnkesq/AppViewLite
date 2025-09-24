@@ -4,6 +4,9 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- https://github.com/dotnet/sdk/issues/50656#issuecomment-3258230025 -->
+    <AttachWeakETagToCompressedAssetsDuringDevelopment>true</AttachWeakETagToCompressedAssetsDuringDevelopment>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1609,7 +1609,7 @@ namespace AppViewLite
                             var subReplies = rels.DirectReplies.GetValuesUnsorted(lastAdded.PostId);
                             var bestSubReply = subReplies
                                 .Where(x => x.Author == focalPostId.Author || x.Author == otherReply.AuthorId || otherReplies.Length == 1)
-                                .Select(x => (PostId: x, LikeCount: rels.Likes.GetApproximateActorCount(x)))
+                                .Select(x => (PostId: x, LikeCount: rels.GetApproximateLikeCount(x, couldBePluggablePost: otherReply.PluggableProtocol != null, allowImprecise: true)))
                                 .OrderByDescending(x => x.PostId.Author == focalPostId.Author)
                                 .ThenByDescending(x => x.LikeCount)
                                 .ThenByDescending(x => x.PostId.PostRKey.Date)
@@ -2501,7 +2501,7 @@ namespace AppViewLite
                                 {
                                     if (allOriginalPostsAndReplies.Contains(reply) && !alreadyReturnedPosts.Contains(reply) && !isPostSeen(reply))
                                     {
-                                        var likeCount = rels.Likes.GetApproximateActorCount(reply);
+                                        var likeCount = rels.GetApproximateLikeCount(reply, couldBePluggablePost: post.PluggableProtocol != null, allowImprecise: true);
                                         replies.Add(new ScoredBlueskyPost(reply, default, FromFeed: null, true, likeCount, GetBalancedFeedPerUserScore(likeCount, now - reply.PostRKey.Date), 0));
                                     }
                                 }

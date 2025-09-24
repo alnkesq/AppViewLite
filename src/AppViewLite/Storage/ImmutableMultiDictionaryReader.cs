@@ -363,6 +363,8 @@ namespace AppViewLite.Storage
                         }
 
 
+                        CombinedPersistentMultiDictionary.CurrentThreadIoReads++;
+                        CombinedPersistentMultiDictionary.CurrentThreadIoReadBytes += lengthInBytes;
 
                         var spanAsBytes = DirectIo.ReadUnaligned(fileHandle.SafeFileHandle, offsetInBytes, checked((int)lengthInBytes), directIoArena, fileHandle.DirectIoReadCache);
                         var result = new DangerousHugeReadOnlyMemory<T>((T*)(void*)spanAsBytes.Pointer, length);
@@ -373,8 +375,10 @@ namespace AppViewLite.Storage
                     }
                 }
             }
+            CombinedPersistentMultiDictionary.CurrentThreadMmapPotentialReadBytes += length;
             return hugeSpan.Slice(index, length);
         }
+
 
 
         private readonly static DangerousHugeReadOnlyMemory<TValue> SingletonDefaultValue = SingletonDefaultNativeMemory<TValue>.Singleton;

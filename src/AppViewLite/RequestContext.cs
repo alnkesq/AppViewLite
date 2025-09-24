@@ -231,7 +231,7 @@ namespace AppViewLite
                 if (prev != null)
                 {
                     var delta = prev.End - entry.Start;
-                    if (delta.MaxGcGeneration != -1)
+                    if (delta.MaxGcGeneration != -1 || delta.IoReadBytes != 0 || delta.IoReads != 0 || delta.MmapPotentialReadBytes != 0)
                         result.Add(new OperationLogEntry(prev.End, entry.Start, null, null, null));
                 }
                 result.Add(entry);
@@ -252,6 +252,8 @@ namespace AppViewLite
                 var delta = Delta;
                 return
                     (Operation != null ? TableName + "/" + Operation + (Argument != null ? ": " + Argument.ToString() : null) : "(Unknown)") +
+                    (delta.IoReads != 0 ? "\nReads: " + StringUtils.ToHumanBytes(delta.IoReadBytes) + (delta.IoReads != 1 ? " (" + delta.IoReads + " reads)" : null) : null) +
+                    (delta.MmapPotentialReadBytes != 0 ? "\nMmap: " + StringUtils.ToHumanBytes(delta.MmapPotentialReadBytes) : null) +
                     (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null) + 
                     "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks));
             }

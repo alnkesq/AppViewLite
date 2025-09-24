@@ -1,3 +1,4 @@
+using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public record struct PerformanceSnapshot(long StopwatchTicks, int Gc0Count, int Gc1Count, int Gc2Count, long AllocatedBytes)
+    public record struct PerformanceSnapshot(long StopwatchTicks, int Gc0Count, int Gc1Count, int Gc2Count, long AllocatedBytes, long IoReads, long IoReadBytes, long MmapPotentialReadBytes)
     {
         public int MaxGcGeneration =>
                 Gc2Count != 0 ? 2 :
@@ -25,6 +26,9 @@ namespace AppViewLite
                 Gc1Count = GC.CollectionCount(1),
                 Gc2Count = GC.CollectionCount(2),
                 AllocatedBytes = allocatedBytes,
+                IoReadBytes = CombinedPersistentMultiDictionary.CurrentThreadIoReadBytes,
+                IoReads = CombinedPersistentMultiDictionary.CurrentThreadIoReads,
+                MmapPotentialReadBytes = CombinedPersistentMultiDictionary.CurrentThreadMmapPotentialReadBytes,
             };
             return result;
         }
@@ -36,7 +40,10 @@ namespace AppViewLite
                 end.Gc0Count - begin.Gc0Count,
                 end.Gc1Count - begin.Gc1Count,
                 end.Gc2Count - begin.Gc2Count,
-                end.AllocatedBytes - begin.AllocatedBytes
+                end.AllocatedBytes - begin.AllocatedBytes,
+                end.IoReads - begin.IoReads,
+                end.IoReadBytes - begin.IoReadBytes,
+                end.MmapPotentialReadBytes - begin.MmapPotentialReadBytes
                 );
         }
     }

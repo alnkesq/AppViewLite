@@ -265,6 +265,10 @@ namespace AppViewLite.Storage
         public static Func<string, SliceName, bool> IsPrunedSlice = (_, s) => (s.PruneId % 2) == 1;
         public static bool TreatMissingSlicesAsPruned;
         public static DirectIoReadCache? DirectIoReadCache;
+        [ThreadStatic] public static long CurrentThreadIoReads;
+        [ThreadStatic] public static long CurrentThreadIoReadBytes;
+        [ThreadStatic] public static long CurrentThreadMmapPotentialReadBytes;
+
         public abstract bool HasPendingCompactation { get; }
 
         

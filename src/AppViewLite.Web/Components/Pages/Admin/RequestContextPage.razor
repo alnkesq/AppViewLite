@@ -108,7 +108,7 @@
     {
         var delta = b.End - b.Start;
 
-        <div title="@(b.Operation + "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks)))" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+        <div title="@b.TooltipText" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
             @b.Operation
         </div>
     }

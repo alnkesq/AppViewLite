@@ -458,8 +458,11 @@ namespace AppViewLite.Storage
             {
 
             }
+
+            var startTime = Stopwatch.GetTimestamp();
+            long result;
 #if false
-            var result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+            result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
@@ -470,17 +473,20 @@ namespace AppViewLite.Storage
             return result;
 #else
 
-
             if (pageKeys.Length != 0)
             {
-                return BinarySearchPaginated(comparable, preference);
+                result = BinarySearchPaginated(comparable, preference);
             }
             else
             {
-                return HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+                result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
             }
+
 #endif
 
+            CombinedPersistentMultiDictionary.CurrentThreadSeekStopwatchTicks += Stopwatch.GetTimestamp() - startTime;
+            CombinedPersistentMultiDictionary.CurrentThreadSeekCount++;
+            return result;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]

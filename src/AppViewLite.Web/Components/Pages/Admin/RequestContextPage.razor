@@ -118,16 +118,17 @@
 <br>
 <table class="performance-timeline-summary-table">
     <tr>
-        <th style="width: 250px;">Table</th>
-        <th>Operation</th>
-        <th>Count</th>
-        <th>Reads</th>
-        <th>Read bytes</th>
-        <th>Mmap bytes</th>
-        <th>Duration</th>
+        <th title="Name of database table" style="width: 250px;">Table</th>
+        <th title="Type of database operation">Operation</th>
+        <th title="Number of database operations">Count</th>
+        <th title="Number of direct IO reads">Reads</th>
+        <th title="Bytes that were read via direct IO">Read bytes</th>
+        <th title="Bytes that might have been read via memory-mapped memory">Mmap bytes</th>
+        <th title="% wall clock time spent in GetIndex binary searches">Seek%</th>
+        <th title="Total wall clock time">Duration</th>
     </tr>
     
-@foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks), IoReadBytes: x.Sum(x => x.Delta.IoReadBytes), IoReads: x.Sum(x => x.Delta.IoReads), PotentialMmapBytes: x.Sum(x => x.Delta.MmapPotentialReadBytes))).OrderByDescending(x => x.StopwatchTicks))
+@foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks), IoReadBytes: x.Sum(x => x.Delta.IoReadBytes), IoReads: x.Sum(x => x.Delta.IoReads), PotentialMmapBytes: x.Sum(x => x.Delta.MmapPotentialReadBytes), SeekStopwatchTicks: x.Sum(x => x.Delta.SeekStopwatchTicks))).OrderByDescending(x => x.StopwatchTicks))
 {
         <tr>
             <td>@item.TableName</td>
@@ -136,6 +137,7 @@
             <td>@item.IoReads</td>
             <td>@(StringUtils.ToHumanBytes(item.IoReadBytes, allowByteGranularity: true))</td>
             <td>@(StringUtils.ToHumanBytes(item.PotentialMmapBytes, allowByteGranularity: true))</td>
+            <td>@((100.0 * item.SeekStopwatchTicks / item.StopwatchTicks).ToString("0"))%</td>
             <td>
                     
                 <div class="performance-timeline-summary-group" style="background: @HashToCssColor(item.TableName!, item.Operation!); width: @StopwatchTicksToPixels(item.StopwatchTicks)px;">

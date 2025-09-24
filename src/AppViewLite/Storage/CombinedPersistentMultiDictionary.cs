@@ -273,6 +273,8 @@ namespace AppViewLite.Storage
         [ThreadStatic] public static long CurrentThreadIoReads;
         [ThreadStatic] public static long CurrentThreadIoReadBytes;
         [ThreadStatic] public static long CurrentThreadMmapPotentialReadBytes;
+        [ThreadStatic] public static long CurrentThreadSeekStopwatchTicks;
+        [ThreadStatic] public static long CurrentThreadSeekCount;
 
         public abstract bool HasPendingCompactation { get; }
 

@@ -121,15 +121,21 @@
         <th style="width: 250px;">Table</th>
         <th>Operation</th>
         <th>Count</th>
+        <th>Reads</th>
+        <th>Read bytes</th>
+        <th>Mmap bytes</th>
         <th>Duration</th>
     </tr>
     
-@foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks))).OrderByDescending(x => x.StopwatchTicks))
+@foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks), IoReadBytes: x.Sum(x => x.Delta.IoReadBytes), IoReads: x.Sum(x => x.Delta.IoReads), PotentialMmapBytes: x.Sum(x => x.Delta.MmapPotentialReadBytes))).OrderByDescending(x => x.StopwatchTicks))
 {
         <tr>
             <td>@item.TableName</td>
             <td>@item.Operation</td>
             <td>@item.Count</td>
+            <td>@item.IoReads</td>
+            <td>@(StringUtils.ToHumanBytes(item.IoReadBytes, allowByteGranularity: true))</td>
+            <td>@(StringUtils.ToHumanBytes(item.PotentialMmapBytes, allowByteGranularity: true))</td>
             <td>
                     
                 <div class="performance-timeline-summary-group" style="background: @HashToCssColor(item.TableName!, item.Operation!); width: @StopwatchTicksToPixels(item.StopwatchTicks)px;">

@@ -713,9 +713,9 @@ namespace AppViewLite
             return Format(ts.TotalDays / 365.25) + " years";
         }
 
-        public static string ToHumanBytes(long bytes)
+        public static string ToHumanBytes(long bytes, bool allowByteGranularity = false)
         {
-            return CombinedPersistentMultiDictionary.ToHumanBytes(bytes);
+            return CombinedPersistentMultiDictionary.ToHumanBytes(bytes, allowByteGranularity);
         }
 
         public static string[] GetSegments(this Uri url) => url.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);

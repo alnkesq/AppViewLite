@@ -192,9 +192,14 @@ namespace AppViewLite.Storage
             LastFlushed = DateTime.UtcNow;
         }
 
-        public static string ToHumanBytes(long bytes)
+        public static string ToHumanBytes(long bytes, bool allowByteGranularity = false)
         {
-            if (bytes < 0) return "-" + ToHumanBytes(-bytes);
+            if (bytes < 0) return "-" + ToHumanBytes(-bytes, allowByteGranularity);
+            if (allowByteGranularity && bytes < 1024)
+            {
+                if (bytes == 0) return "0";
+                return bytes + " bytes";
+            }
             if (bytes == 0) return "0 KB";
             if (bytes < 1024) return ((double)Math.Max(bytes, 102) / 1024).ToString("0.0") + " KB";
             if (bytes < 1024 * 1024) return ((double)bytes / 1024).ToString("0.0") + " KB";
@@ -994,7 +999,7 @@ namespace AppViewLite.Storage
 
         public bool Contains(TKey key, TValue value, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation(nameof(Contains));
+            using var _ = LogOperation(nameof(Contains), (key, value));
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();
 
             if (GetKeyValueProbabilisticCache()?.PossiblyContains(key, value) == false) return false;
@@ -1004,7 +1009,7 @@ namespace AppViewLite.Storage
         }
         public bool ContainsKey(TKey key, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation(nameof(ContainsKey));
+            using var _ = LogOperation(nameof(ContainsKey), key);
             if (GetKeyProbabilisticCache()?.PossiblyContainsKey(key) == false) return false;
 
             InitializeIoPreferenceForKey(key, ref preference);
@@ -1321,7 +1326,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> GetInRangeUnsorted(TKey min, TKey maxExclusive, MultiDictionaryIoPreference preference = default)
         {
-            using var _ = LogOperation(nameof(GetInRangeUnsorted));
+            using var _ = LogOperation(nameof(GetInRangeUnsorted), (min, maxExclusive));
 
             InitializeIoPreferenceForKey(min, ref preference);
             foreach (var q in queue)

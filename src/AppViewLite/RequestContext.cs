@@ -252,8 +252,8 @@ namespace AppViewLite
                 var delta = Delta;
                 return
                     (Operation != null ? TableName + "/" + Operation + (Argument != null ? ": " + Argument.ToString() : null) : "(Unknown)") +
-                    (delta.IoReads != 0 ? "\nReads: " + StringUtils.ToHumanBytes(delta.IoReadBytes) + (delta.IoReads != 1 ? " (" + delta.IoReads + " reads)" : null) : null) +
-                    (delta.MmapPotentialReadBytes != 0 ? "\nMmap: " + StringUtils.ToHumanBytes(delta.MmapPotentialReadBytes) : null) +
+                    (delta.IoReads != 0 ? "\nReads: " + StringUtils.ToHumanBytes(delta.IoReadBytes, allowByteGranularity: true) + (delta.IoReads != 1 ? " (" + delta.IoReads + " reads)" : null) : null) +
+                    (delta.MmapPotentialReadBytes != 0 ? "\nMmap: " + StringUtils.ToHumanBytes(delta.MmapPotentialReadBytes, allowByteGranularity: true) : null) +
                     (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null) + 
                     "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks));
             }

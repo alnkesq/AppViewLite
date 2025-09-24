@@ -1,0 +1,7 @@
+
+**/obj/
+**/bin/
+**/*.user
+**/*.suo
+**/.vs/
+**/.vscode/

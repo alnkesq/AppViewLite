@@ -3548,6 +3548,51 @@ namespace AppViewLite
             };
         }
 
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void DontOptimizeAway<T>(T value) { }
+
+        internal static bool TEMPORARY_IsPostSeenHardenedForDebugging(PostIdTimeFirst postId, DangerousHugeReadOnlyMemory<PostEngagement>[] seenPostsSlices)
+        {
+            // TODO: use normal IsPostSeen once https://github.com/alnkesq/AppViewLite/issues/231 is debugged and fixed
+            foreach (var (sliceIndex, slice) in seenPostsSlices.Index())
+            {
+                var span = slice.AsSpan();
+                Assert(span.Length != 0);
+                try
+                {
+                    DontOptimizeAway(span[0]);
+                }
+                catch (Exception ex)
+                {
+                    ThrowFatalError($"IsPostSeenHardenedForDebugging: Could not read 0th item of slice {sliceIndex} out of {seenPostsSlices.Length}, slize size: {slice.Length}: {ex}");
+                }
+                try
+                {
+                    DontOptimizeAway(span[span.Length - 1]);
+                }
+                catch (Exception ex)
+                {
+                    ThrowFatalError($"IsPostSeenHardenedForDebugging: Could not read last item of slice {sliceIndex} out of {seenPostsSlices.Length}, slize size: {slice.Length}: {ex}");
+                }
+                var index = span.BinarySearch(new PostEngagement(postId, default));
+                if (index >= 0)
+                {
+                    return true;
+                }
+                else
+                {
+                    index = ~index;
+                    if (!(index >= 0 && index <= span.Length))
+                    {
+                        ThrowFatalError($"IsPostSeenHardenedForDebugging: index of next nearest PostEngagement is not in bounds: {index}, slice {sliceIndex} out of {seenPostsSlices.Length}, slize size: {slice.Length}");
+                    }
+                    if (index != span.Length && span[index].PostId == postId)
+                        return true;
+                }
+            }
+            return false;
+        }
         internal static bool IsPostSeen(PostIdTimeFirst postId, DangerousHugeReadOnlyMemory<PostEngagement>[] seenPostsSlices)
         {
             foreach (var slice in seenPostsSlices)

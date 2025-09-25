@@ -684,8 +684,14 @@ function applyPageElements() {
         tabbedHeader.scrollLeft = previousTabbedListHeaderScrollX;
 
     var loginLink = document.querySelector('#login-link');
+    var returnUrl = location.pathname + location.search;
     if (loginLink) 
-        loginLink.href = "/login" + (location.pathname == '/login' || location.pathname == '/@bsky.app/feed/whats-hot' ? '' : '?return=' + encodeURIComponent(location.pathname + location.search))
+        loginLink.href = "/login" + (location.pathname == '/login' || location.pathname == '/@bsky.app/feed/whats-hot' ? '' : '?return=' + encodeURIComponent(returnUrl))
+    for (const a of document.querySelectorAll('.sidebar-item-small a[href*="/set-active-profile"]')) {
+        const url = new URL(a.href)
+        url.searchParams.set('return', returnUrl)
+        a.href = url;
+    }
     maybeLoadNextPage();
     
     if (document.querySelector('.page-error[data-islogouterror="1"]'))

@@ -20,6 +20,9 @@
     [SupplyParameterFromQuery]
     private string? Did { get; set; }
 
+    [SupplyParameterFromQuery]
+    private string? Return { get; set; }
+
     protected override void OnInitialized()
     {
         if (!RequestContext.IsLoggedIn) Navigation.NavigateTo("/login", true);
@@ -29,9 +32,10 @@
     private void Submit()
     {
         var cookies = ParsedMultisessionCookie.Parse(HttpContextAccessor.HttpContext!.Request.Cookies[ParsedMultisessionCookie.CookieName]);
+        var returnSuffix = Return != null ? "?return=" + Uri.EscapeDataString(Return) : null;
         if (Did == null || !cookies.Sessions.Any(x => x.UnverifiedDid == Did))
         {
-            Navigation.NavigateTo("/login", true);
+            Navigation.NavigateTo("/login" + returnSuffix, true);
             return;
         }
 
@@ -39,14 +43,14 @@
         var stillActive = BlueskyEnrichedApis.Instance.TryGetSessionFromCookie(cookies.Sessions.First(x => x.UnverifiedDid == Did));
         if (stillActive == null)
         {
-            Navigation.NavigateTo("/login", true);
+            Navigation.NavigateTo("/login" + returnSuffix, true);
 
         }
         else
         {
             HttpContextAccessor.HttpContext!.Response.AppendEssentialCookie(ParsedMultisessionCookie.CookieName, cookies.ToString()!);
 
-            Navigation.NavigateTo("/", true);
+            Navigation.NavigateTo(Return ?? "/", true);
         }
 
     }

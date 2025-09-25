@@ -3553,6 +3553,7 @@ namespace AppViewLite
             foreach (var slice in seenPostsSlices)
             {
                 var span = slice.AsSpan();
+                Assert(span.Length != 0);
                 var index = span.BinarySearch(new PostEngagement(postId, default));
                 if (index >= 0)
                 {
@@ -3561,6 +3562,7 @@ namespace AppViewLite
                 else
                 {
                     index = ~index;
+                    Assert(index >= 0 && index <= span.Length);
                     if (index != span.Length && span[index].PostId == postId)
                         return true;
                 }

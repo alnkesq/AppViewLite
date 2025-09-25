@@ -139,9 +139,12 @@ namespace AppViewLite
             var ctx = BlueskyRelationshipsClientBase.CurrentThreadRequestContext!;
             if (ctx == null) return null;
             var begin = PerformanceSnapshot.Capture();
-            
+
+            var threadId = Environment.CurrentManagedThreadId;
+
             return new DelegateDisposable(() => 
             {
+                BlueskyRelationships.Assert(Environment.CurrentManagedThreadId == threadId, "LogOperation completed on a thread other than the original thread.");
                 var end = PerformanceSnapshot.Capture();
 
                 ctx.OperationLogEntries.Add(new OperationLogEntry(begin, end, tableName, operation, arg));

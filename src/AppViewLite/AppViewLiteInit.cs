@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AppViewLite
 {
@@ -15,6 +16,16 @@ namespace AppViewLite
         {
             AppViewLiteConfiguration.ReadEnvAndArgs(args);
             LoggableBase.Initialize();
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
+                LoggableBase.Log("AppDomain.CurrentDomain.UnhandledException: " + e.ExceptionObject);
+                LoggableBase.FlushLog();
+            };
+            TaskScheduler.UnobservedTaskException += (_, e) =>
+            {
+                LoggableBase.Log("TaskScheduler.UnobservedTaskException: " + e.Exception + ", Observed: " + e.Observed);
+                LoggableBase.FlushLog();
+            };
             CombinedPersistentMultiDictionary.LogOperationCallback = LogOperationCallback;
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;

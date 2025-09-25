@@ -101,6 +101,7 @@ namespace AppViewLite
         public long GetActorCount(TTarget target)
         {
             var c = creations.GetValueCount(target);
+            if (c == 0) return 0;
             var deletionCount = GetDeletionCount(target);
             return c - deletionCount;
         }

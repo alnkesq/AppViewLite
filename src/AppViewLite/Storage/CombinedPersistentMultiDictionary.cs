@@ -522,7 +522,8 @@ namespace AppViewLite.Storage
         {
             if (onBeforeFlushNotificationInProgress != 0) return;
 
-            MaybeCommitPendingCompactation();
+            if (disposing) 
+                MaybeCommitPendingCompactation(); // Might dispose old slices that might still have active ReadOnlySpan<>s, so we only run this if we're disposing everything anyways
 
             if (queue.GroupCount != 0)
             {
@@ -1135,7 +1136,7 @@ namespace AppViewLite.Storage
 
         private void MaybeFlush()
         {
-            MaybeCommitPendingCompactation();
+            // Don't call MaybeCommitPendingCompactation here! WithRelationshipsXxxxLock() can rely on the fact that spans extracted from the database will remain valid for the whole lock, but "MaybeCommitPendingCompactation" can dispose old slices.
 
             if (InMemorySize >= WriteBufferSize || (MaximumInMemoryBufferDuration != null && lastFlushed != null && lastFlushed.Elapsed > MaximumInMemoryBufferDuration))
             {
@@ -1156,6 +1157,8 @@ namespace AppViewLite.Storage
         
         public override void MaybeCommitPendingCompactation()
         {
+            // NOTE: Calling this method can invalidate previously extracted ReadOnlySpan<>s, because old superseded slices might end up being disposed.
+            // Only call it at the begin or end of a lock, not in the middle.
             try
             {
                 if (pendingCompactation == null) return;

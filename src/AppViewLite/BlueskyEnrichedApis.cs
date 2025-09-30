@@ -4463,7 +4463,7 @@ namespace AppViewLite
                 foreach (var engagementStr in postEngagementsStr)
                 {
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
-                    if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0 && !BlueskyRelationships.TEMPORARY_IsPostSeenHardenedForDebugging(postId, seenPostsSlices))
+                    if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0 && !BlueskyRelationships.IsPostSeen(postId, seenPostsSlices))
                         creditsToConsume.Add((postId.Author, engagementStr.Weight));
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));

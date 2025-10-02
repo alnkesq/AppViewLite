@@ -250,7 +250,7 @@ namespace AppViewLite.Web
                 var firehoses = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ??
                     [
                         // Some jetstream firehoses don't behave correctly when resuming from cursor: https://github.com/bluesky-social/jetstream/issues/27
-                        "jet:jetstream1.us-east.bsky.network|jet:jetstream2.us-east.bsky.network|jet:jetstream1.us-west.bsky.network|jet:jetstream2.us-west.bsky.network",
+                        "[jetstream-bsky-network]jet:jetstream1.us-east.bsky.network|jet:jetstream2.us-east.bsky.network|jet:jetstream1.us-west.bsky.network|jet:jetstream2.us-west.bsky.network",
                         //"bsky.network"
                     ];
 

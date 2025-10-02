@@ -250,31 +250,18 @@ namespace AppViewLite.Web
                 var firehoses = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_FIREHOSES) ??
                     [
                         // Some jetstream firehoses don't behave correctly when resuming from cursor: https://github.com/bluesky-social/jetstream/issues/27
-                        "jet:jetstream1.us-west.bsky.network",
+                        "jet:jetstream1.us-east.bsky.network|jet:jetstream2.us-east.bsky.network|jet:jetstream1.us-west.bsky.network|jet:jetstream2.us-west.bsky.network",
                         //"bsky.network"
                     ];
 
                 foreach (var firehose in firehoses)
                 {
                     if (firehose == "-") continue;
-                    bool isJetStream;
-                    string firehoseUrl;
 
-                    if (firehose.StartsWith("jet:", StringComparison.Ordinal))
-                    {
-                        isJetStream = true;
-                        firehoseUrl = string.Concat("https://", firehose.AsSpan(4));
-                    }
-                    else
-                    {
-                        isJetStream = false;
-                        firehoseUrl = "https://" + firehose;
-                    }
-
-
+                    var firehoseUrl = FirehoseUrlWithFallbacks.Parse(firehose);
                     var indexer = new Indexer(apis)
                     {
-                        FirehoseUrl = new Uri(firehoseUrl),
+                        FirehoseUrl = firehoseUrl,
                         VerifyValidForCurrentRelay = did =>
                         {
                             if (apis.DidDocOverrides.GetValue().CustomDidDocs.ContainsKey(did))
@@ -284,7 +271,7 @@ namespace AppViewLite.Web
                         }
                     };
 
-                    if (isJetStream)
+                    if (firehoseUrl.IsJetStream)
                         indexer.StartListeningToJetstreamFirehose().FireAndForget();
                     else
                         indexer.StartListeningToAtProtoFirehoseRepos(retryPolicy: null).FireAndForget();

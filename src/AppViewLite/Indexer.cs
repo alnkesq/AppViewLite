@@ -28,7 +28,7 @@ namespace AppViewLite
 {
     public class Indexer : BlueskyRelationshipsClientBase
     {
-        public Uri FirehoseUrl = new("https://bsky.network/");
+        public FirehoseUrlWithFallbacks FirehoseUrl = new([new Uri("https://bsky.network/")]);
         public BlueskyEnrichedApis Apis;
         public Indexer(BlueskyEnrichedApis apis)
             : base(apis.primarySecondaryPair)
@@ -570,17 +570,17 @@ namespace AppViewLite
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
-            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.AbsoluteUri, async ct =>
+            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
             {
                 try
                 {
                     var tcs = new TaskCompletionSource();
                     var options = new ATJetStreamBuilder()
-                        .WithInstanceUrl(FirehoseUrl)
+                        .WithInstanceUrl(FirehoseUrl.GetNext())
                         .WithLogger(new LogWrapper())
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
 
-                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri); currentFirehoseCursor.State = FirehoseState.Starting;
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;
 
                     LogFirehoseStartMessage(currentFirehoseCursor);
@@ -692,17 +692,17 @@ namespace AppViewLite
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
 
-            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.AbsoluteUri, async ct =>
+            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
             {
                 try
                 {
                     var tcs = new TaskCompletionSource();
-                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.AbsoluteUri);
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier);
                     currentFirehoseCursor.State = FirehoseState.Starting;
 
                     LogFirehoseStartMessage(currentFirehoseCursor);
                     using var firehose = new ATWebSocketProtocolBuilder()
-                        .WithInstanceUrl(FirehoseUrl)
+                        .WithInstanceUrl(FirehoseUrl.GetNext())
                         .WithLogger(new LogWrapper())
                         .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
                         .Build();

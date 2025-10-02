@@ -100,7 +100,7 @@ namespace AppViewLite
                                 if (!didsHashset.Contains(did))
                                     throw new UnexpectedFirehoseDataException($"Ignoring record for {did} from relay {newpds} because it's not one of the allowlisted DIDs for that PDS.");
                             };
-                            indexer.FirehoseUrl = new Uri(newpds);
+                            indexer.FirehoseUrl = FirehoseUrlWithFallbacks.Parse(newpds);
                             Log("Starting secondary firehose: " + newpds);
                             indexer.StartListeningToAtProtoFirehoseRepos(RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, cts.Token).FireAndForget();
                             SecondaryFirehoses.Add(newpds, cts);
@@ -5293,7 +5293,7 @@ namespace AppViewLite
             }
             var indexer = new Indexer(this)
             {
-                FirehoseUrl = endpointUrl,
+                FirehoseUrl = new FirehoseUrlWithFallbacks([endpointUrl]),
                 VerifyValidForCurrentRelay = labelerDidFromFirehose =>
                 {
                     if (!allowedLabelerDids.Contains(labelerDidFromFirehose))

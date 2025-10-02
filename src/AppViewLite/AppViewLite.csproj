@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FishyFlip" Version="3.11.0-alpha.4" />
+    <PackageReference Include="FishyFlip" Version="3.11.0" />
     <PackageReference Include="System.IO.Hashing" Version="9.0.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="1.0.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="1.0.0" />
@@ -22,6 +22,7 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.2" />
     <PackageReference Include="System.Threading.RateLimiting" Version="9.0.4" />
+    <PackageReference Include="IpfsShipyard.Ipfs.Core" Version="0.7.0" />
   </ItemGroup>
 
 </Project>

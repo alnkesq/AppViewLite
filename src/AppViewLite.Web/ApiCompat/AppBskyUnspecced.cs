@@ -18,6 +18,11 @@ namespace AppViewLite.Web.ApiCompat
             this.ctx = ctx;
         }
 
+        public override Task<Results<ATResult<AgeAssuranceState>, ATErrorResult>> GetAgeAssuranceStateAsync(CancellationToken cancellationToken = default)
+        {
+            return new AgeAssuranceState { Status = "assured", LastInitiatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc) }.ToJsonResultOkTask();
+        }
+
         public override Task<Results<ATResult<GetConfigOutput>, ATErrorResult>> GetConfigAsync(CancellationToken cancellationToken = default)
         {
             return new GetConfigOutput
@@ -133,6 +138,11 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Trends = [],
             }.ToJsonResultOkTask();
+        }
+
+        public override Task<Results<ATResult<AgeAssuranceState>, ATErrorResult>> InitAgeAssuranceAsync([FromBody] InitAgeAssuranceInput input, CancellationToken cancellationToken)
+        {
+            return new AgeAssuranceState { LastInitiatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), Status = "assured" }.ToJsonResultOkTask();
         }
 
         public override Task<Results<ATResult<SearchActorsSkeletonOutput>, ATErrorResult>> SearchActorsSkeletonAsync([FromQuery] string q, [FromQuery] ATDid? viewer = null, [FromQuery] bool? typeahead = null, [FromQuery] int? limit = 25, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)

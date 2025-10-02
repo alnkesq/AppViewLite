@@ -147,7 +147,7 @@ namespace AppViewLite
                         Uri = post.Data.ExternalUrl,
                         Thumb = post.Data.ExternalThumbCid != null ? new Blob
                         {
-                            Ref = new ATLinkRef(Cid.Read(post.Data.ExternalThumbCid)),
+                            Ref = new ATLinkRef(ATCid.Read(post.Data.ExternalThumbCid)),
                             MimeType = "image/jpeg"
                         } : null
                     }
@@ -228,7 +228,7 @@ namespace AppViewLite
                 Alt = x.AltText ?? string.Empty,
                 ImageValue = new Blob
                 {
-                    Ref = new ATLinkRef(Cid.Read(x.Cid)),
+                    Ref = new ATLinkRef(ATCid.Read(x.Cid)),
                 },
                 AspectRatio = GetDefaultAspectRatio()
             };
@@ -500,7 +500,7 @@ namespace AppViewLite
                   Did = feed.Data?.ImplementationDid != null ? new ATDid(feed.Data.ImplementationDid) : null,
                   Avatar = new Blob 
                   { 
-                      Ref = feed.Data?.AvatarCid != null ? new ATLinkRef(Cid.Read(feed.Data.AvatarCid)) : null
+                      Ref = feed.Data?.AvatarCid != null ? new ATLinkRef(ATCid.Read(feed.Data.AvatarCid)) : null
                   }
             };
         }

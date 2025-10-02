@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using DuckDbSharp.Types;
 using System.Threading;
+using FishyFlip.Models;
 
 namespace AppViewLite
 {
@@ -138,8 +139,8 @@ namespace AppViewLite
                     var path = buf.ToString();
                     var val = ee["v"].GetByteString();
                     if (val[0] != 0) throw AssertionLiteException.Throw("CAR: v is not zero");
-                    var valCid = Cid.Read(val.AsSpan(1).ToArray());
-                    var bak = valCid.ToArray();
+                    var valCid = ATCid.Read(val.AsSpan(1).ToArray());
+                    var bak = valCid.ToBytes();
                     var slash = path.IndexOf('/');
                     var collection = path.Substring(0, slash);
                     var rkey = path.Substring(slash + 1);
@@ -216,7 +217,7 @@ namespace AppViewLite
             }
         }
 
-        private static DuckDbUuid CidToUuid(Cid cid) => StringUtils.HashToUuid(cid.ToArray());
+        private static DuckDbUuid CidToUuid(ATCid cid) => StringUtils.HashToUuid(cid.ToBytes());
 
         public void Dispose()
         {

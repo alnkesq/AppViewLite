@@ -91,16 +91,22 @@ namespace AppViewLite.Web
             throw new NotImplementedException();
         }
 
-        public async override Task<Results<ATResult<GetListsOutput>, ATErrorResult>> GetListsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        public async override Task<Results<ATResult<GetListsOutput>, ATErrorResult>> GetListsAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] List<string>? purposes = null, CancellationToken cancellationToken = default)
         {
             var lists = await apis.GetProfileListsAsync(((ATDid)actor).Handler, cursor, limit ?? default, ctx);
 
             return new FishyFlip.Lexicon.App.Bsky.Graph.GetListsOutput
             {
-                Lists = lists.Lists.Select(x => ApiCompatUtils.ToApiCompatListView(x)).ToList(),
+                Lists = lists.Lists.Select(x => ApiCompatUtils.ToApiCompatListView(x)).Where(x => purposes != null && purposes.Count != 0 ? purposes.Contains(x.Purpose) : true).ToList(),
                 Cursor = lists.NextContinuation,
             }.ToJsonResultOk();
         }
+
+        public override Task<Results<ATResult<GetListsWithMembershipOutput>, ATErrorResult>> GetListsWithMembershipAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] List<string>? purposes = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
 
         public override Task<Results<ATResult<GetMutesOutput>, ATErrorResult>> GetMutesAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
         {
@@ -163,6 +169,11 @@ namespace AppViewLite.Web
         public override Task<Results<Ok, ATErrorResult>> UnmuteThreadAsync([FromBody] UnmuteThreadInput input, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetStarterPacksWithMembershipOutput>, ATErrorResult>> GetStarterPacksWithMembershipAsync([FromQuery] ATIdentifier actor, [FromQuery] int? limit = 50, [FromQuery] string? cursor = null, CancellationToken cancellationToken = default)
+        {
+            return new GetStarterPacksWithMembershipOutput() { StarterPacksWithMembership = [] }.ToJsonResultOkTask();
         }
     }
 }

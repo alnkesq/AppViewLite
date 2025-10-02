@@ -193,6 +193,11 @@ namespace AppViewLite.Web.ApiCompat
             apis.MarkLastSeenNotification(new Models.Notification(((ApproximateDateTime32)input.SeenAt!.Value).AddTicks(1), default, default, Models.NotificationKind.None), ctx);
             return TypedResults.Ok().ToJsonResultTask();
         }
+
+        public override Task<Results<Ok, ATErrorResult>> UnregisterPushAsync([FromBody] UnregisterPushInput input, CancellationToken cancellationToken)
+        {
+            return TypedResults.Ok().ToJsonResultTask();
+        }
     }
 }
 

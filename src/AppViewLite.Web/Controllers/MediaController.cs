@@ -1,4 +1,5 @@
 using AppViewLite.Models;
+using FishyFlip.Models;
 using Ipfs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -170,7 +171,6 @@ namespace AppViewLite.Web.Controllers
                 if (filename.Length + 4 >= 255)
                     filename = escapedPart2 + "_-" + Base32.ToBase32(System.Security.Cryptography.SHA256.HashData(Base32.FromBase32(cid))) + ext;
                 var cachePath = CombinedPersistentMultiDictionary.ToPhysicalPath(Path.Combine(cacheDirectory, sizeEnum.ToString(), escapedPart1, filename));
-
 
                 if (!System.IO.File.Exists(cachePath))
                 {

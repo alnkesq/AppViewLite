@@ -1100,21 +1100,21 @@ namespace AppViewLite
             if (embed is EmbedImages { } ei)
             {
                 if (ei.Images.Any(x => x.ImageValue?.Ref?.Link == null)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
-                proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref!.Link!.ToArray() }).ToArray();
+                proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref!.Link!.ToBytes() }).ToArray();
             }
             else if (embed is EmbedExternal { } ext)
             {
                 proto.ExternalTitle = ext.External!.Title;
                 proto.ExternalUrl = ext.External.Uri;
                 proto.ExternalDescription = ext.External.Description;
-                proto.ExternalThumbCid = ext.External.Thumb?.Ref?.Link?.ToArray();
+                proto.ExternalThumbCid = ext.External.Thumb?.Ref?.Link?.ToBytes();
             }
             else if (embed is EmbedVideo { } vid)
             {
                 proto.Media = (proto.Media ?? []).Concat([new BlueskyMediaData
                 {
                     AltText = vid.Alt,
-                    Cid = vid.Video!.Ref!.Link!.ToArray(),
+                    Cid = vid.Video!.Ref!.Link!.ToBytes(),
                     IsVideo = true,
                 }]).ToArray();
             }
@@ -1471,8 +1471,8 @@ namespace AppViewLite
             {
                 Description = pf.Description,
                 DisplayName = pf.DisplayName,
-                AvatarCidBytes = pf.Avatar?.Ref?.Link?.ToArray(),
-                BannerCidBytes = pf.Banner?.Ref?.Link?.ToArray(),
+                AvatarCidBytes = pf.Avatar?.Ref?.Link?.ToBytes(),
+                BannerCidBytes = pf.Banner?.Ref?.Link?.ToBytes(),
                 PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Rkey).TidValue : null,
             };
 
@@ -2312,7 +2312,7 @@ namespace AppViewLite
                     FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Referencelist => ListPurposeEnum.Reference,
                     _ => ListPurposeEnum.Unknown,
                 },
-                AvatarCid = list.Avatar?.Ref?.Link?.ToArray(),
+                AvatarCid = list.Avatar?.Ref?.Link?.ToBytes(),
                 DescriptionFacets = GetFacetsAsProtos(list.DescriptionFacets),
             };
 
@@ -3038,7 +3038,7 @@ namespace AppViewLite
             var proto = new BlueskyFeedGeneratorData
             {
                 DisplayName = generator.DisplayName,
-                AvatarCid = generator.Avatar?.Ref?.Link?.ToArray(),
+                AvatarCid = generator.Avatar?.Ref?.Link?.ToBytes(),
                 Description = generator.Description,
                 DescriptionFacets = GetFacetsAsProtos(generator.DescriptionFacets),
                 RetrievalDate = retrievalDate,

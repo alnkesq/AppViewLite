@@ -803,7 +803,7 @@ namespace AppViewLite
                 }
                 else
                 {
-                    var record = e.Message.Records!.First(x => x.Cid == op.Cid).Value;
+                    var record = e.Message.Records!.First(x => x.Cid.Equals(op.Cid)).Value;
                     OnRecordCreated(commitAuthor, op.Path!, record, ignoreIfDisposing: true);
                 }
             }

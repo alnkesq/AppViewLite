@@ -28,10 +28,22 @@ namespace AppViewLite
         private long TotalSuspendableTasks;
         private long TotalNonSuspendableTasks;
 
+        public readonly static bool UseSynchronousBlockingOnDrain = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DRAIN_FIREHOSE_VIA_SYNCHRONOUS_WAIT) ?? true;
+
         [ThreadStatic] private static bool notifyTaskAboutToBeEnqueuedCanBeSuspended;
         internal static void NotifyTaskAboutToBeEnqueuedCanBeSuspended()
         {
             BlueskyRelationships.Assert(!notifyTaskAboutToBeEnqueuedCanBeSuspended);
+
+
+            if (UseSynchronousBlockingOnDrain)
+            {
+                while (Indexer.FirehoseThreadpool!.pauseBuffer != null)
+                {
+                    Thread.Sleep(100);
+                }
+            }
+
             notifyTaskAboutToBeEnqueuedCanBeSuspended = true;
         }
         protected override void QueueTask(Task task)

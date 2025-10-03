@@ -16,7 +16,7 @@ namespace AppViewLite.Models
     }
 
     [ProtoContract]
-    internal class FirehoseCursor
+    public class FirehoseCursor
     {
         [ProtoMember(1)][JsonInclude] public required string FirehoseUrl;
         [ProtoMember(2)][JsonInclude] public string? CommittedCursor;

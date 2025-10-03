@@ -4291,13 +4291,10 @@ namespace AppViewLite
 
         public object GetCountersThreadSafePrimaryOnly(bool cursors)
         {
-            FirehoseCursor[]? firehoseCursors = null;
+            IReadOnlyList<FirehoseCursor>? firehoseCursors = null;
             if (cursors && IsPrimary)
             {
-                lock (this.firehoseCursors!)
-                {
-                    firehoseCursors = this.firehoseCursors.Values.ToArray();
-                }
+                firehoseCursors = GetCursorsThreadSafe();
             }
             return new
             {
@@ -4313,6 +4310,17 @@ namespace AppViewLite
                 Caches = this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value),
                 Firehoses = firehoseCursors,
             };
+        }
+
+        public IReadOnlyList<FirehoseCursor> GetCursorsThreadSafe()
+        {
+            FirehoseCursor[]? firehoseCursors;
+            lock (this.firehoseCursors!)
+            {
+                firehoseCursors = this.firehoseCursors.Values.ToArray();
+            }
+
+            return firehoseCursors;
         }
 
         public static void Assert(bool ensure, string text)

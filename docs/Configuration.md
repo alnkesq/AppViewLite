@@ -50,7 +50,7 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_DIRECT_IO`: Uses direct IO (`O_DIRECT`) instead of memory mapping for some reads that are unlikely to be necessary again in the near future. Defaults to `1`.
 * `APPVIEWLITE_DIRECT_IO_SECTOR_SIZE`: Sets the sector block size for direct reads. Must be a multiple of the disk sector size. If AppViewLite crashes on startup and you have an enterprise disk with 4KB sectors, try changing this to `4096`. Defaults to `512`.
 * `APPVIEWLITE_DIRECT_IO_PRINT_READS`: Prints to stderr every time a direct IO read is performed, with path, offset and length.
-* `APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE`: how many pending records to process can accumulate before the firehose websocket listener blocks waiting for work to complete. Defaults to `100000`.
+* `APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE`: how many pending records to process can accumulate before the firehose websocket listener blocks waiting for work to complete. Defaults to `20000`.
 * `APPVIEWLITE_RESET_FIREHOSE_CURSORS`: URLs of the firehoses whose cursors should be reset on startup. Defaults to `*` to avoid a known [JetStream issue](https://github.com/bluesky-social/jetstream/issues/27).
 * `APPVIEWLITE_DRAIN_FIREHOSE_BEFORE_CURSOR_CAPTURE`: Uses a more precise checkpointing for firehose cursor save and restore (experimental). Defaults to `0`.
 * `APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_MB`: Size of the direct IO read cache for very small reads (≤ 2 sectors), in megabytes. Defaults to `128`.

@@ -17,7 +17,7 @@ namespace AppViewLite
         public static TCache GetOrCreateCache<TSource, TCache>(TSource source, ref ObjectIdentityBasedCache<TSource, TCache>? cache, Func<TSource, TCache> cacheFactory) where TSource : class
         {
             var existing = cache;
-            if (existing != null && Object.ReferenceEquals(existing.Source, existing.Source)) return existing.Cache;
+            if (existing != null && Object.ReferenceEquals(existing.Source, source)) return existing.Cache;
 
             var result = cacheFactory(source);
             existing = new()

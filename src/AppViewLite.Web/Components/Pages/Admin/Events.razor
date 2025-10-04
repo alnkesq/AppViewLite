@@ -41,6 +41,7 @@
             Last processed (firehose time): @StringUtils.ToHumanTimeSpanPrecise(now - mainFirehose.FirehoseTimeLastProcessed) ago<br>
             Last processed (system time): @StringUtils.ToHumanTimeSpanPrecise(now - mainFirehose.SystemTimeLastProcessed) ago<br>
             Last raw message (system time): @StringUtils.ToHumanTimeSpanPrecise(now - mainFirehose.SystemTimeLastRawReceived) ago<br>
+            Total events: @mainFirehose.ReceivedEvents<br>
         </div>
         <br>
     }

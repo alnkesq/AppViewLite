@@ -712,7 +712,7 @@ namespace AppViewLite
             if (ts.TotalDays < (365 * 2)) return Format(ts.TotalDays / 30.41) + " months";
             return Format(ts.TotalDays / 365.25) + " years";
         }
-
+        public static string ToHumanTimeSpanPrecise(TimeSpan ts) => ts.ToString("g");
         public static string ToHumanBytes(long bytes, bool allowByteGranularity = false)
         {
             return CombinedPersistentMultiDictionary.ToHumanBytes(bytes, allowByteGranularity);

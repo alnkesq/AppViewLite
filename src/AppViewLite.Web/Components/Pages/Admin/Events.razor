@@ -28,8 +28,22 @@
 
 <PageTitle>Event charts</PageTitle>
 <h1>Event charts</h1>
-
+@{
+    var mainFirehose = Apis.primarySecondaryPair.relationshipsUnlocked.GetCursorsThreadSafe().MaxBy(x => x.ReceivedEvents);
+    var now = DateTime.UtcNow;
+}
 <div class="main-padding">
+    @if (mainFirehose != null)
+    {
+        <div>
+            @mainFirehose.FirehoseUrl<br>
+            
+            Last processed (firehose time): @StringUtils.ToHumanTimeSpanPrecise(now - mainFirehose.FirehoseTimeLastProcessed) ago<br>
+            Last processed (system time): @StringUtils.ToHumanTimeSpanPrecise(now - mainFirehose.SystemTimeLastProcessed) ago<br>
+            Last raw message (system time): @StringUtils.ToHumanTimeSpanPrecise(now - mainFirehose.SystemTimeLastRawReceived) ago<br>
+        </div>
+        <br>
+    }
     <a class="blue-link" disabled="@(zoomInScope == Scope)" href="@Navigation.WithQueryParameter("scope", zoomInScope.ToString())">Zoom in</a> |
     <a class="blue-link" disabled="@(zoomOutScope == Scope)" href="@Navigation.WithQueryParameter("scope", zoomOutScope.ToString())">Zoom out</a> |
     @(StringUtils.ToHumanTimeSpan(scope, showSeconds: true, twoSignificantDigits: true))

@@ -22,17 +22,23 @@ namespace AppViewLite.Models
         [ProtoMember(2)][JsonInclude] public string? CommittedCursor;
         [ProtoMember(3)][JsonInclude] public DateTime CursorCommitDate;
 
-        [ProtoMember(4)][JsonInclude] public DateTime LastSeenEventDate; // not necessarily processed yet, only for display/debug purposes.
+        [ProtoMember(4)][JsonInclude] public DateTime FirehoseTimeLastProcessed; // NOT for firehose checkpointing, only for display/debug purposes.
+        [JsonInclude] public DateTime SystemTimeLastProcessed;
+        [JsonInclude] public DateTime SystemTimeLastRawReceived;
 
         [JsonInclude][JsonConverter(typeof(JsonStringEnumConverter))] public FirehoseState State;
         [JsonIgnore] public Exception? LastException;
         [JsonInclude] public string? LastError => LastException?.Message;
-        [JsonInclude] public TimeSpan? LagBehind => LastSeenEventDate != default ? DateTime.UtcNow - LastSeenEventDate : null;
+        [JsonInclude] public TimeSpan? LagBehind => FirehoseTimeLastProcessed != default ? DateTime.UtcNow - FirehoseTimeLastProcessed : null;
         [JsonInclude] public long ReceivedEvents;
+        
+
         internal void MakeUtc()
         {
             ExtensionMethods.MakeUtc(ref CursorCommitDate);
-            ExtensionMethods.MakeUtc(ref LastSeenEventDate);
+            ExtensionMethods.MakeUtc(ref FirehoseTimeLastProcessed);
+            ExtensionMethods.MakeUtc(ref SystemTimeLastProcessed);
+            ExtensionMethods.MakeUtc(ref SystemTimeLastRawReceived);
         }
     }
 

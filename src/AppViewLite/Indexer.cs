@@ -606,8 +606,7 @@ namespace AppViewLite
                     };
                     firehose.OnRawMessageReceived += (s, e) =>
                     {
-                        Interlocked.Increment(ref currentFirehoseCursor.ReceivedEvents);
-                        DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                        OnRawMessageReceived();
                     };
                     firehose.OnRecordReceived += (s, e) =>
                     {
@@ -643,7 +642,7 @@ namespace AppViewLite
             if (currentFirehoseCursor.CommittedCursor == null)
                 Log($"Starting firehose {FirehoseUrl} at current time.");
             else
-                Log($"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.LastSeenEventDate}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.LastSeenEventDate, showSeconds: true)} ago)");
+                Log($"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.FirehoseTimeLastProcessed}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.FirehoseTimeLastProcessed, showSeconds: true)} ago)");
         }
 
         public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
@@ -652,8 +651,7 @@ namespace AppViewLite
             {
                 protocol.OnMessageReceived += (s, e) =>
                 {
-                    Interlocked.Increment(ref cursor.ReceivedEvents);
-                    DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+                    OnRawMessageReceived();
                 };
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
@@ -662,6 +660,14 @@ namespace AppViewLite
                 }, e.Message.Commit?.Repo?.Handler);
             }, retryPolicy, useApproximateFirehoseCapture: false, useWatchdog: useWatchdog, ct: ct);
         }
+
+        private void OnRawMessageReceived()
+        {
+            currentFirehoseCursor.SystemTimeLastRawReceived = DateTime.UtcNow;
+            Interlocked.Increment(ref currentFirehoseCursor!.ReceivedEvents);
+            DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
+        }
+
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeLabelsAsync(cursor, token: ct), (protocol, cursor, watchdog) =>
@@ -774,7 +780,8 @@ namespace AppViewLite
 
                 Interlocked.CompareExchange(ref largestSeenFirehoseCursor, cursor, oldCursor);
             }
-            currentFirehoseCursor!.LastSeenEventDate = eventDate;
+            currentFirehoseCursor!.FirehoseTimeLastProcessed = eventDate;
+            currentFirehoseCursor.SystemTimeLastProcessed = DateTime.UtcNow;
         }
 
         internal FirehoseCursor? currentFirehoseCursor;

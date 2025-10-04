@@ -1069,19 +1069,20 @@ namespace AppViewLite
                             })
                             .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
                             .Where(x => author != default ? x.Key.Author == author : true)
-                            .Select(x => rels.GetPost(x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key), ctx))
-                            .Where(x => x.Data?.Error == null);
+                            .Select(x => (PostId: x.Key, Data: BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)))
+                            .Where(x => x.Data.Error == null);
 
                         if (options.MediaOnly)
-                            posts = posts.Where(x => x.Data!.Media != null);
+                            posts = posts.Where(x => x.Data.Media != null);
 
                         if (options.Language != LanguageEnum.Unknown)
-                            posts = posts.Where(x => x.Data!.Language == options.Language);
+                            posts = posts.Where(x => x.Data.Language == options.Language);
 
-                        posts = posts
-                            .Where(x => !x.Author.IsBlockedByAdministrativeRule && !rels.IsKnownMirror(x.Author.Did))
-                            .Where(x => x.Data!.Text != null && IsMatch(x.Data.Text));
-                        return posts;
+                        var finalPosts = posts
+                            .Where(x => x.Data.Text != null && IsMatch(x.Data.Text))
+                            .Select(x => rels.GetPost(x.PostId, x.Data, ctx))
+                            .Where(x => !x.Author.IsBlockedByAdministrativeRule && !rels.IsKnownMirror(x.Author.Did));
+                        return finalPosts;
                     })
                     .Select(x =>
                     {

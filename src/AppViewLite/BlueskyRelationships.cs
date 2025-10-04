@@ -3902,6 +3902,8 @@ namespace AppViewLite
         }
         public IEnumerable<RecentRepost>? GetRecentReposts(Plc plc, bool couldBePluggablePost, bool onlyIfAlreadyInRam)
         {
+            // NOTE: the returned RecentReposts might reference primary-only PLCs that don't exist yet in the current database. Callers must filter them out.
+
             var result = GetRecentRepostsEvenVeryRecent(plc, onlyIfAlreadyInRam);
             if (result == null) return null;
             if (couldBePluggablePost)
@@ -3942,6 +3944,8 @@ namespace AppViewLite
 
         private IEnumerable<RecentRepost>? GetRecentRepostsEvenVeryRecent(Plc plc, bool onlyIfAlreadyInRam)
         {
+            // NOTE: the returned RecentReposts might reference primary-only PLCs that don't exist yet in the current database. Callers must filter them out.
+
             while (true)
             {
                 if (UserToRecentRepostsCache.TryGetValue(plc, out var result))

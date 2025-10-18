@@ -99,6 +99,7 @@ namespace AppViewLite.Storage
         }
 
         public static Func<string, string, object?, IDisposable?>? LogOperationCallback;
+        public static Action? EnsureHasOperationContext;
 
         public abstract void MaybeCommitPendingCompactation();
         

@@ -28,6 +28,7 @@ namespace AppViewLite
                 LoggableBase.FlushLog();
             };
             CombinedPersistentMultiDictionary.LogOperationCallback = LogOperationCallback;
+            CombinedPersistentMultiDictionary.EnsureHasOperationContext = EnsureHasOperationContext;
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
@@ -146,6 +147,15 @@ namespace AppViewLite
             return apis;
         }
 
+        private static void EnsureHasOperationContext()
+        {
+            if (hasLogOperationContext == 0 && BlueskyRelationshipsClientBase.CurrentThreadRequestContext != null)
+            {
+                LoggableBase.Log("Missing LogOperation for " + BlueskyRelationshipsClientBase.CurrentThreadRequestContext);
+            }
+        }
+
+        [ThreadStatic] private static int hasLogOperationContext;
         private static IDisposable? LogOperationCallback(string tableName, string operation, object? arg)
         {
             var ctx = BlueskyRelationshipsClientBase.CurrentThreadRequestContext!;
@@ -153,9 +163,10 @@ namespace AppViewLite
             var begin = PerformanceSnapshot.Capture();
 
             var threadId = Environment.CurrentManagedThreadId;
-
+            hasLogOperationContext++;
             return new DelegateDisposable(() => 
             {
+                hasLogOperationContext--;
                 BlueskyRelationships.Assert(Environment.CurrentManagedThreadId == threadId, "LogOperation completed on a thread other than the original thread.");
                 var end = PerformanceSnapshot.Capture();
 

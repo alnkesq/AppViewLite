@@ -310,6 +310,7 @@ namespace AppViewLite
             var relationshipValuesPreference = MultiDictionaryIoPreference.ValuesMmap | MultiDictionaryIoPreference.OffsetsMmap;
             creations.InitializeIoPreferenceForKey(default, ref relationshipValuesPreference);
 
+            using var _ = creations.LogOperation("TryGetTarget", rel);
             foreach (var sliceTuple in creations.slices)
             {
                 var slice = sliceTuple.Reader;

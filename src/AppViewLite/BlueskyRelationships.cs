@@ -4342,6 +4342,7 @@ namespace AppViewLite
         {
             BlueskyRelationships.Assert(SeenPosts.slices.Count == UserPairEngagementCache.cacheSlices.Count, "Slice count mismatch between SeenPosts and UserPairEngagementCache.");
             var newdict = new Dictionary<Plc, float>();
+            using var _ = SeenPosts.LogOperation("GetUserEngagementScoresForUser");
 
             var concatenated = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(UserPairEngagementCache.cacheSlices.Select(x => x.Cache.GetValues(loggedInUser).AsEnumerable()).ToArray(), x => x.Target);
             foreach (var user in SimpleJoin.GroupAssumingOrderedInput(concatenated, x => x.Target))

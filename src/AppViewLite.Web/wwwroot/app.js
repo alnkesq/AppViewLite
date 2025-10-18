@@ -410,7 +410,7 @@ function fastNavigateIfLink(event) {
 }
 
 var NO_FETCH_REUSE_PATHS = ['/notifications', '/history', '/debug/event-charts'];
-var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/set-active-profile', '/settings/mute', '/debug/locks', '/debug/requests', '/debug/log'];
+var NO_FAST_NAVIGATE_PATHS = ['/login', '/logout', '/set-active-profile', '/settings/mute', '/debug/locks', '/debug/requests', '/debug/log', '/debug/performance'];
 
 function canFastNavigateTo(url) { 
     if (url.host != window.location.host) return false;

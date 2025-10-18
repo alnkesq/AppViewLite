@@ -1,0 +1,49 @@
+@page "/debug/performance"
+
+@layout AppViewLite.Web.Components.Layout.NoLayout
+@inject RequestContext RequestContext
+<h1>Performance by task kind</h1>
+<PageTitle>Performance by task kind</PageTitle>
+
+@code {
+    protected override void OnInitialized()
+    {
+        RequestContext.EnsureAdministrator();
+    }
+}
+
+@{
+    var types = AppViewLiteInit.GlobalPerformanceStatsByOperation.Select(x => (x.Key.RequestContextKind, x.Key.TableName, x.Key.Operation, x.Value.Count, x.Value.Total)).OrderByDescending(x => x.Total.StopwatchTicks).ToArray();
+
+}
+
+<table class="debug-table">
+    <tr>
+        <th>Context type</th>
+        <th>Table</th>
+        <th>Operation</th>
+        <th>Time</th>
+        <th>Seek time</th>
+        <th>IO Read bytes</th>
+        <th>IO Reads</th>
+        <th>Potential mmap</th>
+        <th>Count</th>
+        <th>Avg time</th>
+    </tr>
+    @foreach (var row in types)
+    {
+        var color = row.TableName != null && row.Operation != null ? Program.HashToCssColor(row.TableName, row.Operation) : "transparent";
+        <tr>
+            <td>@row.RequestContextKind</td>
+            <td style="background-color: @color">@row.TableName</td>
+            <td style="background-color: @color">@row.Operation</td>
+            <td>@StringUtils.ToHumanTimeSpanPrecise(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(row.Total.StopwatchTicks))</td>
+            <td>@StringUtils.ToHumanTimeSpanPrecise(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(row.Total.SeekStopwatchTicks))</td>
+            <td>@StringUtils.ToHumanBytes(row.Total.IoReadBytes)</td>
+            <td>@row.Total.IoReads</td>
+            <td>@StringUtils.ToHumanBytes(row.Total.MmapPotentialReadBytes)</td>
+            <td>@row.Count</td>
+            <td>@StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(row.Total.SeekStopwatchTicks / row.Count))</td>
+        </tr>
+    }
+</table>

@@ -24,7 +24,8 @@ namespace AppViewLite
 
         public string? RequestUrl { get; init; }
         public string? FirehoseReason { get; init; }
-
+        public string FirehoseReasonOrUrlForBucketing => FirehoseReason ?? _urlForBucketing!;
+        private string? _urlForBucketing;
         public bool AllowStale { get; set; }
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
 
@@ -100,6 +101,25 @@ namespace AppViewLite
             {
                 minVersion = Math.Max(minVersion, session.UserContext.MinVersion);
             }
+            string? requestUrlForBucketing = null;
+            if (requestUrl != null)
+            {
+                requestUrlForBucketing = requestUrl;
+                var questionMark = requestUrl.IndexOf('?');
+                if (questionMark != -1)
+                    requestUrlForBucketing = requestUrlForBucketing.Substring(0, questionMark);
+                var segments = requestUrlForBucketing.Split('/').AsSpan(1);
+                if (segments.Length != 0 && segments[0].StartsWith('@') == true)
+                {
+                    segments[0] = "@DID";
+                    if (segments.Length != 1)
+                    {
+                        if (segments[1].StartsWith('3')) segments[1] = "RKEY";
+                        if (segments[1] is "feed" or "lists") segments[2] = "RKEY";
+                    }
+                }
+                requestUrlForBucketing = "/" + string.Join('/', segments!);
+            }
             var ctx = new RequestContext
             {
                 Session = session!,
@@ -112,6 +132,7 @@ namespace AppViewLite
                 MinVersion = minVersion,
                 ProfileCache = new(),
                 LabelCache = new(),
+                _urlForBucketing = requestUrlForBucketing ?? "UnknownRequestUrl",
                 LabelSubscriptions = session != null && session.IsLoggedIn ? session.UserContext.PrivateProfile!.LabelerSubscriptions : BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.DefaultLabelSubscriptions
             };
             ctx.InitializeDeadlines();
@@ -128,6 +149,7 @@ namespace AppViewLite
                 MinVersion = originalCtx.MinVersion,
                 StartDate = DateTime.UtcNow,
                 FirehoseReason = originalCtx.FirehoseReason,
+                _urlForBucketing = originalCtx._urlForBucketing,
                 LabelSubscriptions = [],
             };
         }

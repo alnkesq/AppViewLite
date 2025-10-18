@@ -21,19 +21,7 @@
         return timespan.TotalSeconds * PixelsPerSecond;
     }
 
-    public static string HashToCssColor(string table, string operation) => HashToCssColor(table + "|" + operation);
-    public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MemoryMarshal.AsBytes(seed));
 
-    public static string HashToCssColor(ReadOnlySpan<byte> seed)
-    {
-        var seedInt = (int)System.IO.Hashing.XxHash32.HashToUInt32(seed);
-        var rng = new Random(seedInt);
-
-        int hue = rng.Next(0, 360);
-        int sat = rng.Next(50, 91);
-        int light = rng.Next(60, 80);
-        return $"hsl({hue}, {sat}%, {light}%)";
-    }
 }
 
 @{
@@ -95,7 +83,7 @@
     {
         var delta = b.End - b.Start;
 
-        <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(delta.MaxGcGeneration != -1 ? "red" : b.TableName != null ? HashToCssColor(b.TableName, b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+        <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(delta.MaxGcGeneration != -1 ? "red" : b.TableName != null ? Program.HashToCssColor(b.TableName, b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
             @b.TableName
             @b.Operation
             @(delta.MaxGcGeneration != -1 ? $" [GC {delta.MaxGcGeneration}]" : null)
@@ -140,7 +128,7 @@
             <td>@((100.0 * item.SeekStopwatchTicks / item.StopwatchTicks).ToString("0"))%</td>
             <td>
                     
-                <div class="performance-timeline-summary-group" style="background: @HashToCssColor(item.TableName!, item.Operation!); width: @StopwatchTicksToPixels(item.StopwatchTicks)px;">
+                <div class="performance-timeline-summary-group" style="background: @Program.HashToCssColor(item.TableName!, item.Operation!); width: @StopwatchTicksToPixels(item.StopwatchTicks)px;">
                     @StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(item.StopwatchTicks))
                 </div>
             </td>

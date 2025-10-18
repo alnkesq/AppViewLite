@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using AppViewLite.Storage;
 using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -502,6 +503,20 @@ namespace AppViewLite.Web
         public static Task<Results<ATResult<T>, ATErrorResult>> ToJsonResultTask<T>(this ATErrorResult error) where T : ATObject
         {
             return Task.FromResult<Results<ATResult<T>, ATErrorResult>>(error);
+        }
+
+        public static string HashToCssColor(string table, string operation) => HashToCssColor(table + "|" + operation);
+        public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MemoryMarshal.AsBytes(seed));
+
+        public static string HashToCssColor(ReadOnlySpan<byte> seed)
+        {
+            var seedInt = (int)System.IO.Hashing.XxHash32.HashToUInt32(seed);
+            var rng = new Random(seedInt);
+
+            int hue = rng.Next(0, 360);
+            int sat = rng.Next(50, 91);
+            int light = rng.Next(60, 80);
+            return $"hsl({hue}, {sat}%, {light}%)";
         }
     }
 }

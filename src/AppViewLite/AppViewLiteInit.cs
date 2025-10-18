@@ -1,6 +1,7 @@
 using Microsoft.Win32.SafeHandles;
 using AppViewLite.Storage;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -158,10 +159,17 @@ namespace AppViewLite
                 BlueskyRelationships.Assert(Environment.CurrentManagedThreadId == threadId, "LogOperation completed on a thread other than the original thread.");
                 var end = PerformanceSnapshot.Capture();
 
+                var delta = end - begin;
+                GlobalPerformanceStatsByOperation.AddOrUpdate((ctx.FirehoseReasonOrUrlForBucketing, tableName, operation),
+                    addValueFactory: static (_, delta) => (1L, delta),
+                    updateValueFactory: static (_, prev, delta) => (prev.Count + 1, prev.Total + delta),
+                    delta);
                 ctx.OperationLogEntries.Add(new OperationLogEntry(begin, end, tableName, operation, arg));
             });
         }
 
+
+        public readonly static ConcurrentDictionary<(string RequestContextKind, string TableName, string Operation), (long Count, PerformanceSnapshot Total)> GlobalPerformanceStatsByOperation = new();
         public static string? GitCommitVersion;
 
         private static string? TryGetGitCommit()

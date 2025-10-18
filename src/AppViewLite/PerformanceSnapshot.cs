@@ -50,6 +50,22 @@ namespace AppViewLite
                 end.SeekStopwatchTicks - begin.SeekStopwatchTicks
                 );
         }
+
+        public static PerformanceSnapshot operator +(PerformanceSnapshot end, PerformanceSnapshot begin)
+        {
+            return new PerformanceSnapshot(
+                end.StopwatchTicks + begin.StopwatchTicks,
+                end.Gc0Count + begin.Gc0Count,
+                end.Gc1Count + begin.Gc1Count,
+                end.Gc2Count + begin.Gc2Count,
+                end.AllocatedBytes + begin.AllocatedBytes,
+                end.IoReads + begin.IoReads,
+                end.IoReadBytes + begin.IoReadBytes,
+                end.MmapPotentialReadBytes + begin.MmapPotentialReadBytes,
+                end.SeekCount + begin.SeekCount,
+                end.SeekStopwatchTicks + begin.SeekStopwatchTicks
+                );
+        }
     }
 }
 

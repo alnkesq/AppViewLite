@@ -392,7 +392,7 @@
         </div>
 
     }
-    @if (!IsQuote && !IsLastOfGroup && !IsThreadView && Post.PluggableProtocol?.ShouldIncludeFullReplyChain(Post) == true && Post.ReplyChainLength >= 4)
+    @if (!IsQuote && !IsLastOfGroup && !IsThreadView && Post.PluggableProtocol?.ShouldIncludeFullReplyChain(Post) == true && Post.ReplyChainLength > 4)
     {
         <div class="post-action-bar-hidden"></div>
     }

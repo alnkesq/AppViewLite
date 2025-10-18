@@ -160,6 +160,8 @@ namespace AppViewLite
         {
             var ctx = BlueskyRelationshipsClientBase.CurrentThreadRequestContext!;
             if (ctx == null) return null;
+            ctx = ctx.RootOnBehalfOf;
+
             var begin = PerformanceSnapshot.Capture();
 
             var threadId = Environment.CurrentManagedThreadId;

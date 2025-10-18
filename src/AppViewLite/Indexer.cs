@@ -901,6 +901,7 @@ namespace AppViewLite
 
         public async Task<Tid> ImportCarAsync(string did, Stream stream, RequestContext ctx, DateTime? probableDateOfEarliestRecord, Action<CarImportProgress>? progress, CancellationToken ct = default)
         {
+            using var _ = BlueskyEnrichedApis.LogNetworkOperation(ctx, nameof(ImportCarAsync), argument: did);
 #pragma warning disable CA2000 // Must be disposed by caller
             if (!stream.CanSeek) stream = new PositionAwareStream(stream);
 #pragma warning restore CA2000
@@ -1010,6 +1011,7 @@ namespace AppViewLite
 
         public async Task<(Tid LastTid, Exception? Exception)> IndexUserCollectionAsync(string did, string recordType, Tid since, RequestContext ctx, CancellationToken ct, Action<CarImportProgress>? progress, bool slowImport)
         {
+            using var _ = BlueskyEnrichedApis.LogNetworkOperation(ctx, nameof(IndexUserCollectionAsync), recordType, argument: did);
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
 
             string? cursor = since != default ? since.ToString() : null;

@@ -505,7 +505,7 @@ namespace AppViewLite.Web
             return Task.FromResult<Results<ATResult<T>, ATErrorResult>>(error);
         }
 
-        public static string HashToCssColor(string table, string operation) => HashToCssColor(table + "|" + operation);
+        public static string HashToCssColor(string? table, string? operation) => HashToCssColor(table + "|" + operation);
         public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MemoryMarshal.AsBytes(seed));
 
         public static string HashToCssColor(ReadOnlySpan<byte> seed)

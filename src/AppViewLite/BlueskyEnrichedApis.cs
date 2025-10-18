@@ -127,6 +127,7 @@ namespace AppViewLite
 
         private async Task<Versioned<AccountState>> FetchAndStoreAccountStateFromPdsCoreAsync(string did, RequestContext ctx)
         {
+            using var _ = LogNetworkOperation(ctx, nameof(FetchAndStoreAccountStateFromPdsCoreAsync), argument: did);
             using var protocol = await CreateProtocolForDidAsync(did, ctx);
             var response = (await protocol.GetRepoStatusAsync(new ATDid(did))).HandleResult()!;
             return SetAccountState(did, response.Active, response.Status, ctx);
@@ -3202,6 +3203,7 @@ namespace AppViewLite
             if (!ctx.IsLoggedIn) throw AssertionLiteException.Throw("Cannot create own PDS client when not logged in.");
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.UserContext.PdsSession!;
+            using var _ = LogNetworkOperation(ctx, nameof(GetSessionProtocolAsync));
             var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler, ctx);
             (await sessionProtocol.AuthenticateWithPasswordSessionResultAsync(new AuthSession(pdsSession))).HandleResult();
             return sessionProtocol;
@@ -3210,6 +3212,7 @@ namespace AppViewLite
 
         public async Task<Session> LoginToPdsAsync(string did, string password, RequestContext ctx)
         {
+            using var _ = LogNetworkOperation(ctx, nameof(LoginToPdsAsync));
             var sessionProtocol = await CreateProtocolForDidAsync(did, ctx);
             var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult()!;
             return session;
@@ -3643,6 +3646,7 @@ namespace AppViewLite
 
         public async Task<ListRecordsOutput> ListRecordsAsync(string did, string collection, int limit, string? cursor, RequestContext ctx, bool descending = true, CancellationToken ct = default)
         {
+            using var _ = LogNetworkOperation(ctx, nameof(ListRecordsAsync), collection, did);
             using var proto = await TryCreateProtocolForDidAsync(did, ctx);
             if (proto == null) return new ListRecordsOutput(null, []);
             try
@@ -3663,6 +3667,7 @@ namespace AppViewLite
 
         public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
         {
+            using var _ = LogNetworkOperation(ctx, nameof(GetRecordAsync), collection, (did, rkey));
             using var proto = await CreateProtocolForDidAsync(did, ctx);
             try
             {
@@ -5332,6 +5337,18 @@ namespace AppViewLite
             WithRelationshipsWriteLock(rels => rels.GetLastSeenNotificationTable(dark).Add(ctx.LoggedInUser, notification), ctx);
             if (!dark)
                 DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
+        }
+
+        public static IDisposable? LogNetworkOperation(RequestContext ctx, string name, string? collection = null, object? argument = null)
+        {
+            ctx = ctx.RootOnBehalfOf;
+
+            var begin = PerformanceSnapshot.Capture();
+            return new DelegateDisposable(() =>
+            {
+                var end = PerformanceSnapshot.Capture();
+                ctx.NetworkLogEntries.Add(new OperationLogEntry(begin, end, collection, name, argument));
+            });
         }
     }
 

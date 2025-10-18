@@ -2162,7 +2162,7 @@ input[type=radio], input[type=checkbox]{
 }
 
 .performance-timeline{
-    height: 70px;
+    height: 90px;
     position: relative;
     margin-left: 10px;
     margin-right: 10px;
@@ -2175,6 +2175,18 @@ input[type=radio], input[type=checkbox]{
     height: 50px;
     font-size: 7pt;
 }
+
+.performance-timeline-network{
+    position: absolute;
+    top: 70px;
+    height: 20px;
+    overflow: hidden;
+    font-size: 7pt;
+    border-left: 1px solid gray;
+    padding-top: 3px;
+    box-sizing: border-box;
+}
+
 
 .performance-timeline-lock{
     position: absolute;

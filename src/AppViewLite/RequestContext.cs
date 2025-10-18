@@ -60,6 +60,7 @@ namespace AppViewLite
         public ConcurrentDictionary<PostId, BlueskyThreadgate?> ThreadgateCache = new();
         public ConcurrentBag<OperationLogEntry> OperationLogEntries = new();
         public ConcurrentBag<OperationLogEntry> LockLogEntries = new();
+        public ConcurrentBag<OperationLogEntry> NetworkLogEntries = new();
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();
@@ -150,6 +151,7 @@ namespace AppViewLite
                 StartDate = DateTime.UtcNow,
                 FirehoseReason = originalCtx.FirehoseReason,
                 _urlForBucketing = originalCtx._urlForBucketing,
+                OnBehalfOf = originalCtx,
                 LabelSubscriptions = [],
             };
         }
@@ -227,6 +229,17 @@ namespace AppViewLite
         public required LabelerSubscription[] LabelSubscriptions;
         private HashSet<LabelId>? _needsLabels;
         public long CompletionTimeStopwatchTicks;
+
+        public RequestContext? OnBehalfOf;
+        public RequestContext RootOnBehalfOf
+        {
+            get 
+            {
+                var ctx = this;
+                while (ctx.OnBehalfOf != null) ctx = ctx.OnBehalfOf;
+                return ctx;
+            }
+        }
 
         public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash))).ToHashSet();
 

@@ -566,7 +566,7 @@ namespace AppViewLite
         public static Tid GetMessageTid(SubscribeRepoMessage message, string prefix) => Tid.Parse(GetMessageRKey(message, prefix));
         public static Tid GetMessageTid(string path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
 
-        public async Task StartListeningToJetstreamFirehose(CancellationToken ct = default)
+        public async Task StartListeningToJetstreamFirehose(RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -582,6 +582,7 @@ namespace AppViewLite
 
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;
+                    currentFirehoseCursor.RestartCount++;
 
                     LogFirehoseStartMessage(currentFirehoseCursor);
                     if (this.currentFirehoseCursor.CommittedCursor != null)
@@ -625,6 +626,7 @@ namespace AppViewLite
                 {
                     currentFirehoseCursor!.State = FirehoseState.Error;
                     currentFirehoseCursor.LastException = ex;
+                    currentFirehoseCursor.LastExceptionDate = DateTime.UtcNow;
                     throw;
                 }
                 finally
@@ -632,9 +634,14 @@ namespace AppViewLite
                     if (!ShutdownRequested.IsCancellationRequested)
                         Apis.DrainAndCaptureFirehoseCursors();
                 }
-            }, ct);
+            }, ct, retryPolicy);
 
             CaptureFirehoseCursors -= CaptureFirehoseCursor;
+        }
+
+        public static RetryPolicy CreateMainFirehoseRetryPolicy()
+        {
+            return RetryPolicy.CreateConstant(TimeSpan.FromSeconds(5));
         }
 
         private void LogFirehoseStartMessage(FirehoseCursor currentFirehoseCursor)
@@ -705,6 +712,7 @@ namespace AppViewLite
                     var tcs = new TaskCompletionSource();
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier);
                     currentFirehoseCursor.State = FirehoseState.Starting;
+                    currentFirehoseCursor.RestartCount++;
 
                     LogFirehoseStartMessage(currentFirehoseCursor);
                     using var firehose = new ATWebSocketProtocolBuilder()
@@ -737,6 +745,7 @@ namespace AppViewLite
                 {
                     currentFirehoseCursor!.State = FirehoseState.Error;
                     currentFirehoseCursor.LastException = ex;
+                    currentFirehoseCursor.LastExceptionDate = DateTime.UtcNow;
                     throw;
                 }
                 finally

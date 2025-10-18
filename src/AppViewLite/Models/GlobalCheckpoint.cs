@@ -28,10 +28,11 @@ namespace AppViewLite.Models
 
         [JsonInclude][JsonConverter(typeof(JsonStringEnumConverter))] public FirehoseState State;
         [JsonIgnore] public Exception? LastException;
+        [JsonInclude] public DateTime LastExceptionDate;
         [JsonInclude] public string? LastError => LastException?.Message;
         [JsonInclude] public TimeSpan? LagBehind => FirehoseTimeLastProcessed != default ? DateTime.UtcNow - FirehoseTimeLastProcessed : null;
         [JsonInclude] public long ReceivedEvents;
-        
+        [JsonInclude] public long RestartCount;
 
         internal void MakeUtc()
         {

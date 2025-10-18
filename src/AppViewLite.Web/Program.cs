@@ -272,9 +272,9 @@ namespace AppViewLite.Web
                     };
 
                     if (firehoseUrl.IsJetStream)
-                        indexer.StartListeningToJetstreamFirehose().FireAndForget();
+                        indexer.StartListeningToJetstreamFirehose(Indexer.CreateMainFirehoseRetryPolicy()).FireAndForget();
                     else
-                        indexer.StartListeningToAtProtoFirehoseRepos(retryPolicy: null).FireAndForget();
+                        indexer.StartListeningToAtProtoFirehoseRepos(Indexer.CreateMainFirehoseRetryPolicy()).FireAndForget();
 
                 }
 

@@ -3507,7 +3507,7 @@ namespace AppViewLite
             return postId;
         }
 
-        internal BlueskyPost GetPostAndMaybeRepostedBy(PostId postId, Relationship repost, FeedSubscription? fromFeed, RequestContext ctx)
+        internal BlueskyPost GetPostAndMaybeRepostedBy(PostId postId, Relationship repost, RequestContext ctx)
         {
             var post = GetPost(postId, ctx);
             if (repost != default)
@@ -3515,7 +3515,6 @@ namespace AppViewLite
                 post.RepostedByOrLikeRKey = repost.RelationshipRKey;
                 post.RepostedBy = GetProfile(repost.Actor, ctx, canOmitDescription: true);
             }
-            post.FromFeed = fromFeed != null ? GetFeedGenerator(new Plc(fromFeed.FeedPlc), fromFeed.FeedRKey, ctx) : null;
             return post;
         }
 

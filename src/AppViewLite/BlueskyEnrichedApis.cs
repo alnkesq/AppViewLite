@@ -2522,15 +2522,22 @@ namespace AppViewLite
                         {
                             if (!alreadyReturnedPosts.Add(postScore.PostId)) return false;
 
-                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost, postScore.FromFeed, ctx);
+                            var post = rels.GetPostAndMaybeRepostedBy(postScore.PostId, postScore.Repost, ctx);
                             if (!ShouldInclude(post)) return false;
 
                             var threadLength = 0;
 
                             void AddCore(BlueskyPost post)
                             {
-                                if (threadLength != 0)
+                                if (threadLength == 0)
                                 {
+                                    // Always apply "From feed" to the first post of a thread.
+                                    var fromFeed = postScore.FromFeed;
+                                    post.FromFeed = fromFeed != null ? rels.GetFeedGenerator(new Plc(fromFeed.FeedPlc), fromFeed.FeedRKey, ctx) : null;
+                                }
+                                else
+                                {
+                                    // Don't show RepostedBy on posts of a thread other than the first.
                                     post.RepostedBy = null;
                                     post.RepostedByOrLikeRKey = default;
                                 }

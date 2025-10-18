@@ -2,9 +2,12 @@
 
 @layout AppViewLite.Web.Components.Layout.NoLayout
 @inject RequestContext RequestContext
-<h1>Performance by task kind</h1>
 <PageTitle>Performance by task kind</PageTitle>
-
+<div style="margin-left: 10px;">
+    <h3>Performance by task kind</h3>
+    <a class="blue-link" href="/debug">Debug</a> |
+    <a class="blue-link" href="/debug/requests">Requests</a>
+</div>
 @code {
     protected override void OnInitialized()
     {

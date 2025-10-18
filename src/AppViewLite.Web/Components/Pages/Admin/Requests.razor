@@ -2,9 +2,12 @@
 @using SixLabors.ImageSharp.PixelFormats
 @layout AppViewLite.Web.Components.Layout.NoLayout
 @inject RequestContext RequestContext
-<h1>Requests (urgent + slow)</h1>
 <PageTitle>Requests</PageTitle>
-
+<div style="margin-left: 10px;">
+    <h3>Requests (urgent + slow)</h3>
+    <a class="blue-link" href="/debug">Debug</a> |
+    <a class="blue-link" href="/debug/performance">Performance by task kind</a>
+</div>
 @code {
     protected override void OnInitialized()
     {

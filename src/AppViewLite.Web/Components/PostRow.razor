@@ -528,7 +528,7 @@
 
                             if (Post.Data?.Text != null)
                             {
-                                <a href="/settings/mute?did=@(Uri.EscapeDataString(ReposterOrAuthor.Did))" class="menu-item">Specify words to mute…</a>
+                                <a href="/settings/mute?did=@(Uri.EscapeDataString(ReposterOrAuthor.Did) + (Post.Data.PluggableAuthor != null ? "&word=u:" + Uri.EscapeDataString(Post.Data.PluggableAuthor) : null))" class="menu-item">Specify words to mute…</a>
                             }
                         }
                     }

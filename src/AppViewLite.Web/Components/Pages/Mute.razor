@@ -8,7 +8,8 @@
 <h1>Mute settings</h1>
 
 @code{
-    [Parameter] [SupplyParameterFromQuery] public string? Did { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Did { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Word { get; set; }
     [SupplyParameterFromForm] private MuteWordData? Model { get; set; }
     private Dictionary<Plc, BlueskyProfile>? ProfileByPlc;
     private Plc Plc;
@@ -19,7 +20,7 @@
     {
         Navigation.RedirectIfNotLoggedIn(RequestContext);
         if (string.IsNullOrEmpty(Did)) Did = null;
-        Model ??= new() { AppliesTo = Did };
+        Model ??= new() { AppliesTo = Did, Word = Word };
         ProfileByPlc = Apis.WithRelationshipsLockForDids(Did != null ? [Did] : [], (_, rels) =>
         {
             var needPlcs = RequestContext.UserContext.PrivateProfile!.MuteRules

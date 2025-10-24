@@ -60,6 +60,10 @@ namespace AppViewLite
                         MultiBlockCacheApproxBytes = multiBlockApproxSize,
 
                     };
+                }, () =>
+                {
+                    singleBlockCache.Reset();
+                    multiBlockCache.Reset();
                 });
             }
 

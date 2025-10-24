@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using Microsoft.AspNetCore.Mvc;
+using AppViewLite.Storage;
 using System.Reflection;
 using System.Runtime;
 using System.Text.Json;
@@ -69,6 +70,13 @@ namespace AppViewLite.Web.Controllers
             if (loh == 1)
                 GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
             GC.Collect(generation);
+        }
+
+        [HttpPost("clear-io-cache")]
+        public void ClearIoCache()
+        {
+            ctx.EnsureAdministrator();
+            CombinedPersistentMultiDictionary.DirectIoReadCache?.Clear();
         }
 
 

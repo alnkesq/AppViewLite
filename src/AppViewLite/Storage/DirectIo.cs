@@ -151,18 +151,21 @@ namespace AppViewLite.Storage
 
     public class DirectIoReadCache
     {
-        public DirectIoReadCache(Func<(long BlockIndex, SafeFileHandle SourceFile), Func<byte[]>, byte[]> getOrAddSingleBlock, Func<(long FileOffset, int Length, SafeFileHandle SourceFile), Func<byte[]>, byte[]> getOrAddMultiBlock, Func<int, NativeMemoryRange> allocUnaligned, Func<object> getCounters)
+        public DirectIoReadCache(Func<(long BlockIndex, SafeFileHandle SourceFile), Func<byte[]>, byte[]> getOrAddSingleBlock, Func<(long FileOffset, int Length, SafeFileHandle SourceFile), Func<byte[]>, byte[]> getOrAddMultiBlock, Func<int, NativeMemoryRange> allocUnaligned, Func<object> getCounters, Action clear)
         {
             GetOrAddSingleBlock = getOrAddSingleBlock;
             AllocUnaligned = allocUnaligned;
             GetOrAddMultiblock = getOrAddMultiBlock;
             GetCounters = getCounters;
+            Clear = clear;
         }
         internal readonly Func<(long BlockIndex, SafeFileHandle SourceFile), Func<byte[]>, byte[]> GetOrAddSingleBlock;
         internal readonly Func<(long FileOffset, int Length, SafeFileHandle SourceFile), Func<byte[]>, byte[]> GetOrAddMultiblock;
         internal readonly Func<int, NativeMemoryRange> AllocUnaligned;
 
         public readonly Func<object> GetCounters;
+
+        public readonly Action Clear;
     }
 }
 

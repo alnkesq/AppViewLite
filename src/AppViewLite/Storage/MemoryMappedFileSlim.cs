@@ -46,23 +46,41 @@ namespace AppViewLite.Storage
         [DllImport("libc.so.6", SetLastError = true)]
         private static extern int open(string pathname, OpenFlags flags);
 
+
+        // https://github.com/alnkesq/AppViewLite/issues/236
+        public readonly static OpenFlags? O_DIRECT = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? (
+            RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? (OpenFlags)OpenFlags_LinuxARM64.O_DIRECT :
+            RuntimeInformation.ProcessArchitecture == Architecture.X64 ? (OpenFlags)OpenFlags_LinuxX64.O_DIRECT : 
+            null
+        ) : null;
+
+        public enum OpenFlags
+        {
+            O_RDONLY = 0x0000,
+        }
+
         [Flags]
-        internal enum OpenFlags
+        internal enum OpenFlags_LinuxX64
         {
             // Access modes (mutually exclusive)
-            O_RDONLY = 0x0000,
-            O_WRONLY = 0x0001,
-            O_RDWR = 0x0002,
+            //O_RDONLY = 0x0000,
+            //O_WRONLY = 0x0001,
+            //O_RDWR = 0x0002,
 
             // Flags (combinable)
-            O_CLOEXEC = 0x0010,
-            O_CREAT = 0x0020,
-            O_EXCL = 0x0040,
-            O_TRUNC = 0x0080,
-            O_SYNC = 0x0100,
-            O_NOFOLLOW = 0x0200,
+            //O_CLOEXEC = 0x0010,
+            //O_CREAT = 0x0020,
+            //O_EXCL = 0x0040,
+            //O_TRUNC = 0x0080,
+            //O_SYNC = 0x0100,
+            //O_NOFOLLOW = 0x0200,
 
-            O_DIRECT = 16384,
+            O_DIRECT = 16384, // octal: #define __O_DIRECT 040000
+        }
+        [Flags]
+        internal enum OpenFlags_LinuxARM64
+        {
+            O_DIRECT = 65536, // octal: #define __O_DIRECT 0200000
         }
 
 
@@ -131,7 +149,7 @@ namespace AppViewLite.Storage
                 }
                 else if (OperatingSystem.IsLinux())
                 {
-                    var fd = open(path, OpenFlags.O_RDONLY | ((fileOptions & NoBuffering) != 0 ? OpenFlags.O_DIRECT : 0));
+                    var fd = open(path, OpenFlags.O_RDONLY | ((fileOptions & NoBuffering) != 0 ? O_DIRECT.GetValueOrDefault() : 0));
                     if (fd < 0)
                     {
                         if (Marshal.GetLastSystemError() == 2) throw new FileNotFoundException("File not found: " + path, path);
@@ -157,6 +175,15 @@ namespace AppViewLite.Storage
             return File.OpenHandle(path, FileMode.Open, fileAccess, fileShare, fileOptions);
 
 
+        }
+
+        public static object GetCounters()
+        {
+            return new
+            {
+                Sections = Sections.Count,
+                O_DIRECT = (int?)O_DIRECT,
+            };
         }
 
         public unsafe static Func<nuint, string?> GetPageToSectionFunc()

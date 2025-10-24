@@ -4288,6 +4288,7 @@ namespace AppViewLite
                 ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
                 UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 this.Version,
+                MemoryMappedFileSlim = MemoryMappedFileSlim.GetCounters(),
 
             };
         }

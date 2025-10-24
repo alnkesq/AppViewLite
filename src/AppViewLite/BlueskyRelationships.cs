@@ -4281,14 +4281,11 @@ namespace AppViewLite
                 DefaultLabelSubscriptions = this.DefaultLabelSubscriptions.Length,
                 this.PlcDirectoryStaleness,
                 this.PlcDirectorySyncDate,
-                DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache?.GetCounters(),
                 PostLiveSubscribersThreadSafe = this.PostLiveSubscribersThreadSafe.Count,
                 registerForNotificationsCache = this.registerForNotificationsCache.Count,
                 ReplicaAge = this.ReplicaAge?.Elapsed,
-                ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
                 UserNotificationSubscribersThreadSafe = this.UserNotificationSubscribersThreadSafe.Count,
                 this.Version,
-                MemoryMappedFileSlim = MemoryMappedFileSlim.GetCounters(),
 
             };
         }
@@ -4305,7 +4302,10 @@ namespace AppViewLite
                 PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot.Count,
                 RepostersSinceLastReplicaSnapshot = this.RepostersSinceLastReplicaSnapshot.Count,
                 UserToRecentPopularPosts = this.UserToRecentPopularPosts.Count,
+                ShutdownRequested = this.ShutdownRequested.IsCancellationRequested,
                 AvailableDiskSpaceMb = AvailableDiskSpace / (float)(1024 * 1024),
+                MemoryMappedFileSlim = MemoryMappedFileSlim.GetCounters(),
+                DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache?.GetCounters(),
                 PendingCompactations = this.AllMultidictionaries.Where(x => x.HasPendingCompactation).Select(x => x.Name).ToArray(),
                 DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
                 ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),

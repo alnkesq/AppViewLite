@@ -1,6 +1,7 @@
 using AppViewLite.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Reflection;
+using System.Runtime;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -62,10 +63,11 @@ namespace AppViewLite.Web.Controllers
         }
 
         [HttpPost("gc")]
-        public void Gc(int generation)
+        public void Gc(int generation, int loh = 0)
         {
             ctx.EnsureAdministrator();
-
+            if (loh == 1)
+                GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
             GC.Collect(generation);
         }
 

@@ -28,6 +28,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -5118,6 +5119,9 @@ namespace AppViewLite
                     gcMemoryInfo.PromotedBytes,
                     gcMemoryInfo.TotalAvailableMemoryBytes,
                     gcMemoryInfo.TotalCommittedBytes,
+                    CollectionCount0 = GC.CollectionCount(0),
+                    CollectionCount1 = GC.CollectionCount(1),
+                    CollectionCount2 = GC.CollectionCount(2),
                 },
                 ProcessInfo = new
                 {

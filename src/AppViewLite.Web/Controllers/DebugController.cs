@@ -61,6 +61,14 @@ namespace AppViewLite.Web.Controllers
             apis.GlobalFlush("GlobalFlushAdminApiCall");
         }
 
+        [HttpPost("gc")]
+        public void Gc(int generation)
+        {
+            ctx.EnsureAdministrator();
+
+            GC.Collect(generation);
+        }
+
 
         [HttpGet("counters")]
         public object GetCounters(int cursors = 1)

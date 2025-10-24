@@ -193,6 +193,8 @@ namespace AppViewLite.Models
 
                 var urls = Data.GetExternalUrls().Distinct().Select(StringUtils.TryParseUri).WhereNonNull().ToArray();
 
+                if (Data.PluggableAuthor != null && privateProfile.GlobalPluggableAuthorMuteRules.Contains(Data.PluggableAuthor))
+                    return true;
 
                 if (Data.Text != null || urls.Length != 0)
                 {

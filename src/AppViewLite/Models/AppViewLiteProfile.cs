@@ -26,8 +26,11 @@ namespace AppViewLite.Models
 
         public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
         public ObjectIdentityBasedCache<MuteRule[], Func<string?, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;
+        public ObjectIdentityBasedCache<MuteRule[], HashSet<string>>? _globalPluggableAuthorMuteRules;
 
+        public HashSet<string> GlobalPluggableAuthorMuteRules => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _globalPluggableAuthorMuteRules, x => x.Where(x => x.AppliesToPlc == null).Select(x => x.PluggableAuthorName).WhereNonNull().ToHashSet(StringComparer.OrdinalIgnoreCase));
         public ILookup<Plc, MuteRule> MuteRulesByPlc => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _muteRulesByPlc, x => x.Where(x => x.AppliesToPlc != null).ToLookup(x => new Plc(x.AppliesToPlc!.Value)));
+        
         public Func<string?, Uri[], MuteRule[]> TextCouldContainGlobalMuteWords => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _textCouldContainGlobalMuteWords, x =>
         {
             var globalMuteRules = x.Where(x => x.AppliesToPlc == null).ToArray();
@@ -118,6 +121,8 @@ namespace AppViewLite.Models
         [ProtoMember(2)] public int? AppliesToPlc;
         [ProtoMember(3)] public required int Id;
 
+        public string? PluggableAuthorName => Word.StartsWith("u:", StringComparison.Ordinal) ? Word.Substring(2) : null;
+
         private Func<string[], Uri[], BlueskyPost, bool>? isMatch;
 
         public bool AppliesTo(string[] words, Uri[] urls, BlueskyPost post)
@@ -134,12 +139,12 @@ namespace AppViewLite.Models
 
         private Func<string[], Uri[], BlueskyPost, bool> CreateMatcher()
         {
-            if (Word.StartsWith("u:", StringComparison.OrdinalIgnoreCase))
+            var pluggableAuthor = PluggableAuthorName;
+            if (pluggableAuthor != null)
             {
-                var user = Word.Substring(2);
                 return (text, urls, post) =>
                 {
-                    return string.Equals(post.Data?.PluggableAuthor, user, StringComparison.OrdinalIgnoreCase);
+                    return string.Equals(post.Data?.PluggableAuthor, pluggableAuthor, StringComparison.OrdinalIgnoreCase);
                 };
             }
             if (Word.Contains('.') && !Word.Contains(' '))

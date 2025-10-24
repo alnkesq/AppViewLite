@@ -53,10 +53,11 @@ namespace AppViewLite.Storage
                     var cached = readCache.GetOrAddMultiblock((fileOffset, length, handle), () =>
                     {
                         
-                        var alignedArena = GetArenaForAlignedCacheReads(blockSize);
-                        var alignedBuffer = ReadAligned(handle, alignedFileOffset, alignedLength, alignedArena).AsReadOnlySpan();
-                        alignedArena.Reset();
-                        return alignedBuffer.Slice((int)offsetWithinBlock, length).ToArray();
+                        var cacheReadArena = GetArenaForAlignedCacheReads(blockSize);
+                        var alignedBuffer = ReadAligned(handle, alignedFileOffset, alignedLength, cacheReadArena).AsReadOnlySpan();
+                        var result = alignedBuffer.Slice((int)offsetWithinBlock, length).ToArray(); 
+                        ResetArenaForAlignedCacheReads(cacheReadArena);
+                        return result;
                     });
                     cached.CopyTo(resultSpan);
                 }
@@ -66,10 +67,11 @@ namespace AppViewLite.Storage
                     {
                         var blockSpan = readCache.GetOrAddSingleBlock((blockStartFileOffset, handle), () =>
                         {
-                            var alignedArena = GetArenaForAlignedCacheReads(blockSize);
-                            var block = ReadAligned(handle, blockStartFileOffset, blockSize, alignedArena);
-                            alignedArena.Reset();
-                            return block.AsReadOnlySpan().ToArray();
+                            var cacheReadArena = GetArenaForAlignedCacheReads(blockSize);
+                            var result = ReadAligned(handle, blockStartFileOffset, blockSize, cacheReadArena).AsReadOnlySpan().ToArray();
+                            ResetArenaForAlignedCacheReads(cacheReadArena);
+                            return result;
+                            
                         }).AsSpan();
 
                         if (blockIndex == 0)
@@ -108,12 +110,25 @@ namespace AppViewLite.Storage
 
         }
 
+        private static void ResetArenaForAlignedCacheReads(AlignedNativeArena cacheReadArena)
+        {
+            cacheReadArena.Reset();
+            
+            if (cacheReadArena.TotalAllocatedSize > ArenaForCacheReadsInitialBlockCount * (nint)cacheReadArena.Alignment)
+            {
+                if (cacheReadArena != AlignedNativeArenaForCurrentThreadCacheReads) throw new ArgumentException();
+                cacheReadArena.Dispose();
+                AlignedNativeArenaForCurrentThreadCacheReads = null;
+            }
+        }
+
+        private const int ArenaForCacheReadsInitialBlockCount = 256;
         private static unsafe AlignedNativeArena GetArenaForAlignedCacheReads(int blockSize)
         {
             var alignedArenaForCacheReads = AlignedNativeArenaForCurrentThreadCacheReads;
             if (alignedArenaForCacheReads == null)
             {
-                alignedArenaForCacheReads = new(blockSize, (nuint)blockSize);
+                alignedArenaForCacheReads = new(blockSize, (nuint)blockSize * ArenaForCacheReadsInitialBlockCount);
                 AlignedNativeArenaForCurrentThreadCacheReads = alignedArenaForCacheReads;
             }
 

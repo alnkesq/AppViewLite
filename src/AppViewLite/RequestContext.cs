@@ -23,8 +23,8 @@ namespace AppViewLite
         public bool IsUrgent { get; init; }
 
         public string? RequestUrl { get; init; }
-        public string? FirehoseReason { get; init; }
-        public string FirehoseReasonOrUrlForBucketing => FirehoseReason ?? _urlForBucketing!;
+        public string Reason { get; init; }
+        public string ReasonOrUrlForBucketing => _urlForBucketing ?? Reason;
         private string? _urlForBucketing;
         public bool AllowStale { get; set; }
         public Stopwatch TimeSpentWaitingForLocks = new Stopwatch();
@@ -83,7 +83,7 @@ namespace AppViewLite
 
         public override string? ToString()
         {
-            return RequestUrl ?? FirehoseReason;
+            return RequestUrl ?? Reason;
         }
 
         public required DateTime StartDate;
@@ -96,7 +96,7 @@ namespace AppViewLite
         public ConcurrentDictionary<Plc, BlueskyProfile>? ProfileCache;
         public ConcurrentDictionary<LabelId, BlueskyLabel>? LabelCache;
 
-        public static RequestContext CreateForRequest(AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null, long minVersion = default)
+        public static RequestContext CreateForRequest(string reason, AppViewLiteSession? session = null, string? signalrConnectionId = null, bool urgent = true, string? requestUrl = null, long minVersion = default)
         {
             if (session != null && session.IsLoggedIn)
             {
@@ -133,7 +133,8 @@ namespace AppViewLite
                 MinVersion = minVersion,
                 ProfileCache = new(),
                 LabelCache = new(),
-                _urlForBucketing = requestUrlForBucketing ?? "UnknownRequestUrl",
+                Reason = reason,
+                _urlForBucketing = requestUrlForBucketing,
                 LabelSubscriptions = session != null && session.IsLoggedIn ? session.UserContext.PrivateProfile!.LabelerSubscriptions : BlueskyEnrichedApis.Instance.DangerousUnlockedRelationships.DefaultLabelSubscriptions
             };
             ctx.InitializeDeadlines();
@@ -149,7 +150,7 @@ namespace AppViewLite
                 RequestUrl = originalCtx.RequestUrl,
                 MinVersion = originalCtx.MinVersion,
                 StartDate = DateTime.UtcNow,
-                FirehoseReason = originalCtx.FirehoseReason,
+                Reason = originalCtx.Reason,
                 _urlForBucketing = originalCtx._urlForBucketing,
                 OnBehalfOf = originalCtx,
                 LabelSubscriptions = [],
@@ -173,7 +174,9 @@ namespace AppViewLite
                 MinVersion = originalCtx.MinVersion,
                 StartDate = originalCtx.StartDate,
                 LabelSubscriptions = originalCtx.LabelSubscriptions,
-                FirehoseReason = originalCtx.FirehoseReason,
+                Reason = originalCtx.Reason,
+                _urlForBucketing = originalCtx._urlForBucketing,
+                OnBehalfOf = originalCtx.OnBehalfOf,
             };
         }
 
@@ -186,12 +189,12 @@ namespace AppViewLite
                 Session = null!,
                 StartDate = DateTime.UtcNow,
                 LabelSubscriptions = [],
-                FirehoseReason = reason,
+                Reason = reason,
                 AllowStale = allowStale,
             };
         }
 
-        public string DebugText => FirehoseReason ?? RequestUrl ?? "Unknown";
+        public string DebugText => RequestUrl ?? Reason;
 
         public void IncreaseTimeout(TimeSpan? shortTimeout = null)
         {

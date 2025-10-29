@@ -2867,7 +2867,7 @@ namespace AppViewLite
                 {
                     if (userCtx.UserEngagementCacheVersion < globalUserEngagementCache.Version)
                     {
-                        var subCtx = RequestContext.CreateForRequest(ctx.Session, urgent: ctx.IsUrgent);
+                        var subCtx = RequestContext.CreateForRequest("GetUserEngagementScoresSubCtx", ctx.Session, urgent: ctx.IsUrgent, requestUrl: ctx.RequestUrl);
                         subCtx.AllowStale = false; // cache only exists in primary
                         WithRelationshipsLock(rels =>
                         {
@@ -4690,7 +4690,7 @@ namespace AppViewLite
                 if (!SessionDictionary.TryGetValue(sessionId, out var session))
                 {
 
-                    var temporaryCtx = RequestContext.CreateForRequest(AppViewLiteSession.CreateAnonymous());
+                    var temporaryCtx = RequestContext.CreateForRequest("TryGetSessionFromCookie", AppViewLiteSession.CreateAnonymous());
                     var unverifiedUserContext = GetOrCreateUserContext(sessionIdCookie.UnverifiedDid!, temporaryCtx);
 
                     var sessionProto = unverifiedUserContext.TryGetAppViewLiteSession(sessionId);

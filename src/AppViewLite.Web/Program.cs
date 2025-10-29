@@ -68,11 +68,11 @@ namespace AppViewLite.Web
                 var session = provider.GetRequiredService<AppViewLiteSession>();
                 var httpContext = provider.GetRequiredService<IHttpContextAccessor>().HttpContext;
                 var request = httpContext?.Request;
-                if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateForRequest(); }
+                if (request?.Path.StartsWithSegments("/ErrorHttpStatus") == true) { return RequestContext.CreateForRequest("ErrorHttpStatus"); }
                 var signalrConnectionId = request?.Headers["X-AppViewLiteSignalrId"].FirstOrDefault();
                 var urgent = request?.Method == "CONNECT" ? false : (request?.Headers["X-AppViewLiteUrgent"].FirstOrDefault() != "0");
 
-                var ctx = RequestContext.CreateForRequest(session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
+                var ctx = RequestContext.CreateForRequest("ServedRequest", session, string.IsNullOrEmpty(signalrConnectionId) ? null : signalrConnectionId, urgent: urgent, requestUrl: httpContext?.Request.GetEncodedPathAndQuery());
                 return ctx;
             });
             builder.Services.AddSignalR();
@@ -225,7 +225,7 @@ namespace AppViewLite.Web
                     if (firstSegment.StartsWith("@did:"))
                     {
                         var firstSegmentLength = firstSegment.Length;
-                        var handle = await apis.TryDidToHandleAsync(firstSegment.Slice(1).ToString(), RequestContext.CreateForRequest(TryGetSession(ctx), urgent: true));
+                        var handle = await apis.TryDidToHandleAsync(firstSegment.Slice(1).ToString(), RequestContext.CreateForRequest("RedirectDidToHandle", TryGetSession(ctx), urgent: true));
                         if (handle != null)
                             ctx.Response.Redirect(string.Concat(string.Concat("/@", handle, path.AsSpan(firstSegmentLength + 1), ctx.Request.QueryString.Value)));
                     }

@@ -205,7 +205,7 @@ namespace AppViewLite
                 var end = PerformanceSnapshot.Capture();
 
                 var delta = end - begin;
-                GlobalPerformanceStatsByOperation.AddOrUpdate((ctx.FirehoseReasonOrUrlForBucketing, tableName, operation),
+                GlobalPerformanceStatsByOperation.AddOrUpdate((ctx.ReasonOrUrlForBucketing, tableName, operation),
                     addValueFactory: static (_, delta) => (1L, delta),
                     updateValueFactory: static (_, prev, delta) => (prev.Count + 1, prev.Total + delta),
                     delta);

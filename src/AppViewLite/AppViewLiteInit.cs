@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,6 +28,7 @@ namespace AppViewLite
                 LoggableBase.Log("TaskScheduler.UnobservedTaskException: " + e.Exception + ", Observed: " + e.Observed);
                 LoggableBase.FlushLog();
             };
+            RunLargeObjectHeapCompactationLoop().FireAndForget();
             CombinedPersistentMultiDictionary.LogOperationCallback = LogOperationCallback;
             CombinedPersistentMultiDictionary.EnsureHasOperationContext = EnsureHasOperationContext;
             CombinedPersistentMultiDictionary.UseDirectIo = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO) ?? true;
@@ -34,7 +36,6 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
             var directIoBlockCacheCapacityBytes = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_MB) ?? 128) * 1024 * 1024;
             var directIoMultiBlockCacheCapacity = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_MULTIBLOCK_CACHE_CAPACITY) ?? 128 * 1024;
-
             if (directIoBlockCacheCapacityBytes != 0)
             {
                 var singleBlockCache = new ConcurrentFullEvictionCache<(long, SafeFileHandle), byte[]>(directIoBlockCacheCapacityBytes / CombinedPersistentMultiDictionary.DiskSectorSize);
@@ -149,6 +150,33 @@ namespace AppViewLite
 
             BlueskyEnrichedApis.Instance = apis;
             return apis;
+        }
+
+        private static async Task RunLargeObjectHeapCompactationLoop()
+        {
+            // As of .NET 9, the large object heap is never compacted automatically.
+            // If it becomes highly fragmented, this can cause the appearance of memory leaks, with an increase in virtual memory usage.
+
+            var intervalSeconds = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_LARGE_OBJECT_HEAP_COMPACTATION_INTERVAL_SECONDS) ?? 3600;
+            while (true)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds));
+
+                // Run a LOH compactation on the next gen-2 GC.
+                // Once it happens, this property is automatically reset to Default.
+                GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+
+                // Wait for the next gen-2 GC to occur
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    if (GCSettings.LargeObjectHeapCompactionMode == GCLargeObjectHeapCompactionMode.Default)
+                    {
+                        break;
+                    }
+
+                }
+            }
         }
 
         private static void EnsureHasOperationContext()

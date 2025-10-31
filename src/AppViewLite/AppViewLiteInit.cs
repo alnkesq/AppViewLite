@@ -166,6 +166,11 @@ namespace AppViewLite
                 // Once it happens, this property is automatically reset to Default.
                 GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
 
+#if true
+                // https://github.com/alnkesq/AppViewLite/issues/238
+                GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: false /* only refers to the Small Object Heap */);
+                BlueskyRelationships.Assert(GCSettings.LargeObjectHeapCompactionMode == GCLargeObjectHeapCompactionMode.Default);
+#else
                 // Wait for the next gen-2 GC to occur
                 while (true)
                 {
@@ -176,6 +181,7 @@ namespace AppViewLite
                     }
 
                 }
+#endif
             }
         }
 

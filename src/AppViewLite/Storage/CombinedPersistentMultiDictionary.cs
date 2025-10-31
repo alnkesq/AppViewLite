@@ -1497,7 +1497,7 @@ namespace AppViewLite.Storage
 
             if (copy.queue == null)
             {
-                copy.queue = this.queue.CloneAndMaybeCreateNewVirtualSlice();
+                copy.queue = this.queue.CloneAndMaybeCreateNewVirtualSlice(q?.BackingDictionary);
                 //Log("Queued copied from scratch.");
             }
             copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");

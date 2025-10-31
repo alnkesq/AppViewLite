@@ -135,6 +135,7 @@ namespace AppViewLite
             }
         }
 
+        public Dictionary<TKey, ValueGroup> BackingDictionary => dict;
         private Dictionary<TKey, ValueGroup> dict = new();
         public List<MultiDictionary2VirtualSlice> virtualSlices = new();
         public MultiDictionary2VirtualSlice? currentVirtualSlice;
@@ -264,9 +265,11 @@ namespace AppViewLite
 
         public IEnumerable<(TKey Key, TValue Value)> AllEntries => dict.SelectMany(x => x.Value.ValuesUnsorted, (group, list) => (group.Key, list));
 
-        public MultiDictionary2<TKey, TValue> CloneAndMaybeCreateNewVirtualSlice()
+        public MultiDictionary2<TKey, TValue> CloneAndMaybeCreateNewVirtualSlice(Dictionary<TKey, ValueGroup>? recyclableDictionary)
         {
-            var d = new Dictionary<TKey, ValueGroup>(this.dict.Capacity);
+            recyclableDictionary?.Clear();
+
+            var d = recyclableDictionary ?? new Dictionary<TKey, ValueGroup>(this.dict.Capacity);
             foreach (var item in this.dict)
             {
                 var v = item.Value;

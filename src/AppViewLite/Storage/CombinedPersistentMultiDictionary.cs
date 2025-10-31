@@ -1397,6 +1397,7 @@ namespace AppViewLite.Storage
         }
 
         private bool ownsCaches = true;
+        private HashSet<TKey>? pooledHashSetForKeysToCopy;
 
         public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
         {
@@ -1442,7 +1443,10 @@ namespace AppViewLite.Storage
                     else
                     {
 
-                        keysToCopy = new();
+                        pooledHashSetForKeysToCopy ??= new();
+                        pooledHashSetForKeysToCopy.Clear();
+                        keysToCopy = pooledHashSetForKeysToCopy;
+
                         for (int i = alreadyExistingSlices; i < virtualSliceCount; i++)
                         {
                             var slice = this.queue.virtualSlices[i];
@@ -1453,6 +1457,8 @@ namespace AppViewLite.Storage
                             copy.queue.LastVirtualSliceIdExclusive++;
                         }
                     }
+
+                    // DO NOT PERSIST keysToCopy, it's only borrowed.
 
                     foreach (var key in keysToCopy)
                     {

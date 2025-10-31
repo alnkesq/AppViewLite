@@ -167,9 +167,12 @@ namespace AppViewLite
                 GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
 
 #if true
+                var sw = Stopwatch.StartNew();
+
                 // https://github.com/alnkesq/AppViewLite/issues/238
                 GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: false /* only refers to the Small Object Heap */);
                 BlueskyRelationships.Assert(GCSettings.LargeObjectHeapCompactionMode == GCLargeObjectHeapCompactionMode.Default);
+                LoggableBase.Log($"LOH compactation, took {sw.ElapsedMilliseconds} ms");
 #else
                 // Wait for the next gen-2 GC to occur
                 while (true)

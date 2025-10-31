@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,14 +54,14 @@ namespace AppViewLite
         }
 
         public ConcurrentDictionary<Plc, Tid>? IsStillFollowedCached;
-        public ConcurrentDictionary<(Plc, Plc), BlockReason> BlockReasonCache = new();
-        public ConcurrentDictionary<Plc, List<Relationship>> SubscribedBlocklistsCache = new();
-        public ConcurrentDictionary<Relationship, BlueskyList> ListCache = new();
-        public ConcurrentDictionary<(PostId RootPostId, Plc ReplyAuthor), bool> ThreadgateAllowsUserCache = new();
-        public ConcurrentDictionary<PostId, BlueskyThreadgate?> ThreadgateCache = new();
+        public ConcurrentDictionary<(Plc, Plc), BlockReason>? BlockReasonCache;
+        public ConcurrentDictionary<Plc, List<Relationship>>? SubscribedBlocklistsCache;
+        public ConcurrentDictionary<Relationship, BlueskyList>? ListCache;
+        public ConcurrentDictionary<(PostId RootPostId, Plc ReplyAuthor), bool>? ThreadgateAllowsUserCache;
+        public ConcurrentDictionary<PostId, BlueskyThreadgate?>? ThreadgateCache;
         public ConcurrentBag<OperationLogEntry> OperationLogEntries = new();
         public ConcurrentBag<OperationLogEntry> LockLogEntries = new();
-        public ConcurrentBag<OperationLogEntry> NetworkLogEntries = new();
+        public ConcurrentBag<OperationLogEntry>? NetworkLogEntries;
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();
@@ -278,6 +279,11 @@ namespace AppViewLite
             return result;
         }
 
+        internal static void InitCacheField<TObject>([NotNull] ref TObject? field) where TObject: class, new()
+        {
+            if (field != null) return;
+            Interlocked.CompareExchange(ref field, new TObject(), null);
+        }
     }
 
     public record OperationLogEntry(PerformanceSnapshot Start, PerformanceSnapshot End, string? TableName, string? Operation, object? Argument)

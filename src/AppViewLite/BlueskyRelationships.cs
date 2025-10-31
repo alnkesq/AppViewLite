@@ -2380,6 +2380,7 @@ namespace AppViewLite
 
         public BlockReason UsersHaveBlockRelationship(Plc a, Plc b, RequestContext ctx)
         {
+            RequestContext.InitCacheField(ref ctx.BlockReasonCache);
             if (!ctx.BlockReasonCache.TryGetValue((a, b), out var result))
             {
                 result = UsersHaveBlockRelationshipCore(a, b, ctx);
@@ -2475,6 +2476,7 @@ namespace AppViewLite
 
         public List<Relationship> GetSubscribedBlockLists(Plc subscriber, RequestContext ctx)
         {
+            RequestContext.InitCacheField(ref ctx.SubscribedBlocklistsCache);
             if (!ctx.SubscribedBlocklistsCache.TryGetValue(subscriber, out var result))
             {
                 result = GetSubscribedBlockListsCore(subscriber);
@@ -2981,6 +2983,7 @@ namespace AppViewLite
 
         public BlueskyList GetList(Relationship listId, ListData? listData, RequestContext ctx)
         {
+            RequestContext.InitCacheField(ref ctx.ListCache);
             if (!ctx.ListCache.TryGetValue(listId, out var result))
             {
                 result = GetListCore(listId, listData, ctx);
@@ -3131,6 +3134,7 @@ namespace AppViewLite
         }
         public BlueskyThreadgate? TryGetThreadgate(PostId postid, RequestContext ctx)
         {
+            RequestContext.InitCacheField(ref ctx.ThreadgateCache);
             return ctx.ThreadgateCache.GetOrAdd(postid, postid => TryGetThreadgateCore(postid));
         }
         private BlueskyThreadgate? TryGetThreadgateCore(PostId postid)
@@ -3144,6 +3148,7 @@ namespace AppViewLite
 
         public bool ThreadgateAllowsUser(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor, RequestContext ctx)
         {
+            RequestContext.InitCacheField(ref ctx.ThreadgateAllowsUserCache);
             return ctx.ThreadgateAllowsUserCache.GetOrAdd((rootPostId, replyAuthor), _ => ThreadgateAllowsUserCore(rootPostId, threadgate, replyAuthor));
         }
 

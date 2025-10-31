@@ -2307,7 +2307,7 @@ namespace AppViewLite
 
         public async Task<PostsAndContinuation> GetFollowingFeedAsync(string? continuation, int limit, bool atProtoOnlyPosts, RequestContext ctx)
         {
-            ctx.IsStillFollowedCached ??= new();
+            RequestContext.InitCacheField(ref ctx.IsStillFollowedCached);
             EnsureLimit(ref limit, 50);
             Tid? maxTid = continuation != null ? Tid.Parse(continuation) : null;
             var alreadyReturned = new HashSet<PostId>();
@@ -2347,7 +2347,7 @@ namespace AppViewLite
 
         public (List<BlueskyPost> FinalPosts, bool ProducedEnoughPosts) GetBalancedFollowingFeed(string? continuation, int limit, RequestContext ctx)
         {
-            ctx.IsStillFollowedCached ??= new();
+            RequestContext.InitCacheField(ref ctx.IsStillFollowedCached);
 
             EnsureLimit(ref limit, 20);
             var scoredSampler = GetScorer(ctx);
@@ -5358,6 +5358,7 @@ namespace AppViewLite
             return new DelegateDisposable(() =>
             {
                 var end = PerformanceSnapshot.Capture();
+                RequestContext.InitCacheField(ref ctx.NetworkLogEntries);
                 ctx.NetworkLogEntries.Add(new OperationLogEntry(begin, end, collection, name, argument));
             });
         }

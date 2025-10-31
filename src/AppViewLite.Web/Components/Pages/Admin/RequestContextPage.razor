@@ -30,7 +30,7 @@
     if (req == null) Navigation.NavigateTo("/debug/requests");
     var entries = req!.GetOperationEntriesPlusImportant();
     var lockLogs = req.LockLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
-    var networkLogs = req.NetworkLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
+    var networkLogs = req.NetworkLogEntries?.OrderBy(x => x.Start.StopwatchTicks).ToArray() ?? [];
     var allEntriesAndLogs = lockLogs.Concat(entries).ToArray();
     var firstStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Min(x => x.Start.StopwatchTicks) : 0;
     var finalStopwatchTicks = req.CompletionTimeStopwatchTicks != 0 ? req.CompletionTimeStopwatchTicks : allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Max(x => x.End.StopwatchTicks) : 64;

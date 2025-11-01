@@ -29,7 +29,11 @@ namespace AppViewLite.Numerics
 
             var z = Tid.FromMicroseconds(tsMicros, (uint)clockId);
             var roundtripped = z.ToString();
-            if (roundtripped != rkey) return false;
+            if (roundtripped != rkey)
+            {
+                BlueskyRelationships.ThrowFatalError("Could not roundtrip rkey despite successful decode as TID: " + rkey);
+                return false;
+            }
             result = z;
 
             return true;

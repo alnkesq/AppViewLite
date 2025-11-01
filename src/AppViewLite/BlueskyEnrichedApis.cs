@@ -1364,7 +1364,7 @@ namespace AppViewLite
                             var indexer = new Indexer(this);
                             foreach(var item in missing)
                             {
-                                indexer.OnRecordCreated(did, Like.RecordType + "/" + item.Reference.RKey, item.Record!);
+                                indexer.OnRecordCreated(did, new(Like.RecordType, item.Reference.RKey), item.Record!);
                             }
                             ctx.BumpMinimumVersion(this.relationshipsUnlocked.Version);
                         }
@@ -3146,7 +3146,7 @@ namespace AppViewLite
             var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record, rkey: rkey)).HandleResult()!.Uri.Rkey), ctx);
 
             var indexer = new Indexer(this);
-            indexer.OnRecordCreated(ctx.UserContext.Did!, record.Type + "/" + tid.ToString(), record, ctx: ctx);
+            indexer.OnRecordCreated(ctx.UserContext.Did!, new(record.Type, tid), record, ctx: ctx);
             return tid;
         }
 
@@ -3365,7 +3365,7 @@ namespace AppViewLite
         {
             await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session!.Did, collection, rkey.ToString()!), ctx);
             var indexer = new Indexer(this);
-            indexer.OnRecordDeleted(ctx.UserContext.Did!, collection + "/" + rkey, ctx: ctx);
+            indexer.OnRecordDeleted(ctx.UserContext.Did!, new(collection, rkey), ctx: ctx);
         }
 
         public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, RequestContext ctx, CancellationToken ct = default)

@@ -38,17 +38,15 @@ namespace AppViewLite
 
         internal static Action? CaptureFirehoseCursors;
 
-        public void OnRecordDeleted(string commitAuthor, string path, bool ignoreIfDisposing = false, RequestContext? ctx = null)
+        public void OnRecordDeleted(string commitAuthor, CollectionAndRKey path, bool ignoreIfDisposing = false, RequestContext? ctx = null)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
 
-            var slash = path!.IndexOf('/');
-            var collection = path.Substring(0, slash);
-            var rkey = path.Substring(slash + 1);
+            var collection = path.Collection;
             var deletionDate = DateTime.UtcNow;
             ctx ??= RequestContext.CreateForFirehose("Delete:" + collection, allowStale: true /* only temporarily, will be disabled in a moment*/);
 
-            var rkeyAsTid = Tid.TryParse(rkey, out var parsedTid) ? parsedTid : default;
+            var rkeyAsTid = Tid.TryParse(path.RKey, out var parsedTid) ? parsedTid : default;
 
 
             var preresolved = WithRelationshipsLock(rels =>
@@ -89,7 +87,7 @@ namespace AppViewLite
 
                 if (collection == Generator.RecordType)
                 {
-                    relationships.FeedGeneratorDeletions.Add(new RelationshipHashedRKey(commitPlc, rkey), deletionDate);
+                    relationships.FeedGeneratorDeletions.Add(new RelationshipHashedRKey(commitPlc, path.RKey), deletionDate);
                 }
                 else
                 {
@@ -150,11 +148,11 @@ namespace AppViewLite
 
 
 
-        private static bool HasNumericRKey(string path)
+        private static bool HasNumericRKey(CollectionAndRKey path)
         {
             // Some spam bots?
             // Avoid noisy exceptions.
-            var rkey = path.Split('/')[1];
+            var rkey = path.RKey;
             return long.TryParse(rkey, out _) || rkey.StartsWith("follow_", StringComparison.Ordinal);
         }
 
@@ -163,7 +161,7 @@ namespace AppViewLite
 
 
 
-        public void OnRecordCreated(string commitAuthor, string path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
+        public void OnRecordCreated(string commitAuthor, CollectionAndRKey path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
             var now = DateTime.UtcNow;
@@ -234,7 +232,7 @@ namespace AppViewLite
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
 
-                        var likeRkey = GetMessageTid(path, Like.RecordType + "/");
+                        var likeRkey = GetMessageTid(path, Like.RecordType);
                         if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey), preresolved.relationshipIsAbsentAsOf))
                         {
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
@@ -283,7 +281,7 @@ namespace AppViewLite
                         // TODO: handle deletions for feed likes
                         var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.Did!.Handler, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
 
-                        var likeRkey = GetMessageTid(path, Like.RecordType + "/");
+                        var likeRkey = GetMessageTid(path, Like.RecordType);
                         if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
                         {
                             var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
@@ -300,7 +298,7 @@ namespace AppViewLite
                 {
                     if (HasNumericRKey(path)) return;
                     var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
-                    var rkey = GetMessageTid(path, Follow.RecordType + "/");
+                    var rkey = GetMessageTid(path, Follow.RecordType);
 
                     if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey), preresolved.relationshipIsAbsentAsOf))
                     {
@@ -319,7 +317,7 @@ namespace AppViewLite
                     var postId = relationships.GetPostId(r.Subject!, ctx, hint: preresolved.subjectPlc);
                     BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
-                    var repostRKey = GetMessageTid(path, Repost.RecordType + "/");
+                    var repostRKey = GetMessageTid(path, Repost.RecordType);
                     if (relationships.Reposts.Add(postId, new Relationship(commitPlc, repostRKey), preresolved.relationshipIsAbsentAsOf))
                     {
                         relationships.AddNotification(postId, NotificationKind.RepostedYourPost, commitPlc, ctx, repostRKey.Date);
@@ -349,13 +347,13 @@ namespace AppViewLite
                 else if (record is Block b)
                 {
                     var blockedUser = relationships.SerializeDid(b.Subject!.Handler, ctx);
-                    var blockRkey = GetMessageTid(path, Block.RecordType + "/");
+                    var blockRkey = GetMessageTid(path, Block.RecordType);
                     relationships.Blocks.Add(blockedUser, new Relationship(commitPlc, blockRkey));
                     relationships.AddNotification(blockedUser, NotificationKind.BlockedYou, commitPlc, ctx, blockRkey.Date);
                 }
                 else if (record is Post p)
                 {
-                    var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType + "/"));
+                    var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType));
                     BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                     // Is this check too expensive?
@@ -375,20 +373,20 @@ namespace AppViewLite
                         });
                     }
                 }
-                else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "/self")
+                else if (record is Profile pf && GetMessageRKey(path, Profile.RecordType) == "self")
                 {
                     relationships.StoreProfileBasicInfo(commitPlc, pf, ctx);
                 }
                 else if (record is List list)
                 {
-                    relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType + "/")), BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(list)));
+                    relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType)), BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(list)));
                 }
                 else if (record is Listitem listItem)
                 {
                     if (commitAuthor != listItem.List!.Did!.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
                     if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
                     var listRkey = Tid.Parse(listItem.List.Rkey);
-                    var listItemRkey = GetMessageTid(path, Listitem.RecordType + "/");
+                    var listItemRkey = GetMessageTid(path, Listitem.RecordType);
                     var member = relationships.SerializeDid(listItem.Subject!.Handler, ctx);
 
                     var listId = new Relationship(commitPlc, listRkey);
@@ -413,17 +411,17 @@ namespace AppViewLite
                 }
                 else if (record is Threadgate threadGate)
                 {
-                    var rkey = GetMessageTid(path, Threadgate.RecordType + "/");
+                    var rkey = GetMessageTid(path, Threadgate.RecordType);
                     relationships.StoreThreadgate(commitAuthor, commitPlc, rkey, threadGate, ctx);
                 }
                 else if (record is Postgate postGate)
                 {
-                    var rkey = GetMessageTid(path, Postgate.RecordType + "/");
+                    var rkey = GetMessageTid(path, Postgate.RecordType);
                     relationships.StorePostgate(commitAuthor, commitPlc, rkey, postGate, ctx);
                 }
                 else if (record is Listblock listBlock)
                 {
-                    var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType + "/"));
+                    var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType));
                     if (listBlock.Subject!.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
                     var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler, ctx), Tid.Parse(listBlock.Subject.Rkey));
 
@@ -432,7 +430,7 @@ namespace AppViewLite
                 }
                 else if (record is Generator generator)
                 {
-                    var rkey = GetMessageRKey(path, Generator.RecordType + "/");
+                    var rkey = GetMessageRKey(path, Generator.RecordType);
                     relationships.IndexFeedGenerator(commitPlc, rkey, generator, now);
                 }
                 //else LogInfo("Creation of unknown object type: " + path);
@@ -461,7 +459,7 @@ namespace AppViewLite
 
                 var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey, ctx));
 
-                OnRecordCreated(uri.Did.Handler, uri.Pathname.Substring(1), record, ignoreIfDisposing: true);
+                OnRecordCreated(uri.Did.Handler, uri.GetParsedPath(), record, ignoreIfDisposing: true);
 
                 currentlyRunningRecordRetrievals.Remove(uri.ToString());
 
@@ -482,11 +480,11 @@ namespace AppViewLite
 
             if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
             {
-                OnRecordCreated(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, e.Record.Commit.Record!, ignoreIfDisposing: true);
+                OnRecordCreated(e.Record.Did!.ToString(), new CollectionAndRKey(e.Record.Commit.Collection!, e.Record.Commit.RKey!), e.Record.Commit.Record!, ignoreIfDisposing: true);
             }
             if (e.Record.Commit?.Operation == ATWebSocketCommitType.Delete)
             {
-                OnRecordDeleted(e.Record.Did!.ToString(), e.Record.Commit.Collection + "/" + e.Record.Commit.RKey, ignoreIfDisposing: true);
+                OnRecordDeleted(e.Record.Did!.ToString(), new CollectionAndRKey(e.Record.Commit.Collection!, e.Record.Commit.RKey!), ignoreIfDisposing: true);
             }
 
             BumpLargestSeenFirehoseCursor(e.Record.TimeUs!.Value, DateTime.UnixEpoch.AddMicroseconds(e.Record.TimeUs.Value));
@@ -551,20 +549,15 @@ namespace AppViewLite
             return true;
         }
 
-        public static string GetMessageRKey(SubscribeRepoMessage message, string prefix)
+        public static string GetMessageRKey(CollectionAndRKey path, string prefix)
         {
-            var first = message.Commit!.Ops![0].Path!;
-            return GetMessageRKey(first, prefix);
-        }
-        public static string GetMessageRKey(string path, string prefix)
-        {
-            if (!path.StartsWith(prefix, StringComparison.Ordinal)) throw new UnexpectedFirehoseDataException($"Expecting path prefix {prefix}, but found {path}");
-            var postShortId = path.Substring(prefix.Length);
+            BlueskyRelationships.Assert(prefix[^1] != '/');
+            if (!path.Collection.SequenceEqual(prefix)) throw new UnexpectedFirehoseDataException($"Expecting path prefix {prefix}, but found {path}");
+            var postShortId = path.RKey;
             return postShortId;
         }
 
-        public static Tid GetMessageTid(SubscribeRepoMessage message, string prefix) => Tid.Parse(GetMessageRKey(message, prefix));
-        public static Tid GetMessageTid(string path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
+        public static Tid GetMessageTid(CollectionAndRKey path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
 
         public async Task StartListeningToJetstreamFirehose(RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
@@ -815,12 +808,12 @@ namespace AppViewLite
             {
                 if (op.Action == "delete")
                 {
-                    OnRecordDeleted(commitAuthor, op.Path!, ignoreIfDisposing: true);
+                    OnRecordDeleted(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), ignoreIfDisposing: true);
                 }
                 else
                 {
                     var record = e.Message.Records!.First(x => x.Cid.Equals(op.Cid)).Value;
-                    OnRecordCreated(commitAuthor, op.Path!, record, ignoreIfDisposing: true);
+                    OnRecordCreated(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), record, ignoreIfDisposing: true);
                 }
             }
             
@@ -927,15 +920,15 @@ namespace AppViewLite
                 ct.ThrowIfCancellationRequested();
                 recordCount++;
 
-                var parts = record.Path.Split('/');
-                if (parts.Length == 2 && Tid.TryParse(parts[1], out var tid))
+                var path = CollectionAndRKey.ParseUnprefixed(record.Path);
+                if (Tid.TryParse(path.RKey, out var tid))
                     progress?.Invoke(new CarImportProgress(totalSize, totalSize, recordCount, importer.TotalRecords, tid));
 
                 await Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.WaitAsync(ct);
                 try
                 {
 
-                    TryProcessRecord(() => OnRecordCreated(record.Did, record.Path, record.Record, isRepositoryImport: true), record.Did);
+                    TryProcessRecord(() => OnRecordCreated(record.Did, path, record.Record, isRepositoryImport: true), record.Did);
                 }
                 finally
                 {
@@ -1031,7 +1024,7 @@ namespace AppViewLite
                         await Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.WaitAsync(ct);
                         try
                         {
-                            OnRecordCreated(did, item.Uri.Pathname.Substring(1), item.Value, isRepositoryImport: true);
+                            OnRecordCreated(did, item.Uri.GetParsedPath(), item.Value, isRepositoryImport: true);
                         }
                         finally
                         {
@@ -1486,7 +1479,7 @@ namespace AppViewLite
                         recentmostFollow ??= followRkey;
                         if (isTrustedPds)
                         {
-                            OnRecordCreated(follower.Did.Handler, Follow.RecordType + "/" + followRkey, new Follow
+                            OnRecordCreated(follower.Did.Handler, new(Follow.RecordType, followRkeyString), new Follow
                             {
                                 Subject = new ATDid(did)
                             }, ctx: ctx, isRepositoryImport: true);
@@ -1529,7 +1522,7 @@ namespace AppViewLite
                         //Console.Error.WriteLine($"Checking follower PDS ({x.Did}) for alleged followee ({did}), rkey: {x.FollowRkey.ToString()}");
 
                         var follow = (Follow)(await Apis.GetRecordAsync(x.Did, Follow.RecordType, x.FollowRkey.ToString()!, ctx, ct)).Value;
-                        OnRecordCreated(x.Did, Follow.RecordType + "/" + x.FollowRkey.ToString(), follow, ctx: ctx, isRepositoryImport: true);
+                        OnRecordCreated(x.Did, new(Follow.RecordType, x.FollowRkey), follow, ctx: ctx, isRepositoryImport: true);
                     }
                     catch (Exception ex)
                     {

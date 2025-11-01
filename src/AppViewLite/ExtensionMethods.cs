@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
+using FishyFlip.Models;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
@@ -253,6 +254,8 @@ namespace AppViewLite
                 yield return result;
             }
         }
+
+        public static CollectionAndRKey GetParsedPath(this ATUri uri) => new CollectionAndRKey(uri.Collection, uri.Rkey);
     }
 
 

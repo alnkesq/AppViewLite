@@ -51,7 +51,7 @@ namespace AppViewLite
             return sb.ToString();
         }
 
-        public static long TryDecode(string s)
+        public static long TryDecode(ReadOnlySpan<char> s)
         {
             long i = 0;
             foreach (var c in s)
@@ -63,7 +63,7 @@ namespace AppViewLite
             }
             return i;
         }
-        public static UInt128? TryDecode128(string s)
+        public static UInt128? TryDecode128(ReadOnlySpan<char> s)
         {
             UInt128 i = 0;
             foreach (var c in s)

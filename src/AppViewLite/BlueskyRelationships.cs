@@ -3291,7 +3291,7 @@ namespace AppViewLite
         {
             if (!did.StartsWith("did:plc:", StringComparison.Ordinal)) throw AssertionLiteException.Throw("Cannot serialize non-PLC DIDs as UInt128: " + did);
             if (did.Length != 32) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
-            var result = AtProtoS32.TryDecode128(did.Substring(8))!.Value;
+            var result = AtProtoS32.TryDecode128(did.AsSpan(8))!.Value;
             if (DeserializeDidPlcFromUInt128(result) != did) throw new UnexpectedFirehoseDataException("Not a valid did:plc: " + did);
             return result;
         }

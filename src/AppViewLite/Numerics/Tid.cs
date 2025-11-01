@@ -4,24 +4,24 @@ namespace AppViewLite.Numerics
 {
     public record struct Tid(long TidValue) : IComparable<Tid>
     {
-        public static Tid Parse(string rkey)
+        public static Tid Parse(ReadOnlySpan<char> rkey)
         {
             if (!TryParse(rkey, out var r))
             {
-                if (long.TryParse(rkey, out _)) throw new UnexpectedFirehoseDataException("Decimal timestamp IDs are not supported: " + rkey);
-                else throw new UnexpectedFirehoseDataException("Timestamp ID could not be parsed: " + rkey);
+                if (long.TryParse(rkey, out _)) throw new UnexpectedFirehoseDataException($"Decimal timestamp IDs are not supported: {rkey}");
+                else throw new UnexpectedFirehoseDataException($"Timestamp ID could not be parsed: {rkey}");
             }
             return r;
         }
-        public static bool TryParse(string rkey, out Tid result)
+        public static bool TryParse(ReadOnlySpan<char> rkey, out Tid result)
         {
             result = default;
             if (rkey.Length != 13) return false;
-            var tsPart = rkey.Substring(0, rkey.Length - 2);
-            var clockPart = rkey.Substring(rkey.Length - 2);
+            var tsPart = rkey.Slice(0, rkey.Length - 2);
+            var clockPart = rkey.Slice(rkey.Length - 2);
 
 
-            var tsMicros = AtProtoS32.TryDecode(tsPart.Substring(0, tsPart.Length));
+            var tsMicros = AtProtoS32.TryDecode(tsPart.Slice(0, tsPart.Length));
             if (tsMicros == -1) return false;
             if (tsMicros > MAX_SAFE_INTEGER) return false;
             var clockId = AtProtoS32.TryDecode(clockPart);
@@ -29,9 +29,9 @@ namespace AppViewLite.Numerics
 
             var z = Tid.FromMicroseconds(tsMicros, (uint)clockId);
             var roundtripped = z.ToString();
-            if (roundtripped != rkey)
+            if (!rkey.SequenceEqual(roundtripped))
             {
-                BlueskyRelationships.ThrowFatalError("Could not roundtrip rkey despite successful decode as TID: " + rkey);
+                BlueskyRelationships.ThrowFatalError("Could not roundtrip rkey despite successful decode as TID: " + rkey.ToString());
                 return false;
             }
             result = z;

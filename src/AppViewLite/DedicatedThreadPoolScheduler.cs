@@ -15,7 +15,7 @@ namespace AppViewLite
 
         private readonly BlockingCollection<Task> tasksSuspendable = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 20000);
         private readonly BlockingCollection<Task> tasksNonSuspendable = new();
-
+        private readonly BlockingCollection<Task>[] bothCollections;
         private readonly List<Thread> threads;
 
         protected override IEnumerable<Task>? GetScheduledTasks() => tasksNonSuspendable.Concat(tasksSuspendable).ToArray();
@@ -106,6 +106,7 @@ namespace AppViewLite
         public DedicatedThreadPoolScheduler(int threadCount, string? name)
         {
             TotalThreads = threadCount;
+            bothCollections = [tasksNonSuspendable, tasksSuspendable];
             threads = new List<Thread>(threadCount);
             for (int i = 0; i < threadCount; i++)
             {
@@ -143,7 +144,7 @@ namespace AppViewLite
             using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
             while (true)
             {
-                var index = BlockingCollection<Task>.TryTakeFromAny([tasksNonSuspendable, tasksSuspendable], out var task, Timeout.Infinite);
+                var index = BlockingCollection<Task>.TryTakeFromAny(bothCollections, out var task, Timeout.Infinite);
                 if (index == -1)
                 {
                     Interlocked.Decrement(ref TotalThreads);

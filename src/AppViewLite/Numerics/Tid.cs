@@ -52,7 +52,7 @@ namespace AppViewLite.Numerics
             if (this == default) return null;
             //return Date.ToString("yyyy-MM-dd HH:mm:ss.fff");
 
-            return AtProtoS32.Encode(Timestamp) + AtProtoS32.Encode(ClockId).PadLeft(2, '2');
+            return AtProtoS32.Encode(Timestamp).PadLeft(11, '2') + AtProtoS32.Encode(ClockId).PadLeft(2, '2');
         }
 
         public readonly static Tid MaxValue = new Tid(long.MaxValue);

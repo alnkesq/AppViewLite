@@ -30,6 +30,16 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
+        public override Task<Results<ATResult<GetOnboardingSuggestedStarterPacksOutput>, ATErrorResult>> GetOnboardingSuggestedStarterPacksAsync([FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
+        {
+            return new GetOnboardingSuggestedStarterPacksOutput() { StarterPacks = [] }.ToJsonResultOkTask();
+        }
+
+        public override Task<Results<ATResult<GetOnboardingSuggestedStarterPacksSkeletonOutput>, ATErrorResult>> GetOnboardingSuggestedStarterPacksSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
+        {
+            return new GetOnboardingSuggestedStarterPacksSkeletonOutput() { StarterPacks = [] }.ToJsonResultOkTask();
+        }
+
         public async override Task<Results<ATResult<GetPopularFeedGeneratorsOutput>, ATErrorResult>> GetPopularFeedGeneratorsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? query = null, CancellationToken cancellationToken = default)
         {
             var results = string.IsNullOrWhiteSpace(query) ? await apis.GetPopularFeedsAsync(cursor, limit ?? default, ctx) : await apis.SearchFeedsAsync(query, cursor, limit ?? default, ctx);

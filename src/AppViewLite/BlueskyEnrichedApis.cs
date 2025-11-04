@@ -3143,7 +3143,20 @@ namespace AppViewLite
 
         public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx, string? rkey = null)
         {
-            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.PutRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, rkey, record)).HandleResult()!.Uri.Rkey), ctx);
+            var tid = await PerformPdsActionAsync(async session =>
+            {
+                var did = new ATDid(session.Session!.Did.Handler);
+                if (rkey != null)
+                {
+                    // PutRecord supports overwriting
+                    return Tid.Parse((await session.PutRecordAsync(did, record.Type, rkey, record)).HandleResult()!.Uri.Rkey);
+                }
+                else
+                {
+                    // CreateRecord supports rkey generation
+                    return Tid.Parse((await session.CreateRecordAsync(did, record.Type, record, rkey)).HandleResult()!.Uri.Rkey);
+                }
+            }, ctx);
 
             var indexer = new Indexer(this);
             indexer.OnRecordCreated(ctx.UserContext.Did!, new(record.Type, tid), record, ctx: ctx);

@@ -402,7 +402,8 @@ function fastNavigateIfLink(event) {
         return false;
 
     if (canFastNavigateTo(url)) {
-        fastNavigateTo(url.href, NO_FETCH_REUSE_PATHS.includes(url.pathname) ? true : null, a.dataset.alwaysfocuspage == '1' ? true : null);
+        const preferRefresh = NO_FETCH_REUSE_PATHS.includes(url.pathname) || a.closest('.notification') ? true : null;
+        fastNavigateTo(url.href, preferRefresh, a.dataset.alwaysfocuspage == '1' ? true : null);
         event.preventDefault();
         return true;
     }

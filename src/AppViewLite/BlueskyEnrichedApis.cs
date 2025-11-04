@@ -3368,7 +3368,7 @@ namespace AppViewLite
             indexer.OnRecordDeleted(ctx.UserContext.Did!, new(collection, rkey), ctx: ctx);
         }
 
-        public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, RequestContext ctx, CancellationToken ct = default)
+        public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, string? language, RequestContext ctx, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(text)) text = null;
             var embedRecord = quotedPost != null ? new EmbedRecord((await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef) : null;
@@ -3431,6 +3431,7 @@ namespace AppViewLite
                 Text = text,
                 Reply = replyRefDef,
                 Embed = embed,
+                Langs = language != null ? [language] : null,
                 CreatedAt = UtcNowMillis()
             };
             return await CreateRecordAsync(postRecord, ctx);

@@ -23,6 +23,7 @@ namespace AppViewLite.Models
         [ProtoMember(10)] public LabelerSubscription[] LabelerSubscriptions = null!;
         [ProtoMember(11)] public bool ImportedFollows;
         [ProtoMember(12)] public bool AlwaysPreferBookmarkButton;
+        [ProtoMember(13)] public string? LastPostLanguage;
 
         public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
         public ObjectIdentityBasedCache<MuteRule[], Func<string?, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;

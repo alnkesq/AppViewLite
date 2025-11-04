@@ -1317,6 +1317,10 @@ details:not([open]) .summary-when-open {
     background: #E60000;
 }
 
+.compose-language-selector {
+    margin-top: 10px;
+}
+
 
 button, input[type=submit], .button {
     padding: 10px 20px;

@@ -21,6 +21,10 @@
     {
         Navigation.RedirectIfNotLoggedIn(RequestContext);
         Model ??= new();
+        if (Model.Language == null)
+        {
+            Model.Language = RequestContext.PrivateProfile.LastPostLanguage ?? "en";
+        }
     }
 
     private BlueskyPost? ReplyToPost;
@@ -72,10 +76,18 @@
                 }    
                 
             }
+            
+
+            if (Model.Language != RequestContext.PrivateProfile.LastPostLanguage)
+            {
+                RequestContext.PrivateProfile.LastPostLanguage = Model.Language;
+                Apis.SaveAppViewLiteProfile(RequestContext);
+            }
             var rkey = await Apis.CreatePostAsync(Model.Text,
                 inReplyTo: IsReply && BlueskyRelationships.TryGetPluggableProtocolForDid(ReplyDid!) == null ? new PostIdString(ReplyDid!, ReplyRkey!) : null, 
                 quotedPost: IsQuote && BlueskyRelationships.TryGetPluggableProtocolForDid(QuoteDid!) == null ? new PostIdString(QuoteDid!, QuoteRkey!) : null,
                 attachments: attachments,
+                language: Model.Language,
                 RequestContext);
             Navigation.NavigateTo(RequestContext.Session.Profile!.BaseUrl + "/" + rkey, true);
         }
@@ -86,6 +98,7 @@
         public string? Text { get; set; }
         public IFormFileCollection? Files { get; set; }
         public string[]? AltTexts { get; set; }
+        public string? Language { get; set; }
     }
 }
 
@@ -115,7 +128,20 @@ else
             </div>
         </div>
     </div>
-    <br>
+
+    <div class="compose-language-selector">
+        <InputSelect @bind-Value="Model!.Language">
+            @foreach (var lang in Enum.GetNames<LanguageEnum>().Where(x => x != nameof(LanguageEnum.Unknown)).Select(x =>
+            {
+                var code = x.Replace('_', '-');
+                var displayName = System.Globalization.CultureInfo.GetCultureInfo(code)?.DisplayName ?? code;
+                return (Code: code, DisplayName: displayName);
+            }).OrderBy(x => x.DisplayName, StringComparer.InvariantCultureIgnoreCase))
+            {
+                <option value="@lang.Code">@lang.DisplayName</option>
+            }
+        </InputSelect>
+    </div>
     <ul id="upload-file-list">
     </ul>
     <div class="compose-submit-container">

@@ -494,6 +494,10 @@
 
                     @if (RequestContext.IsLoggedIn)
                     {
+                        @if (Post.Author.Plc != RequestContext.LoggedInUser && Post.RootPostId.Author == RequestContext.LoggedInUser && Post.PostBlockReason != PostBlockReasonKind.HiddenReply)
+                        {
+                            <button actionkind="hideThreadReply" class="menu-item">Hide this reply</button>
+                        }
                         @if (Post.Author.Plc == RequestContext.LoggedInUser)
                         {
                             <button actionkind="deletePost" class="menu-item">Delete</button>

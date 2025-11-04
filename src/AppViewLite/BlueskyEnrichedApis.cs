@@ -3143,7 +3143,7 @@ namespace AppViewLite
 
         public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx, string? rkey = null)
         {
-            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.CreateRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, record, rkey: rkey)).HandleResult()!.Uri.Rkey), ctx);
+            var tid = await PerformPdsActionAsync(async session => Tid.Parse((await session.PutRecordAsync(new ATDid(session.Session!.Did.Handler), record.Type, rkey, record)).HandleResult()!.Uri.Rkey), ctx);
 
             var indexer = new Indexer(this);
             indexer.OnRecordCreated(ctx.UserContext.Did!, new(record.Type, tid), record, ctx: ctx);
@@ -3356,6 +3356,30 @@ namespace AppViewLite
         public async Task DeletePostAsync(Tid postRkey, RequestContext ctx)
         {
             await DeleteRecordAsync(Post.RecordType, postRkey, ctx);
+        }
+        public async Task HideThreadReply(string postDid, Tid postRkey, RequestContext ctx)
+        {
+            var (postData, postPlc) = WithRelationshipsLockForDid(postDid, (postPlc, rels) =>
+            {
+                var postData = rels.TryGetPostData(new PostId(postPlc, postRkey), skipBpeDecompression: true);
+                return (postData, postPlc);
+            }, ctx);
+            if (postData!.RootPostId.Author != ctx.LoggedInUser)
+                throw new Exception("Cannot hide reply on non-owned thread.");
+            var threadRkey = postData.RootPostId.PostRKey;
+
+            
+            var threadgate = (Threadgate?)(await TryGetRecordAsync(ctx.UserContext.Did!, Threadgate.RecordType, threadRkey.ToString()!, ctx))?.Value ?? new Threadgate();
+
+            threadgate.CreatedAt = UtcNowMillis();
+            threadgate.Post = new ATUri("at://" + ctx.UserContext.Did + "/" + Post.RecordType + "/" + threadRkey.ToString());
+            threadgate.HiddenReplies ??= [];
+            var postUri = new ATUri("at://" + postDid + "/" + Post.RecordType + "/" + postRkey.ToString());
+            if (!threadgate.HiddenReplies.Contains(postUri))
+            {
+                threadgate.HiddenReplies.Add(postUri);
+            }
+            await CreateRecordAsync(threadgate, ctx, rkey: threadRkey.ToString());
         }
         public async Task DeleteRepostAsync(Tid repostRKey, RequestContext ctx)
         {
@@ -3687,6 +3711,18 @@ namespace AppViewLite
                 throw await CreateExceptionMessageForExternalServerErrorAsync($"The PDS of this user", ex, did, GetPds(proto), ctx);
             }
 
+        }
+
+        public async Task<GetRecordOutput?> TryGetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
+        {
+            try
+            {
+                return await GetRecordAsync(did, collection, rkey, ctx, ct);
+            }
+            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATNetworkErrorException { AtError: ATError {  Detail: { Error: "RecordNotFound" }  } } )
+            {
+                return null;
+            }
         }
 
 

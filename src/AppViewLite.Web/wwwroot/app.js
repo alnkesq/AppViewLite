@@ -1761,6 +1761,22 @@ var postActions = {
         if (nextSeparator?.classList.contains('post-group-separator')) nextSeparator.remove();
         node.remove();
     },
+    hideThreadReply: async function (did, rkey, node, button) { 
+        node.classList.add('post-blocked');
+        if (!node.querySelector('.post-blur-reason')) {
+            const blockReason = document.createElement('div');
+            blockReason.className = 'post-blur-reason';
+            blockReason.textContent = 'This reply was hidden by the thread author.';
+            const blockReasonContainer = document.createElement('div');
+            blockReasonContainer.className = 'post-blur-reason-container';
+            blockReasonContainer.appendChild(blockReason);
+            const pos = node.querySelector('.post-author-image-link-container');
+            if (pos)
+                pos.parentElement.insertBefore(blockReasonContainer, pos);
+        }
+        await httpPost('HideThreadReply', { did, rkey });
+        button.remove();
+    },
     copyPostUrl: async function (did, rkey) { 
         navigator.clipboard.writeText(location.origin + '/@' + did + '/' + rkey)
     },

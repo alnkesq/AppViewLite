@@ -96,6 +96,11 @@ namespace AppViewLite.Web
         {
             await apis.DeletePostAsync(Tid.Parse(rkey.Rkey), ctx);
         }
+        [HttpPost(nameof(HideThreadReply))]
+        public async Task HideThreadReply([FromBody] DidAndRKey postId)
+        {
+            await apis.HideThreadReply(postId.Did, Tid.Parse(postId.Rkey), ctx);
+        }
         [HttpPost(nameof(DeleteFollow))]
         public async Task DeleteFollow([FromBody] DidAndRKey args)
         {

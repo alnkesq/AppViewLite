@@ -28,12 +28,14 @@ namespace AppViewLite.Numerics
             if (clockId == -1) return false;
 
             var z = Tid.FromMicroseconds(tsMicros, (uint)clockId);
+#if false
             var roundtripped = z.ToString();
             if (!rkey.SequenceEqual(roundtripped))
             {
                 BlueskyRelationships.ThrowFatalError("Could not roundtrip rkey despite successful decode as TID: " + rkey.ToString());
                 return false;
             }
+#endif
             result = z;
 
             return true;

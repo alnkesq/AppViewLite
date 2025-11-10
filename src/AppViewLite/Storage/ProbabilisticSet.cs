@@ -180,7 +180,7 @@ namespace AppViewLite
                     if (1 - p > desiredDefinitelyNotExistsRatio)
                     {
                         var recommendedSizeInMegabytes = recommendedSizeInBytes / (1024 * 1024);
-                        context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedSizeInMegabytes}@{k}."); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
+                        context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedSizeInMegabytes}@{k}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
                         break;
                     }
                 }

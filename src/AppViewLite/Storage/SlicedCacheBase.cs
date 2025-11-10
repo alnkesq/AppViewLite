@@ -64,9 +64,17 @@ namespace AppViewLite.Storage
         public sealed override void OnSliceAdded(int insertedAt, CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice)
         {
             var cachePath = GetCachePathForSlice(slice);
-            MaterializeCacheFile(slice, cachePath);
+            if (!IsAlreadyMaterialized(cachePath))
+            {
+                MaterializeCacheFileThreadSafe(slice, cachePath);
+            }
             LoadCacheFile(slice, cachePath, insertedAt);
             BumpVersion();
+        }
+        public override void PrematerializeSliceCacheOnBackgroundCompactation(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice)
+        {
+            var cachePath = GetCachePathForSlice(slice);
+            MaterializeCacheFileThreadSafe(slice, cachePath);
         }
         public override void AssertSliceCount(int count)
         {

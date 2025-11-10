@@ -8,12 +8,12 @@ namespace AppViewLite.Storage
         private readonly ProbabilisticSetParameters parameters;
         private readonly ProbabilisticSet<TProbabilisticKey> probabilisticSet;
         private readonly string baseIdentifier;
-        private readonly Func<TKey, TValue, TProbabilisticKey> getProbabilisticKey;
-        public DelegateProbabilisticCache(string baseIdentifier, ProbabilisticSetParameters parameters, Func<TKey, TValue, TProbabilisticKey> getProbabilisticKey)
+        private readonly Func<TKey, TValue, TProbabilisticKey> getProbabilisticKeyThreadSafe;
+        public DelegateProbabilisticCache(string baseIdentifier, ProbabilisticSetParameters parameters, Func<TKey, TValue, TProbabilisticKey> getProbabilisticKeyThreadSafe)
         {
             this.baseIdentifier = baseIdentifier;
             this.parameters = parameters;
-            this.getProbabilisticKey = getProbabilisticKey;
+            this.getProbabilisticKeyThreadSafe = getProbabilisticKeyThreadSafe;
             this.probabilisticSet = new(parameters);
         }
 
@@ -31,7 +31,7 @@ namespace AppViewLite.Storage
             ReadInto(slice, probabilisticSet);
         }
 
-        public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string destination)
+        public override void MaterializeCacheFileThreadSafe(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string destination)
         {
             var cache = new ProbabilisticSet<TProbabilisticKey>(parameters);
             ReadInto(slice, cache);
@@ -46,7 +46,7 @@ namespace AppViewLite.Storage
                 var valueSpan = group.Values.Span;
                 for (long i = 0; i < valueSpan.Length; i++)
                 {
-                    cache.Add(getProbabilisticKey(target, valueSpan[i]));
+                    cache.Add(getProbabilisticKeyThreadSafe(target, valueSpan[i]));
                 }
             }
         }
@@ -65,7 +65,7 @@ namespace AppViewLite.Storage
 
         public override void Add(TKey key, TValue value)
         {
-            probabilisticSet.Add(getProbabilisticKey(key, value));
+            probabilisticSet.Add(getProbabilisticKeyThreadSafe(key, value));
         }
 
         public override object? GetCounters()

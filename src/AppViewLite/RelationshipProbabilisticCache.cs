@@ -28,7 +28,7 @@ namespace AppViewLite
             ReadInto(slice, probabilisticSet);
         }
 
-        public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, string destination)
+        public override void MaterializeCacheFileThreadSafe(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, string destination)
         {
             var cache = new ProbabilisticSet<(TTarget, Plc)>(parameters);
             ReadInto(slice, cache);

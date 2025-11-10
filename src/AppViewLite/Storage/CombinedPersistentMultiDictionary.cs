@@ -425,7 +425,7 @@ namespace AppViewLite.Storage
                     if (!cache.IsAlreadyMaterialized(cachePath))
                     {
                         Log("Materializing cache: " + cachePath);
-                        cache.MaterializeCacheFile(slice, cachePath);
+                        cache.MaterializeCacheFileThreadSafe(slice, cachePath);
                     }
 
                     Log("Reading cache: " + cachePath);
@@ -712,6 +712,14 @@ namespace AppViewLite.Storage
                     }
                     writtenBytes = writer.CommitAndGetSize();
                     mergedSliceInfo = new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior, GetIoPreferenceForKeyFunc)));
+
+                    if (Caches != null)
+                    {
+                        foreach (var cache in Caches)
+                        {
+                            cache.PrematerializeSliceCacheOnBackgroundCompactation(mergedSliceInfo);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1741,7 +1749,7 @@ namespace AppViewLite.Storage
 
             public string GetCachePathForSlice(SliceInfo slice) => slice.Reader.PathPrefix + "." + Identifier + ".cache";
 
-            public abstract void MaterializeCacheFile(SliceInfo slice, string destination);
+            public abstract void MaterializeCacheFileThreadSafe(SliceInfo slice, string destination);
 
             public abstract void LoadCacheFile(SliceInfo slice, string cachePath, int sliceIndex);
 
@@ -1752,6 +1760,7 @@ namespace AppViewLite.Storage
                 return File.Exists(cachePath);
             }
 
+            public virtual void PrematerializeSliceCacheOnBackgroundCompactation(SliceInfo slice) { }
             public virtual void OnSliceAdded(int insertedAt, SliceInfo slice) { }
             public virtual void OnSliceRemoved(int removedAt) { }
             public virtual void AssertSliceCount(int count) { }

@@ -14,13 +14,13 @@ namespace AppViewLite.Storage
     {
         private readonly string identifier;
         private readonly PersistentDictionaryBehavior behavior;
-        private readonly Action<ImmutableMultiDictionaryReader<TKey, TValue>, ImmutableMultiDictionaryWriter<TCacheKey, TCacheValue>> materialize;
-        public WhereSelectCache(string identifier, PersistentDictionaryBehavior behavior, Func<TKey, DangerousHugeReadOnlyMemory<TValue>, (TCacheKey CacheKey, TCacheValue[] CacheValues)> func)
+        private readonly Action<ImmutableMultiDictionaryReader<TKey, TValue>, ImmutableMultiDictionaryWriter<TCacheKey, TCacheValue>> materializeThreadSafe;
+        public WhereSelectCache(string identifier, PersistentDictionaryBehavior behavior, Func<TKey, DangerousHugeReadOnlyMemory<TValue>, (TCacheKey CacheKey, TCacheValue[] CacheValues)> funcThreadSafe)
             : this(identifier, behavior, (reader, writer) =>
             {
                 foreach (var item in reader.Enumerate())
                 {
-                    var result = func(item.Key, item.Values);
+                    var result = funcThreadSafe(item.Key, item.Values);
                     if (result.CacheValues != null)
                     {
                         writer.AddPresorted(result.CacheKey, result.CacheValues.AsSpan());
@@ -30,11 +30,11 @@ namespace AppViewLite.Storage
         {
 
         }
-        public WhereSelectCache(string identifier, PersistentDictionaryBehavior behavior, Action<ImmutableMultiDictionaryReader<TKey, TValue>, ImmutableMultiDictionaryWriter<TCacheKey, TCacheValue>> materialize)
+        public WhereSelectCache(string identifier, PersistentDictionaryBehavior behavior, Action<ImmutableMultiDictionaryReader<TKey, TValue>, ImmutableMultiDictionaryWriter<TCacheKey, TCacheValue>> materializeThreadSafe)
         {
             this.identifier = identifier;
             this.behavior = behavior;
-            this.materialize = materialize;
+            this.materializeThreadSafe = materializeThreadSafe;
         }
         public override string Identifier => identifier;
 
@@ -42,10 +42,10 @@ namespace AppViewLite.Storage
         {
             return File.Exists(cachePath + ".col0.dat");
         }
-        public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string destination)
+        public override void MaterializeCacheFileThreadSafe(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string destination)
         {
             using var writer = new ImmutableMultiDictionaryWriter<TCacheKey, TCacheValue>(destination, behavior);
-            materialize(slice.Reader, writer);
+            materializeThreadSafe(slice.Reader, writer);
             writer.CommitAndGetSize();
         }
 

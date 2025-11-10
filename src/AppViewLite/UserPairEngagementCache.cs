@@ -21,7 +21,7 @@ namespace AppViewLite
         {
             return File.Exists(cachePath + ".col2.dat");
         }
-        public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo slice, string destination)
+        public override void MaterializeCacheFileThreadSafe(CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo slice, string destination)
         {
             using var dest = new ImmutableMultiDictionaryWriter<Plc, UserEngagementStats>(destination, PersistentDictionaryBehavior.SortedValues);
             var userStats = new Dictionary<Plc, UserEngagementStats>();

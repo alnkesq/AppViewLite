@@ -530,6 +530,11 @@
                                 <button actionkind="muteDomain" class="menu-item" data-mutedomain="@externalDomainForMute" data-ismuted="@(isMutedByDomain ? "1" : "0")">@(isMutedByDomain ? "Unmute" : "Mute") links to @externalDomainForMute</button>
                             }
 
+                            if (Post.PluggableProtocol == null && (Post.IsReply || Post.ReplyCount != 0))
+                            {
+                                <button actionkind="muteThread" class="menu-item" data-threaddid="@Post.RootPostDid" data-threadrkey="@Post.RootPostId.PostRKey.ToString()">Mute this thread</button>
+                            }
+
                             if (Post.Data?.Text != null)
                             {
                                 <a href="/settings/mute?did=@(Uri.EscapeDataString(ReposterOrAuthor.Did) + (Post.Data.PluggableAuthor != null ? "&word=u:" + Uri.EscapeDataString(Post.Data.PluggableAuthor) : null))" class="menu-item">Specify words to mute…</a>

@@ -4784,6 +4784,7 @@ namespace AppViewLite
                     profileProto.Sessions ??= [];
                     profileProto.PrivateFollows ??= [];
                     profileProto.FeedSubscriptions ??= [];
+                    profileProto.MutedThreads ??= [];
                     profileProto.LabelerSubscriptions ??= [];
 
                     userContext = new AppViewLiteUserContext

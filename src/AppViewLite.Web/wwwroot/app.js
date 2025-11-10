@@ -1799,6 +1799,11 @@ var postActions = {
     togglePrivateFollow: async function (did, rkey, postElement, toggleButton) { 
         await togglePrivateFollow(did, toggleButton, postElement);
     },
+    muteThread: async function (did, rkey, postElement, muteButton) {
+        await httpPost('MuteThread', { did: muteButton.dataset.threaddid, rkey: muteButton.dataset.threadrkey });
+        muteButton.remove();
+        postElement.classList.toggle('post-muted', true);
+    },
     muteDomain: async function (did, rkey, postElement, muteButton) { 
         var domain = muteButton.dataset.mutedomain;
         var muted = muteButton.dataset.ismuted == '1';

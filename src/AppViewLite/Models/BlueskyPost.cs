@@ -157,6 +157,11 @@ namespace AppViewLite.Models
         public MuteRule? MutedByRule;
         internal bool ShouldMuteCore(RequestContext ctx)
         {
+            if (ctx.IsLoggedIn)
+            {
+                if (ctx.PrivateProfile.MutedThreads.Contains(new PostIdProto(this.RootPostId.Author.PlcValue, this.RootPostId.PostRKey.TidValue)))
+                    return true;
+            }
             if (RepostedBy != null)
             {
                 if (IsSelfRepost)

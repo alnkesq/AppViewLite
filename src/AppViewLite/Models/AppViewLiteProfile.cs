@@ -24,6 +24,7 @@ namespace AppViewLite.Models
         [ProtoMember(11)] public bool ImportedFollows;
         [ProtoMember(12)] public bool AlwaysPreferBookmarkButton;
         [ProtoMember(13)] public string? LastPostLanguage;
+        [ProtoMember(14)] public HashSet<PostIdProto> MutedThreads = null!;
 
         public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
         public ObjectIdentityBasedCache<MuteRule[], Func<string?, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;
@@ -211,5 +212,8 @@ namespace AppViewLite.Models
         [ProtoMember(4)] public required ModerationBehavior Behavior;
         [ProtoMember(5)] public string? OverrideDisplayName;
     }
+
+    [ProtoContract]
+    public record struct PostIdProto([field: ProtoMember(1)] int Plc, [field: ProtoMember(2)] long RKey);
 }
 

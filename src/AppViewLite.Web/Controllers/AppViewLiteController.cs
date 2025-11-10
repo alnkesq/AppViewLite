@@ -133,6 +133,14 @@ namespace AppViewLite.Web
             apis.ToggleDomainMute(args.Domain, args.Mute, ctx);
         }
 
+        [HttpPost(nameof(MuteThread))]
+        public void MuteThread([FromBody] DidAndRKey threadId)
+        {
+            var plc = apis.SerializeSingleDid(threadId.Did, ctx);
+            ctx.PrivateProfile.MutedThreads = ctx.PrivateProfile.MutedThreads.Append(new PostIdProto(plc.PlcValue, Tid.Parse(threadId.Rkey).TidValue)).ToHashSet();
+            apis.SaveAppViewLiteProfile(ctx);
+        }
+
         [HttpPost(nameof(MarkLastSeenNotification))]
         public void MarkLastSeenNotification([FromBody] NotificationIdArgs notificationId)
         {

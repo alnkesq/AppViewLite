@@ -759,15 +759,23 @@ namespace AppViewLite
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
                 .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()));
+
+            var tablesWithPendingCompactations = AllMultidictionaries.Where(x => x.HasPendingCompactation).Select(x => x.Name).ToHashSet();
+
             foreach (var rootOrAdditionalDirectory in RootDirectoriesToGcCollect)
             {
                 foreach (var table in keep)
                 {
                     var directory = new DirectoryInfo(Path.Combine(rootOrAdditionalDirectory, table.TableName));
                     if (!directory.Exists) continue;
+
+                    if (tablesWithPendingCompactations.Contains(table.TableName))
+                        continue;
+
                     foreach (var file in directory.EnumerateFiles())
                     {
                         var name = file.Name;
+
                         if (name.EndsWith(".tmp", StringComparison.Ordinal))
                         {
                             if (allowTempFileDeletion) file.Delete();

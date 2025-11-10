@@ -696,6 +696,8 @@ namespace AppViewLite.Storage
             var inputSlices = inputs.Select(x => x.ReaderHandle.AddRef()).ToArray(); // AddRef, so that disposing the whole database while a compactation is running doesn't create access violations on the compactation thread.
             var sw = Stopwatch.StartNew();
 
+            long writtenBytes = 0;
+            SliceInfo mergedSliceInfo = default;
             var compactationThread = Task.Factory.StartNew(() =>
             {
                 try
@@ -708,6 +710,8 @@ namespace AppViewLite.Storage
                     {
                         handle.Dispose();
                     }
+                    writtenBytes = writer.CommitAndGetSize();
+                    mergedSliceInfo = new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior, GetIoPreferenceForKeyFunc)));
                 }
                 catch (Exception ex)
                 {
@@ -719,8 +723,7 @@ namespace AppViewLite.Storage
                 return new Action(() =>
                 {
                     // Here we are again inside the lock.
-                    var size = writer.CommitAndGetSize(); // Writer disposal (*.dat.tmp -> *.dat) must happen inside the lock, otherwise old slice GC might see an unused slice and delete it. .tmp files are exempt (except at startup)
-                    CompactationWriteBytes += size;
+                    CompactationWriteBytes += writtenBytes;
                     Log("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
 
                     Assert(this.slices.ToArray().AsSpan().StartsWith(allOriginalSlices));
@@ -740,7 +743,7 @@ namespace AppViewLite.Storage
 
                     // Note: Flushes/slices.Add() can happen even during the compactation.
                     slices.RemoveRange(groupStart, groupLength);
-                    slices.Insert(groupStart, new SliceInfo(mergedStartTime, mergedEndTime, mergedPruneId, new(new(mergedPrefix, behavior, GetIoPreferenceForKeyFunc))));
+                    slices.Insert(groupStart, mergedSliceInfo);
                     NotifyCachesSliceAdded(groupStart);
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);

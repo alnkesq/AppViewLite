@@ -73,6 +73,11 @@ namespace AppViewLite.Storage
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
         }
+
+        public override void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
+        {
+            probabilisticSet.CheckProbabilisticSetHealth(context);
+        }
     }
 
 }

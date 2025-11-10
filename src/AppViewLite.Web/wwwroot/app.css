@@ -1818,6 +1818,7 @@ h1 .profile-badge img{
     font-size: 9pt;
     background: var(--warning-background);
     margin-right: 10px;
+    word-wrap: break-word;
 }
 
 .emoji, .custom-emoji {

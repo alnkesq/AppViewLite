@@ -33,6 +33,8 @@ namespace AppViewLite
                 return (double)hit / total;
             }
         }
+
+        public long EventCount => Interlocked.Read(ref hitCount) + Interlocked.Read(ref missCount);
     }
 }
 

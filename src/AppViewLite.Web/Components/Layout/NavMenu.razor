@@ -6,7 +6,7 @@
 
 @code{
     private long NotificationCount;
-    string? Announcement;
+    List<string> Announcements = [];
     private BlueskyProfile[] LoggedInAccounts = [];
     [Parameter] public bool NeedsNotificationCount { get; set; }
     protected override void OnParametersSet()
@@ -14,16 +14,20 @@
         NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext, dark: false) : -1;
         var staleness = Apis.PlcDirectoryStaleness;
 
-        var availableDiskSpace = Apis.primarySecondaryPair.relationshipsUnlocked.AvailableDiskSpace;
+        var relationshipsUnlocked = Apis.primarySecondaryPair.relationshipsUnlocked;
+        var availableDiskSpace = relationshipsUnlocked.AvailableDiskSpace;
 
         if (availableDiskSpace < BlueskyRelationships.WarnOnLowDiskSpace)
         {
-
-            Announcement = $"This instance is running low on disk space ({StringUtils.ToHumanBytes(availableDiskSpace)}).";    
+            Announcements.Add($"This instance is running low on disk space ({StringUtils.ToHumanBytes(availableDiskSpace)}).");
         }
-        else if (staleness.TotalDays >= 7) 
+        if (relationshipsUnlocked.LastProbabilisticSetHealthCheck != null)
         {
-            Announcement = $"The PLC directory is still syncing ({staleness.TotalDays:0.0} days out of date). User search might be incomplete";
+            Announcements.AddRange(relationshipsUnlocked.LastProbabilisticSetHealthCheck.Problems);
+        }
+        if (staleness.TotalDays >= 7)
+        {
+            Announcements.Add($"The PLC directory is still syncing ({staleness.TotalDays:0.0} days out of date). User search might be incomplete");
         }
 
         if (Session.IsLoggedIn)
@@ -46,9 +50,9 @@
 }
 
 <nav>
-    @if (Announcement != null)
+    @foreach (var announcement in Announcements)
     {
-        <div class="sidebar-announcement">@Announcement</div>
+        <div class="sidebar-announcement">@announcement</div>
     }
     @if (Session.IsLoggedIn)
     {

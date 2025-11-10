@@ -74,6 +74,11 @@ namespace AppViewLite
         {
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new NotSupportedException();
         }
+
+        public override void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
+        {
+            probabilisticSet.CheckProbabilisticSetHealth(context);
+        }
     }
 
 }

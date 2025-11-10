@@ -63,6 +63,8 @@ namespace AppViewLite.Storage
             PendingCompactationReadyForCommit?.Invoke();
         }
 
+        public abstract void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context);
+
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
 
@@ -391,6 +393,15 @@ namespace AppViewLite.Storage
 
 
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
+        }
+
+        public override void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
+        {
+            if (Caches == null) return;
+            foreach (var cache in Caches)
+            {
+                cache.CheckProbabilisticSetHealth(context);
+            }
         }
 
         private void AddToCaches(TKey key, TValue value)
@@ -1746,6 +1757,8 @@ namespace AppViewLite.Storage
             public abstract void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior);
 
             public abstract bool CanBeUsedByReplica { get; }
+
+            public abstract void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context);
         }
     }
 

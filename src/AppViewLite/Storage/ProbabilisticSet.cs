@@ -157,12 +157,14 @@ namespace AppViewLite
             {
                 ConfigurationParameterName,
                 DefinitelyNotExistsRatio = RuleOutCounter.HitRatio,
-                SizeInBytes,
+                LastComputedDefinitelyNotExistsRatio,
+                CurrentConfiguration = Parameters.SizeInMegabytes + "@" + Parameters.HashFunctions,
                 LastEstimatedItemCount
             };
         }
 
         public long LastEstimatedItemCount;
+        private double LastComputedDefinitelyNotExistsRatio;
 
         public void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
         {
@@ -177,8 +179,8 @@ namespace AppViewLite
             
             var currentParameters = this.Parameters;
             var currentComputedDefinitelyNotExistsRatio = currentParameters.GetDefinitelyNotExistRatioEstimation(estimatedInsertions);
+            LastComputedDefinitelyNotExistsRatio = currentComputedDefinitelyNotExistsRatio;
             if (currentComputedDefinitelyNotExistsRatio >= desiredDefinitelyNotExistsRatio) return;
-
 
             var n = estimatedInsertions * 1.5;
             var p = 1 - desiredDefinitelyNotExistsRatio;

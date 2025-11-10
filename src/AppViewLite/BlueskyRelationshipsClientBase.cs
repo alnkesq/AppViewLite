@@ -272,6 +272,7 @@ namespace AppViewLite
                     if (!alreadyHasArena)
                         SetupArena();
                     using var _ = SetupCurrentRequestContext(ctx);
+                    ctx.BumpMinimumVersion(relationshipsUnlocked.Version);
                     return func(relationshipsUnlocked);
                 }
                 finally

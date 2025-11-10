@@ -31,6 +31,7 @@ namespace AppViewLite
         public int BitsPerFunction => _bitsPerFunction;
         public int HashFunctions => _hashFunctions;
 
+        public ProbabilisticSetParameters Parameters => new(SizeInBytes, HashFunctions, ConfigurationParameterName);
         
         public ProbabilisticSet(ProbabilisticSetParameters parameters)
             : this(parameters.SizeInBytes, parameters.HashFunctions)
@@ -166,33 +167,62 @@ namespace AppViewLite
         public void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
         {
             var desiredDefinitelyNotExistsRatio = context.MinDesiredDefinitelyNotExistsRatio;
-            if (RuleOutCounter.EventCount >= 50 && RuleOutCounter.HitRatio < desiredDefinitelyNotExistsRatio)
+
+
+            var estimatedInsertions = EstimatedItemCount;
+            LastEstimatedItemCount = estimatedInsertions;
+            estimatedInsertions = Math.Max(1024, estimatedInsertions);
+            
+
+            
+            var currentParameters = this.Parameters;
+            var currentComputedDefinitelyNotExistsRatio = currentParameters.GetDefinitelyNotExistRatioEstimation(estimatedInsertions);
+            if (currentComputedDefinitelyNotExistsRatio >= desiredDefinitelyNotExistsRatio) return;
+
+
+            var n = estimatedInsertions * 1.5;
+            var p = 1 - desiredDefinitelyNotExistsRatio;
+
+            var m = (ulong)Math.Ceiling((n * Math.Log(p)) / Math.Log(1 / Math.Pow(2, Math.Log(2))));
+
+            var k = (int)Math.Round((m / n) * Math.Log(2));
+            m = BitOperations.RoundUpToPowerOf2(m);
+
+            var recommendedParameters = new ProbabilisticSetParameters((long)(m / 8), k);
+            var scenarioDefinitelyNotExistsRatio = recommendedParameters.GetDefinitelyNotExistRatioEstimation((long)n);
+
+
+            context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedParameters.SizeInMegabytes}@{recommendedParameters.HashFunctions}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
+
+
+            if (scenarioDefinitelyNotExistsRatio < desiredDefinitelyNotExistsRatio)
             {
-                var estimatedInsertions = EstimatedItemCount;
-                LastEstimatedItemCount = estimatedInsertions;
-                var recommendedSizeInBytes = this.SizeInBytes;
-                while (true)
-                {
-                    recommendedSizeInBytes *= 2;
-                    recommendedSizeInBytes = Math.Max(recommendedSizeInBytes, 1024 * 1024);
-
-                    var m = recommendedSizeInBytes * 8;
-                    var n = estimatedInsertions * 1.5;
-                    var k = Math.Round(m / n * Math.Log(2));
-                    k = Math.Min(25, k);
-
-                    var p = Math.Pow(1 - Math.Exp(-k / (m / n)), k);
-                    
-                    if (1 - p > desiredDefinitelyNotExistsRatio)
-                    {
-                        var recommendedSizeInMegabytes = recommendedSizeInBytes / (1024 * 1024);
-                        context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedSizeInMegabytes}@{k}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
-                        break;
-                    }
-                }
-                
-                
+                context.Problems.Add($"Minor bug: recommended parameters won't produce desired DefinitelyNotExistsRatio for {ConfigurationParameterName} (EstimatedItemCount={EstimatedItemCount}, scenarioDefinitelyNotExistsRatio={scenarioDefinitelyNotExistsRatio})");
             }
+
+            //var recommendedSizeInBytes = this.SizeInBytes;
+            //var n = (long)(estimatedInsertions * 1.5);
+            //while (true)
+            //{
+            //    recommendedSizeInBytes *= 2;
+            //    recommendedSizeInBytes = Math.Max(recommendedSizeInBytes, 1024 * 1024);
+
+            //    var m = recommendedSizeInBytes * 8;
+            //    var k = (int)Math.Round(m / n * Math.Log(2));
+            //    k = Math.Min(25, k);
+
+            //    var recommendedParameters = new ProbabilisticSetParameters(recommendedSizeInBytes, k);
+            //    var scenarioDefinitelyNotExistsRatio = recommendedParameters.GetDefinitelyNotExistRatioEstimation((long)n);
+
+            //    if (scenarioDefinitelyNotExistsRatio >= desiredDefinitelyNotExistsRatio)
+            //    {
+            //        context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedParameters.SizeInMegabytes}@{recommendedParameters.HashFunctions}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
+            //        break;
+            //    }
+            //}
+
+
+
         }
 
         public long BitsSetTo1
@@ -224,6 +254,13 @@ namespace AppViewLite
     {
         public override string ToString() => GetBitsPerFunction((ulong)SizeInBytes * 8) + "-" + HashFunctions;
         public static int GetBitsPerFunction(ulong arrayLengthInBits) => BitOperations.Log2(arrayLengthInBits);
+
+        public int SizeInMegabytes = (int)(SizeInBytes / (1024 * 1024));
+        public long SizeInBits => SizeInBytes * 8;
+        public double GetDefinitelyNotExistRatioEstimation(long itemCount)
+        {
+            return 1 - Math.Pow(1 - Math.Exp(-HashFunctions / ((double)SizeInBits / itemCount)), HashFunctions);
+        }
     }
 
     public class ProbabilisticSetHealthCheckContext

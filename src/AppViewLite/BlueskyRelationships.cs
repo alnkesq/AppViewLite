@@ -490,6 +490,7 @@ namespace AppViewLite
 
             GarbageCollectOldSlices(allowTempFileDeletion: true);
             UpdateAvailableDiskSpace();
+            CheckProbabilisticSetHealth();
             Log("Database loaded.");
         }
 

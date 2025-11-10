@@ -331,11 +331,6 @@ namespace AppViewLite.Web
                     Task.Run(() => pluggableProtocol.DiscoverAsync(relationships.ShutdownRequested)).FireAndForget();
                 }
 
-                Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(_ =>
-                {
-                    apis.WithRelationshipsWriteLock(rels => rels.CheckProbabilisticSetHealth(), RequestContext.CreateForFirehose("InitialProbabilisticSetHealthCheck"));
-                }).FireAndForget();
-
             }
 
 

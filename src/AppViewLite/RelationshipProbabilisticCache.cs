@@ -6,17 +6,15 @@ namespace AppViewLite
 {
     public class RelationshipProbabilisticCache<TTarget> : CombinedPersistentMultiDictionary<TTarget, Relationship>.CachedView where TTarget : unmanaged, IComparable<TTarget>
     {
-        private readonly long sizeInBytes;
-        private readonly int hashFunctions;
+        private readonly ProbabilisticSetParameters parameters;
         private readonly ProbabilisticSet<(TTarget, Plc)> probabilisticSet;
-        public RelationshipProbabilisticCache(long sizeInBytes, int hashFunctions)
+        public RelationshipProbabilisticCache(ProbabilisticSetParameters parameters)
         {
-            this.sizeInBytes = sizeInBytes;
-            this.hashFunctions = hashFunctions;
-            this.probabilisticSet = new(sizeInBytes, hashFunctions);
+            this.parameters = parameters;
+            this.probabilisticSet = new(parameters);
         }
 
-        public override string Identifier => "relset-" + probabilisticSet.BitsPerFunction + "-" + hashFunctions;
+        public override string Identifier => "relset-" + parameters;
 
         public override bool CanBeUsedByReplica => true;
 
@@ -32,7 +30,7 @@ namespace AppViewLite
 
         public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, string destination)
         {
-            var cache = new ProbabilisticSet<(TTarget, Plc)>(sizeInBytes, hashFunctions);
+            var cache = new ProbabilisticSet<(TTarget, Plc)>(parameters);
             ReadInto(slice, cache);
             ProbabilisticSetIo.WriteCompressedProbabilisticSetToFile(destination, cache);
         }

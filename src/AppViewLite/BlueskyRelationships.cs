@@ -279,7 +279,7 @@ namespace AppViewLite
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-6", PersistentDictionaryBehavior.KeySetOnly);
             PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
             var plcDirectoryIsReasonablyUpToDate = PlcDirectoryStaleness.TotalHours < 6;
-            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap, caches: plcDirectoryIsReasonablyUpToDate ? [] : [new KeyProbabilisticCache<DuckDbUuid, Plc>(128 * 1024 * 1024, 7)]);
+            DidHashToUserId = RegisterDictionary<DuckDbUuid, Plc>("did-hash-to-user-id", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap, caches: plcDirectoryIsReasonablyUpToDate ? [] : [new KeyProbabilisticCache<DuckDbUuid, Plc>(CreateProbabilisticSetParameters(128 * 1024 * 1024, 7))]);
             PlcToDidPlc = RegisterDictionary<Plc, UInt128>("plc-to-did-plc", PersistentDictionaryBehavior.SingleValue);
             PlcToDidOther = RegisterDictionary<Plc, byte>("plc-to-did-other", PersistentDictionaryBehavior.PreserveOrder);
             PdsIdToString = RegisterDictionary<Pds, byte>("pds-id-to-string", PersistentDictionaryBehavior.PreserveOrder);
@@ -288,8 +288,8 @@ namespace AppViewLite
 
             Likes = RegisterRelationshipDictionary<PostIdTimeFirst>("post-like-time-first", GetApproxTime24); //, new(1024 * 1024 * 1024, 6));
             Reposts = RegisterRelationshipDictionary<PostIdTimeFirst>("post-repost-time-first", GetApproxTime24); //, new(256 * 1024 * 1024, 10));
-            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new(512 * 1024 * 1024, 3), _ => MultiDictionaryIoPreference.KeysAndOffsetsMmap, deletionProbabilisticCache: new KeyProbabilisticCache<Relationship, DateTime>(128 * 1024 * 1024, 4), zeroApproxTargetsAreValid: true);
-            Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24, new(64 * 1024 * 1024, 4), zeroApproxTargetsAreValid: true);
+            Follows = RegisterRelationshipDictionary<Plc>("follow", GetApproxPlc24, new(CreateProbabilisticSetParameters(512 * 1024 * 1024, 3)), _ => MultiDictionaryIoPreference.KeysAndOffsetsMmap, deletionProbabilisticCache: new KeyProbabilisticCache<Relationship, DateTime>(CreateProbabilisticSetParameters(128 * 1024 * 1024, 4)), zeroApproxTargetsAreValid: true);
+            Blocks = RegisterRelationshipDictionary<Plc>("block", GetApproxPlc24, new(CreateProbabilisticSetParameters(64 * 1024 * 1024, 4)), zeroApproxTargetsAreValid: true);
 
             Bookmarks = RegisterDictionary<Plc, BookmarkPostFirst>("bookmark");
             RecentBookmarks = RegisterDictionary<Plc, BookmarkDateFirst>("bookmark-recent");
@@ -311,7 +311,7 @@ namespace AppViewLite
             FailedPostLookups = RegisterDictionary<PostId, DateTime>("post-data-failed");
             FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");
 
-            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item", caches: [new DelegateProbabilisticCache<Relationship, ListEntry, (Relationship, Plc)>("member", 32 * 1024 * 1024, 6, (k, v) => (k, v.Member))]);
+            ListItems = RegisterDictionary<Relationship, ListEntry>("list-item", caches: [new DelegateProbabilisticCache<Relationship, ListEntry, (Relationship, Plc)>("member", CreateProbabilisticSetParameters(32 * 1024 * 1024, 6), (k, v) => (k, v.Member))]);
             ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
             ListMemberships = RegisterDictionary<Plc, ListMembership>("list-membership-2");
 
@@ -320,7 +320,7 @@ namespace AppViewLite
 
             Threadgates = RegisterDictionary<PostIdTimeFirst, byte>("threadgate-2", PersistentDictionaryBehavior.PreserveOrder);
             Postgates = RegisterDictionary<PostIdTimeFirst, byte>("postgate-2", PersistentDictionaryBehavior.PreserveOrder);
-            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", 2 * 1024 * 1024, 6, (k, v) => k.Actor)], getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
+            ListBlocks = RegisterDictionary<Relationship, Relationship>("list-block", PersistentDictionaryBehavior.SingleValue, caches: [new DelegateProbabilisticCache<Relationship, Relationship, Plc>("blocklist-subscriber", CreateProbabilisticSetParameters(2 * 1024 * 1024, 6), (k, v) => k.Actor)], getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
             ListBlockDeletions = RegisterDictionary<Relationship, DateTime>("list-block-deletion", PersistentDictionaryBehavior.SingleValue);
             ListSubscribers = RegisterDictionary<Relationship, Relationship>("list-subscribers", PersistentDictionaryBehavior.SingleValue);
 
@@ -362,7 +362,7 @@ namespace AppViewLite
             HandleToPossibleDids = RegisterDictionary<HashedWord, Plc>("handle-to-possible-dids");
             HandleToDidVerifications = RegisterDictionary<DuckDbUuid, HandleVerificationResult>("handle-verifications", getIoPreferenceForKey: x => MultiDictionaryIoPreference.AllMmap);
 
-            PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label", caches: [new KeyProbabilisticCache<PostId, LabelEntry>(32 * 1024 * 1024, 9)]);
+            PostLabels = RegisterDictionary<PostId, LabelEntry>("post-label", caches: [new KeyProbabilisticCache<PostId, LabelEntry>(CreateProbabilisticSetParameters(32 * 1024 * 1024, 9))]);
             ProfileLabels = RegisterDictionary<Plc, LabelEntry>("profile-label");
             LabelToPosts = RegisterDictionary<LabelId, PostIdTimeFirst>("label-to-posts");
             LabelToProfiles = RegisterDictionary<LabelId, Plc>("label-to-profiles");
@@ -371,7 +371,7 @@ namespace AppViewLite
 
             CustomEmojis = RegisterDictionary<DuckDbUuid, byte>("custom-emoji", PersistentDictionaryBehavior.PreserveOrder);
             KnownMirrorsToIgnore = RegisterDictionary<DuckDbUuid, byte>("known-mirror-ignore", PersistentDictionaryBehavior.KeySetOnly);
-            ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue, caches: [new KeyProbabilisticCache<DuckDbUuid, Tid>(128 * 1024 * 1024, 3)]);
+            ExternalPostIdHashToSyntheticTid = RegisterDictionary<DuckDbUuid, Tid>("external-post-id-to-synth-tid", PersistentDictionaryBehavior.SingleValue, caches: [new KeyProbabilisticCache<DuckDbUuid, Tid>(CreateProbabilisticSetParameters(128 * 1024 * 1024, 3))]);
             SeenPosts = RegisterDictionary<Plc, PostEngagement>("seen-posts-2", onCompactation: CompactPostEngagements, caches: [UserPairEngagementCache], cachesAreMandatory: true);
             SeenPostsByDate = RegisterDictionary<Plc, TimePostSeen>("seen-posts-by-date");
             RssRefreshInfos = RegisterDictionary<Plc, byte>("rss-refresh-info", PersistentDictionaryBehavior.PreserveOrder);
@@ -488,6 +488,11 @@ namespace AppViewLite
             GarbageCollectOldSlices(allowTempFileDeletion: true);
             UpdateAvailableDiskSpace();
             Log("Database loaded.");
+        }
+
+        private static ProbabilisticSetParameters CreateProbabilisticSetParameters(long sizeInBytes, int hashFunctions)
+        {
+            return new ProbabilisticSetParameters(sizeInBytes, hashFunctions);
         }
 
         private static void Migrate<TValue>(CombinedPersistentMultiDictionary<PostIdTimeFirst, TValue> newTable, CombinedPersistentMultiDictionary<PostId, TValue> oldTable) where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>

@@ -26,6 +26,11 @@ namespace AppViewLite
 
         public HitMissCounter RuleOutCounter = new HitMissCounter();
 
+        public ProbabilisticSet(ProbabilisticSetParameters parameters)
+            : this(parameters.SizeInBytes, parameters.HashFunctions)
+        { 
+        
+        }
         public ProbabilisticSet(long sizeInBytes, int hashFunctions)
             : this(new ulong[checked((int)(sizeInBytes / BYTES_PER_WORD))], hashFunctions)
         {
@@ -34,7 +39,7 @@ namespace AppViewLite
         {
             if (!BitOperations.IsPow2(array.Length)) throw new ArgumentException();
             var arrayLengthInBits = (ulong)array.Length * BITS_PER_WORD;
-            _bitsPerFunction = BitOperations.Log2(arrayLengthInBits);
+            _bitsPerFunction = ProbabilisticSetParameters.GetBitsPerFunction(arrayLengthInBits);
             Array = array;
             _hashFunctions = hashFunctions;
             _getFunctionBitsMask = (1ul << _bitsPerFunction) - 1;
@@ -147,6 +152,12 @@ namespace AppViewLite
                 SizeInBytes
             };
         }
+    }
+
+    public record struct ProbabilisticSetParameters(long SizeInBytes, int HashFunctions)
+    {
+        public override string ToString() => GetBitsPerFunction((ulong)SizeInBytes * 8) + "-" + HashFunctions;
+        public static int GetBitsPerFunction(ulong arrayLengthInBits) => BitOperations.Log2(arrayLengthInBits);
     }
 }
 

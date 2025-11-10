@@ -5,21 +5,19 @@ namespace AppViewLite.Storage
 {
     public class DelegateProbabilisticCache<TKey, TValue, TProbabilisticKey> : CombinedPersistentMultiDictionary<TKey, TValue>.CachedView where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue> where TProbabilisticKey : unmanaged
     {
-        private readonly long sizeInBytes;
-        private readonly int hashFunctions;
+        private readonly ProbabilisticSetParameters parameters;
         private readonly ProbabilisticSet<TProbabilisticKey> probabilisticSet;
         private readonly string baseIdentifier;
         private readonly Func<TKey, TValue, TProbabilisticKey> getProbabilisticKey;
-        public DelegateProbabilisticCache(string baseIdentifier, long sizeInBytes, int hashFunctions, Func<TKey, TValue, TProbabilisticKey> getProbabilisticKey)
+        public DelegateProbabilisticCache(string baseIdentifier, ProbabilisticSetParameters parameters, Func<TKey, TValue, TProbabilisticKey> getProbabilisticKey)
         {
             this.baseIdentifier = baseIdentifier;
-            this.sizeInBytes = sizeInBytes;
-            this.hashFunctions = hashFunctions;
+            this.parameters = parameters;
             this.getProbabilisticKey = getProbabilisticKey;
-            this.probabilisticSet = new(sizeInBytes, hashFunctions);
+            this.probabilisticSet = new(parameters);
         }
 
-        public override string Identifier => baseIdentifier + "-" + probabilisticSet.BitsPerFunction + "-" + hashFunctions;
+        public override string Identifier => baseIdentifier + "-" + parameters;
 
         public override bool CanBeUsedByReplica => true;
 
@@ -35,7 +33,7 @@ namespace AppViewLite.Storage
 
         public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string destination)
         {
-            var cache = new ProbabilisticSet<TProbabilisticKey>(sizeInBytes, hashFunctions);
+            var cache = new ProbabilisticSet<TProbabilisticKey>(parameters);
             ReadInto(slice, cache);
             ProbabilisticSetIo.WriteCompressedProbabilisticSetToFile(destination, cache);
         }

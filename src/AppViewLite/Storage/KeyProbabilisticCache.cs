@@ -5,17 +5,15 @@ namespace AppViewLite.Storage
 {
     public class KeyProbabilisticCache<TKey, TValue> : CombinedPersistentMultiDictionary<TKey, TValue>.CachedView where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
-        private readonly long sizeInBytes;
-        private readonly int hashFunctions;
+        private readonly ProbabilisticSetParameters parameters;
         private readonly ProbabilisticSet<TKey> probabilisticSet;
-        public KeyProbabilisticCache(long sizeInBytes, int hashFunctions)
+        public KeyProbabilisticCache(ProbabilisticSetParameters parameters)
         {
-            this.sizeInBytes = sizeInBytes;
-            this.hashFunctions = hashFunctions;
-            this.probabilisticSet = new(sizeInBytes, hashFunctions);
+            this.parameters = parameters;
+            this.probabilisticSet = new(parameters);
         }
 
-        public override string Identifier => "k-" + probabilisticSet.BitsPerFunction + "-" + hashFunctions;
+        public override string Identifier => "k-" + parameters;
 
         public override bool CanBeUsedByReplica => true;
 
@@ -31,7 +29,7 @@ namespace AppViewLite.Storage
 
         public override void MaterializeCacheFile(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, string destination)
         {
-            var cache = new ProbabilisticSet<TKey>(sizeInBytes, hashFunctions);
+            var cache = new ProbabilisticSet<TKey>(parameters);
             ReadInto(slice, cache);
             ProbabilisticSetIo.WriteCompressedProbabilisticSetToFile(destination, cache);
         }

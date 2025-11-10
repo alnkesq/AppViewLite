@@ -17,7 +17,7 @@
 
 @{
     var types = AppViewLiteInit.GlobalPerformanceStatsByOperation.Select(x => (x.Key.RequestContextKind, x.Key.TableName, x.Key.Operation, x.Value.Count, x.Value.Total)).OrderByDescending(x => x.Total.StopwatchTicks).ToArray();
-
+    var totalTime = types.Sum(x => x.Total.StopwatchTicks);
 }
 
 <table class="debug-table">
@@ -25,6 +25,7 @@
         <th>Context type</th>
         <th>Table</th>
         <th>Operation</th>
+        <th>Time (%)</th>
         <th>Time</th>
         <th>Seek time</th>
         <th>IO Read bytes</th>
@@ -40,6 +41,7 @@
             <td>@row.RequestContextKind</td>
             <td style="background-color: @color">@row.TableName</td>
             <td style="background-color: @color">@row.Operation</td>
+            <td>@(Math.Round(100.0 * row.Total.StopwatchTicks / totalTime))%</td>
             <td>@StringUtils.ToHumanTimeSpanPrecise(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(row.Total.StopwatchTicks))</td>
             <td>@StringUtils.ToHumanTimeSpanPrecise(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(row.Total.SeekStopwatchTicks))</td>
             <td>@StringUtils.ToHumanBytes(row.Total.IoReadBytes)</td>

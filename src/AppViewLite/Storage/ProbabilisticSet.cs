@@ -156,9 +156,12 @@ namespace AppViewLite
             {
                 ConfigurationParameterName,
                 DefinitelyNotExistsRatio = RuleOutCounter.HitRatio,
-                SizeInBytes
+                SizeInBytes,
+                LastEstimatedItemCount
             };
         }
+
+        public long LastEstimatedItemCount;
 
         public void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
         {
@@ -166,6 +169,7 @@ namespace AppViewLite
             if (RuleOutCounter.EventCount >= 50 && RuleOutCounter.HitRatio < desiredDefinitelyNotExistsRatio)
             {
                 var estimatedInsertions = EstimatedItemCount;
+                LastEstimatedItemCount = estimatedInsertions;
                 var recommendedSizeInBytes = this.SizeInBytes;
                 while (true)
                 {

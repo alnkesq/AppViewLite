@@ -175,6 +175,8 @@ namespace AppViewLite
                     var m = recommendedSizeInBytes * 8;
                     var n = estimatedInsertions * 1.5;
                     var k = Math.Round(m / n * Math.Log(2));
+                    k = Math.Min(25, k);
+
                     var p = Math.Pow(1 - Math.Exp(-k / (m / n)), k);
                     
                     if (1 - p > desiredDefinitelyNotExistsRatio)

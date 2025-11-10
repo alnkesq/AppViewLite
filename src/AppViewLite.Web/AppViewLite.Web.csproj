@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FishyFlip.Xrpc" Version="4.1.0-alpha.21" />
+    <PackageReference Include="FishyFlip.Xrpc" Version="4.1.0" />
   </ItemGroup>
 
 </Project>

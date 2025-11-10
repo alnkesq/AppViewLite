@@ -725,7 +725,7 @@ namespace AppViewLite.Storage
                     // Here we are again inside the lock.
                     CompactationWriteBytes += writtenBytes;
                     Log("Compact (" + sw.Elapsed + ") " + Path.GetFileName(DirectoryPath) + ": " + string.Join(" + ", inputs.Select(x => ToHumanBytes(x.SizeInBytes))) + " => " + ToHumanBytes(inputs.Sum(x => x.SizeInBytes)) + " -- largest: " + compactationCandidate.RatioOfLargestComponent.ToString("0.00"));
-
+                    Assert(File.Exists(mergedSliceInfo.Reader.safeFileHandleKeys.Path)); // Assert that it was not unlinked during slice garbage collection
                     Assert(this.slices.ToArray().AsSpan().StartsWith(allOriginalSlices));
 
                     foreach (var input in inputs)

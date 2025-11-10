@@ -18,7 +18,7 @@ namespace AppViewLite.Storage
         private readonly PersistentDictionaryBehavior behavior;
         private DangerousHugeReadOnlyMemory<TKey> pageKeys;
         private readonly MemoryMappedFileSlim? pageKeysMmap;
-        private readonly MemoryMappedFileSlim safeFileHandleKeys;
+        internal readonly MemoryMappedFileSlim safeFileHandleKeys;
         private readonly MemoryMappedFileSlim? safeFileHandleValues;
         private readonly MemoryMappedFileSlim? safeFileHandleOffsets;
 

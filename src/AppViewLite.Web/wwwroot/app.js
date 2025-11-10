@@ -1760,6 +1760,8 @@ var postActions = {
         var nextSeparator = node.nextElementSibling;
         if (nextSeparator?.classList.contains('post-group-separator')) nextSeparator.remove();
         node.remove();
+        if (!document.querySelector('.post'))
+            fastNavigateTo('/');
     },
     hideThreadReply: async function (did, rkey, node, button) { 
         node.classList.add('post-blocked');

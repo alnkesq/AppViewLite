@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AppViewLite.Web/AppViewLite.Web.csproj" />
+  <Project Path="AppViewLite/AppViewLite.csproj" />
+</Solution>

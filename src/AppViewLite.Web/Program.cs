@@ -27,6 +27,7 @@ namespace AppViewLite.Web
 
         public static async Task Main(string[] args)
         {
+            AppContext.SetSwitch("Microsoft.AspNetCore.Components.Routing.NavLink.EnableMatchAllForQueryStringAndFragment", true);
             var apis = AppViewLiteInit.Init(args);
             var relationships = apis.DangerousUnlockedRelationships;
             var listenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;

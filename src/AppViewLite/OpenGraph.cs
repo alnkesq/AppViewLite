@@ -42,7 +42,7 @@ namespace AppViewLite
                     var dom = StringUtils.ParseHtml(html);
                     var imageUrl = GetMetaProperty(dom, "og:image");
                     var pageTitle = StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim());
-                    if (pageTitle == "One moment, please...")
+                    if (pageTitle is "One moment, please..." or "Making sure you're not a bot!" or "Just a moment...")
                     {
                         return new OpenGraphData
                         {

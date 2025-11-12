@@ -42,6 +42,15 @@ namespace AppViewLite
                     var dom = StringUtils.ParseHtml(html);
                     var imageUrl = GetMetaProperty(dom, "og:image");
                     var pageTitle = StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim());
+                    if (pageTitle == "One moment, please...")
+                    {
+                        return new OpenGraphData
+                        {
+                            ExternalUrl = url.AbsoluteUri,
+                            DateFetched = DateTime.UtcNow,
+                            Error = "Server returned a captcha or Proof of Work",
+                        };
+                    }
                     var result = new OpenGraphData
                     {
                         ExternalTitle = GetMetaProperty(dom, "og:title") ?? pageTitle,

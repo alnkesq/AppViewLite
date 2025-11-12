@@ -41,7 +41,7 @@
     </tr>
 
 
-    @foreach (var req in RequestContext.RecentRequestContextsUrgent.OrderByDescending(x => x.StartDate).Concat(RequestContext.RecentRequestContextsNonUrgent.OrderByDescending(x => x.StartDate)))
+    @foreach (var req in RequestContext.RecentRequestContextsUrgent.Concat(RequestContext.RecentRequestContextsNonUrgent).OrderByDescending(x => x.StartDate))
     {
         var w = req.TimeSpentWaitingForLocks.Elapsed;
 

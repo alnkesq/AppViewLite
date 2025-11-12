@@ -7,8 +7,14 @@
     <h3>Performance by task kind</h3>
     <a class="blue-link" href="/debug">Debug</a> |
     <a class="blue-link" href="/debug/requests">Requests</a>
+    @if (Context != null)
+    {
+        <text> | </text><a class="blue-link" href="/debug/performance">Show all</a>
+    }
 </div>
 @code {
+    [Parameter][SupplyParameterFromQuery] public string? Context { get; set; }
+
     protected override void OnInitialized()
     {
         RequestContext.EnsureAdministrator();
@@ -16,7 +22,11 @@
 }
 
 @{
-    var types = AppViewLiteInit.GlobalPerformanceStatsByOperation.Select(x => (x.Key.RequestContextKind, x.Key.TableName, x.Key.Operation, x.Value.Count, x.Value.Total)).OrderByDescending(x => x.Total.StopwatchTicks).ToArray();
+    var types = AppViewLiteInit.GlobalPerformanceStatsByOperation
+    .Select(x => (x.Key.RequestContextKind, x.Key.TableName, x.Key.Operation, x.Value.Count, x.Value.Total))
+    .Where(x => Context == null || x.RequestContextKind == Context)
+    .OrderByDescending(x => x.Total.StopwatchTicks)
+    .ToArray();
     var totalTime = types.Sum(x => x.Total.StopwatchTicks);
 }
 
@@ -38,7 +48,7 @@
     {
         var color = row.TableName != null && row.Operation != null ? Program.HashToCssColor(row.TableName, row.Operation) : "transparent";
         <tr>
-            <td>@row.RequestContextKind</td>
+            <td><a href="/debug/performance?context=@(Uri.EscapeDataString(row.RequestContextKind))">@row.RequestContextKind</a></td>
             <td style="background-color: @color">@row.TableName</td>
             <td style="background-color: @color">@row.Operation</td>
             <td>@(Math.Round(100.0 * row.Total.StopwatchTicks / totalTime))%</td>

@@ -32,6 +32,10 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (QuoteDid != null)
+        {
+            QuoteDid = await Apis.ResolveHandleAsync(QuoteDid, RequestContext, null);
+        }
         ReplyToPost = IsReply ? await Apis.GetPostAsync(ReplyDid!, ReplyRkey!, RequestContext) : null;
         QuotedPost = IsQuote ? await Apis.GetPostAsync(QuoteDid!, QuoteRkey!, RequestContext) : null;
 

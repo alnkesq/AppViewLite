@@ -2038,6 +2038,13 @@ function composeTextAreaChanged() {
     var textArea = document.querySelector('.compose-textarea');
     if (!textArea) return;
     var text = textArea.value;
+    if (filesToUpload.length) { 
+        var externalField = document.getElementById('compose-external-url-field');
+        if (externalField.value) {
+            // Files + External preview is not supported by bsky lexicon, so AppViewLite server will turn it into a facet link. Account for that.
+            text += ' ' + externalField.value;
+        }
+    }
     var count = countGraphemes(text)
     var bar = document.querySelector('.compose-textarea-limit');
     bar.style.width = Math.min(1, count / MAX_GRAPHEMES) * 100 + '%';
@@ -2172,29 +2179,72 @@ document.addEventListener('paste', (e) => {
             
             try {
                 var url = new URL(text);
-                e.preventDefault();
             } catch { 
             }
 
             if (url) {
-                const preview = document.querySelector('.compose-external-preview');
-                preview.classList.remove('display-none');
-                preview.querySelector('.post-external-preview').href = text;
-                preview.querySelector('.post-external-preview-domain-text').textContent = url.host.startsWith('www.') ? url.host.substring(4) : url.host;
-                preview.querySelector('.post-external-preview-title').textContent = '';
-                preview.querySelector('.post-external-preview-image').classList.add('display-none');
-                preview.querySelector('.post-external-preview-image').src = '';
-                preview.querySelector('.post-external-preview-summary').textContent = '';
-                externalField.value = url.href;
+                if (url.host == 'bsky.app' || url.host == location.host) { 
+                    var segments = url.pathname.split('/');
+                    let did;
+                    let rkey;
+                    if (url.host == 'bsky.app') {
+                        if (segments[1] == 'profile') {
+                            if (segments[3] == 'post') {
+                                did = segments[2];
+                                rkey = segments[4];
+                            } else if (!segments[3]) {
+                                did = segments[2]
+                                
+                            }
+                        }
+                    } else { 
+                        if (url.pathname.startsWith('/@')) { 
+                            if (!segments[2]) {
+                                did = segments[1].substring(1);
+                            } else if(segments[2].length == 13 && /^\d/.test(segments[2])) { 
+                                did = segments[1].substring(1);
+                                rkey = segments[2];
+                            }
+                        }
+                    }
+                    const composeTextArea = document.querySelector('.compose-textarea');
+                    if (did && rkey)
+                    {
+                        e.preventDefault();
+                        const currentParams = new URL(location).searchParams;
+                        fastNavigateTo('/compose?quoteDid=' + encodeURIComponent(did) + '&quoteRkey=' + encodeURIComponent(rkey) + (currentParams.get('replyDid') ? '&replyDid=' + encodeURIComponent(currentParams.get('replyDid')) + '&replyRkey=' + encodeURIComponent(currentParams.get('replyRkey')) : '') + (composeTextArea.value ? '&text=' + encodeURIComponent(composeTextArea.value) : ''), true);
+                    } else if (did) { 
+                        
+                        e.preventDefault();
+                        composeTextArea.value += (composeTextArea.value && !composeTextArea.value.endsWith(' ') && !composeTextArea.value.endsWith('\n') ? ' ' : '') + '@' + did;
+                        composeTextAreaChanged();
+                        
+                    }
+                    return;
+                }
 
-                (async () => {
-                    var response = await httpGet('GetOpenGraphPreview', { url: url.href });
-                    preview.querySelector('.post-external-preview-title').textContent = response.title ?? url;
-                    preview.querySelector('.post-external-preview-summary').textContent = response.description ?? '';
-                    preview.querySelector('.post-external-preview-image').src = response.imageUrl;
-                    preview.querySelector('.post-external-preview-image').classList.toggle('display-none', !response.imageUrl);
-                })();
-                
+                if (!filesToUpload.length) {
+                    
+                    e.preventDefault();
+                    const preview = document.querySelector('.compose-external-preview');
+                    preview.classList.remove('display-none');
+                    preview.querySelector('.post-external-preview').href = text;
+                    preview.querySelector('.post-external-preview-domain-text').textContent = url.host.startsWith('www.') ? url.host.substring(4) : url.host;
+                    preview.querySelector('.post-external-preview-title').textContent = '';
+                    preview.querySelector('.post-external-preview-image').classList.add('display-none');
+                    preview.querySelector('.post-external-preview-image').src = '';
+                    preview.querySelector('.post-external-preview-summary').textContent = '';
+                    externalField.value = url.href;
+                    composeTextAreaChanged();
+
+                    (async () => {
+                        var response = await httpGet('GetOpenGraphPreview', { url: url.href });
+                        preview.querySelector('.post-external-preview-title').textContent = response.title ?? url;
+                        preview.querySelector('.post-external-preview-summary').textContent = response.description ?? '';
+                        preview.querySelector('.post-external-preview-image').src = response.imageUrl;
+                        preview.querySelector('.post-external-preview-image').classList.toggle('display-none', !response.imageUrl);
+                    })();
+                }
             }
         }
     }
@@ -2233,6 +2283,14 @@ async function composeAddFile(/**@type {File}*/ file, altText) {
     } catch(e) { 
         // only available in secure contexts
     }
+
+    const externalLinkField = document.getElementById('compose-external-url-field');
+    if (externalLinkField.value) { 
+        const composeTextArea = document.querySelector('.compose-textarea')
+        composeTextArea.value += (composeTextArea.value ? ' ' : '') + externalLinkField.value;
+        composeRemoveExternalPreview();
+    }
+
     filesToUpload.push(file);
     const li = document.createElement('li');
     li.classList.add('upload-file-entry')
@@ -2256,6 +2314,7 @@ async function composeAddFile(/**@type {File}*/ file, altText) {
         li.remove();
         URL.revokeObjectURL(url);
         e.preventDefault();
+        composeTextAreaChanged();
     });
     thumbContainer.appendChild(removeButton);
     var altTextArea = document.createElement('textarea');
@@ -2267,15 +2326,15 @@ async function composeAddFile(/**@type {File}*/ file, altText) {
     li.appendChild(altTextArea)
     
     document.getElementById('upload-file-list').appendChild(li);
+    composeTextAreaChanged();
 }
 
-function composeRemoveExternalPreview(e) { 
-    e.preventDefault();
+function composeRemoveExternalPreview() { 
     var field = document.getElementById('compose-external-url-field');
     field.value = '';
     const preview = document.querySelector('.compose-external-preview');
     preview.classList.add('display-none');
-    
+    composeTextAreaChanged();
 }
 
 async function composeAddFiles(/**@type {FileList}*/ files) {
@@ -2332,6 +2391,7 @@ function clearFileUploads() {
     }
     filesToUpload = [];
     document.getElementById('upload-file-list').innerHTML = '';
+    composeTextAreaChanged();
 }
 function emojify(target = document.body) {
     twemoji.parse(target);

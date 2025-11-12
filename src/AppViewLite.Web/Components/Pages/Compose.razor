@@ -148,7 +148,7 @@ else
     <ul id="upload-file-list">
     </ul>
     <div class="compose-external-preview display-none">
-        <button class="compose-external-preview-remove" onclick="composeRemoveExternalPreview(event)">×</button>
+        <button class="compose-external-preview-remove" onclick="event.preventDefault(); composeRemoveExternalPreview()">×</button>
         <a class="post-external-preview" target="_blank" rel="noreferrer" href="https://www.example.com/">
             
             <img class="post-external-preview-image">

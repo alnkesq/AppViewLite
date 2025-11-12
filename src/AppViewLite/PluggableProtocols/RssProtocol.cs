@@ -1062,7 +1062,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 else url = parts[0];
             }
 
-            var result = await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
+            var result = await BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(url), preferredSize: preferredSize, ct: ct);
             //result.IsFavIcon = isFavicon;
             return result;
         }

@@ -246,7 +246,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                 url = b ?? c ?? a!;
             }
 
-            return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
+            return await BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(url), preferredSize: preferredSize, ct: ct);
         }
 
         private static FacetData? ElementToFacet(IElement element, Uri baseUrl)

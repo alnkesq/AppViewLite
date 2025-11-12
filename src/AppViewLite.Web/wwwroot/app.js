@@ -1680,6 +1680,9 @@ function invalidateLikesPages() {
 function invalidateFeedPages() { 
     recentPages = recentPages.filter(x => !(x.href.includes('/search') || x.href.includes('/feed/')));
 }
+function invalidateComposePage() { 
+    recentPages = recentPages.filter(x => !(x.href.includes('/compose')));
+}
 
 async function togglePrivateFollow(did, toggleButton, postElement) { 
     var did = toggleButton.dataset.did;
@@ -2161,6 +2164,40 @@ document.addEventListener('paste', (e) => {
             composeAddFiles(e.clipboardData.files);
         }
     }
+
+    if (e.target.className == 'compose-textarea') {
+        var text = (e.clipboardData || window.clipboardData).getData('text')?.trim();
+        var externalField = document.getElementById('compose-external-url-field');
+        if (text && (text.startsWith('http://') || text.startsWith('https://')) && !text.includes(' ') && !text.includes('\n') && !externalField.value) {
+            
+            try {
+                var url = new URL(text);
+                e.preventDefault();
+            } catch { 
+            }
+
+            if (url) {
+                const preview = document.querySelector('.compose-external-preview');
+                preview.classList.remove('display-none');
+                preview.querySelector('.post-external-preview').href = text;
+                preview.querySelector('.post-external-preview-domain-text').textContent = url.host.startsWith('www.') ? url.host.substring(4) : url.host;
+                preview.querySelector('.post-external-preview-title').textContent = '';
+                preview.querySelector('.post-external-preview-image').classList.add('display-none');
+                preview.querySelector('.post-external-preview-image').src = '';
+                preview.querySelector('.post-external-preview-summary').textContent = '';
+                externalField.value = url.href;
+
+                (async () => {
+                    var response = await httpGet('GetOpenGraphPreview', { url: url.href });
+                    preview.querySelector('.post-external-preview-title').textContent = response.title ?? url;
+                    preview.querySelector('.post-external-preview-summary').textContent = response.description ?? '';
+                    preview.querySelector('.post-external-preview-image').src = response.imageUrl;
+                    preview.querySelector('.post-external-preview-image').classList.toggle('display-none', !response.imageUrl);
+                })();
+                
+            }
+        }
+    }
 });
 
 
@@ -2232,6 +2269,15 @@ async function composeAddFile(/**@type {File}*/ file, altText) {
     document.getElementById('upload-file-list').appendChild(li);
 }
 
+function composeRemoveExternalPreview(e) { 
+    e.preventDefault();
+    var field = document.getElementById('compose-external-url-field');
+    field.value = '';
+    const preview = document.querySelector('.compose-external-preview');
+    preview.classList.add('display-none');
+    
+}
+
 async function composeAddFiles(/**@type {FileList}*/ files) {
     didWarnFileFormat = false;
     for (let i = 0; i < files.length; i++) {
@@ -2273,7 +2319,8 @@ async function composeOnSubmit(formElement, e) {
         var postUrl = response.url;
         if (!postUrl || postUrl == location.href) throw 'Could not create post.';
         clearFileUploads();
-        fastNavigateTo(postUrl);
+        await fastNavigateTo(postUrl);
+        invalidateComposePage();
     } catch (e) { 
         alert(getDisplayTextForException(e));
     }

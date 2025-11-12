@@ -151,6 +151,18 @@ namespace AppViewLite.Web
             }
         }
 
+        [HttpGet(nameof(GetOpenGraphPreview))]
+        public async Task<object> GetOpenGraphPreview(Uri url) 
+        {
+            var response = await apis.GetOpenGraphDataAsync(url, ctx);
+            return new
+            {
+                title = response.ExternalTitle,
+                description = response.ExternalDescription,
+                imageUrl = response.ExternalThumbnailUrl != null ? apis.GetProxiedThumbnailUrl(new Uri(response.ExternalThumbnailUrl)) : null,
+            };
+        }
+
         [HttpGet(nameof(AppViewTakeout))]
         public object AppViewTakeout()
         {

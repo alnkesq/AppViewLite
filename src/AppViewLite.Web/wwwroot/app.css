@@ -1182,6 +1182,13 @@ details:not([open]) .summary-when-open {
         content: "An error has occurred."
     }
 
+.compose-external-preview {
+    position: relative;
+}
+.compose-external-preview .post-external-preview {
+    margin: 0;
+}
+
 .post-external-preview {
     border: 1px solid var(--borders);
     border-radius: 12px;
@@ -2136,7 +2143,7 @@ input[type=radio], input[type=checkbox]{
     width: 100%;
 }
 
-.upload-thumb-container button {
+.upload-thumb-container button, .compose-external-preview-remove {
     position: absolute;
     top: 5px;
     right: 5px;
@@ -2149,6 +2156,12 @@ input[type=radio], input[type=checkbox]{
     color: black;
     font-weight: bold;
 }
+
+.compose-external-preview-remove {
+    width: 25px;
+    height: 25px;
+ }
+
 .upload-file-entry {
     display: flex;
     margin-bottom: 5px;

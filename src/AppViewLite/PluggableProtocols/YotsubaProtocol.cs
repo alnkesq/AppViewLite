@@ -273,7 +273,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var imageId = Encoding.UTF8.GetString(bytes);
             if (imageId.StartsWith("https://", StringComparison.Ordinal) || imageId.StartsWith("http://", StringComparison.Ordinal))
             {
-                var image = await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(imageId), ct: ct);
+                var image = await BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(imageId), ct: ct);
                 image.IsFavIcon = true;
                 return image;
             }
@@ -284,7 +284,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             var baseName = Path.GetFileNameWithoutExtension(imageId);
 
             var url = GetThumbnailUrl(board, baseName);
-            return await BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), ct: ct);
+            return await BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(url), ct: ct);
         }
 
         public YotsubaBoardId GetBoardIdFromDid(string did)

@@ -404,7 +404,7 @@ namespace AppViewLite
             foreach (Match m in Regex.Matches(text!, @"#\w+"))
             {
                 if (IsValidHashtagFacet(text!, m))
-                    implicitFacets.Add(CreateFacetFromUnicodeIndexes(text!, m.Index, m.Length, "/search?q=" + Uri.EscapeDataString(m.Value), null, verifyLink: false)!);
+                    implicitFacets.Add(CreateFacetFromUnicodeIndexes(text!, m.Index, m.Length, HashtagLinkPrefix + Uri.EscapeDataString(m.Value), null, verifyLink: false)!);
             }
 
             foreach (Match m in Regex.Matches(text!, @"^>.*$", RegexOptions.Multiline))
@@ -930,6 +930,8 @@ namespace AppViewLite
             "xml",
             "zip",
         }.ToFrozenSet().GetAlternateLookup<ReadOnlySpan<char>>();
+
+        public const string HashtagLinkPrefix = "/search?q=";
 
         public static Uri? GetRedirectLocationUrl(this HttpResponseMessage response, bool forbidLoop = true)
         {

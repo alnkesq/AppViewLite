@@ -7,6 +7,7 @@ using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
+using FishyFlip.Lexicon.App.Bsky.Richtext;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Lexicon.Com.Atproto.Sync;
 using FishyFlip.Models;
@@ -25,10 +26,10 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -3405,9 +3406,67 @@ namespace AppViewLite
             indexer.OnRecordDeleted(ctx.UserContext.Did!, new(collection, rkey), ctx: ctx);
         }
 
-        public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, string? language, RequestContext ctx, CancellationToken ct = default)
+        public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, string? language, Uri? externalLink, RequestContext ctx, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(text)) text = null;
+
+            if (externalLink != null && attachments.Count != 0)
+            {
+                // Can't have both images and external previews in the same post.
+                text = text != null ? text + "\n" + externalLink.AbsoluteUri : externalLink.AbsoluteUri;
+                externalLink = null;
+            }
+
+            EmbedExternal? embedExternal = null;
+            if (externalLink != null)
+            {
+                var opengraph = await GetOpenGraphDataAsync(externalLink, ctx);
+                Blob? thumb = null;
+                if (opengraph.ExternalThumbnailUrl != null)
+                {
+                    var processedContentType = "image/webp";
+                    (MemoryStream? ProcessedBytes, int Width, int Height) processedImage = default;
+                    try
+                    {
+                        using var thumbResponse = await GetBlobFromUrlAsync(new Uri(opengraph.ExternalThumbnailUrl), ct: ct);
+                        var thumbBytes = await thumbResponse.ReadAsBytesAsync();
+                        processedImage = await ImageUploadProcessor.ProcessAsync(thumbBytes, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogNonCriticalException(ex);
+                    }
+
+                    if (processedImage.ProcessedBytes != null)
+                    {
+                        var response = await PerformPdsActionAsync(async protocol =>
+                        {
+                            var streamContent = new StreamContent(processedImage.ProcessedBytes);
+                            streamContent.Headers.ContentType = new(processedContentType);
+                            var response = (await protocol.UploadBlobAsync(streamContent, ct)).HandleResult()!;
+                            return response;
+                        }, ctx);
+
+                        thumb = new Blob
+                        {
+                            MimeType = processedContentType,
+                            Size = (int)processedImage.ProcessedBytes.Length,
+                            Ref = response.Blob.Ref,
+                        };
+                    }
+                }
+                embedExternal = new EmbedExternal
+                {
+                    External = new External 
+                    {
+                        Title = opengraph.ExternalTitle ?? externalLink.ToString(),
+                        Description = opengraph.ExternalDescription ?? string.Empty,
+                        Uri = externalLink.AbsoluteUri,
+                        Thumb = thumb,
+                    }
+                };
+            }
+
             var embedRecord = quotedPost != null ? new EmbedRecord((await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef) : null;
             ReplyRefDef? replyRefDef = null;
             if (inReplyTo != null)
@@ -3452,16 +3511,18 @@ namespace AppViewLite
             }
 
 
-            var embedImages = processedAttachments.Count != 0 ? new EmbedImages(processedAttachments) : null;
+            ATObject? embedImagesOrExternalPreview =
+                embedExternal != null ? embedExternal :
+                processedAttachments.Count != 0 ? new EmbedImages(processedAttachments) : null;
 
             ATObject? embed = null;
-            if (embedImages != null && embedRecord != null)
+            if (embedImagesOrExternalPreview != null && embedRecord != null)
             {
-                embed = new RecordWithMedia(embedRecord, embedImages);
+                embed = new RecordWithMedia(embedRecord, embedImagesOrExternalPreview);
             }
             else
             {
-                embed = (ATObject?)embedRecord ?? embedImages;
+                embed = (ATObject?)embedRecord ?? embedImagesOrExternalPreview;
             }
 
             var postRecord = new Post
@@ -3472,6 +3533,49 @@ namespace AppViewLite
                 Langs = language != null ? [language] : null,
                 CreatedAt = UtcNowMillis()
             };
+            var textUtf8 = Encoding.UTF8.GetBytes(text ?? string.Empty);
+            var facets = (StringUtils.GuessFacets(text, includeImplicitFacets: true) ?? [])
+                .Select(x =>
+                {
+                    var byteSlice = new ByteSlice(x.Start, x.End) { Type = null! };
+                    if (x.Did != null)
+                    {
+                        return new Facet { Type = null!, Index = byteSlice, Features = [new Mention(new ATDid(x.Did))] };
+                    }
+                    if (x.IsLink)
+                    {
+                        var link = x.GetLink(textUtf8)!;
+                        if (link.StartsWith(StringUtils.HashtagLinkPrefix, StringComparison.Ordinal))
+                        {
+                            var hashtag = Uri.UnescapeDataString(link.AsSpan(StringUtils.HashtagLinkPrefix.Length)).Replace("#", null);
+                            return new Facet { Type = null!, Index = byteSlice, Features = [new Tag(hashtag)] };
+                        }
+                        return new Facet { Type = null!, Index = byteSlice, Features = [new Link(link)] };
+                    }
+                    
+                    return null;
+                })
+                .WhereNonNull()
+                .ToList();
+            if (facets.Count != 0)
+            {
+                foreach (var facet in facets)
+                {
+                    foreach (var feature in facet.Features)
+                    {
+                        if (feature is Mention m) 
+                        {
+                            if (!m.Did.Handler.StartsWith("did:", StringComparison.Ordinal))
+                            {
+                                var did = await this.ResolveHandleAsync(m.Did.Handler, ctx);
+                                m.Did = new ATDid(did);
+                            }
+                        };
+                    }
+                }
+                postRecord.Facets = facets;
+            }
+            
             return await CreateRecordAsync(postRecord, ctx);
         }
 
@@ -4322,7 +4426,7 @@ namespace AppViewLite
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
                 var url = new Uri(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
-                return await GetBlobFromUrl(url, ct: ct);
+                return await GetBlobFromUrlAsync(url, ct: ct);
             }
             else
             {
@@ -4341,7 +4445,7 @@ namespace AppViewLite
                 {
                     pds = (await GetDidDocAsync(did, ctx)).Pds;
                 }
-                return await GetBlobFromUrl(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct, preferredSize: preferredSize);
+                return await GetBlobFromUrlAsync(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct, preferredSize: preferredSize);
             }
         }
 
@@ -4472,7 +4576,7 @@ namespace AppViewLite
             }
         }
 
-        public static async Task<BlobResult> GetBlobFromUrl(Uri url, bool ignoreFileName = false, bool? stream = null, ThumbnailSize preferredSize = default, CancellationToken ct = default)
+        public static async Task<BlobResult> GetBlobFromUrlAsync(Uri url, bool ignoreFileName = false, bool? stream = null, ThumbnailSize preferredSize = default, CancellationToken ct = default)
         {
             stream ??= preferredSize == ThumbnailSize.feed_video_blob;
             var response = await DefaultHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -5224,11 +5328,15 @@ namespace AppViewLite
             }
             else if (post.LateOpenGraphData?.ExternalThumbnailUrl is { } url)
             {
-                var u = new Uri(url);
-                return GetImageThumbnailUrl("host:" + u.Host, Encoding.UTF8.GetBytes(u.PathAndQuery), null);
+                return GetProxiedThumbnailUrl(new Uri(url));
             }
 
             return null;
+        }
+
+        public string? GetProxiedThumbnailUrl(Uri url)
+        {
+            return GetImageThumbnailUrl("host:" + url.Host, Encoding.UTF8.GetBytes(url.PathAndQuery), null);
         }
 
         public async Task<(RssRefreshInfo[] Page, string? NextContinuation)> GetRssRefreshInfosAsync(string? continuation, RequestContext ctx, int limit = default, string? onlyDid = null)
@@ -5413,6 +5521,17 @@ namespace AppViewLite
                 RequestContext.InitCacheField(ref ctx.NetworkLogEntries);
                 ctx.NetworkLogEntries.Add(new OperationLogEntry(begin, end, collection, name, argument));
             });
+        }
+
+        public async Task<OpenGraphData> GetOpenGraphDataAsync(Uri url, RequestContext ctx)
+        {
+            var urlString = url.AbsoluteUri;
+            var data = WithRelationshipsLock(rels => rels.GetOpenGraphData(urlString), ctx);
+            if (data != null) return data;
+
+            var version = await FetchAndStoreOpenGraphDict.GetValueAsync(urlString, RequestContext.CreateForTaskDictionary(ctx));
+            ctx.BumpMinimumVersion(version);
+            return WithRelationshipsLock(rels => rels.GetOpenGraphData(urlString)!, ctx);
         }
     }
 

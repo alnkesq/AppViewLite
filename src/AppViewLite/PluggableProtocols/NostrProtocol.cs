@@ -313,7 +313,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
         {
             if (preferredSize == ThumbnailSize.video_thumbnail) throw new NotSupportedException("Nostr: GetBlobAsync with preferredSize=video_thumbnail is not supported.");
             var url = BlueskyRelationships.DecompressBpe(bytes)!;
-            return BlueskyEnrichedApis.GetBlobFromUrl(new Uri(url), preferredSize: preferredSize, ct: ct);
+            return BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(url), preferredSize: preferredSize, ct: ct);
         }
 
         public override bool ReusesThumbImageForFullSizeImages(BlueskyPost post) => true;

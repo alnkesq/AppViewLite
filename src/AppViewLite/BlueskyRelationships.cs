@@ -1936,11 +1936,11 @@ namespace AppViewLite
             };
         }
 
-        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo, string? RootPostDid) TryGetPostDataAndInReplyTo(PostId id, RequestContext? ctx = null)
+        internal (BlueskyPostData? Data, BlueskyProfile? InReplyTo, string RootPostDid) TryGetPostDataAndInReplyTo(PostId id, RequestContext? ctx = null)
         {
             var d = TryGetPostData(id);
-            if (d == null) return default;
-            if (d.InReplyToPlc == null) return (d, null, null);
+            if (d == null) return (null, null, GetDid(id.Author));
+            if (d.InReplyToPlc == null) return (d, null, GetDid(id.Author));
             var inReplyTo = GetProfile(new Plc(d.InReplyToPlc.Value), ctx: ctx, canOmitDescription: true);
             return (d, inReplyTo, GetDid(d.RootPostId.Author));
 

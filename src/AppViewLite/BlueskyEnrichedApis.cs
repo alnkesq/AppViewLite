@@ -3415,6 +3415,7 @@ namespace AppViewLite
                 var inReplyToRef = await GetPostStrongRefAsync(inReplyTo, ctx);
                 replyRefDef = new ReplyRefDef
                 {
+                    Type = null!,
                     Parent = inReplyToRef.StrongRef,
                     Root = inReplyToRef.Record.Reply?.Root ?? inReplyToRef.StrongRef,
                 };

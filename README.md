@@ -42,7 +42,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 | Live post stat updates      |  ✅                |                  |⛔
 | Keyboard navigation (JK)    |  ✅                |                  |⛔
 | Recently viewed post history|  ✅                |                  |⛔
-| Post interaction settings   |  ✅ Blurred posts  |⛔                  |✅ Nuclear blocks
+| Post interaction settings   |  ✅ Blurred posts  |⚠️ Remove reply only |✅ Nuclear blocks
 | Blocks                      |  ✅ Blurred posts  |✅                  |✅ Nuclear blocks
 | Labels                      |  ✅                |                    |✅
 | Lists                       |  ✅                |⛔                  |✅

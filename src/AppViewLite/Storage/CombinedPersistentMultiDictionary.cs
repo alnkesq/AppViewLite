@@ -620,7 +620,7 @@ namespace AppViewLite.Storage
         {
         }
 
-        public List<CompactationCandidate> GetCompactationCandidates(int minLength)
+        public List<CompactationCandidate> GetCompactationCandidates(int minLength, bool force = false)
         {
             var maxOutputBytes = new DriveInfo(this.DirectoryPath).AvailableFreeSpace - 200_000_000;
             var candidates = new List<CompactationCandidate>();
@@ -638,7 +638,7 @@ namespace AppViewLite.Storage
                     if (compactationBytes > maxOutputBytes) break;
 
                     var ratioOfLargestComponent = ((double)largestComponentBytes / compactationBytes);
-                    if (ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(compactationBytes, slices.Count)) continue;
+                    if (!force && ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(compactationBytes, slices.Count)) continue;
                     var z = slices.Slice(start, length);
                     Assert(z.Sum(x => x.SizeInBytes) == compactationBytes);
                     var score = (1 - ratioOfLargestComponent) * Math.Log(length) / Math.Log(compactationBytes);
@@ -674,6 +674,16 @@ namespace AppViewLite.Storage
                 StartCompactation(best.Start, best.Length, best);
             }
 
+        }
+
+        public void StartFullCompactation()
+        {
+            if (pendingCompactation != null) throw new InvalidOperationException();
+            if (slices.Count == 1) return;
+            var candidates = GetCompactationCandidates(this.SliceCount, force: true);
+            if (candidates.Count != 1) throw new InvalidOperationException();
+            var single = candidates[0];
+            StartCompactation(single.Start, single.Length, single);
         }
 
 

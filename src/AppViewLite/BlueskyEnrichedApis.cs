@@ -3328,6 +3328,7 @@ namespace AppViewLite
         private async Task<StrongRef?> GetViaRepostAsync(RelationshipStr viaRepost, RequestContext ctx)
         {
             if (viaRepost == default) return null;
+            if (WithRelationshipsLockForDid(viaRepost.Did, (viaPlc, rels) => rels.UsersHaveBlockRelationship(ctx.LoggedInUser, viaPlc, ctx), ctx) != default) return null;
             try
             {
 

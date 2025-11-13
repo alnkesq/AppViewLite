@@ -50,7 +50,7 @@ namespace AppViewLite
                     caches,
                     getIoPreferenceForKey ?? BlueskyRelationships.GetIoPreferenceFunc<TKey>()
                     )
-                { WriteBufferSize = BlueskyRelationships.TableWriteBufferSize };
+                { WriteBufferSize = BlueskyRelationships.GetWriteBufferSize(behavior) };
             }
             this.RelationshipCache = relationshipCache;
             this.creations = CreateMultiDictionary<TTarget, Relationship>(string.Empty, caches: relationshipCache != null ? [relationshipCache] : null, getIoPreferenceForKey: getCreationsIoPreferenceForKey);

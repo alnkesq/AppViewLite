@@ -129,6 +129,7 @@ namespace AppViewLite
         internal UserPairEngagementCache UserPairEngagementCache = new UserPairEngagementCache();
 
         public static int TableWriteBufferSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE) ?? (10 * 1024 * 1024);
+        public static int TableWriteBufferSizeSorted = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_TABLE_WRITE_BUFFER_SIZE_SORTED) ?? (2 * 1024 * 1024);
         public int AvoidFlushes;
         public ReaderWriterLockSlim Lock;
 
@@ -136,7 +137,10 @@ namespace AppViewLite
         {
             return this.Version >= minVersion && (this.Version == latestKnownVersion || ReplicaAge!.Elapsed <= maxStaleness);
         }
-
+        internal static int GetWriteBufferSize(PersistentDictionaryBehavior behavior)
+        {
+            return behavior == PersistentDictionaryBehavior.SortedValues ? TableWriteBufferSizeSorted : TableWriteBufferSize;
+        }
 
         public string BaseDirectory { get; }
         private FileStream? lockFile;

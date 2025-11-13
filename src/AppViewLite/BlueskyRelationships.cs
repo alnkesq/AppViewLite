@@ -319,7 +319,7 @@ namespace AppViewLite
             FailedListLookups = RegisterDictionary<Relationship, DateTime>("list-data-failed");
 
             ListItems = RegisterDictionary<Relationship, ListEntry>("list-item", caches: [new DelegateProbabilisticCache<Relationship, ListEntry, (Relationship, Plc)>("member", CreateProbabilisticSetParameters(AppViewLiteParameter.APPVIEWLITE_PROBABILISTIC_SET_LIST_ITEM, 32 * 1024 * 1024, 6), (k, v) => (k, v.Member))]);
-            ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue);
+            ListItemDeletions = RegisterDictionary<Relationship, DateTime>("list-item-deletion", PersistentDictionaryBehavior.SingleValue, caches: [new KeyProbabilisticCache<Relationship, DateTime>(CreateProbabilisticSetParameters(AppViewLiteParameter.APPVIEWLITE_PROBABILISTIC_SET_LIST_ITEM_DELETION, 4 * 1024 * 1024, 3))]);
             ListMemberships = RegisterDictionary<Plc, ListMembership>("list-membership-2");
 
             Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder);

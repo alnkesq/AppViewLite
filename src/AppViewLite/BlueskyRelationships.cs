@@ -497,6 +497,8 @@ namespace AppViewLite
             CheckProbabilisticSetHealth();
             Log("Database loaded.");
 
+        }
+
         private static IEnumerable<T> TrimRecentPosts<T>(IEnumerable<T> sortedPosts, int takeLast, T exhaustiveForMoreRecentThan) where T : unmanaged, IComparable<T>
         {
             var queue = new Queue<T>(takeLast);

@@ -1041,7 +1041,7 @@ ul {
 .profile-row-blocked .profile-image-small,
 .profile-row-blocked .profile-row-description
  {
-    filter: blur(5px)
+    filter: blur(1px);
 }
 
 .profile-row-meta {
@@ -1710,7 +1710,7 @@ a[disabled]{
 .post-blocked > .post-in-reply-to,
 .post-blocked > .post-meta
 {
-    filter: blur(5px);
+    filter: blur(1px);
 }
 
 .profile-page-blocked .post-blocked * {

@@ -571,7 +571,7 @@ async function recordPostEngagement(postElement, kind) {
     var quoterPost = postElement.parentElement.closest('.post');
     if (quoterPost)
         recordPostEngagement(quoterPost, kind);
-    if (postElement.classList.contains('post-blocked')) return;
+    // if (postElement.classList.contains('post-blocked')) return;
     if (location.pathname == '/following' && !kind.includes('SeenInFollowingFeed')) { 
         kind += ',SeenInFollowingFeed';
     }

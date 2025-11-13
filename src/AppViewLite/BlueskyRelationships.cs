@@ -171,7 +171,7 @@ namespace AppViewLite
                 getIoPreferenceForKey ?? GetIoPreferenceFunc<TKey>()
             )
             {
-                WriteBufferSize = TableWriteBufferSize,
+                WriteBufferSize =  GetWriteBufferSize(behavior),
                 OnCompactation = onCompactation,
                 ShouldPreserveKey = shouldPreserveKey,
                 ShouldPreserveValue = shouldPreserveValue,

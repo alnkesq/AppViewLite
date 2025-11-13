@@ -345,8 +345,8 @@ namespace AppViewLite
             RegisteredUserToFollowees = RegisterDictionary<Plc, ListEntry>("registered-user-to-followees");
             RssFeedToFollowers = RegisterDictionary<Plc, Plc>("registered-user-to-rss-feeds");
 
-            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2");
-            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2", onCompactation: x => { var threshold = DateTime.UtcNow.AddDays(-7); return x.Where((x, i) => i == 0 || x.RepostRKey.Date > threshold); });
+            UserToRecentPosts = RegisterDictionary<Plc, RecentPost>("user-to-recent-posts-2", onCompactation: x => TrimRecentPosts(x, 15, new RecentPost(Tid.FromDateTime(DateTime.UtcNow - RecentPostsTimeSpan), default)));
+            UserToRecentReposts = RegisterDictionary<Plc, RecentRepost>("user-to-recent-reposts-2", onCompactation: x => { var threshold = DateTime.UtcNow - RecentPostsTimeSpan; return x.Where((x, i) => i == 0 || x.RepostRKey.Date > threshold); });
             UserToRecentMediaPosts = RegisterDictionary<Plc, Tid>("user-to-recent-media-posts");
 
             CarImports = RegisterDictionary<RepositoryImportKey, byte>("car-import-proto-2", PersistentDictionaryBehavior.PreserveOrder);
@@ -496,6 +496,48 @@ namespace AppViewLite
             UpdateAvailableDiskSpace();
             CheckProbabilisticSetHealth();
             Log("Database loaded.");
+
+        private static IEnumerable<T> TrimRecentPosts<T>(IEnumerable<T> sortedPosts, int takeLast, T exhaustiveForMoreRecentThan) where T : unmanaged, IComparable<T>
+        {
+            var queue = new Queue<T>(takeLast);
+            var stopPruning = false;
+
+            var countdownToStopPruning = -1;
+            var totalPosts = 0;
+            var postsAfterThreshold = 0;
+
+            foreach (var e in sortedPosts)
+            {
+                totalPosts++;
+                if (countdownToStopPruning >= 0)
+                {
+
+                    countdownToStopPruning--;
+                    if (countdownToStopPruning == 0)
+                    {
+                        stopPruning = true;
+                        countdownToStopPruning = -2;
+                    }
+
+                }
+                if (e.CompareTo(exhaustiveForMoreRecentThan) >= 0) 
+                {
+                    postsAfterThreshold++;
+
+                    if (countdownToStopPruning == -1)
+                        countdownToStopPruning = takeLast;
+                }
+
+                if (!stopPruning && queue.Count == takeLast)
+                    queue.Dequeue();
+
+                queue.Enqueue(e);
+            }
+
+            if (totalPosts >= takeLast)
+                Assert(queue.Count >= takeLast);
+            Assert(queue.Count >= postsAfterThreshold);
+            return queue;
         }
 
         private static ProbabilisticSetParameters CreateProbabilisticSetParameters(AppViewLiteParameter parameter, long sizeInBytes, int hashFunctions)

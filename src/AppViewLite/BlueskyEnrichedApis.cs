@@ -1275,7 +1275,7 @@ namespace AppViewLite
 
             if (continuation == null && (includePosts || includeReposts))
             {
-                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow - (canFetchFromServer ? TimeSpan.FromDays(7) : BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.GetProfilePageMaxPostAge()));
+                var recentThreshold = Tid.FromDateTime(DateTime.UtcNow - (canFetchFromServer ? BlueskyRelationships.RecentPostsTimeSpan : BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.GetProfilePageMaxPostAge()));
                 var recentPosts = WithRelationshipsLock(rels =>
                 {
                     var plc = rels.TrySerializeDidMaybeReadOnly(did, ctx);

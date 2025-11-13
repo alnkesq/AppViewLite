@@ -78,7 +78,7 @@ namespace AppViewLite
             if (Interlocked.Increment(ref addedToMetricsTable) != 1) return;
             var queue = IsUrgent ? RecentRequestContextsUrgent : RecentRequestContextsNonUrgent;
             queue.Enqueue(this);
-            if (queue.Count >= 1000)
+            while (queue.Count >= 200)
                 queue.TryDequeue(out _);
         }
 

@@ -51,6 +51,7 @@ namespace AppViewLite.Storage
         public DateTime LastFlushed;
         public long OriginalWriteBytes;
         public long CompactationWriteBytes;
+        public readonly static HitMissCounter SeekCacheCounter = new();
         public PersistentDictionaryBehavior Behavior => behavior;
 
         internal readonly static SemaphoreSlim CompactationSemaphore = new SemaphoreSlim(2);
@@ -238,6 +239,7 @@ namespace AppViewLite.Storage
         public static bool UseDirectIo = true;
         public static int DiskSectorSize = 512;
         public static bool PrintDirectIoReads;
+        public static int SliceSeekCacheSize;
         public static Func<string, string> ToPhysicalPath = x => x;
         public static ConcurrentDictionary<string, long> DirectIoReadStats = new();
 

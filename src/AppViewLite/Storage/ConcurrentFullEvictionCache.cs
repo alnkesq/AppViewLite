@@ -15,15 +15,16 @@ namespace AppViewLite
         private ConcurrentDictionary<TKey, TValue> dict;
         private int capacity;
         private int approximateCount; // Approximate because dict = new() and approximateCount = 0 don't happen atomically.
-        public ConcurrentFullEvictionCache(int capacity)
+        public ConcurrentFullEvictionCache(int capacity, HitMissCounter? hitMissCounter = null)
         {
             this.capacity = capacity;
             this.dict = new(-1, capacity);
+            this.HitMissCounter = hitMissCounter ?? new();
         }
 
         public ConcurrentDictionary<TKey, TValue> Dictionary => dict;
 
-        public readonly HitMissCounter HitMissCounter = new();
+        public readonly HitMissCounter HitMissCounter;
         public event Action? AfterReset;
         public event Action<TValue>? ValueAdded;
 

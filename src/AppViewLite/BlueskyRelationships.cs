@@ -4344,6 +4344,7 @@ namespace AppViewLite
                 MemoryMappedFileSlim = MemoryMappedFileSlim.GetCounters(),
                 DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache?.GetCounters(),
                 PendingCompactations = this.AllMultidictionaries.Where(x => x.HasPendingCompactation).Select(x => x.Name).ToArray(),
+                CombinedPersistentMultiDictionary.SeekCacheCounter,
                 DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
                 ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
                 ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache.GetCounters(),

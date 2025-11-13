@@ -8,6 +8,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Linq;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace AppViewLite.Storage
 {
@@ -52,7 +53,7 @@ namespace AppViewLite.Storage
 
             this.Keys = columnarReader.GetColumnHugeMemory<TKey>(0);
             this.safeFileHandleKeys = columnarReader.GetMemoryMappedFile(0);
-
+            this._seekCache = CombinedPersistentMultiDictionary.SliceSeekCacheSize != 0 ? new ConcurrentFullEvictionCache<TKey, long>(CombinedPersistentMultiDictionary.SliceSeekCacheSize, CombinedPersistentMultiDictionary.SeekCacheCounter) : null;
             if (!allowEmpty && Keys.Length == 0) throw new Exception("Keys column is an empty file: " + safeFileHandleKeys.Length);
 
             if (HasValues)
@@ -444,6 +445,20 @@ namespace AppViewLite.Storage
                     yield return (keys[i], values);
                 }
             }
+        }
+
+
+        private readonly ConcurrentFullEvictionCache<TKey, long>? _seekCache;
+
+
+        public long BinarySearch(TKey key, MultiDictionaryIoPreference preference = default)
+        {
+            if (_seekCache == null) return BinarySearch<TKey>(key, preference);
+
+            if (key.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
+            if (key.CompareTo(MinimumKey) < 0) return ~0;
+
+            return _seekCache.GetOrAdd(key, () => BinarySearch<TKey>(key, preference));
         }
 
         public long BinarySearch<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference = default) where TComparable : IComparable<TKey>

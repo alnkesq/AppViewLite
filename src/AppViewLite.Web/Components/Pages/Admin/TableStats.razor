@@ -33,6 +33,7 @@
         <th>Original writes</th>
         <th>Compactation writes</th>
         <th>Total writes</th>
+        <th>Kind</th>
     </tr>
 
 
@@ -52,6 +53,7 @@
         <td>@StringUtils.ToHumanBytes(table.OriginalWriteBytes)</td>
         <td>@StringUtils.ToHumanBytes(table.CompactationWriteBytes)</td>
         <td>@StringUtils.ToHumanBytes(table.OriginalWriteBytes + table.CompactationWriteBytes)</td>
+        <td>@table.Behavior</td>
     </tr>
 }
 </table>

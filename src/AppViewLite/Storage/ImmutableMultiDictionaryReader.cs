@@ -458,8 +458,9 @@ namespace AppViewLite.Storage
             if (key.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
             if (key.CompareTo(MinimumKey) < 0) return ~0;
 
-            return _seekCache.GetOrAdd(key, () => BinarySearch<TKey>(key, preference));
+            return _seekCache.GetOrAdd(key, static (key, arg) => arg.This.BinarySearch<TKey>(key, arg.preference), (This: this, preference));
         }
+
 
         public long BinarySearch<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference = default) where TComparable : IComparable<TKey>
         {

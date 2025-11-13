@@ -1,3 +1,4 @@
+using AppViewLite.Storage;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -62,6 +63,25 @@ namespace AppViewLite
                 wasAdded = true; // racy but doesn't matter, approximation only
                 return factory();
             });
+            if (wasAdded)
+            {
+                HitMissCounter.OnMiss();
+                IncrementApproximateCountAndMaybeReset(value);
+            }
+            else
+            {
+                HitMissCounter.OnHit();
+            }
+            return value;
+        }
+        public unsafe TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> factory, TArg arg)
+        {
+            var wasAdded = false;
+            var value = dict.GetOrAdd(key, static (key, argg) =>
+            {
+                argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                return argg.factory(key, argg.arg);
+            }, (factory, arg, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
             if (wasAdded)
             {
                 HitMissCounter.OnMiss();

@@ -4574,6 +4574,9 @@ namespace AppViewLite
         }
 
         public ProbabilisticSetHealthCheckContext? LastProbabilisticSetHealthCheck;
+
+
+        internal static TimeSpan RecentPostsTimeSpan = TimeSpan.FromDays(7);
     }
 
 

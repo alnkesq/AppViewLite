@@ -807,7 +807,8 @@ namespace AppViewLite
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
-                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()));
+                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()))
+                .ToArray();
 
             var tablesWithPendingCompactations = AllMultidictionaries.Where(x => x.HasPendingCompactation).Select(x => x.Name).ToHashSet();
 

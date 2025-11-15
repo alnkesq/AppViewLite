@@ -908,12 +908,13 @@ function updateSidebarButtonScrollVisibility() {
     var showScrollUp = scrollTop >= 700 && location.pathname.split('/')[1] != 'settings';
     document.querySelector('.scroll-up-button').classList.toggle('display-none', !showScrollUp);
 
-    var path = new URL(location.href).pathname;
+    var url = new URL(location.href);
+    var path = url.pathname;
 
     var needsScrollUpTimer =
         !currentFeedHasNewPosts &&
         showScrollUp &&
-        (path == '/following' || path.includes('/feed/') || path == '/firehose');
+        ((path == '/following' && url.searchParams.get('sort') == 'recent') || path.includes('/feed/') || path == '/firehose');
     
     if ((currentFeedHasNewPostsTimeout !== null) != needsScrollUpTimer) { 
         if (needsScrollUpTimer) {

@@ -64,7 +64,7 @@ namespace AppViewLite.Storage
             return new { KeyIndexSizesTotal = total, KeyIndexSizes = sizes };
         }
 
-        public override void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
+        public override void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context)
         {
         }
     }

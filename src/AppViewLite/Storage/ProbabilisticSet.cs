@@ -166,7 +166,7 @@ namespace AppViewLite
         public long LastEstimatedItemCount;
         private double LastComputedDefinitelyNotExistsRatio;
 
-        public void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
+        public void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context)
         {
             var desiredDefinitelyNotExistsRatio = context.MinDesiredDefinitelyNotExistsRatio;
 
@@ -193,13 +193,14 @@ namespace AppViewLite
             var recommendedParameters = new ProbabilisticSetParameters((long)(m / 8), k);
             var scenarioDefinitelyNotExistsRatio = recommendedParameters.GetDefinitelyNotExistRatioEstimation((long)n);
 
-
-            context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedParameters.SizeInMegabytes}@{recommendedParameters.HashFunctions}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
-
-
-            if (scenarioDefinitelyNotExistsRatio < desiredDefinitelyNotExistsRatio)
+            lock (context.Problems)
             {
-                context.Problems.Add($"Minor bug: recommended parameters won't produce desired DefinitelyNotExistsRatio for {ConfigurationParameterName} (EstimatedItemCount={EstimatedItemCount}, scenarioDefinitelyNotExistsRatio={scenarioDefinitelyNotExistsRatio})");
+                context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedParameters.SizeInMegabytes}@{recommendedParameters.HashFunctions}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
+
+                if (scenarioDefinitelyNotExistsRatio < desiredDefinitelyNotExistsRatio)
+                {
+                    context.Problems.Add($"Minor bug: recommended parameters won't produce desired DefinitelyNotExistsRatio for {ConfigurationParameterName} (EstimatedItemCount={EstimatedItemCount}, scenarioDefinitelyNotExistsRatio={scenarioDefinitelyNotExistsRatio})");
+                }
             }
 
             //var recommendedSizeInBytes = this.SizeInBytes;

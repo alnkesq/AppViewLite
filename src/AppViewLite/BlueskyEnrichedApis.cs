@@ -5412,6 +5412,9 @@ namespace AppViewLite
             {
                 await Task.Delay(TimeSpan.FromSeconds(GlobalPeriodicFlushSeconds), ct);
                 GlobalFlush("GlobalPeriodicFlush");
+
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                primarySecondaryPair.relationshipsUnlocked.CheckProbabilisticSetHealthThreadSafe();
             }
         }
 

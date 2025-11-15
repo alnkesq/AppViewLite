@@ -64,7 +64,7 @@ namespace AppViewLite.Storage
             PendingCompactationReadyForCommit?.Invoke();
         }
 
-        public abstract void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context);
+        public abstract void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context);
 
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
@@ -397,12 +397,13 @@ namespace AppViewLite.Storage
             queue = new(sortedValues: behavior != PersistentDictionaryBehavior.PreserveOrder);
         }
 
-        public override void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context)
+        public override void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context)
         {
-            if (Caches == null) return;
-            foreach (var cache in Caches)
+            var caches = Caches;
+            if (caches == null) return;
+            foreach (var cache in caches)
             {
-                cache.CheckProbabilisticSetHealth(context);
+                cache.CheckProbabilisticSetHealthThreadSafe(context);
             }
         }
 
@@ -1782,7 +1783,7 @@ namespace AppViewLite.Storage
 
             public abstract bool CanBeUsedByReplica { get; }
 
-            public abstract void CheckProbabilisticSetHealth(ProbabilisticSetHealthCheckContext context);
+            public abstract void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context);
         }
     }
 

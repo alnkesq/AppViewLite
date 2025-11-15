@@ -124,7 +124,7 @@ namespace AppViewLite
         private HashSet<Plc> registerForNotificationsCache = new();
         private List<ICheckpointable> disposables = new();
 
-        public IReadOnlyList<CombinedPersistentMultiDictionary> AllMultidictionaries => disposables.OfType<CombinedPersistentMultiDictionary>().Concat(disposables.OfType<RelationshipDictionary>().SelectMany(x => x.Multidictionaries)).ToArray();
+        public IReadOnlyList<CombinedPersistentMultiDictionary> AllMultidictionaries; // Must enumerate thread-safely
 
         internal UserPairEngagementCache UserPairEngagementCache = new UserPairEngagementCache();
 
@@ -155,6 +155,8 @@ namespace AppViewLite
         }
         private CombinedPersistentMultiDictionary<TKey, TValue> RegisterDictionary<TKey, TValue>(string name, PersistentDictionaryBehavior behavior = PersistentDictionaryBehavior.SortedValues, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation = null, Func<PruningContext, TKey, bool>? shouldPreserveKey = null, Func<PruningContext, TKey, TValue, bool>? shouldPreserveValue = null, CombinedPersistentMultiDictionary<TKey, TValue>.CachedView[]? caches = null, Func<TKey, MultiDictionaryIoPreference>? getIoPreferenceForKey = null, bool cachesAreMandatory = false) where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
         {
+            Assert(AllMultidictionaries == null, "AllMultidictionaries already initialized, too late to register other tables.");
+
             if (!UseProbabilisticSets && caches != null && !cachesAreMandatory)
             {
                 foreach (var item in caches)
@@ -390,6 +392,7 @@ namespace AppViewLite
 
 
             LastAssignedPlc = new Plc(Math.Max((PlcToDidOther.MaximumKey ?? default).PlcValue, (PlcToDidPlc.MaximumKey ?? default).PlcValue));
+            InitAllMultidictionaries();
 
             registerForNotificationsCache = new();
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
@@ -494,9 +497,14 @@ namespace AppViewLite
 
             GarbageCollectOldSlices(allowTempFileDeletion: true);
             UpdateAvailableDiskSpace();
-            CheckProbabilisticSetHealth();
+            CheckProbabilisticSetHealthThreadSafe();
             Log("Database loaded.");
 
+        }
+
+        private void InitAllMultidictionaries()
+        {
+            AllMultidictionaries = disposables.OfType<CombinedPersistentMultiDictionary>().Concat(disposables.OfType<RelationshipDictionary>().SelectMany(x => x.Multidictionaries)).ToArray();
         }
 
         private static IEnumerable<T> TrimRecentPosts<T>(IEnumerable<T> sortedPosts, int takeLast, T exhaustiveForMoreRecentThan) where T : unmanaged, IComparable<T>
@@ -780,7 +788,6 @@ namespace AppViewLite
 
 
                 GarbageCollectOldSlices();
-                CheckProbabilisticSetHealth();
             }
             catch (Exception ex)
             {
@@ -3793,6 +3800,7 @@ namespace AppViewLite
             this.PostAuthorsSinceLastReplicaSnapshot.Clear();
             this.RepostersSinceLastReplicaSnapshot.Clear();
             copy.ReplicaAge = Stopwatch.StartNew();
+            copy.InitAllMultidictionaries();
 
             // . Copied bytes: " + StringUtils.ToHumanBytes(copiedQueueBytes) + "
             LogInfo("Captured readonly replica, time: " + sw.Elapsed.TotalMilliseconds.ToString("0.00") + " ms");
@@ -4560,8 +4568,9 @@ namespace AppViewLite
             }
         }
 
-        public void CheckProbabilisticSetHealth()
+        public void CheckProbabilisticSetHealthThreadSafe()
         {
+            var sw = Stopwatch.StartNew();
             var context = new ProbabilisticSetHealthCheckContext()
             {
                 MinDesiredDefinitelyNotExistsRatio = AppViewLiteConfiguration.GetDouble(AppViewLiteParameter.APPVIEWLITE_PROBABILISTIC_SET_WARNING_THRESHOLD) ?? 0.9
@@ -4569,9 +4578,10 @@ namespace AppViewLite
 
             foreach (var item in AllMultidictionaries)
             {
-                item.CheckProbabilisticSetHealth(context);
+                item.CheckProbabilisticSetHealthThreadSafe(context);
             }
             this.LastProbabilisticSetHealthCheck = context;
+            Log("CheckProbabilisticSetHealthThreadSafe ran in " + sw.ElapsedMilliseconds + " ms");
         }
 
         public ProbabilisticSetHealthCheckContext? LastProbabilisticSetHealthCheck;

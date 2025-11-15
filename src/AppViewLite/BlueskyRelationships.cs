@@ -142,7 +142,7 @@ namespace AppViewLite
             return behavior == PersistentDictionaryBehavior.SortedValues ? TableWriteBufferSizeSorted : TableWriteBufferSize;
         }
 
-        public string BaseDirectory { get; }
+        public string BaseDirectory { get; private set; }
         private FileStream? lockFile;
         private Dictionary<string, SliceName[]>? checkpointToLoad;
         private Dictionary<string, FirehoseCursor>? firehoseCursors;
@@ -3821,6 +3821,7 @@ namespace AppViewLite
             AssertCanRead();
             var sw = Stopwatch.StartNew();
             var copy = new BlueskyRelationships(isReadOnly: true);
+            copy.BaseDirectory = this.BaseDirectory;
             copy.Version = this.Version;
             copy.Lock = new();
             copy.IsReadOnly = true;

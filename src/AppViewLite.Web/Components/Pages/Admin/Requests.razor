@@ -6,9 +6,14 @@
 <div style="margin-left: 10px;">
     <h3>Requests (urgent + slow)</h3>
     <a class="blue-link" href="/debug">Debug</a> |
-    <a class="blue-link" href="/debug/performance">Performance by task kind</a>
+    <a class="blue-link" href="/debug/performance">Performance by task kind</a> |
+    <a class="blue-link" href="/debug/requests?minprimary=100">Long primary</a> |
+    <a class="blue-link" href="/debug/requests?min=100">Long</a> |
+    <a class="blue-link" href="/debug/requests">All</a>
 </div>
 @code {
+    [SupplyParameterFromQuery][Parameter] public int MinPrimary { get; set; }
+    [SupplyParameterFromQuery][Parameter] public int Min { get; set; }
     protected override void OnInitialized()
     {
         RequestContext.EnsureAdministrator();
@@ -58,6 +63,9 @@
         var primaryTime = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(req.StopwatchTicksSpentInsidePrimaryLock);
         var secondaryTime = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(req.StopwatchTicksSpentInsideSecondaryLock);
         var writeTime = new TimeSpan((long)(double)req.StopwatchTicksSpentInsidePrimaryLock * TimeSpan.TicksPerSecond / System.Diagnostics.Stopwatch.Frequency);
+
+        if (primaryTime.TotalMilliseconds < MinPrimary) continue;
+        if ((primaryTime + secondaryTime).TotalMilliseconds < Min) continue;
         if ((readsFromSecondary == 0 && readsFromPrimaryStolen == 0 && readsFromPrimaryLate == 0 && writes == 0) || req.RequestUrl == "/debug/requests") continue;
         <tr>
             <td style="text-align: left"><a href="/debug/requests/@req.Guid" class="blue-link">@req.StartDate.ToString("yyyy-MM-dd HH:mm:ss:fff")</a></td>

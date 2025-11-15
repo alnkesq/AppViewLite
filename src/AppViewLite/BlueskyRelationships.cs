@@ -147,6 +147,8 @@ namespace AppViewLite
         private Dictionary<string, SliceName[]>? checkpointToLoad;
         private Dictionary<string, FirehoseCursor>? firehoseCursors;
         private GlobalCheckpoint? loadedCheckpoint;
+        internal long diskWriteIndex = 1;
+        internal long diskWasSyncfsAtIndex;
 
         private T Register<T>(T r) where T : ICheckpointable
         {
@@ -431,7 +433,15 @@ namespace AppViewLite
                         if (!Lock.IsWriteLockHeld)
                             throw ThrowIncorrectLockUsageException("Cannot perform writes without holding the write lock.");
                     };
-                    item.AfterFlush += (_, _) => ClearLockLocalCache();
+                    item.AfterFlush += (_, _) =>
+                    {
+                        Interlocked.Increment(ref diskWriteIndex);
+                        ClearLockLocalCache();
+                    };
+                    item.AfterCompactation += (_, _) =>
+                    {
+                        Interlocked.Increment(ref diskWriteIndex);
+                    };
                 }
 
             }
@@ -496,7 +506,7 @@ namespace AppViewLite
             }
 
             GarbageCollectOldSlices(allowTempFileDeletion: true);
-            UpdateAvailableDiskSpace();
+            UpdateAvailableDiskSpaceThreadSafe();
             CheckProbabilisticSetHealthThreadSafe();
             Log("Database loaded.");
 
@@ -726,7 +736,7 @@ namespace AppViewLite
         public event Action? BeforeCaptureCheckpoint;
 
 
-        private void CaptureCheckpoint()
+        public void CaptureCheckpoint()
         {
             if (IsReadOnly) return;
             try
@@ -757,17 +767,13 @@ namespace AppViewLite
                         }).ToArray();
                     }
                 }
-                if (OperatingSystem.IsLinux())
-                {
-                    var handle = lockFile!.SafeFileHandle.DangerousGetHandle();
-                    // First we flush all file data to physical disk, then we save the .pb checkpoint
-                    if (syncfs((int)handle) < 0)
-                        throw new Win32Exception("syncfs failed with errno " + Marshal.GetLastWin32Error());
 
-                    // On Windows, FlushFileBuffers() can work:
-                    // - on individual files, but could many individual writes increase write amplification?
-                    //     - would this be mitigated by writing everything, then flushing everything?
-                    // - on a whole volume, but it requires administrative privileges.
+                if (diskWriteIndex > diskWasSyncfsAtIndex)
+                {
+                    var sw = Stopwatch.StartNew();
+                    SyncFs();
+                    Log("syncfs() ran inside the lock (optimistic check didn't succeed) in " + StringUtils.ToHumanTimeSpanForProfiler(sw.Elapsed));
+                    diskWasSyncfsAtIndex = diskWriteIndex;
                 }
 
                 var now = DateTime.UtcNow;
@@ -792,6 +798,22 @@ namespace AppViewLite
             catch (Exception ex)
             {
                 CombinedPersistentMultiDictionary.Abort(ex);
+            }
+        }
+
+        public void SyncFs()
+        {
+            if (OperatingSystem.IsLinux())
+            {
+                var handle = lockFile!.SafeFileHandle.DangerousGetHandle();
+                // First we flush all file data to physical disk, then we save the .pb checkpoint
+                if (syncfs((int)handle) < 0) // Flushes the whole file system on which the handle file resides
+                    throw new Win32Exception("syncfs failed with errno " + Marshal.GetLastWin32Error());
+
+                // On Windows, FlushFileBuffers() can work:
+                // - on individual files, but could many individual writes increase write amplification?
+                //     - would this be mitigated by writing everything, then flushing everything?
+                // - on a whole volume, but it requires administrative privileges.
             }
         }
 
@@ -3025,22 +3047,17 @@ namespace AppViewLite
             AppViewLiteProfiles.AddRange(userContext.LoggedInUser!.Value, SerializeProto(userContext.PrivateProfile));
         }
 
-        public void GlobalFlushWithoutFirehoseCursorCapture()
+        public void FlushAllTables()
         {
             if (IsReadOnly) throw new InvalidOperationException("Cannot GlobalFlush when IsReadOnly.");
             foreach (var table in disposables)
             {
                 table.Flush(false);
             }
-
-
-            CaptureCheckpoint();
-            UpdateAvailableDiskSpace();
         }
 
-
         public long AvailableDiskSpace;
-        private void UpdateAvailableDiskSpace()
+        public void UpdateAvailableDiskSpaceThreadSafe()
         {
             AvailableDiskSpace = new DriveInfo(this.BaseDirectory).AvailableFreeSpace;
         }
@@ -4173,7 +4190,10 @@ namespace AppViewLite
             }
 
             if (anythingPruned)
-                GlobalFlushWithoutFirehoseCursorCapture();
+            {
+                FlushAllTables();
+                CaptureCheckpoint();
+            }
             else
                 Log("Nothing to prune.");
         }
@@ -4581,7 +4601,7 @@ namespace AppViewLite
                 item.CheckProbabilisticSetHealthThreadSafe(context);
             }
             this.LastProbabilisticSetHealthCheck = context;
-            Log("CheckProbabilisticSetHealthThreadSafe ran in " + sw.ElapsedMilliseconds + " ms");
+            Log("CheckProbabilisticSetHealthThreadSafe ran in " + StringUtils.ToHumanTimeSpanForProfiler(sw.Elapsed));
         }
 
         public ProbabilisticSetHealthCheckContext? LastProbabilisticSetHealthCheck;

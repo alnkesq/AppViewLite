@@ -5430,20 +5430,48 @@ namespace AppViewLite
             FlushLog();
         }
 
-        public void GlobalFlush(string reason, bool onlyIfNoPendingCompactations = false)
+        private static TimeSpan TimeOperation(Action func)
         {
-            DrainAndCaptureFirehoseCursors();
+            var sw = Stopwatch.StartNew();
+            func();
+            return sw.Elapsed;
+
+        }
+        public void GlobalFlush(string reason)
+        {
+            TimeSpan elapsedCaptureCursors = TimeOperation(() => DrainAndCaptureFirehoseCursors());
+            TimeSpan elapsedFlushAllTables = default;
+
 
             var ctx = RequestContext.CreateForFirehose(reason);
             WithRelationshipsWriteLock(rels =>
             {
                 Log("Global periodic flush...");
                 LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
-                rels.GlobalFlushWithoutFirehoseCursorCapture();
-                LogInfo("====== END OF GLOBAL PERIODIC FLUSH ======");
+                elapsedFlushAllTables = TimeOperation(() => rels.FlushAllTables());
             }, ctx);
 
+            TimeSpan elapsedOptimisticSyncfs = TimeOperation(() =>
+            {
+                // syncfs() can take multiple seconds, so we run it optimistically outside of the lock.
+                var sw = Stopwatch.StartNew();
+                var diskWriteIndexBeforeOptimisticSyncfs = Interlocked.Read(ref relationshipsUnlocked.diskWriteIndex);
+                relationshipsUnlocked.SyncFs();
+                relationshipsUnlocked.diskWasSyncfsAtIndex = diskWriteIndexBeforeOptimisticSyncfs;
+            });
+            TimeSpan elapsedCaptureCheckpoint = default;
+
+
+            WithRelationshipsWriteLock(rels =>
+            {
+                elapsedCaptureCheckpoint = TimeOperation(() => rels.CaptureCheckpoint());
+            }, ctx);
             
+            relationshipsUnlocked.UpdateAvailableDiskSpaceThreadSafe();
+
+            Log($"Global flush completed: drain_capture_cursors={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCursors)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}");
+            LogInfo($"====== END OF GLOBAL PERIODIC FLUSH ======");
+
         }
 
         internal void DrainAndCaptureFirehoseCursors()

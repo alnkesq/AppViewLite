@@ -26,6 +26,7 @@ namespace AppViewLite
         public event EventHandler? AfterFlush;
         public event EventHandler<CancelEventArgs>? ShouldFlush;
         public event EventHandler? BeforeWrite;
+        public event EventHandler? AfterCompactation;
         private IReadOnlyList<CombinedPersistentMultiDictionary> _multidictionaries;
         public override IReadOnlyList<CombinedPersistentMultiDictionary> Multidictionaries => _multidictionaries;
 
@@ -78,6 +79,12 @@ namespace AppViewLite
             inner.BeforeWrite += OnBeforeWrite;
             inner.ShouldFlush += OnShouldFlush;
             inner.AfterFlush += OnAfterFlush;
+            inner.AfterCompactation += OnAfterCompactation;
+        }
+
+        private void OnAfterCompactation(object? sender, EventArgs e)
+        {
+            AfterCompactation?.Invoke(this, e);
         }
 
         private void OnBeforeFlush(object? sender, EventArgs e)

@@ -15,6 +15,7 @@ namespace AppViewLite.Storage
         public event EventHandler? AfterFlush;
         public event EventHandler<CancelEventArgs>? ShouldFlush;
         public event EventHandler? BeforeWrite;
+        public event EventHandler? AfterCompactation;
     }
 }
 

@@ -849,12 +849,21 @@ namespace AppViewLite
                 .Take(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_RECENT_CHECKPOINTS_TO_KEEP) ?? 3)
                 .ToArray();
 
-            var keep = checkpointsToKeep
+            var keepTablesFromCheckpoints = checkpointsToKeep
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
-                .Append(loadedCheckpoint!)
                 .SelectMany(x => x.Tables ?? [])
-                .GroupBy(x => x.Name)
-                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()))
+                .Select(x => (TableName: x.Name, ActiveSlices: (x.Slices ?? []).Select(x => x.ToSliceName()).ToArray()));
+
+            // The checkpoint was captured in a different lock, so new slices or compactations might have appeared in the meantime.
+            var keepTablesFromCurrent =
+                disposables
+                .SelectMany(x => x.GetActiveSlices());
+
+            var keep =
+                keepTablesFromCheckpoints
+                .Concat(keepTablesFromCurrent)
+                .GroupBy(x => x.TableName)
+                .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.ActiveSlices).ToHashSet()))
                 .ToArray();
 
             var tablesWithPendingCompactations = AllMultidictionaries.Where(x => x.HasPendingCompactation).Select(x => x.Name).ToHashSet();
@@ -875,8 +884,15 @@ namespace AppViewLite
 
                         if (name.EndsWith(".tmp", StringComparison.Ordinal))
                         {
-                            if (allowTempFileDeletion) file.Delete();
-                            else continue; // might be a parallel compactation
+                            // might be a parallel compactation, except on startup
+
+                            if (allowTempFileDeletion)
+                            {
+                                Log("Deleting old .tmp file: " + file.FullName);
+                                file.Delete();
+                            }
+
+                            continue;
                         }
 
                         var dot = name.IndexOf('.');
@@ -885,7 +901,7 @@ namespace AppViewLite
                         var sliceName = SliceName.ParseBaseName(name);
                         if (!table.SlicesToKeep.Contains(sliceName))
                         {
-                            LogInfo("Deleting obsolete slice: " + file.FullName);
+                            Log("Deleting obsolete slice: " + file.FullName);
                             try
                             {
                                 file.Delete();

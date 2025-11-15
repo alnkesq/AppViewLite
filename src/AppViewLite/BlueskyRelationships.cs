@@ -735,10 +735,16 @@ namespace AppViewLite
 
         public event Action? BeforeCaptureCheckpoint;
 
-
         public void CaptureCheckpoint()
         {
-            if (IsReadOnly) return;
+            var commit = CaptureCheckpointWithoutFinalWrite();
+            commit();
+        }
+
+
+        public Action CaptureCheckpointWithoutFinalWrite()
+        {
+            if (IsReadOnly) return () => { };
             try
             {
                 Log("Capturing checkpoint");
@@ -768,36 +774,47 @@ namespace AppViewLite
                     }
                 }
 
-                if (diskWriteIndex > diskWasSyncfsAtIndex)
-                {
-                    var sw = Stopwatch.StartNew();
-                    SyncFs();
-                    Log("syncfs() ran inside the lock (optimistic check didn't succeed) in " + StringUtils.ToHumanTimeSpanForProfiler(sw.Elapsed));
-                    diskWasSyncfsAtIndex = diskWriteIndex;
-                }
-
                 var now = DateTime.UtcNow;
+                string checkpointFile;
                 while (true)
                 {
 
-                    var checkpointFile = Path.Combine(BaseDirectory, "checkpoints", now.ToString("yyyyMMdd-HHmmss") + ".pb");
-                    if (File.Exists(checkpointFile))
+                    checkpointFile = Path.Combine(BaseDirectory, "checkpoints", now.ToString("yyyyMMdd-HHmmss") + ".pb");
+                    if (File.Exists(checkpointFile) || File.Exists(checkpointFile + ".tmp"))
                     {
                         now = now.AddSeconds(1);
                         continue;
                     }
                     File.WriteAllBytes(checkpointFile + ".tmp", SerializeProto(loadedCheckpoint, x => x.Dummy = true));
-                    File.Move(checkpointFile + ".tmp", checkpointFile);
                     break;
                 }
 
 
+                return () =>
+                {
+                    AssertHasWriteLock();
+                    try
+                    {
+                        if (diskWriteIndex > diskWasSyncfsAtIndex)
+                        {
+                            var sw = Stopwatch.StartNew();
+                            SyncFs();
+                            Log("syncfs() ran inside the lock (optimistic check didn't succeed) in " + StringUtils.ToHumanTimeSpanForProfiler(sw.Elapsed));
+                            diskWasSyncfsAtIndex = diskWriteIndex;
+                        }
 
-                GarbageCollectOldSlices();
+                        File.Move(checkpointFile + ".tmp", checkpointFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        CombinedPersistentMultiDictionary.Abort(ex);
+                    }
+                };
             }
             catch (Exception ex)
             {
                 CombinedPersistentMultiDictionary.Abort(ex);
+                throw;
             }
         }
 
@@ -820,7 +837,7 @@ namespace AppViewLite
         [DllImport("libc.so.6", SetLastError = true)]
         public static extern int syncfs(int fd);
 
-        private void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
+        public void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
             if (IsReadOnly) return;
             if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DISABLE_SLICE_GC) == true) return;
@@ -834,6 +851,7 @@ namespace AppViewLite
 
             var keep = checkpointsToKeep
                 .Select(x => DeserializeProto<GlobalCheckpoint>(File.ReadAllBytes(x.FullName)))
+                .Append(loadedCheckpoint!)
                 .SelectMany(x => x.Tables ?? [])
                 .GroupBy(x => x.Name)
                 .Select(x => (TableName: x.Key, SlicesToKeep: x.SelectMany(x => x.Slices ?? []).Select(x => x.ToSliceName()).ToHashSet()))

@@ -5439,37 +5439,46 @@ namespace AppViewLite
         }
         public void GlobalFlush(string reason)
         {
-            TimeSpan elapsedCaptureCursors = TimeOperation(() => DrainAndCaptureFirehoseCursors());
-            TimeSpan elapsedFlushAllTables = default;
-
+            TimeSpan elapsedCaptureCursors = TimeOperation(DrainAndCaptureFirehoseCursors);
 
             var ctx = RequestContext.CreateForFirehose(reason);
+
+            Action? finalWrite = null;
+            TimeSpan elapsedFlushAllTables = default;
+            TimeSpan elapsedCaptureCheckpoint = default;
             WithRelationshipsWriteLock(rels =>
             {
+
                 Log("Global periodic flush...");
                 LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
-                elapsedFlushAllTables = TimeOperation(() => rels.FlushAllTables());
+
+                elapsedFlushAllTables = TimeOperation(rels.FlushAllTables);
+                elapsedCaptureCheckpoint = TimeOperation(() =>
+                {
+                    finalWrite = rels.CaptureCheckpointWithoutFinalWrite();
+                });
             }, ctx);
+
 
             TimeSpan elapsedOptimisticSyncfs = TimeOperation(() =>
             {
                 // syncfs() can take multiple seconds, so we run it optimistically outside of the lock.
-                var sw = Stopwatch.StartNew();
                 var diskWriteIndexBeforeOptimisticSyncfs = Interlocked.Read(ref relationshipsUnlocked.diskWriteIndex);
                 relationshipsUnlocked.SyncFs();
                 relationshipsUnlocked.diskWasSyncfsAtIndex = diskWriteIndexBeforeOptimisticSyncfs;
             });
-            TimeSpan elapsedCaptureCheckpoint = default;
 
-
+            TimeSpan elapsedFinalWrite = default;
+            TimeSpan elapsedSliceGc = default;
             WithRelationshipsWriteLock(rels =>
             {
-                elapsedCaptureCheckpoint = TimeOperation(() => rels.CaptureCheckpoint());
+                elapsedFinalWrite = TimeOperation(() => finalWrite!());
+                elapsedSliceGc = TimeOperation(() => rels.GarbageCollectOldSlices());
             }, ctx);
             
             relationshipsUnlocked.UpdateAvailableDiskSpaceThreadSafe();
 
-            Log($"Global flush completed: drain_capture_cursors={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCursors)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}");
+            Log($"Global flush completed: drain_capture_cursors={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCursors)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, final_write={StringUtils.ToHumanTimeSpanForProfiler(elapsedFinalWrite)}, slice_gc={StringUtils.ToHumanTimeSpanForProfiler(elapsedSliceGc)}");
             LogInfo($"====== END OF GLOBAL PERIODIC FLUSH ======");
 
         }

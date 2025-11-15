@@ -888,7 +888,7 @@ namespace AppViewLite
 
                             if (allowTempFileDeletion)
                             {
-                                Log("Deleting old .tmp file: " + file.FullName);
+                                LogInfo("Deleting old .tmp file: " + file.FullName);
                                 file.Delete();
                             }
 
@@ -901,7 +901,7 @@ namespace AppViewLite
                         var sliceName = SliceName.ParseBaseName(name);
                         if (!table.SlicesToKeep.Contains(sliceName))
                         {
-                            Log("Deleting obsolete slice: " + file.FullName);
+                            LogInfo("Deleting obsolete slice: " + file.FullName);
                             try
                             {
                                 file.Delete();

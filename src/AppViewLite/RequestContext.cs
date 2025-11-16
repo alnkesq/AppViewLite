@@ -162,10 +162,21 @@ namespace AppViewLite
         public static RequestContext ToNonUrgent(RequestContext originalCtx)
         {
             if (!originalCtx.IsUrgent) return originalCtx;
+            return CloneWith(originalCtx, urgent: false);
+        }
+        public static RequestContext ToNonProfileBumping(RequestContext originalCtx)
+        {
+            if (!originalCtx.BumpsProfileMinimumVersion) return originalCtx;
+            return CloneWith(originalCtx, bumpsProfile: false);
+        }
+
+        private static RequestContext CloneWith(RequestContext originalCtx, bool? urgent = null, bool? bumpsProfile = null)
+        {
             return new RequestContext()
             {
                 Session = originalCtx.Session,
-                IsUrgent = false,
+                IsUrgent = urgent ?? originalCtx.IsUrgent,
+                BumpsProfileMinimumVersion = bumpsProfile ?? originalCtx.BumpsProfileMinimumVersion,
                 AllowStale = originalCtx.AllowStale,
                 ProfileCache = originalCtx.ProfileCache,
                 ShortDeadline = originalCtx.ShortDeadline,
@@ -214,7 +225,7 @@ namespace AppViewLite
             }
 
 
-            if (IsLoggedIn)
+            if (IsLoggedIn && BumpsProfileMinimumVersion)
             {
                 var userContext = this.UserContext;
                 while (true)
@@ -226,6 +237,8 @@ namespace AppViewLite
                 }
             }
         }
+
+        public bool BumpsProfileMinimumVersion = true;
 
         public bool IsLoggedIn => Session != null && Session.IsLoggedIn;
         public Plc LoggedInUser => Session!.LoggedInUser!.Value;

@@ -216,7 +216,7 @@ namespace AppViewLite.Web
                         postEngagementPendingArray = context.PostEngagementPending.ToArray();
                         context.PostEngagementPending.Clear();
                     }
-                    apis.MarkAsRead(postEngagementPendingArray, userPlc.Value, RequestContext);
+                    apis.MarkAsRead(postEngagementPendingArray, userPlc.Value, RequestContext.ToNonProfileBumping(RequestContext));
                 });
 
                 // In case notifications arrived while the websocket was broken or the browser tab was throttled or suspended

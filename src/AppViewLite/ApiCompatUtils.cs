@@ -8,7 +8,6 @@ using FishyFlip.Lexicon.App.Bsky.Graph;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
-using Ipfs;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -305,12 +304,12 @@ namespace AppViewLite
 
         public static string GetSyntheticCid(ATUri uri)
         {
-            var c = Cid.Decode("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToArray();
+            var c = ATCid.Decode("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToBytes();
             var preservePrefix = 4;
             c.AsSpan(preservePrefix).Clear();
             var hash = SHA256.HashData(Encoding.UTF8.GetBytes(uri.ToString()));
             hash.CopyTo(c.AsSpan(preservePrefix));
-            var q = Cid.Read(c);
+            var q = ATCid.Read(c);
             return q.ToString();
         }
 

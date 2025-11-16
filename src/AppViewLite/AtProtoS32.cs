@@ -75,6 +75,16 @@ namespace AppViewLite
             }
             return i;
         }
+
+        public static byte[] FromBase32(ReadOnlySpan<char> s)
+        {
+            return SimpleBase.Base32.Rfc4648.Decode(s);
+        }
+
+        public static string ToBase32(ReadOnlySpan<byte> data)
+        {
+            return SimpleBase.Base32.Rfc4648.Encode(data, false).ToLowerInvariant();
+        }
     }
 }
 

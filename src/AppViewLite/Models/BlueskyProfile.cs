@@ -1,8 +1,5 @@
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
-using FishyFlip.Models;
-using Ipfs;
-using System;
 using System.Collections.Generic;
 
 namespace AppViewLite.Models

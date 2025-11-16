@@ -12,7 +12,6 @@ using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Lexicon.Com.Atproto.Sync;
 using FishyFlip.Models;
 using FishyFlip.Tools;
-using Ipfs;
 using Microsoft.Extensions.ObjectPool;
 using PeterO.Cbor;
 using AppViewLite.Storage;
@@ -2256,7 +2255,7 @@ namespace AppViewLite
             {
                 try
                 {
-                    cidString = Cid.Read(cid).ToString();
+                    cidString = ATCid.Read(cid).ToString();
                 }
                 catch (Exception)
                 {
@@ -2265,7 +2264,7 @@ namespace AppViewLite
             }
             else
             {
-                cidString = Ipfs.Base32.ToBase32(cid);
+                cidString = AtProtoS32.ToBase32(cid);
             }
 
             if (size is ThumbnailSize.video_thumbnail or ThumbnailSize.feed_video_playlist or ThumbnailSize.feed_video_blob)
@@ -4426,7 +4425,7 @@ namespace AppViewLite
 
             if (did.StartsWith("host:", StringComparison.Ordinal))
             {
-                var url = new Uri(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(Base32.FromBase32(cid))));
+                var url = new Uri(string.Concat("https://", did.AsSpan(5), Encoding.UTF8.GetString(AtProtoS32.FromBase32(cid))));
                 return await GetBlobFromUrlAsync(url, ct: ct);
             }
             else
@@ -4435,7 +4434,7 @@ namespace AppViewLite
                 var pluggable = BlueskyRelationships.TryGetPluggableProtocolForDid(did);
                 if (pluggable != null)
                 {
-                    return await pluggable.GetBlobAsync(did, Ipfs.Base32.FromBase32(cid), preferredSize, ct: ct);
+                    return await pluggable.GetBlobAsync(did, AtProtoS32.FromBase32(cid), preferredSize, ct: ct);
                 }
 
                 if (pds != null && !pds.Contains(':'))

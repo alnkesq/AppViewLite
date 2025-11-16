@@ -168,16 +168,14 @@ namespace AppViewLite
             {
                 if (!RelationshipCache.PossiblyContains(target, actor))
                 {
-#if true
-                    return false;
-#else
-                    if ((uint)(target.GetHashCode() ^ actor.GetHashCode()) % 256 > 2)
+                    if (ShouldAssertRelationshipTrulyDoesNotExist(target, actor))
+                    {
+                        cannotPossiblyExist = true;
+                    }
+                    else
                     {
                         return false;
                     }
-                    // In rare cases, proceed anyways, and fail assertion if we are wrong.
-                    cannotPossiblyExist = true;                    
-#endif
                 }
             }
 
@@ -230,7 +228,14 @@ namespace AppViewLite
             return false;
         }
 
+        private bool ShouldAssertRelationshipTrulyDoesNotExist(TTarget target, Plc actor)
+        {
+            if (RelationshipCache is RecentLikeRelationshipsCache)
+                return true;
+            //return (uint)(target.GetHashCode() ^ actor.GetHashCode()) % 256 > 2;
+            return false;
 
+        }
 
         public TTarget? Delete(Relationship rel, DateTime deletionDate, TTarget target = default)
         {

@@ -6,7 +6,7 @@ namespace AppViewLite
 {
     public class RelationshipProbabilisticCache<TTarget> : CombinedPersistentMultiDictionary<TTarget, Relationship>.CachedView where TTarget : unmanaged, IComparable<TTarget>
     {
-        private readonly ProbabilisticSetParameters parameters;
+        protected readonly ProbabilisticSetParameters parameters;
         private readonly ProbabilisticSet<(TTarget, Plc)> probabilisticSet;
         public RelationshipProbabilisticCache(ProbabilisticSetParameters parameters)
         {
@@ -35,7 +35,7 @@ namespace AppViewLite
             ProbabilisticSetIo.WriteCompressedProbabilisticSetToFile(destination, cache);
         }
 
-        private static void ReadInto(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, ProbabilisticSet<(TTarget, Plc)> cache)
+        protected virtual void ReadInto(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, ProbabilisticSet<(TTarget, Plc)> cache)
         {
             foreach (var group in slice.Reader.Enumerate())
             {
@@ -55,7 +55,7 @@ namespace AppViewLite
             return sliceSize * 16 > cacheSize;
         }
 
-        public bool PossiblyContains(TTarget target, Plc actor)
+        public virtual bool PossiblyContains(TTarget target, Plc actor)
         {
             return probabilisticSet.PossiblyContains((target, actor));
         }

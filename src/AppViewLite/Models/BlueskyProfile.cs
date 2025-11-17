@@ -98,6 +98,10 @@ namespace AppViewLite.Models
             if (b != null) return b.ToTextWithFacets();
             return ((FollowsYou ? "Follows you" : null), null);
         }
+
+        public string? Pronouns => BasicData?.Pronouns;
+        public string? Location => BasicData?.Location;
+        public string? ExternalWebsite => BasicData?.ExternalWebsite;
     }
 }
 

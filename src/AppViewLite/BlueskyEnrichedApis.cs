@@ -2276,8 +2276,15 @@ namespace AppViewLite
                 }
                 else if (size == ThumbnailSize.feed_video_playlist)
                 {
-                    if (!BlueskyRelationships.TryGetPluggableProtocolForDid(did)!.ShouldUseM3u8ForVideo(did, cid))
+                    var pluggableProtocol = BlueskyRelationships.TryGetPluggableProtocolForDid(did)!;
+                    if (pluggableProtocol.ShouldUseM3u8ForVideo(did, cid))
+                    {
+                        size = ThumbnailSize.feed_video_playlist;
+                    }
+                    else
+                    {
                         size = ThumbnailSize.feed_video_blob;
+                    }
                 }
 
                 string format = (size == ThumbnailSize.video_thumbnail ? "thumbnail.jpg" : size == ThumbnailSize.feed_video_blob ? "video.mp4" : "playlist.m3u8");
@@ -4678,19 +4685,15 @@ namespace AppViewLite
             {
                 var img = dom.QuerySelectorAll("img[alt=Avatar]").FirstOrDefault(x =>
                 {
-                    return Uri.TryCreate(pageUrl, x.Closest("a")?.GetAttribute("href"), out var url) && url.GetSegments().FirstOrDefault() == pageUrl.Host.Replace(".tumblr.com", null);
+                    return x.Closest("a")?.TryGetHref(pageUrl) is { } url && url.GetSegments().FirstOrDefault() == pageUrl.Host.Replace(".tumblr.com", null);
                 });
                 if (img != null && StringUtils.GetSrcSetLargestImageUrl(img, pageUrl) is { } avatarUrl)
                 {
                     return avatarUrl;
                 }
             }
-            var href = dom.QuerySelector("link[rel='icon'],link[rel='shortcut icon']")?.GetAttribute("href");
-            if (!string.IsNullOrEmpty(href))
-            {
-                return new Uri(pageUrl, href);
-            }
-            return new Uri(pageUrl.GetLeftPart(UriPartial.Authority) + "/favicon.ico");
+            var href = dom.QuerySelector("link[rel='icon'],link[rel='shortcut icon']")?.TryGetHref(pageUrl);
+            return href ?? new Uri(pageUrl.GetLeftPart(UriPartial.Authority) + "/favicon.ico");
         }
 
         public void PopulateViewerFlags(BlueskyProfile[] profiles, RequestContext ctx)

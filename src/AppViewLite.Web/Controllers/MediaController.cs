@@ -5,10 +5,12 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Transforms;
+using System;
 using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace AppViewLite.Web.Controllers
 {
@@ -144,6 +146,12 @@ namespace AppViewLite.Web.Controllers
                     shortDid = did.AsSpan(8);
                     shortDidCut = PAYLOAD_CUT;
                 }
+                else if (did.StartsWith("did:rss:x.com:", StringComparison.Ordinal))
+                {
+                    // did:rss:x.com:aaaaaa -> did:rss:x.com:aa/aaaa
+                    shortDid = did;
+                    shortDidCut = 16;
+                }
                 else
                 {
                     // did:other:aaaaaaaaaa -> did:other:aaa/aaaaaaa
@@ -237,7 +245,12 @@ namespace AppViewLite.Web.Controllers
                 }
                 else if (sizeEnum == ThumbnailSize.feed_video_playlist)
                 {
-                    throw new NotSupportedException("Proxying of HLS streams is not currently supported.");
+                    throw new NotImplementedException();
+                    var blob = await GetImageAsync(did, cid, null, sizePixels, sizeEnum, forCache: false, ct);
+                    var text = Encoding.UTF8.GetString(blob.PassThruBytes!);
+                    //text = text.Replace("/amplify_video/", "https://video.twimg.com/amplify_video/"); // TODO temporary code
+                    //SetMediaHeaders(null, contentType: "application/vnd.apple.mpegurl");
+                    //await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(text), ct);
                 }
                 else
                 {
@@ -305,6 +318,9 @@ namespace AppViewLite.Web.Controllers
                 {
                     return (null, bytes, blob.FileNameForDownload);
                 }
+
+                if (bytes.AsSpan().StartsWith("#EXTM3U"u8)) 
+                    return (null, bytes, null);
 
                 if (!ImageUploadProcessor.StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
                 Image<Rgba32> image;

@@ -243,22 +243,42 @@
         </div>
 
         <div class="profile-description main-padding">
-            <TextWithFacets Text="@description" Facets="@GuessedFacets" />
-            @if (pluggableExternalUrl != null && SimpleProfile.PluggableProtocol!.ShouldDisplayExternalLinkInBio)
+            <div class="profile-description-text"><TextWithFacets Text="@description" Facets="@GuessedFacets" /></div>
+            @{
+                var hasPronounsOrLocation = SimpleProfile.Pronouns != null || SimpleProfile.Location != null;
+                var hasPronounsOrLocationOrDescription = hasPronounsOrLocation || description != null;
+                var pluggableExternalUrlToDisplayInBio = pluggableExternalUrl != null && SimpleProfile.PluggableProtocol!.ShouldDisplayExternalLinkInBio;
+                var parsedExternalWebsite = StringUtils.TryParseUri(SimpleProfile.ExternalWebsite);
+            }
+            @if (hasPronounsOrLocation)
             {
-                @if (@description != null)
+                <div class="profile-pronouns-and-location">
+                    @SimpleProfile.Pronouns
+                    @(SimpleProfile.Pronouns != null && SimpleProfile.Location != null ? " · " : null)
+                    @SimpleProfile.Location
+                </div>
+            }
+
+            @if (pluggableExternalUrlToDisplayInBio || parsedExternalWebsite != null)
+            {
+                @if (hasPronounsOrLocationOrDescription)
                 {
                     <br>
-
-                    <br>
                 }
-                <a href="@pluggableExternalUrl" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(new Uri(pluggableExternalUrl))</a>
+                @if(parsedExternalWebsite != null)
+                {
+                    <a href="@parsedExternalWebsite.AbsoluteUri" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(parsedExternalWebsite)</a>
+                }
+                @if(pluggableExternalUrlToDisplayInBio)
+                {
+                    <a href="@pluggableExternalUrl" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(new Uri(pluggableExternalUrl!))</a>
+                }
             }
             @if (BridgyMirroredProfile != null)
             {
                 var fediDid = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.GetDid(BridgyMirroredProfile.Value);
                 var fediUrl = AppViewLite.PluggableProtocols.ActivityPub.ActivityPubProtocol.Instance!.TryGetOriginalProfileUrl(new BlueskyProfile { Did = fediDid });
-                @if (@description != null)
+                @if (hasPronounsOrLocationOrDescription)
                 {
                     <br>
 

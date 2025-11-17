@@ -51,6 +51,8 @@ namespace AppViewLite.Models
         [ProtoMember(26)] public int? PluggableReplyCount;
         [ProtoMember(27)] public int? PluggableLikeCountForScoring;
         [ProtoMember(28)] public string? PluggableAuthor;
+        [ProtoMember(29)] public int? PluggableRepostCount;
+        [ProtoMember(30)] public int? PluggableQuoteCount;
 
         // UPDATE IsSlimCandidate if you add fields!
 
@@ -73,6 +75,8 @@ namespace AppViewLite.Models
                 IsReplyToUnspecifiedPost == null &&
                 PluggableLikeCount == null &&
                 PluggableReplyCount == null &&
+                PluggableRepostCount == null &&
+                PluggableQuoteCount == null &&
                 PluggableLikeCountForScoring == null &&
                 PluggableAuthor == null
                 ;

@@ -27,6 +27,10 @@ namespace AppViewLite.Models
         [ProtoMember(21)] public CustomFieldProto[]? CustomFields;
         [ProtoMember(22)] public FacetData[]? DisplayNameFacets;
 
+        [ProtoMember(23)] public string? Location;
+        [ProtoMember(24)] public string? Pronouns;
+        [ProtoMember(25)] public string? ExternalWebsite;
+
         public string? Error;
 
         public FacetData[]? GetOrGuessFacets()

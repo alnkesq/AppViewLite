@@ -225,7 +225,23 @@ namespace AppViewLite.PluggableProtocols.Rss
                     if (posts.Length == 0) throw new UnexpectedFirehoseDataException("Virtual RSS feed returned zero posts.");
                     foreach (var post in posts)
                     {
+                        if (post.QuotedPost != null)
+                        {
+                            var quotedPostId = OnPostDiscovered(post.QuotedPost.PostId, null, null, post.QuotedPost.Data, ctx);
+                            if (quotedPostId != null)
+                            {
+                                post.Data.QuotedPlc = quotedPostId.Value.Author.PlcValue;
+                                post.Data.QuotedRKey = quotedPostId.Value.PostRKey.TidValue;
+                            }
+
+                        }
                         OnPostDiscovered(post.PostId, null, null, post.Data, ctx);
+
+                        if (post.PostId.Did != did)
+                        {
+                            OnRepostDiscovered(did, post.PostId, post.RepostDate == default ? post.PostId.Tid.Date : post.RepostDate, ctx);
+                        }
+                        
                     }
                     if (result.Profile != null)
                     {
@@ -986,6 +1002,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("reddit.com")) return "/assets/default-reddit-avatar.svg";
             if (url.HasHostSuffix("tumblr.com")) return "/assets/default-tumblr-avatar.svg";
             if (url.HasHostSuffix("github.com")) return "/assets/default-github-avatar.svg";
+            if (url.HasHostSuffix("x.com")) return "/assets/default-x-avatar.svg";
             return "/assets/default-rss-avatar.svg";
         }
 
@@ -1020,6 +1037,10 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
+            if (profile.Did.StartsWith("did:rss:x.com:", StringComparison.Ordinal))
+            {
+                return "https://x.com/" + DidToUrl(profile.Did).GetSegments()[0];
+            }
             if (profile.Did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal))
                 return DidToUrl(profile.Did).AbsoluteUri;
             return profile.BasicData?.CustomFields?.FirstOrDefault(x => x.Name == "web")?.Value;
@@ -1048,8 +1069,16 @@ namespace AppViewLite.PluggableProtocols.Rss
                DidPrefix + (url.Scheme == Uri.UriSchemeHttp ? "http:" : null) + Uri.EscapeDataString(url.AbsoluteUri.AsSpan(url.Scheme.Length + 3)).Replace("_", "%5F").Replace("%2F", ":").Replace("%", "_");
         }
 
-
         public async override Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize, CancellationToken ct)
+        {
+            string url = GetUrlForBlobRetrieval(cid, preferredSize);
+
+            var result = await BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(url), preferredSize: preferredSize, ct: ct);
+            //result.IsFavIcon = isFavicon;
+            return result;
+        }
+
+        private static string GetUrlForBlobRetrieval(byte[] cid, ThumbnailSize preferredSize)
         {
             var url = BlueskyRelationships.DecompressBpe(cid)!;
             //bool isFavicon = false;
@@ -1062,9 +1091,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 else url = parts[0];
             }
 
-            var result = await BlueskyEnrichedApis.GetBlobFromUrlAsync(new Uri(url), preferredSize: preferredSize, ct: ct);
-            //result.IsFavIcon = isFavicon;
-            return result;
+            return url;
         }
 
         public override bool ReusesThumbImageForFullSizeImages(BlueskyPost post)
@@ -1085,6 +1112,11 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var path = url.GetSegments();
                 if (path[0] == "user") return "/u/" + path[1];
                 else return path[1];
+            }
+            if (url.HasHostSuffix("x.com"))
+            {
+                var username = url.GetSegments()[0];
+                return username;
             }
             var host = url.GetDomainTrimWww();
             if (host.StartsWith("blog.", StringComparison.Ordinal))
@@ -1125,6 +1157,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             else if (feedUrl.HasHostSuffix("t.me"))
             {
                 return "https://t.me" + postId.PostId.String;
+            }
+            else if (feedUrl.HasHostSuffix("x.com"))
+            {
+                return "https://x.com/" + feedUrl.GetSegments()[0] + "/status/" + post.QualifiedPluggablePostId.PostId.Int64;
             }
             return post.Data?.ExternalUrl;
         }
@@ -1353,6 +1389,11 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 return url.Host;
             }
+            if (url.HasHostSuffix("x.com"))
+            {
+                var username = url.GetSegments()[0];
+                return "@" + username + " (𝕏)";
+            }
             if (url.HasHostSuffix("github.com"))
             {
                 var segments = url.GetSegments().Take(2).ToArray();
@@ -1375,6 +1416,19 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (false && feedUrl.HasHostSuffix("reddit.com") && feedUrl.AbsolutePath.StartsWith("/r/", StringComparison.Ordinal))
             {
                 return (null, RedditApi.GetRedditVirtualRss(feedUrl, did));
+            }
+
+            if (feedUrl.HasHostSuffix("twitter.com") || feedUrl.HasHostSuffix("x.com"))
+            {
+                var segments = feedUrl.GetSegments();
+                if (segments.Length == 1)
+                {
+                    var username = segments[0].ToLowerInvariant();
+                    var normalized = "https://x.com/" + username;
+                    if (feedUrl.AbsoluteUri != normalized)
+                        return (new Uri(normalized), null);
+                    return (null, Nitter.GetTwitterVirtualRss(username));
+                }
             }
 
             if (feedUrl.HasHostSuffix("t.me"))
@@ -1428,8 +1482,13 @@ namespace AppViewLite.PluggableProtocols.Rss
             return default;
         }
 
-        public override bool ProvidesLikeCount(string did) => did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal) || did.StartsWith("did:rss:github.com:", StringComparison.Ordinal);
-
+        public override bool ProvidesLikeCount(string did)
+        {
+            return
+                did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal) ||
+                did.StartsWith("did:rss:github.com:", StringComparison.Ordinal) ||
+                did.StartsWith("did:rss:x.com:", StringComparison.Ordinal);
+        }
 
         private static int EstimateLikesFromRank(int rank, double alpha)
         {
@@ -1439,7 +1498,7 @@ namespace AppViewLite.PluggableProtocols.Rss
     }
 
     public delegate Task<VirtualRssResult> VirtualRssDelegate();
-    public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data)
+    public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data, DateTime RepostDate = default, VirtualRssPost? QuotedPost = null)
     {
         public DateTime Date => PostId.Tid.Date;
     }

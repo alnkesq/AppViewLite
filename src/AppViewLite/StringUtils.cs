@@ -450,12 +450,14 @@ namespace AppViewLite
             return handle.ToLowerInvariant();
         }
 
-        public static (string? Text, FacetData[]? Facets) HtmlToFacets(INode dom, Func<IElement, FacetData?> getFacet)
+        public static (string? Text, FacetData[]? Facets) HtmlToFacets(INode? dom, Func<IElement, FacetData?> getFacet, bool pre = false)
         {
-            return HtmlToFacets([dom], getFacet);
+            if (dom == null) return default;
+            return HtmlToFacets([dom], getFacet, pre);
         }
-        public static (string? Text, FacetData[]? Facets) HtmlToFacets(INode[] dom, Func<IElement, FacetData?> getFacet)
+        public static (string? Text, FacetData[]? Facets) HtmlToFacets(INode[]? dom, Func<IElement, FacetData?> getFacet, bool pre = false)
         {
+            if (dom == null) return default;
             var sb = new StringBuilder();
             var utf8length = 0;
             var facets = new List<FacetData>();
@@ -585,7 +587,7 @@ namespace AppViewLite
 
             foreach (var child in dom)
             {
-                Recurse(child, pre: false);
+                Recurse(child, pre: pre);
             }
 
 
@@ -1001,6 +1003,27 @@ namespace AppViewLite
         public static string? NormalizeNull(string? value)
         {
             return string.IsNullOrEmpty(value) ? null : value;
+        }
+
+        public static bool IsCaptchaOrProofOfWorkPageTitle(string? pageTitle)
+        {
+            return pageTitle is "One moment, please..." or "Making sure you're not a bot!" or "Just a moment...";
+        }
+
+        public static Uri? TryGetHref(this IElement element, Uri pageUrl)
+        {
+            return TryGetUrlAttribute(element, "href", pageUrl);
+        }
+        public static Uri? TryGetUrlAttribute(this IElement element, string attribute, Uri pageUrl)
+        {
+            var href = element.GetAttribute(attribute);
+            return TryParseUri(pageUrl, href);
+        }
+        public static Uri GetHref(this IElement element, Uri pageUrl)
+        {
+            var href = element.GetAttribute("href");
+            if (string.IsNullOrEmpty(href)) throw new UnexpectedFirehoseDataException("Missing URL in HTML element");
+            return new Uri(pageUrl, href);
         }
     }
 }

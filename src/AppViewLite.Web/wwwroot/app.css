@@ -1051,9 +1051,15 @@ ul {
 
 .profile-description{
     margin-top: 10px;
-    white-space: pre-wrap;
     word-break: break-word;
     overflow-wrap: break-word;
+}
+.profile-pronouns-and-location{
+    color: gray;
+    margin-top: 15px; 
+}
+.profile-description-text {
+    white-space: pre-wrap;
 }
 
 .handle-generic {

@@ -51,6 +51,9 @@ namespace AppViewLite.PluggableProtocols
             if (data.CustomFields != null) data.CustomFields = data.CustomFields.Where(x => !string.IsNullOrEmpty(x.Name) && !string.IsNullOrEmpty(x.Value)).ToArray();
             if (data.CustomFields != null && data.CustomFields.Length == 0)
                 data.CustomFields = null;
+            data.Pronouns = StringUtils.NormalizeNull(data.Pronouns);
+            data.Location = StringUtils.NormalizeNull(data.Location);
+            data.ExternalWebsite = StringUtils.NormalizeNull(data.ExternalWebsite);
 
             Apis.WithRelationshipsWriteLock(rels =>
             {
@@ -433,7 +436,10 @@ namespace AppViewLite.PluggableProtocols
             throw new NotSupportedException("This pluggable protocol does not support blob retrieval.");
         }
 
-        public virtual bool ShouldUseM3u8ForVideo(string did, byte[] cid) => false;
+        public virtual bool ShouldUseM3u8ForVideo(string did, byte[] cid)
+        {
+            return did.StartsWith("did:rss:x.com:", StringComparison.Ordinal);
+        }
 
         public virtual string? GetIndexableDidText(string did)
         {

@@ -1614,6 +1614,8 @@ namespace AppViewLite
                 AvatarCidBytes = pf.Avatar?.Ref?.Link?.ToBytes(),
                 BannerCidBytes = pf.Banner?.Ref?.Link?.ToBytes(),
                 PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Rkey).TidValue : null,
+                ExternalWebsite = StringUtils.NormalizeNull(pf.Website),
+                Pronouns = StringUtils.NormalizeNull(pf.Pronouns),
             };
 
             IndexProfile(plc, proto);
@@ -1971,12 +1973,17 @@ namespace AppViewLite
             (post.Data, post.InReplyToUser, post.RootPostDid) = TryGetPostDataAndInReplyTo(id, ctx);
             MaybePropagateAdministrativeBlockToPost(post);
 
-            if (post.Data != null)
+            var data = post.Data;
+            if (data != null)
             {
-                if (post.Data.PluggableReplyCount != null)
-                    post.ReplyCount = post.Data.PluggableReplyCount.Value;
-                if (post.Data.PluggableLikeCount != null)
-                    post.LikeCount = post.Data.PluggableLikeCount.Value;
+                if (data.PluggableReplyCount != null)
+                    post.ReplyCount = data.PluggableReplyCount.Value;
+                if (data.PluggableLikeCount != null)
+                    post.LikeCount = data.PluggableLikeCount.Value;
+                if (data.PluggableRepostCount != null)
+                    post.RepostCount = data.PluggableRepostCount.Value;
+                if (data.PluggableQuoteCount != null)
+                    post.QuoteCount = data.PluggableQuoteCount.Value;
             }
             DecompressPluggablePostData(id.PostRKey, post.Data, post.Author.Did);
             if (post.PluggableProtocol != null && post.Data == null)

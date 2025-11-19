@@ -29,7 +29,7 @@ namespace AppViewLite.Models
         [ProtoMember(15)] public int HttpLastModifiedTzOffset;
         [ProtoMember(16)] public byte[]? FaviconUrl;
         [ProtoMember(17)] public bool DidAttemptFaviconRetrieval;
-
+        [ProtoMember(18)] public bool IsTwitter;
 
         public void MakeUtc()
         {

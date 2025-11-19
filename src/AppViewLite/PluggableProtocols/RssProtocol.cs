@@ -134,7 +134,14 @@ namespace AppViewLite.PluggableProtocols.Rss
                 //TimeSpan.FromDays(90).TotalDays
 
                 );
-            return refreshInfo.LastRefreshAttempt.AddDays(averageDaysBetweenPosts.Value);
+
+            var interval = TimeSpan.FromDays(averageDaysBetweenPosts.Value);
+            if (refreshInfo.IsTwitter)
+            {
+                var minInterval = TimeSpan.FromHours(36);
+                if (interval < minInterval) interval = minInterval;
+            }
+            return refreshInfo.LastRefreshAttempt + interval;
 
         }
 
@@ -211,6 +218,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             refreshInfo.LastHttpError = default;
             refreshInfo.LastHttpStatus = default;
             refreshInfo.OtherException = null;
+            refreshInfo.IsTwitter = Nitter.IsTwitterDid(did);
             try
             {
 

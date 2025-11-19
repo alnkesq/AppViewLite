@@ -1038,7 +1038,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public override string? TryGetOriginalProfileUrl(BlueskyProfile profile)
         {
-            if (profile.Did.StartsWith("did:rss:x.com:", StringComparison.Ordinal))
+            if (Nitter.IsTwitterDid(profile.Did))
             {
                 return "https://x.com/" + DidToUrl(profile.Did).GetSegments()[0];
             }
@@ -1490,7 +1490,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return
                 did.StartsWith("did:rss:www.reddit.com:", StringComparison.Ordinal) ||
                 did.StartsWith("did:rss:github.com:", StringComparison.Ordinal) ||
-                did.StartsWith("did:rss:x.com:", StringComparison.Ordinal);
+                Nitter.IsTwitterDid(did);
         }
 
         private static int EstimateLikesFromRank(int rank, double alpha)

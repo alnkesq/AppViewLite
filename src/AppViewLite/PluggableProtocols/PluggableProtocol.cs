@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using AppViewLite.PluggableProtocols.Rss;
 using DuckDbSharp.Types;
 using System;
 using System.Collections.Generic;
@@ -438,7 +439,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool ShouldUseM3u8ForVideo(string did, byte[] cid)
         {
-            return did.StartsWith("did:rss:x.com:", StringComparison.Ordinal);
+            return Nitter.IsTwitterDid(did);
         }
 
         public virtual string? GetIndexableDidText(string did)

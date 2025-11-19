@@ -341,6 +341,12 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return src.AbsoluteUri;
             }
         }
+
+        public static bool IsTwitterDid(string did)
+        {
+            return did.StartsWith("did:rss:x.com:", StringComparison.Ordinal);
+        }
+
         private record ExtraProfile(string? DisplayName, string Did, string? Avatar);
     }
 }

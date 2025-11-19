@@ -238,7 +238,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         }
                         OnPostDiscovered(post.PostId, null, null, post.Data, ctx);
 
-                        if (post.PostId.Did != did)
+                        if (post.PostId.Did != did || post.RepostDate != default)
                         {
                             OnRepostDiscovered(did, post.PostId, post.RepostDate == default ? post.PostId.Tid.Date : post.RepostDate, ctx);
                         }

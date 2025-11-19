@@ -108,6 +108,26 @@ namespace AppViewLite.PluggableProtocols.Rss
                         }, ctx);
                     }
                 }
+
+                var mainProfileDid = GetDidForUsername(username);
+                DateTime maxSeenTime = default;
+                for (int i = posts.Length - 1; i >= 0; i--)
+                {
+                    var post = posts[i].Post;
+                    if (post == null) continue;
+                    var date = post.Date;
+                    if (date >= maxSeenTime) maxSeenTime = date;
+
+                    if (post.RepostDate != default)
+                    {
+                        // This is a repost. Bump the repost date (which so far is simply set to Post.Date) based on post order.
+                        if (post.RepostDate < maxSeenTime)
+                        {
+                            maxSeenTime = maxSeenTime.AddMilliseconds(1);
+                            posts[i].Post = post with { RepostDate = maxSeenTime };
+                        }
+                    }
+                }
                 return new VirtualRssResult(profile, posts.Select(x => x.Post).WhereNonNull().ToArray());
             };
         }
@@ -193,7 +213,13 @@ namespace AppViewLite.PluggableProtocols.Rss
                 GetDidForUsername(originalPosterUserName),
                 ToOriginalImageUrl(StringUtils.GetSrcSetLargestImageUrl(x.QuerySelector(".avatar"), profileUrl))
             ) : null;
-            return (new VirtualRssPost(new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)), postData, QuotedPost: quotedPost), extraProfile);
+
+            var isRetweet = x.QuerySelector(".retweet-header") != null;
+            return (new VirtualRssPost(
+                new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)), 
+                postData,
+                RepostDate: isRetweet ? tid.Date : default, // Initial approximation, we'll bump it later if we see out-of-order posts
+                QuotedPost: quotedPost), extraProfile);
         }
 
         public static string GetDidForUsername(string username)
@@ -315,7 +341,6 @@ namespace AppViewLite.PluggableProtocols.Rss
                 return src.AbsoluteUri;
             }
         }
+        private record ExtraProfile(string? DisplayName, string Did, string? Avatar);
     }
-
-    internal record ExtraProfile(string? DisplayName, string Did, string? Avatar);
 }

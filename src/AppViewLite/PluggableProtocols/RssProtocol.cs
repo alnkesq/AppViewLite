@@ -1500,7 +1500,7 @@ namespace AppViewLite.PluggableProtocols.Rss
     public delegate Task<VirtualRssResult> VirtualRssDelegate();
     public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data, DateTime RepostDate = default, VirtualRssPost? QuotedPost = null)
     {
-        public DateTime Date => PostId.Tid.Date;
+        public DateTime Date => RepostDate != default ? RepostDate : PostId.Tid.Date;
     }
     public record VirtualRssResult(BlueskyProfileBasicInfo? Profile, VirtualRssPost[] Posts);
 

@@ -836,8 +836,9 @@ namespace AppViewLite
             return host;
         }
 
-        internal static Uri? GetSrcSetLargestImageUrl(IElement img, Uri pageUrl)
+        internal static Uri? GetSrcSetLargestImageUrl(IElement? img, Uri pageUrl)
         {
+            if (img == null) return null;
             var srcset = img.GetAttribute("srcset");
             if (srcset != null)
             {

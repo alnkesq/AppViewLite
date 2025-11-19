@@ -56,10 +56,12 @@ namespace AppViewLite
         {
             RunHandleVerificationDict = new(async (handle, ctx) =>
             {
+                ctx.AssertForDictionary();
                 return new(await ResolveHandleAsync(handle, ctx: ctx, allowUnendorsed: false), ctx.MinVersion);
             });
             FetchAndStoreDidDocNoOverrideDict = new(async (pair, anyCtx) =>
             {
+                anyCtx.AssertForDictionary();
                 return new(await FetchAndStoreDidDocNoOverrideCoreAsync(pair.Did, pair.Plc, anyCtx), anyCtx.MinVersion);
             });
             FetchAndStoreLabelerServiceMetadataDict = new(FetchAndStoreLabelerServiceMetadataCoreAsync);
@@ -128,6 +130,7 @@ namespace AppViewLite
 
         private async Task<Versioned<AccountState>> FetchAndStoreAccountStateFromPdsCoreAsync(string did, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             using var _ = LogNetworkOperation(ctx, nameof(FetchAndStoreAccountStateFromPdsCoreAsync), argument: did);
             using var protocol = await CreateProtocolForDidAsync(did, ctx);
             var response = (await protocol.GetRepoStatusAsync(new ATDid(did))).HandleResult()!;
@@ -136,6 +139,7 @@ namespace AppViewLite
 
         private async Task<long> FetchOpenGraphDictCoreAsync(string url, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             var urlHash = StringUtils.HashUnicodeToUuid(url);
             var data = await OpenGraph.TryRetrieveOpenGraphDataAsync(new Uri(url));
             EfficientTextCompressor.CompressInPlace(ref data.ExternalTitle, ref data.ExternalTitleBpe);
@@ -211,6 +215,7 @@ namespace AppViewLite
 
         private async Task<(long MinVersion, IReadOnlyList<LabelId> Labels)> FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value;
 
             var defs = (record.Policies?.LabelValueDefinitions ?? [])?.ToDictionary(x => x.Identifier);
@@ -300,6 +305,7 @@ namespace AppViewLite
 
         private async Task<long> FetchAndStoreProfileCoreAsync(string did, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             if (PluggableProtocol.TryGetPluggableProtocolForDid(did) is { } pluggable)
             {
                 try
@@ -350,6 +356,7 @@ namespace AppViewLite
 
         private async Task<long> FetchAndStoreListMetadataCoreAsync(RelationshipStr listId, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             List? response = null;
             try
             {
@@ -376,6 +383,7 @@ namespace AppViewLite
 
         private async Task<long> FetchAndStorePostCoreAsync(PostIdString postId, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             Post? response = null;
             PostIdString? rootPostId = null;
             Task<long>? loadThreadgate = null;
@@ -447,6 +455,7 @@ namespace AppViewLite
 
         private async Task<long> FetchAndStoreThreadgateCoreAsync(PostIdString rootPostId, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             Threadgate? response = null;
             try
             {
@@ -471,6 +480,7 @@ namespace AppViewLite
 
         private async Task<long> FetchAndStorePostgateCoreAsync(PostIdString postId, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             Postgate? response = null;
             try
             {
@@ -3033,6 +3043,7 @@ namespace AppViewLite
 
         private async Task<RepositoryImportEntry> ImportCarIncrementalCoreAsync(string did, RepositoryImportKind kind, Plc plc, Tid since, CancellationToken ct, RequestContext ctx, RequestContext? authenticatedCtx, bool slowImport)
         {
+            ctx.AssertForDictionary();
             var startDate = DateTime.UtcNow;
             var summary = new RepositoryImportEntry
             {
@@ -4257,6 +4268,7 @@ namespace AppViewLite
 
         private async Task<Versioned<string>> HandleToDidAndStoreCoreAsync(string handle, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(handle);
 
 
@@ -5061,7 +5073,7 @@ namespace AppViewLite
 
             foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)
             {
-                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url);
+                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url, preferDid: false, ctx);
                 if (did != null)
                     return did.StartsWith("did:", StringComparison.Ordinal) ? did : null;
             }
@@ -5188,7 +5200,7 @@ namespace AppViewLite
 
             foreach (var protocol in PluggableProtocol.RegisteredPluggableProtocols)
             {
-                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url);
+                var did = await protocol.TryGetDidOrLocalPathFromUrlAsync(url, preferDid: false, ctx);
                 if (did != null)
                     return did.StartsWith("did:", StringComparison.Ordinal) ? "/@" + did : did;
             }

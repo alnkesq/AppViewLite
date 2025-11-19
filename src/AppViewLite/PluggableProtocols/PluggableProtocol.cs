@@ -471,7 +471,7 @@ namespace AppViewLite.PluggableProtocols
 
         public virtual bool ProvidesLikeCount(string did) => false;
 
-        public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid = false) => Task.FromResult<string?>(null);
+        public virtual Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid, RequestContext ctx) => Task.FromResult<string?>(null);
 
         public virtual bool ShouldIncludeFullReplyChain(BlueskyPost post) => false;
 

@@ -173,8 +173,9 @@ namespace AppViewLite.PluggableProtocols.Rss
             return "#999";
         }
 
-        private async Task<RssRefreshInfo> TryRefreshFeedCoreAsync(string did, RequestContext ctx)
+        private async Task<Versioned<RssRefreshInfo>> TryRefreshFeedCoreAsync(string did, RequestContext ctx)
         {
+            ctx.AssertForDictionary();
             if (!AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_ENABLE_RSS, false))
                 throw new NotSupportedException("RSS is not enabled on the current instance.");
             var feedUrl = DidToUrl(did)!;
@@ -202,7 +203,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var now = DateTime.UtcNow;
             refreshInfo ??= new RssRefreshInfo { FirstRefresh = now };
 
-            if (refreshInfo.RedirectsTo != null && (now - refreshInfo.LastRefreshAttempt).TotalDays < 30 && IsBadRedirect(new Uri(refreshInfo.RedirectsTo)) == null) return refreshInfo;
+            if (refreshInfo.RedirectsTo != null && (now - refreshInfo.LastRefreshAttempt).TotalDays < 30 && IsBadRedirect(new Uri(refreshInfo.RedirectsTo)) == null) return new(refreshInfo, ctx.MinVersion);
 
             var lastRefreshSucceeded = refreshInfo.RssErrorMessage == null;
 
@@ -215,7 +216,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 refreshInfo.RedirectsTo = null;
 
-                var (virtualRssRedirect, virtualRss) = TryGetVirtualRssDelegate(feedUrl, did);
+                var (virtualRssRedirect, virtualRss) = TryGetVirtualRssDelegate(feedUrl, did, ctx);
                 if (virtualRssRedirect != null) throw new UnexpectedFirehoseDataException("The specified virtual RSS DID was recognized, but it is not canonical. The canonical DID is " + UrlToDid(virtualRssRedirect));
 
                 if (virtualRss != null)
@@ -255,7 +256,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     refreshInfo.XmlOldestPost = posts.Min(x => x.Date);
                     refreshInfo.XmlNewestPost = posts.Max(x => x.Date);
                     refreshInfo.XmlPostCount = posts.Length;
-                    return refreshInfo;
+                    return new(refreshInfo, ctx.MinVersion);
 
                 }
 
@@ -287,7 +288,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 using var response = await BlueskyEnrichedApis.DefaultHttpClientForRss.SendAsync(request);
                 if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
                 {
-                    return refreshInfo;
+                    return new(refreshInfo, ctx.MinVersion);
                 }
                 refreshInfo.LastHttpStatus = response.StatusCode;
                 var redirectLocation = response.GetRedirectLocationUrl();
@@ -297,7 +298,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     if (error != null)
                         throw new UnexpectedFirehoseDataException(error);
                     refreshInfo.RedirectsTo = redirectLocation.AbsoluteUri;
-                    return refreshInfo;
+                    return new(refreshInfo, ctx.MinVersion);
                 }
 
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound && feedUrl.HasHostSuffix("tumblr.com"))
@@ -453,7 +454,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     Log("RSS refresh failed for " + feedUrl + ": " + refreshInfo.RssErrorMessage);
                 Apis.WithRelationshipsWriteLock(rels => rels.RssRefreshInfos.AddRange(plc, BlueskyRelationships.SerializeProto(refreshInfo)), ctx);
             }
-            return refreshInfo;
+            return new(refreshInfo, ctx.MinVersion);
         }
 
         private static string? IsBadRedirect(Uri redirectsTo)
@@ -1170,7 +1171,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return TimeSpan.FromDays(365 * 50);
         }
 
-        private readonly TaskDictionary<string, RequestContext, RssRefreshInfo> RefreshFeed;
+        private readonly TaskDictionary<string, RequestContext, Versioned<RssRefreshInfo>> RefreshFeed;
 
         public async Task<RssRefreshInfo> MaybeRefreshFeedAsync(string did, RequestContext ctx)
         {
@@ -1179,7 +1180,9 @@ namespace AppViewLite.PluggableProtocols.Rss
             var now = DateTime.UtcNow;
             if (refreshData == null || (now - refreshData.LastRefreshAttempt).TotalHours > 6)
             {
-                return await RefreshFeed.GetValueAsync(did, ctx);
+                var result = await RefreshFeed.GetValueAsync(did, RequestContext.CreateForTaskDictionary(ctx, possiblyUrgent: true));
+                result.BumpMinimumVersion(ctx);
+                return result.Value;
             }
             return refreshData;
         }
@@ -1232,7 +1235,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return Regex.IsMatch(initialText, @"<(?:rss|feed|rdf)\b");
         }
 
-        public async override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
+        public async override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid, RequestContext ctx)
         {
             if (url.Host.EndsWith(".tumblr.com", StringComparison.Ordinal) && url.Host != "www.tumblr.com")
             {
@@ -1290,7 +1293,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
 
             var did = UrlToDid(url);
-            var (virtualFeedRedirect, virtualFeed) = TryGetVirtualRssDelegate(url, did);
+            var (virtualFeedRedirect, virtualFeed) = TryGetVirtualRssDelegate(url, did, ctx);
             if (virtualFeedRedirect != null) return "/" + virtualFeedRedirect;
             if (virtualFeed != null) return did;
 
@@ -1410,7 +1413,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return StringUtils.GetDisplayHost(url);
         }
 
-        public static (Uri? RedirectTo, VirtualRssDelegate? Delegate) TryGetVirtualRssDelegate(Uri feedUrl, string did)
+        public static (Uri? RedirectTo, VirtualRssDelegate? Delegate) TryGetVirtualRssDelegate(Uri feedUrl, string did, RequestContext ctx)
         {
             // RSS works, while .json is often blocked
             if (false && feedUrl.HasHostSuffix("reddit.com") && feedUrl.AbsolutePath.StartsWith("/r/", StringComparison.Ordinal))
@@ -1427,7 +1430,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     var normalized = "https://x.com/" + username;
                     if (feedUrl.AbsoluteUri != normalized)
                         return (new Uri(normalized), null);
-                    return (null, Nitter.GetTwitterVirtualRss(username));
+                    return (null, Nitter.GetTwitterVirtualRss(username, ctx));
                 }
             }
 

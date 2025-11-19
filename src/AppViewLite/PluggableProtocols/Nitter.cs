@@ -11,7 +11,7 @@ namespace AppViewLite.PluggableProtocols.Rss
 {
     internal static class Nitter
     {
-        internal static VirtualRssDelegate GetTwitterVirtualRss(string username)
+        internal static VirtualRssDelegate GetTwitterVirtualRss(string username, RequestContext ctx)
         {
             var nitterInstance = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_NITTER_INSTANCE);
             if (nitterInstance == null) throw new NotSupportedException("A Nitter instance has not been configured on this AppViewLite instance.");
@@ -75,19 +75,46 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     var quote = x.QuerySelector(".quote");
                     VirtualRssPost? quoted = null;
+                    ExtraProfile? quotedExtraProfile = null;
                     if (quote != null)
                     {
                         quote.Remove();
-                        quoted = ParseNitterTweet(quote, profileUrl, null);
+                        (quoted, quotedExtraProfile) = ParseNitterTweet(quote, profileUrl, null, username);
                     }
-                    return ParseNitterTweet(x, profileUrl, quoted);
+
+
+                    var (post, extraProfile) = ParseNitterTweet(x, profileUrl, quoted, username);
+                    return (ExtraProfiles: new ExtraProfile?[] { extraProfile, quotedExtraProfile }, Post: post);
                 }).ToArray();
-                return new VirtualRssResult(profile, posts);
+                var extraProfiles = posts.SelectMany(x => x.ExtraProfiles).WhereNonNull().DistinctBy(x => x.Did).ToArray();
+                if (extraProfiles.Length != 0)
+                { 
+                    if (BlueskyEnrichedApis.Instance.WithRelationshipsLockForDids(extraProfiles.Select(x => x.Did).ToArray(), (plcs, rels) => plcs.Any(x => !rels.Profiles.ContainsKey(x)), ctx))
+                    {
+                        BlueskyEnrichedApis.Instance.WithRelationshipsWriteLock(rels => 
+                        {
+                            foreach (var extraProfile in extraProfiles)
+                            {
+                                var plc = rels.SerializeDid(extraProfile.Did, ctx);
+                                if (!rels.Profiles.ContainsKey(plc))
+                                {
+                                    rels.StoreProfileBasicInfo(plc, new BlueskyProfileBasicInfo 
+                                    {
+                                        DisplayName = StringUtils.NormalizeNull(extraProfile.DisplayName),
+                                        AvatarCidBytes = extraProfile.Avatar != null ? ImageToCid(new Uri(extraProfile.Avatar)) : null
+                                    });
+                                }
+                            }
+                        }, ctx);
+                    }
+                }
+                return new VirtualRssResult(profile, posts.Select(x => x.Post).WhereNonNull().ToArray());
             };
         }
 
-        private static VirtualRssPost ParseNitterTweet(IElement x, Uri profileUrl, VirtualRssPost? quotedPost)
+        private static (VirtualRssPost? Post, ExtraProfile? ExtraProfile) ParseNitterTweet(IElement x, Uri profileUrl, VirtualRssPost? quotedPost, string requestedProfileUserName)
         {
+            if (x.ClassList.Contains("unavailable")) return default;
             var tweetSegments = x.QuerySelector(".tweet-link, .quote-link")!.GetHref(profileUrl).GetSegments();
             if (tweetSegments[1] != "status") throw new UnexpectedFirehoseDataException("Unparseable HTML");
             var originalPoster = tweetSegments[0].ToLowerInvariant();
@@ -158,7 +185,15 @@ namespace AppViewLite.PluggableProtocols.Rss
                     }
                 }).WhereNonNull().ToArray(),
             };
-            return new VirtualRssPost(new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)), postData, QuotedPost: quotedPost);
+            var originalPosterLink = x.QuerySelector(".fullname")!;
+            var originalPosterUserName = originalPosterLink.GetHref(profileUrl).GetSegments()[0].ToLowerInvariant();
+
+            var extraProfile = originalPosterUserName != requestedProfileUserName ? new ExtraProfile(
+                originalPosterLink.TextContent?.Trim(),
+                GetDidForUsername(originalPosterUserName),
+                ToOriginalImageUrl(StringUtils.GetSrcSetLargestImageUrl(x.QuerySelector(".avatar"), profileUrl))
+            ) : null;
+            return (new VirtualRssPost(new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)), postData, QuotedPost: quotedPost), extraProfile);
         }
 
         public static string GetDidForUsername(string username)
@@ -235,6 +270,12 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         private static string? ToOriginalImageUrl(Uri? src)
         {
+            var url = ToOriginalImageUrlCore(src);
+            if (url != null && url.Contains("/default_profile_images/")) return null;
+            return url;
+        }
+        private static string? ToOriginalImageUrlCore(Uri? src)
+        {
             if (src == null) return null;
             if (src.AbsolutePath.StartsWith("/pic/", StringComparison.Ordinal))
             {
@@ -246,6 +287,10 @@ namespace AppViewLite.PluggableProtocols.Rss
                 else if (url.StartsWith("orig/", StringComparison.Ordinal))
                 {
                     return string.Concat("https://pbs.twimg.com/", url.AsSpan(5));
+                }
+                else if (url.StartsWith("profile_images/", StringComparison.Ordinal))
+                {
+                    return string.Concat("https://pbs.twimg.com/", url);
                 }
                 else if (url.StartsWith("amplify_video_thumb/", StringComparison.Ordinal))
                 {
@@ -271,4 +316,6 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
         }
     }
+
+    internal record ExtraProfile(string? DisplayName, string Did, string? Avatar);
 }

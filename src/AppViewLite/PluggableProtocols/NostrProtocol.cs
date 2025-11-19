@@ -373,7 +373,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         public override bool ShouldDisplayExternalLinkInBio => false;
 
-        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid)
+        public override Task<string?> TryGetDidOrLocalPathFromUrlAsync(Uri url, bool preferDid, RequestContext ctx)
         {
             if (url.Host == "primal.net")
             {

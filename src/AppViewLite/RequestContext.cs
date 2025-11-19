@@ -297,6 +297,11 @@ namespace AppViewLite
             if (field != null) return;
             Interlocked.CompareExchange(ref field, new TObject(), null);
         }
+
+        internal void AssertForDictionary()
+        {
+            BlueskyRelationships.Assert(!IsLoggedIn);
+        }
     }
 
     public record OperationLogEntry(PerformanceSnapshot Start, PerformanceSnapshot End, string? TableName, string? Operation, object? Argument)

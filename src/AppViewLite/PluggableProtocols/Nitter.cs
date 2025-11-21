@@ -52,6 +52,10 @@ namespace AppViewLite.PluggableProtocols.Rss
 #endif
 
                 var profileDom = StringUtils.ParseHtml(html);
+
+                if (profileDom.QuerySelector(".timeline-protected") != null) throw new UnexpectedFirehoseDataException("The posts from this account are protected.");
+                var errorPanel = profileDom.QuerySelector(".error-panel")?.TextContent?.Trim();
+                if (errorPanel != null && errorPanel.Contains("User ") && errorPanel.Contains("not found")) throw new UnexpectedFirehoseDataException("User not found.");
                 var pageTitle = profileDom.QuerySelector("title")?.TextContent;
 
                 var profileDisplayNameElement = profileDom.QuerySelector(".profile-card-fullname");
@@ -128,6 +132,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         }
                     }
                 }
+                if (posts.Length == 0 && !string.IsNullOrEmpty(errorPanel)) throw new UnexpectedFirehoseDataException("Nitter error: " + errorPanel);
                 return new VirtualRssResult(profile, posts.Select(x => x.Post).WhereNonNull().ToArray());
             };
         }

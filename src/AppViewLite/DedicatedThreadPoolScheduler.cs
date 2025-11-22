@@ -13,7 +13,7 @@ namespace AppViewLite
     {
 
 
-        private readonly BlockingCollection<Task> tasksSuspendable = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 20000);
+        private readonly BlockingCollection<Task> tasksSuspendable = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 2000);
         private readonly BlockingCollection<Task> tasksNonSuspendable = new();
         private readonly BlockingCollection<Task>[] bothCollections;
         private readonly List<Thread> threads;

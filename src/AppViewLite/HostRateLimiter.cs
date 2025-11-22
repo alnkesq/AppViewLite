@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.RateLimiting;
@@ -19,7 +20,7 @@ namespace AppViewLite
             foreach (var item in defaultLimits.Concat(AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_MAX_QPS_BY_HOST) ?? []))
             {
                 var parts = item.Split(":", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (parts.Length != 2 || !double.TryParse(parts[1], out var maxQps) || !BlueskyEnrichedApis.IsValidDomain(parts[0]) || parts[0].StartsWith("www.", StringComparison.Ordinal))
+                if (parts.Length != 2 || !double.TryParse(parts[1], CultureInfo.InvariantCulture, out var maxQps) || !BlueskyEnrichedApis.IsValidDomain(parts[0]) || parts[0].StartsWith("www.", StringComparison.Ordinal))
                     throw new Exception("Invalid format for APPVIEWLITE_MAX_QPS_BY_HOST entry: " + item);
                 qpsByHost[parts[0].ToLowerInvariant()] = maxQps;
             }

@@ -231,8 +231,7 @@ namespace AppViewLite
         private bool ShouldAssertRelationshipTrulyDoesNotExist(TTarget target, Plc actor)
         {
             if (RelationshipCache is RecentLikeRelationshipsCache)
-                return true;
-            //return (uint)(target.GetHashCode() ^ actor.GetHashCode()) % 256 > 2;
+                return ((uint)(target.GetHashCode() ^ actor.GetHashCode()) % 256) < 4;
             return false;
 
         }

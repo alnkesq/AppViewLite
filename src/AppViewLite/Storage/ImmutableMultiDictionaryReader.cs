@@ -1,14 +1,15 @@
-using AppViewLite.Storage;
-using System;
-using System.Collections.Generic;
 using AppViewLite;
 using AppViewLite.Numerics;
-using System.Runtime.CompilerServices;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Linq;
-using System.Diagnostics;
+using AppViewLite.Storage;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
@@ -26,7 +27,7 @@ namespace AppViewLite.Storage
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
         public long SizeInBytes { get; private set; }
-        public long KeyIndexSize => pageKeys.Length * Unsafe.SizeOf<TKey>();
+        public long PageIndexSize => (pageKeys.Length + 1) * Unsafe.SizeOf<TKey>();
 
         public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
         public bool HasOffsets => !IsSingleValueOrKeySet;
@@ -83,7 +84,7 @@ namespace AppViewLite.Storage
 
             if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)
             {
-                var keyCachePath = CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".keys" + KeyCountPerPage + ".cache");
+                var keyCachePath = CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".pages-" + PageSizeInBytes + ".cache");
                 if (!File.Exists(keyCachePath))
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(keyCachePath)!);
@@ -91,20 +92,35 @@ namespace AppViewLite.Storage
                     using (var cacheStream = new FileStream(keyCachePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
                     {
                         var keySpan = Keys.Span;
-                        for (long i = 0; i < keySpan.Length; i += KeyCountPerPage)
+                        var keySpanBytes = keySpan.Length * sizeof(TKey);
+                        var pageCount = DivideWithCeiling(keySpanBytes, PageSizeInBytes);
+                        for (long pageIndex = 0; pageIndex < pageCount; pageIndex++)
                         {
-                            var startKey = keySpan[i];
-                            cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in startKey)));
+                            var pageOffsetBytes = pageIndex * PageSizeInBytes;
+                            TKey firstEvenPartialKeyForPage;
+                            //if (pageOffsetBytes % sizeof(TKey) == 0)
+                            //{
+                            var keyIndex = pageOffsetBytes / sizeof(TKey);
+                            firstEvenPartialKeyForPage = keySpan[keyIndex];
+                            //}
+                            //else
+                            //{
+                            //    var keyIndex = pageOffsetBytes / sizeof(TKey);
+                            //    firstEvenPartialKeyForPage = keySpan[keyIndex];
+                            //}
+                            cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in firstEvenPartialKeyForPage)));
                         }
-                        var maxKey = keySpan[keySpan.Length - 1];
-                        cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in maxKey)));
+                        cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in keySpan[keySpan.Length - 1])));
+
                     }
                     File.Move(keyCachePath + ".tmp", keyCachePath);
                 }
+
                 this.pageKeysMmap = new MemoryMappedFileSlim(keyCachePath);
                 var pageKeysPlusLast = new DangerousHugeReadOnlyMemory<TKey>((TKey*)(void*)pageKeysMmap.Pointer, pageKeysMmap.Length / Unsafe.SizeOf<TKey>());
                 this.MinimumKey = pageKeysPlusLast[0];
                 this.MaximumKey = pageKeysPlusLast[pageKeysPlusLast.Length - 1];
+                CombinedPersistentMultiDictionary.Assert(MaximumKey.Equals(Keys[Keys.Length - 1]));
                 this.pageKeys = pageKeysPlusLast.Slice(0, pageKeysPlusLast.Length - 1);
             }
             else
@@ -121,6 +137,12 @@ namespace AppViewLite.Storage
                 (HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0) +
                 (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
 
+        }
+
+        private static long DivideWithCeiling(long dividend, long divisor)
+        {
+            if (dividend % divisor == 0) return dividend / divisor;
+            return (dividend / divisor) + 1;
         }
 
         public IEnumerable<string> GetPotentiallyCorruptFiles(bool defaultKeysAreValid, bool defaultValuesAreValid)
@@ -149,12 +171,9 @@ namespace AppViewLite.Storage
 
         const int MinSizeBeforeKeyCache = 1 * 1024 * 1024;
 
-        public readonly static int TargetPageSizeBytes =
+        public readonly static int PageSizeInBytes =
             CombinedPersistentMultiDictionary.UseDirectIo ? CombinedPersistentMultiDictionary.DiskSectorSize
             : 4 * 1024; // OS page size
-
-        public unsafe readonly static int KeyCountPerPage = TargetPageSizeBytes / sizeof(TKey);
-
 
         public HugeReadOnlyMemory<TKey> Keys;
         public DangerousHugeReadOnlyMemory<TValue> Values => HasValues ? columnarReader.GetColumnDangerousHugeMemory<TValue>(1) : throw new InvalidOperationException();
@@ -299,6 +318,10 @@ namespace AppViewLite.Storage
         {
             return ReadSpanCore(safeFileHandleKeys, (DangerousHugeReadOnlyMemory<TKey>)Keys, index, length, GetKeysIoPreference(preference));
         }
+        public unsafe DangerousHugeReadOnlyMemory<byte> ReadKeySpanAsBytes(long indexBytes, long lengthBytes, MultiDictionaryIoPreference preference)
+        {
+            return ReadSpanCore(safeFileHandleKeys, new DangerousHugeReadOnlyMemory<byte>((byte*)(void*)Keys.Pointer, Keys.Length * SizeOfTKey), indexBytes, lengthBytes, GetKeysIoPreference(preference));
+        }
         public DangerousHugeReadOnlyMemory<UInt48> ReadOffsetSpan(long index, long length, MultiDictionaryIoPreference preference)
         {
             return ReadSpanCore(safeFileHandleOffsets!, (DangerousHugeReadOnlyMemory<UInt48>)Offsets!, index, length, GetOffsetsIoPreference(preference));
@@ -337,7 +360,7 @@ namespace AppViewLite.Storage
             if (directIoArena != null && preference != IoMethodPreference.Mmap)
             {
                 var lengthInBytes = length * Unsafe.SizeOf<T>();
-                if (lengthInBytes < MaxDirectIoReadSize && fileHandle.Length >= MinSizeBeforeKeyCache)
+                if (lengthInBytes < MaxDirectIoReadSize && pageKeys.Length != 0)
                 {
                     var offsetInBytes = index * Unsafe.SizeOf<T>();
 
@@ -478,12 +501,12 @@ namespace AppViewLite.Storage
 
             var startTime = Stopwatch.GetTimestamp();
             long result;
-#if false
+#if true
             result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
-                var fast = BinarySearchPaginated(comparable);
+                var fast = BinarySearchPaginated(comparable, preference);
                 if (fast != result)
                     CombinedPersistentMultiDictionary.Abort(new Exception("Paginated binary search mismatch"));
             }
@@ -514,14 +537,31 @@ namespace AppViewLite.Storage
             if (pageIndex < 0)
             {
                 pageIndex = (~pageIndex) - 1;
-                var pageBaseIndex = pageIndex * KeyCountPerPage;
-                var count = pageIndex == keyCacheSpan.Length - 1 ? KeyCount - pageBaseIndex : KeyCountPerPage;
-                var page = ReadKeySpan(pageBaseIndex, count, preference);
+                var pageStartsAtOffset = pageIndex * PageSizeInBytes;
+                var pageEndBytes = Math.Min(pageStartsAtOffset + PageSizeInBytes, Keys.Length * SizeOfTKey);
+                var bytesToRead = pageEndBytes - pageStartsAtOffset;
+                CombinedPersistentMultiDictionary.Assert(bytesToRead <= PageSizeInBytes);
+                var page = ReadKeySpanAsBytes(pageStartsAtOffset, bytesToRead, preference).AsSmallSpan();
 
-                var innerIndex = page.Span.AsSmallSpan().BinarySearch(comparable);
+                ReadOnlySpan<TKey> pageKeys;
+                long pageBaseIndex;
+
+                var mod = pageStartsAtOffset % SizeOfTKey;
+                if (mod == 0)
+                {
+                    pageKeys = MemoryMarshal.Cast<byte, TKey>(page);
+                    pageBaseIndex = pageStartsAtOffset / SizeOfTKey;
+                }
+                else
+                {
+                    var skipAhead = SizeOfTKey - (int)mod;
+                    pageKeys = MemoryMarshal.Cast<byte, TKey>(page.Slice(skipAhead));
+                    pageBaseIndex = (pageStartsAtOffset + skipAhead) / SizeOfTKey;
+                }
+
+                var innerIndex = pageKeys.BinarySearch(comparable);
                 if (innerIndex < 0)
                 {
-
                     innerIndex = ~innerIndex;
                     return ~(pageBaseIndex + innerIndex);
                 }
@@ -529,14 +569,17 @@ namespace AppViewLite.Storage
                 {
                     return pageBaseIndex + innerIndex;
                 }
-
             }
             else
             {
-                // this page starts exactly with the key we want.
-                return pageIndex * KeyCountPerPage;
+                // the first (even partial) key of this page is the one we were looking for.
+                var pageStartsAtOffset = pageIndex * PageSizeInBytes;
+                var indexOfKey = pageStartsAtOffset / SizeOfTKey; // If "% sizeof(TKey) = 0", fine. Otherwise we get the round down for free.
+                return indexOfKey;
             }
         }
+
+        private readonly static int SizeOfTKey = Unsafe.SizeOf<TKey>();
 
         public static IoMethodPreference GetKeysIoPreference(MultiDictionaryIoPreference preference)
         {

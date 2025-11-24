@@ -57,7 +57,7 @@ namespace AppViewLite
 
         public override object? GetCounters()
         {
-            var sizes = cacheSlices.Select(x => x.Cache.KeyIndexSize).Where(x => x != 0).ToArray();
+            var sizes = cacheSlices.Select(x => x.Cache.PageIndexSize).Where(x => x != 0).ToArray();
             var total = sizes.Sum();
             return new { KeyIndexSizesTotal = total, KeyIndexSizes = sizes };
         }

@@ -9,7 +9,7 @@
     var tables = Apis.WithRelationshipsUpgradableLock(rels =>
             {
                 // Upgradable lock, so that we get the primary
-                return rels.AllMultidictionaries.Select(x => (x.Name, x.InMemorySize, x.LastFlushed, x.OriginalWriteBytes, x.CompactationWriteBytes, x.OnDiskSize, x.KeyCount, x.ValueCount, x.SliceCount, x.Behavior, x.KeyIndexSize)).ToArray();
+                return rels.AllMultidictionaries.Select(x => (x.Name, x.InMemorySize, x.LastFlushed, x.OriginalWriteBytes, x.CompactationWriteBytes, x.OnDiskSize, x.KeyCount, x.ValueCount, x.SliceCount, x.Behavior, x.PageIndexSize)).ToArray();
             }, RequestContext);
 }
 
@@ -47,7 +47,7 @@
         <td>@StringUtils.FormatEngagementCount(table.KeyCount)</td>
         <td>@StringUtils.FormatEngagementCount(table.ValueCount)</td>
         <td>@(table.Behavior == AppViewLite.Storage.PersistentDictionaryBehavior.KeySetOnly ? "-" : table.Behavior ==  AppViewLite.Storage.PersistentDictionaryBehavior.SingleValue ? "(1)" : averageValueCount == 0 ? "0" : averageValueCount == 1 ? "1" : averageValueCount > 100 ? StringUtils.FormatEngagementCount((long)averageValueCount) : StringUtils.FormatTwoSignificantDigits(averageValueCount))</td>
-        <td>@StringUtils.ToHumanBytes(table.KeyIndexSize)</td>
+        <td>@StringUtils.ToHumanBytes(table.PageIndexSize)</td>
         <td>@StringUtils.ToHumanBytes(table.InMemorySize)</td>
         <td>@StringUtils.ToHumanDate(table.LastFlushed)</td>
         <td>@StringUtils.ToHumanBytes(table.OriginalWriteBytes)</td>

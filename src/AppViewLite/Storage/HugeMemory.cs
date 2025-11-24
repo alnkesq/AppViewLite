@@ -53,6 +53,7 @@ namespace AppViewLite.Storage
 
     public unsafe class HugeReadOnlyMemory<T> : IDisposable where T : unmanaged
     {
+        public T* Pointer => ptr;
         private T* ptr;
         private readonly long length;
         public HugeReadOnlySpan<T> Span

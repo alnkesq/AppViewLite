@@ -95,6 +95,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                                 ScheduledRefreshes.TryAdd(rssPlc);
                                 Apis.DispatchOutsideTheLock(() =>
                                 {
+                                    remainingTime = new TimeSpan(Math.Max(remainingTime.Ticks, Random.Shared.NextInt64(0, TimeSpan.FromHours(1).Ticks)));
                                     ScheduleRefreshAsync(rssPlc, did, remainingTime, ct).FireAndForget();
                                 });
                             }
@@ -141,6 +142,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var minInterval = TimeSpan.FromHours(36);
                 if (interval < minInterval) interval = minInterval;
             }
+
+            interval = interval + TimeSpan.FromTicks((long)(interval.Ticks * (0.9 + Random.Shared.NextDouble() * 0.2)));
             return refreshInfo.LastRefreshAttempt + interval;
 
         }

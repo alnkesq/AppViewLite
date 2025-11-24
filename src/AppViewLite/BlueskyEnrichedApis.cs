@@ -3369,7 +3369,8 @@ namespace AppViewLite
                 var postId = new PostId(rels.SerializeDid(did, ctx), rkey);
                 rels.Bookmarks.Add(loggedInUser, new BookmarkPostFirst(postId, bookmarkRkey));
                 rels.RecentBookmarks.Add(loggedInUser, new BookmarkDateFirst(bookmarkRkey, postId));
-                rels.NotifyPostStatsChange(postId, ctx.LoggedInUser);
+                if (BlueskyRelationships.IsNativeAtProtoDid(did))
+                    rels.NotifyPostStatsChange(postId, ctx.LoggedInUser);
                 return bookmarkRkey;
             }, ctx);
         }
@@ -3378,7 +3379,8 @@ namespace AppViewLite
             WithRelationshipsWriteLock(rels =>
             {
                 rels.BookmarkDeletions.Add(ctx.LoggedInUser, bookmarkRKey);
-                rels.NotifyPostStatsChange(new PostId(rels.SerializeDid(postDid, ctx), postRkey), ctx.LoggedInUser);
+                if (BlueskyRelationships.IsNativeAtProtoDid(postDid))
+                    rels.NotifyPostStatsChange(new PostId(rels.SerializeDid(postDid, ctx), postRkey), ctx.LoggedInUser);
             }, ctx);
         }
         public async Task DeletePostLikeAsync(Tid likeRKey, RequestContext ctx)

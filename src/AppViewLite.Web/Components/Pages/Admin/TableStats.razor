@@ -15,8 +15,10 @@
 
 <div class="main-padding">
     Total size: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OnDiskSize + x.InMemorySize)))<br>
+    Page key indexes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.PageIndexSize)))<br>
     Session original writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.OriginalWriteBytes))) (@StringUtils.ToHumanBytes(tables.Sum(x => x.InMemorySize)) buffered)<br>
-    Session compactation writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.CompactationWriteBytes)))
+    Session compactation writes: @(StringUtils.ToHumanBytes(tables.Sum(x => x.CompactationWriteBytes)))<br>
+    Buffered: @(StringUtils.ToHumanBytes(tables.Sum(x => x.InMemorySize)))
 </div>
 
 <table class="debug-table">
@@ -27,7 +29,7 @@
         <th># Keys</th>
         <th># Values</th>
         <th>Avg #values</th>
-        <th>Key index</th>
+        <th>Pg. key index</th>
         <th>Buffered</th>
         <th>Flushed</th>
         <th>Original writes</th>

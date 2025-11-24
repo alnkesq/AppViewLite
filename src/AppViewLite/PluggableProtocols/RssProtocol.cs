@@ -1406,7 +1406,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("x.com"))
             {
                 var username = url.GetSegments()[0];
-                return "@" + username + " (𝕏)";
+                return "@" + username + " · 𝕏";
             }
             if (url.HasHostSuffix("github.com"))
             {

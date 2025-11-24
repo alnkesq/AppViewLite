@@ -239,7 +239,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     {
                         if (post.QuotedPost != null)
                         {
-                            var quotedPostId = OnPostDiscovered(post.QuotedPost.PostId, null, null, post.QuotedPost.Data, ctx);
+                            var quotedPostId = OnPostDiscovered(post.QuotedPost.PostId, null, null, post.QuotedPost.Data, ctx, onlyInsertIfNew: post.QuotedPost.OnlyInsertIfNew);
                             if (quotedPostId != null)
                             {
                                 post.Data.QuotedPlc = quotedPostId.Value.Author.PlcValue;
@@ -247,7 +247,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                             }
 
                         }
-                        OnPostDiscovered(post.PostId, null, null, post.Data, ctx);
+                        OnPostDiscovered(post.PostId, null, null, post.Data, ctx, onlyInsertIfNew: post.OnlyInsertIfNew);
 
                         if (post.PostId.Did != did || post.RepostDate != default)
                         {
@@ -1512,7 +1512,7 @@ namespace AppViewLite.PluggableProtocols.Rss
     }
 
     public delegate Task<VirtualRssResult> VirtualRssDelegate();
-    public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data, DateTime RepostDate = default, VirtualRssPost? QuotedPost = null)
+    public record VirtualRssPost(QualifiedPluggablePostId PostId, BlueskyPostData Data, DateTime RepostDate = default, VirtualRssPost? QuotedPost = null, bool OnlyInsertIfNew = false)
     {
         public DateTime Date => RepostDate != default ? RepostDate : PostId.Tid.Date;
     }

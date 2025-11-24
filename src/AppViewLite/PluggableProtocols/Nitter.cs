@@ -224,7 +224,9 @@ namespace AppViewLite.PluggableProtocols.Rss
                 new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)), 
                 postData,
                 RepostDate: isRetweet ? tid.Date : default, // Initial approximation, we'll bump it later if we see out-of-order posts
-                QuotedPost: quotedPost), extraProfile);
+                QuotedPost: quotedPost, 
+                OnlyInsertIfNew: tweetStats == null
+                ), extraProfile);
         }
 
         public static string GetDidForUsername(string username)

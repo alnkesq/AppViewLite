@@ -122,7 +122,7 @@ namespace AppViewLite.PluggableProtocols
                 rels.AddRepostToRecentRepostCache(reposterPlc, repost);
             }, ctx);
         }
-        public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, RequestContext ctx, bool shouldIndex = true, bool replyIsSemanticallyRepost = false)
+        public PostId? OnPostDiscovered(QualifiedPluggablePostId postId, QualifiedPluggablePostId? inReplyTo, QualifiedPluggablePostId? rootPostId, BlueskyPostData data, RequestContext ctx, bool shouldIndex = true, bool replyIsSemanticallyRepost = false, bool onlyInsertIfNew = false)
         {
             if (inReplyTo != null && inReplyTo.Value.Equals(default(QualifiedPluggablePostId))) inReplyTo = null;
             if (rootPostId != null && rootPostId.Value.Equals(default(QualifiedPluggablePostId))) rootPostId = null;
@@ -235,28 +235,30 @@ namespace AppViewLite.PluggableProtocols
 
                 simplePostId = new PostId(authorPlc, postId.PostId.Tid);
 
-
-                var likeCountForScoring = (data.PluggableLikeCountForScoring ?? data.PluggableLikeCount).GetValueOrDefault();
-
-                rels.AddPostToRecentPostCache(authorPlc, new UserRecentPostWithScore(simplePostId.PostRKey, data.InReplyToPostId?.Author ?? default, likeCountForScoring));
-
-
-                if (likeCountForScoring != 0)
+                if (!onlyInsertIfNew || !rels.PostData.ContainsKey(simplePostId))
                 {
-                    if (rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId, likeCountForScoring))
+                    var likeCountForScoring = (data.PluggableLikeCountForScoring ?? data.PluggableLikeCount).GetValueOrDefault();
+
+                    rels.AddPostToRecentPostCache(authorPlc, new UserRecentPostWithScore(simplePostId.PostRKey, data.InReplyToPostId?.Author ?? default, likeCountForScoring));
+
+
+                    if (likeCountForScoring != 0)
                     {
-                        rels.IncrementRecentPopularPostLikeCount(simplePostId, likeCountForScoring);
-                        rels.ReplicaOnlyApproximateLikeCountCache.UpdateIfExists(simplePostId, likeCountForScoring);
-                        rels.ApproximateLikeCountCache.UpdateIfExists(simplePostId, likeCountForScoring);
+                        if (rels.RecentPluggablePostLikeCount.AddIfMissing(simplePostId, likeCountForScoring))
+                        {
+                            rels.IncrementRecentPopularPostLikeCount(simplePostId, likeCountForScoring);
+                            rels.ReplicaOnlyApproximateLikeCountCache.UpdateIfExists(simplePostId, likeCountForScoring);
+                            rels.ApproximateLikeCountCache.UpdateIfExists(simplePostId, likeCountForScoring);
+                        }
                     }
+
+
+                    byte[]? postBytes = null;
+                    continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(data, postId.Did), relationships =>
+                    {
+                        relationships.PostData.AddRange(simplePostId, postBytes); // double insertions are fine, the second one wins.
+                    });
                 }
-
-
-                byte[]? postBytes = null;
-                continueOutsideLock = new ContinueOutsideLock(() => postBytes = BlueskyRelationships.SerializePostData(data, postId.Did), relationships =>
-                {
-                    relationships.PostData.AddRange(simplePostId, postBytes); // double insertions are fine, the second one wins.
-                });
 
             }, ctx);
             if (continueOutsideLock != default)

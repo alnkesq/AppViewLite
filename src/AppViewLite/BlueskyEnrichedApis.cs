@@ -3602,7 +3602,7 @@ namespace AppViewLite
         private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post, RequestContext ctx)
         {
             var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey, ctx);
-            return (new StrongRef(info.Uri, info.Cid!), (Post)info.Value);
+            return (new StrongRef(info.Uri, info.Cid!) { Type = null! }, (Post)info.Value);
 
         }
 

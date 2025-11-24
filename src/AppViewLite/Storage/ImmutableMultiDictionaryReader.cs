@@ -502,13 +502,21 @@ namespace AppViewLite.Storage
             var startTime = Stopwatch.GetTimestamp();
             long result;
 #if true
-            result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
-                var fast = BinarySearchPaginated(comparable, preference);
-                if (fast != result)
-                    CombinedPersistentMultiDictionary.Abort(new Exception("Paginated binary search mismatch"));
+                result = BinarySearchPaginated(comparable, preference);
+                if (Random.Shared.Next(100) < 25)
+                {
+                    var checkedResult = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+                    if (result != checkedResult)
+                        CombinedPersistentMultiDictionary.Abort(new Exception("Paginated binary search mismatch"));
+                }
+            }
+            else
+            {
+                result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+
             }
             return result;
 #else

@@ -501,12 +501,11 @@ namespace AppViewLite.Storage
 
             var startTime = Stopwatch.GetTimestamp();
             long result;
-#if true
 
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
                 result = BinarySearchPaginated(comparable, preference);
-                if (Random.Shared.Next(100) < 25)
+                if (false && Random.Shared.Next(100) < 25)
                 {
                     var checkedResult = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
                     if (result != checkedResult)
@@ -518,19 +517,6 @@ namespace AppViewLite.Storage
                 result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
 
             }
-            return result;
-#else
-
-            if (pageKeys.Length != 0)
-            {
-                result = BinarySearchPaginated(comparable, preference);
-            }
-            else
-            {
-                result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
-            }
-
-#endif
 
             CombinedPersistentMultiDictionary.CurrentThreadSeekStopwatchTicks += Stopwatch.GetTimestamp() - startTime;
             CombinedPersistentMultiDictionary.CurrentThreadSeekCount++;

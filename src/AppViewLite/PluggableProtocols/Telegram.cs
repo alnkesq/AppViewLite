@@ -26,7 +26,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                 };
                 var posts = page.QuerySelectorAll(".tgme_widget_message_wrap").Select(x => 
                 {
-                    var date = DateTime.Parse(x.QuerySelectorAll("time").Last().GetAttribute("datetime")!, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
+                    var time = x.QuerySelectorAll("time");
+                    var date = DateTime.Parse(time[time.Count - 1].GetAttribute("datetime")!, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
                     var postId = x.Children.First(x => x.ClassList.Contains("tgme_widget_message")).GetAttribute("data-post");
                     var body = x.QuerySelector(".tgme_widget_message_text");
                     body?.Children.LastOrDefault(x => x.TagName == "A" && StringUtils.TryParseUri(feedUrl, x.GetAttribute("href"))?.HasHostSuffix("t.me") == true && x.GetAttribute("rel") != "noopener")?.Remove();

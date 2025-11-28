@@ -663,7 +663,7 @@ namespace AppViewLite
 
         private void OnRawMessageReceived()
         {
-            currentFirehoseCursor.SystemTimeLastRawReceived = DateTime.UtcNow;
+            currentFirehoseCursor!.SystemTimeLastRawReceived = DateTime.UtcNow;
             Interlocked.Increment(ref currentFirehoseCursor!.ReceivedEvents);
             DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
         }

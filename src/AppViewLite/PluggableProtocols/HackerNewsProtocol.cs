@@ -49,7 +49,8 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                         if (username == null) continue;
                         var date = DateTime.UnixEpoch.AddSeconds(long.Parse(postMeta.QuerySelector(".age")!.GetAttribute("title")!.Split(' ')[1])); // format: title="2025-02-19T12:40:58 1739968858"
                         var id = long.Parse(post.Id!);
-                        var threadLink = postMeta.QuerySelectorAll("a").Last();
+                        var links = postMeta.QuerySelectorAll("a");
+                        var threadLink = links[links.Count - 1];
                         var titleLink = post.QuerySelector(".titleline a");
                         var threadUrl = new Uri(hackerNewsHomeUrl, threadLink.GetAttribute("href"));
                         var titleUrl = new Uri(hackerNewsHomeUrl, titleLink!.GetAttribute("href"));

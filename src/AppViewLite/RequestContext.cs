@@ -24,7 +24,7 @@ namespace AppViewLite
         public bool IsUrgent { get; init; }
 
         public string? RequestUrl { get; init; }
-        public string Reason { get; init; }
+        public required string Reason { get; init; }
         public string ReasonOrUrlForBucketing => _urlForBucketing ?? Reason;
         private string? _urlForBucketing;
         public bool AllowStale { get; set; }

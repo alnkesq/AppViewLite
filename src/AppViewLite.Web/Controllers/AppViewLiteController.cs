@@ -172,12 +172,13 @@ namespace AppViewLite.Web
             var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).ToArray();
             var obj = apis.WithRelationshipsLock(rels =>
             {
-                var seenPosts = BlueskyRelationships.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
-                foreach (var item in rels.SeenPostsByDate.GetValuesUnsorted(ctx.LoggedInUser))
-                {
-                    ref var p = ref CollectionsMarshal.GetValueRefOrAddDefault(seenPosts, item.PostId, out var _);
-                    if (p.DateFirstSeen == default || item.Date < p.DateFirstSeen) p.DateFirstSeen = item.Date;
-                }
+                //Too much data?
+                //var seenPosts = BlueskyRelationships.CompactPostEngagements(rels.SeenPosts.GetValuesSorted(ctx.LoggedInUser)).ToDictionary(x => x.PostId, x => (Flags: x.Kind, DateFirstSeen: default(DateTime)));
+                //foreach (var item in rels.SeenPostsByDate.GetValuesUnsorted(ctx.LoggedInUser))
+                //{
+                //    ref var p = ref CollectionsMarshal.GetValueRefOrAddDefault(seenPosts, item.PostId, out var _);
+                //    if (p.DateFirstSeen == default || item.Date < p.DateFirstSeen) p.DateFirstSeen = item.Date;
+                //}
                 return new
                 {
                     did = ctx.UserContext.Did,
@@ -186,6 +187,7 @@ namespace AppViewLite.Web
                     alwaysPreferBookmarkButton = profile.AlwaysPreferBookmarkButton,
                     theme = profile.Theme.ToString(),
                     accentColor = profile.AccentColor.ToString(),
+                    lastPostLanguage = profile.LastPostLanguage,
                     moderationSettings = profile.LabelerSubscriptions.Select(x => new
                     {
                         labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
@@ -201,7 +203,7 @@ namespace AppViewLite.Web
                         datePrivateFollowed = x.DatePrivateFollowed != default ? x.DatePrivateFollowed : (DateTime?)null,
                         flags = EnumFlagToArray(x.Flags),
                     }).ToArray(),
-                    postEngagements = seenPosts.Select(x => new { did = rels.GetDid(x.Key.Author), rkey = x.Key.PostRKey.ToString(), flags = EnumFlagToArray(x.Value.Flags), dateFirstSeen = x.Value.DateFirstSeen }).ToArray(),
+                    //postEngagements = seenPosts.Select(x => new { did = rels.GetDid(x.Key.Author), rkey = x.Key.PostRKey.ToString(), flags = EnumFlagToArray(x.Value.Flags), dateFirstSeen = x.Value.DateFirstSeen }).ToArray(),
                     mutedWords = profile.MuteRules.Select(x => new { word = x.Word, did = x.AppliesToPlc != null ? rels.GetDid(new Plc(x.AppliesToPlc.Value)) : null }).ToArray(),
                 };
             }, ctx);

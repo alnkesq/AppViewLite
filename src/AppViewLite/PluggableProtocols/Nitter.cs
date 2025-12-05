@@ -55,7 +55,9 @@ namespace AppViewLite.PluggableProtocols.Rss
 
                 if (profileDom.QuerySelector(".timeline-protected") != null) throw new UnexpectedFirehoseDataException("The posts from this account are protected.");
                 var errorPanel = profileDom.QuerySelector(".error-panel")?.TextContent?.Trim();
+
                 if (errorPanel != null && errorPanel.Contains("User ") && errorPanel.Contains("not found")) throw new UnexpectedFirehoseDataException("User not found.");
+                if (errorPanel != null && errorPanel.Contains("User ") && errorPanel.Contains("has been suspended")) throw new UnexpectedFirehoseDataException("User has been suspended.");
                 var pageTitle = profileDom.QuerySelector("title")?.TextContent;
 
                 var profileDisplayNameElement = profileDom.QuerySelector(".profile-card-fullname");

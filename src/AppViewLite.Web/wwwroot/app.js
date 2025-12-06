@@ -1066,6 +1066,42 @@ function recurseUntilVisible(node, f) {
     return node;
 }
 
+function onMiddleClickOrLongPress(e, middleClick) { 
+    var postElement = e.target.closest('.post');
+    if (postElement) {
+        if (e.target.classList?.contains('post-body')) {
+            var href = getPostPreferredUrl(e.target.parentElement);
+            if (href) {
+                recordPostEngagement(postElement, 'OpenedThread');
+                if (middleClick) {
+                    window.open(href);
+                    e.preventDefault();
+                }
+            }
+        } else {
+            var a = e.target.closest('a');
+            if (a) {
+                if (a.classList.contains('blue-link') && a.closest('.post-body')) {
+                    recordPostEngagement(postElement, 'OpenedExternalLink');
+                }
+                if (a.classList.contains('post-external-preview')) {
+                    recordPostEngagement(postElement, 'OpenedExternalLink');
+                }
+                if (a.classList.contains('post-background-link')) { 
+                    recordPostEngagement(postElement, 'OpenedThread');
+                }
+                if (a.classList.contains('post-date')) { 
+                    recordPostEngagement(postElement, 'OpenedThread');
+                }
+                if (a.classList.contains('post-menu-advanced-open')) { 
+                    recordPostEngagement(postElement, 'OpenedThread');
+                }
+            }
+        }
+    }
+
+}
+
 function onInitialLoad() {
     if (isNoLayout) return;
 
@@ -1280,33 +1316,7 @@ function onInitialLoad() {
     document.addEventListener('mousedown', e => { 
         userSelectedTextSinceLastMouseDown = false;
         if (e.button == 1) { 
-            var postElement = e.target.closest('.post');
-            if (postElement) {
-                if (e.target?.classList?.contains('post-body')) {
-                    var href = getPostPreferredUrl(e.target.parentElement);
-                    if (href) {
-                        recordPostEngagement(postElement, 'OpenedThread');
-                        window.open(href);
-                        e.preventDefault();
-                    }
-                } else {
-                    var a = e.target?.closest('a');
-                    if (a) {
-                        if (a.classList.contains('blue-link') && a.closest('.post-body')) {
-                            recordPostEngagement(postElement, 'OpenedExternalLink');
-                        }
-                        if (a.classList.contains('post-external-preview')) {
-                            recordPostEngagement(postElement, 'OpenedExternalLink');
-                        }
-                        if (a.classList.contains('post-background-link')) { 
-                            recordPostEngagement(postElement, 'OpenedThread');
-                        }
-                        if (a.classList.contains('post-date')) { 
-                            recordPostEngagement(postElement, 'OpenedThread');
-                        }
-                    }
-                }
-            }
+            onMiddleClickOrLongPress(e, true);
         }
     })
 
@@ -1329,6 +1339,7 @@ function onInitialLoad() {
         } else if (target.classList?.contains('post-image')) { 
             recordPostEngagement(target.closest('.post'), 'Downloaded');
         }
+        onMiddleClickOrLongPress(e, false);
     });
 
     document.addEventListener('click', e => {
@@ -1353,7 +1364,7 @@ function onInitialLoad() {
         if (fastNavigateIfLink(e))
             return;
 
-        if (target.classList?.contains('post-background-link') || target.classList?.contains('post-date')) { 
+        if (target.classList?.contains('post-background-link') || target.classList?.contains('post-date') || target.classList?.contains('post-menu-advanced-open')) { 
             var post = target.closest('.post');
             recordPostEngagement(post, 'OpenedThread');
         }

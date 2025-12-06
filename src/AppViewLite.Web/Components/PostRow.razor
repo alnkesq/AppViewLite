@@ -443,15 +443,15 @@
 
                     @if (HasExternalUrl)
                     {
-                        <a href="@originalPostUrl" class="menu-item" target="_blank" rel="noreferrer">View on @StringUtils.GetDisplayHost(new Uri(originalPostUrl!))</a>
+                        <a href="@originalPostUrl" class="menu-item post-menu-advanced-open" target="_blank" rel="noreferrer">View on @StringUtils.GetDisplayHost(new Uri(originalPostUrl!))</a>
                         if (!IsFocalPost)
                         {
-                            <a href="@Post.BaseUrl" class="menu-item">View here</a>
+                            <a href="@Post.BaseUrl" class="menu-item post-menu-advanced-open">View here</a>
                         }
                     }
                     @if (HasBskyAppUrl)
                     {
-                        <a href="@Post.BlueskyUrl" class="menu-item" target="_blank" rel="noreferrer">View on Bluesky</a>
+                        <a href="@Post.BlueskyUrl" class="menu-item post-menu-advanced-open" target="_blank" rel="noreferrer">View on Bluesky</a>
                     }
 
 

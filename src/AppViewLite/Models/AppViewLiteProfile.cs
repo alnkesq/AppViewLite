@@ -201,6 +201,10 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public int FeedPlc;
         [ProtoMember(2)] public required string FeedRKey;
+        public override string ToString()
+        {
+            return FeedRKey;
+        }
     }
 
     [ProtoContract]

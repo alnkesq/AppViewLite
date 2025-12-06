@@ -2388,7 +2388,9 @@ namespace AppViewLite
                 {
                     return GetBalancedFollowingFeedCandidatesForFollowee(rels, pair.Plc, pair.IsPrivate, minDate, loggedInUser, possibleFollows, isPostSeen, timedOut);
                 }).Where(x => x.Plc != default).ToArray();
-                var postsFromFeeds = postsFromFeedsBeforeFiltering.Select(x => x with { PostIds = x.PostIds!.Where(x => !isPostSeen(x)).ToArray() }).Where(x => x.PostIds!.Length != 0).ToQueue();
+
+                var postsFromFeeds = SampleUnseenPostsFromFeeds(limit, postsFromFeedsBeforeFiltering, isPostSeen);
+
                 return (possibleFollows, userPosts, postsFromFeeds);
             }, ctx);
 
@@ -2677,14 +2679,11 @@ namespace AppViewLite
                                 }
                             }
 
-                            if (random.NextDouble() > 0.5 && postsFromFeeds.TryDequeue(out var feed))
+                            if (random.NextDouble() > 0.5 && postsFromFeeds.TryDequeue(out var postId))
                             {
-                                foreach (var postId in feed.PostIds!)
+                                if (MaybeAddToFinalPostList(new ScoredBlueskyPost(postId.PostId, default, postId.FromFeed, false, 0, 0, 0)))
                                 {
-                                    if (MaybeAddToFinalPostList(new ScoredBlueskyPost(postId, default, feed.Subscription, false, 0, 0, 0)))
-                                    {
-                                        break;
-                                    }
+                                    break;
                                 }
                             }
 
@@ -2727,6 +2726,31 @@ namespace AppViewLite
             return (finalPosts, ProducedEnoughPosts());
         }
 
+        private static Queue<(PostId PostId, FeedSubscription FromFeed)> SampleUnseenPostsFromFeeds(int limit, FeedForInterleavingCandidate[] postsFromFeedsBeforeFiltering, Func<PostIdTimeFirst, bool> isPostSeen)
+        {
+            var postsFromFeeds = new Queue<(PostId PostId, FeedSubscription FromFeed)>();
+            while (postsFromFeeds.Count < limit)
+            {
+                var any = false;
+                foreach (var feed in postsFromFeedsBeforeFiltering)
+                {
+                    if (feed.PostIds == null) continue;
+                    for (; feed.NextPostToInspect < feed.PostIds.Length; feed.NextPostToInspect++)
+                    {
+                        var postId = feed.PostIds[feed.NextPostToInspect];
+                        if (!isPostSeen(postId))
+                        {
+                            postsFromFeeds.Enqueue((postId, feed.Subscription));
+                            any = true;
+                            break;
+                        }
+                    }
+                }
+                if (!any) break;
+            }
+
+            return postsFromFeeds;
+        }
 
         private readonly TimeSpan FeedForInterleavingMaxAge = TimeSpan.FromHours(3);
         private FeedForInterleavingCandidate[] GetPostsFromFeedsForInterleaving(RequestContext ctx)

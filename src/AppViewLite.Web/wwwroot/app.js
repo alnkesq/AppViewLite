@@ -573,7 +573,7 @@ async function safeSignalrInvoke(methodName, ...args) {
 }
 
 async function recordPostEngagement(postElement, kind) {
-    var quoterPost = postElement.parentElement.closest('.post');
+    var quoterPost = postElement.parentElement?.closest('.post'); // post might be detached from DOM if postElement was set before navigation to thread page (and postElement comes from .theater-image -> postElement)
     if (quoterPost)
         recordPostEngagement(quoterPost, kind);
 

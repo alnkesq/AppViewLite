@@ -58,6 +58,8 @@ namespace AppViewLite
 
         public long MinVersion;
 
+        public bool FeedEngagementStatsDirty;
+
         public AppViewLiteSessionProto? TryGetAppViewLiteSession(string? sessionId)
         {
             if (!string.IsNullOrEmpty(PdsSession?.AccessJwt) && CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(sessionId), MemoryMarshal.AsBytes<char>(PdsSession!.AccessJwt)))

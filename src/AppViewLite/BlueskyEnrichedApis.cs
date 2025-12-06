@@ -4677,7 +4677,9 @@ namespace AppViewLite
                 foreach (var engagementStr in postEngagementsStr)
                 {
                     var postId = rels.GetPostId(engagementStr.PostId.Did, engagementStr.PostId.RKey, ctx);
-                    if ((engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0 && !BlueskyRelationships.IsPostSeen(postId, seenPostsSlices))
+
+                    var seenInFollowingFeedDeduped = (engagementStr.Kind & PostEngagementKind.SeenInFollowingFeed) != 0 && !BlueskyRelationships.IsPostSeen(postId, seenPostsSlices);
+                    if (seenInFollowingFeedDeduped)
                         creditsToConsume.Add((postId.Author, engagementStr.Weight));
                     rels.SeenPosts.Add(loggedInUser, new PostEngagement(postId, engagementStr.Kind));
                     rels.SeenPostsByDate.Add(loggedInUser, new TimePostSeen(now, postId));
@@ -4686,7 +4688,24 @@ namespace AppViewLite
 
                     if (engagementStr.FromFeed != default)
                     {
-                        feedInterleavingSeen.Add(new RelationshipHashedRKey(rels.SerializeDid(engagementStr.FromFeed.Did, ctx), engagementStr.FromFeed.RKey));
+                        var feedPlc = rels.SerializeDid(engagementStr.FromFeed.Did, ctx);
+
+                        if (seenInFollowingFeedDeduped)
+                        {
+
+                            var subscription = ctx.PrivateProfile.FeedSubscriptions.FirstOrDefault(x => x.FeedRKey == engagementStr.FromFeed.RKey && new Plc(x.FeedPlc) == feedPlc);
+                            if (subscription != null)
+                            {
+                                subscription.SeenInFollowingFeed++;
+
+                                var hasEngagement = (engagementStr.Kind & ~PostEngagementKind.SeenInFollowingFeed) != default;
+                                if (hasEngagement)
+                                    subscription.SeenInFollowingFeedEngagement++;
+
+                                ctx.UserContext.FeedEngagementStatsDirty = true;
+                            }
+                        }
+                        feedInterleavingSeen.Add(new RelationshipHashedRKey(feedPlc, engagementStr.FromFeed.RKey));
                     }
 
                 }
@@ -5483,14 +5502,21 @@ namespace AppViewLite
 
             var ctx = RequestContext.CreateForFirehose(reason);
 
+            Log("Global periodic flush...");
+            LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
+
             Action? finalWrite = null;
             TimeSpan elapsedFlushAllTables = default;
             TimeSpan elapsedCaptureCheckpoint = default;
+
+
+            TimeSpan flushUserProfiles = TimeOperation(() =>
+            {
+                FlushDirtyAppViewLiteProfiles(ctx);
+            });
+
             WithRelationshipsWriteLock(rels =>
             {
-
-                Log("Global periodic flush...");
-                LogInfo("====== START OF GLOBAL PERIODIC FLUSH ======");
 
                 elapsedFlushAllTables = TimeOperation(rels.FlushAllTables);
                 elapsedCaptureCheckpoint = TimeOperation(() =>
@@ -5498,6 +5524,7 @@ namespace AppViewLite
                     finalWrite = rels.CaptureCheckpointWithoutFinalWrite();
                 });
             }, ctx);
+
 
 
             TimeSpan elapsedOptimisticSyncfs = TimeOperation(() =>
@@ -5518,9 +5545,21 @@ namespace AppViewLite
             
             relationshipsUnlocked.UpdateAvailableDiskSpaceThreadSafe();
 
-            Log($"Global flush completed: drain_capture_cursors={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCursors)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, final_write={StringUtils.ToHumanTimeSpanForProfiler(elapsedFinalWrite)}, slice_gc={StringUtils.ToHumanTimeSpanForProfiler(elapsedSliceGc)}");
+            Log($"Global flush completed: flush_user_profiles={StringUtils.ToHumanTimeSpanForProfiler(flushUserProfiles)}, drain_capture_cursors={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCursors)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, final_write={StringUtils.ToHumanTimeSpanForProfiler(elapsedFinalWrite)}, slice_gc={StringUtils.ToHumanTimeSpanForProfiler(elapsedSliceGc)}");
             LogInfo($"====== END OF GLOBAL PERIODIC FLUSH ======");
 
+        }
+
+        private void FlushDirtyAppViewLiteProfiles(RequestContext ctx)
+        {
+            WithRelationshipsWriteLock(rels =>
+            {
+                foreach (var userCtx in UserContexts.Values)
+                {
+                    if (userCtx.FeedEngagementStatsDirty)
+                        rels.SaveAppViewLiteProfile(userCtx);
+                }
+            }, ctx);
         }
 
         internal void DrainAndCaptureFirehoseCursors()

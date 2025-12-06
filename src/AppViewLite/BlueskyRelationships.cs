@@ -3086,6 +3086,7 @@ namespace AppViewLite
         public void SaveAppViewLiteProfile(AppViewLiteUserContext userContext)
         {
             AppViewLiteProfiles.AddRange(userContext.LoggedInUser!.Value, SerializeProto(userContext.PrivateProfile));
+            userContext.FeedEngagementStatsDirty = false;
         }
 
         public void FlushAllTables()
@@ -3472,7 +3473,7 @@ namespace AppViewLite
                 LabelId = x,
                 Moderator = GetProfile(x.Labeler, ctx, canOmitDescription: true),
                 ModeratorDid = GetDid(x.Labeler),
-                Name = LabelNames.TryGetPreserveOrderSpanAny(x.NameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash."),
+                Name = GetLabelName(x.NameHash),
                 Data = TryGetLabelData(x)
             };
 
@@ -3484,6 +3485,11 @@ namespace AppViewLite
             }
             ctx.LabelCache?.TryAdd(x, label);
             return label;
+        }
+
+        public string GetLabelName(ulong nameHash)
+        {
+            return LabelNames.TryGetPreserveOrderSpanAny(nameHash, out var name) ? Encoding.UTF8.GetString(name.AsSmallSpan()) : throw new Exception("Don't have name for label name hash.");
         }
 
         public BlueskyLabelData? TryGetLabelData(LabelId x)

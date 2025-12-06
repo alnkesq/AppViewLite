@@ -188,6 +188,8 @@ namespace AppViewLite.Web
                     theme = profile.Theme.ToString(),
                     accentColor = profile.AccentColor.ToString(),
                     lastPostLanguage = profile.LastPostLanguage,
+                    labelerSubscriptions = profile.LabelerSubscriptions.Select(x => new { labelerDid = rels.GetDid(new Plc(x.LabelerPlc)), overrideDisplayName = x.OverrideDisplayName, listRKey = x.ListRKey != default ? new Tid(x.ListRKey).ToString() : null, labelId = x.LabelerNameHash != default ? rels.GetLabelName(x.LabelerNameHash) : null, behavior = x.Behavior.ToString() }).ToArray(),
+                    feedSubscriptions = profile.FeedSubscriptions.Select(x => new { feedDid = rels.GetDid(new Plc(x.FeedPlc)), feedRkey = x.FeedRKey, seenInFollowingFeed = x.SeenInFollowingFeed, seenInFollowingFeedEngagement = x.SeenInFollowingFeedEngagement }).ToArray(),
                     moderationSettings = profile.LabelerSubscriptions.Select(x => new
                     {
                         labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
@@ -205,6 +207,7 @@ namespace AppViewLite.Web
                     }).ToArray(),
                     //postEngagements = seenPosts.Select(x => new { did = rels.GetDid(x.Key.Author), rkey = x.Key.PostRKey.ToString(), flags = EnumFlagToArray(x.Value.Flags), dateFirstSeen = x.Value.DateFirstSeen }).ToArray(),
                     mutedWords = profile.MuteRules.Select(x => new { word = x.Word, did = x.AppliesToPlc != null ? rels.GetDid(new Plc(x.AppliesToPlc.Value)) : null }).ToArray(),
+                    mutedThreads = profile.MutedThreads.Select(x => new { did = rels.GetDid(new Plc(x.Plc)), rkey = new Tid(x.RKey).ToString() })
                 };
             }, ctx);
             return TypedResults.Stream(async stream =>

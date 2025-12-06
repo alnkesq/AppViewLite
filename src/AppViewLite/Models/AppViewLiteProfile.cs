@@ -201,6 +201,8 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public int FeedPlc;
         [ProtoMember(2)] public required string FeedRKey;
+        [ProtoMember(3)] public long SeenInFollowingFeedEngagement;
+        [ProtoMember(4)] public long SeenInFollowingFeed;
         public override string ToString()
         {
             return FeedRKey;

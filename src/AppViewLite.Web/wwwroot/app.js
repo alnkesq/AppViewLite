@@ -324,9 +324,9 @@ function fastNavigateIfLink(event) {
         if (postBody && !postBody.parentElement.classList.contains('post-focal') && !t.closest('a')) {
             var backgroundLink = getPostPreferredUrlElement(postBody.parentElement);
             if (!userSelectedTextSinceLastMouseDown) {
+                recordPostEngagement(backgroundLink.closest('.post'), 'OpenedThread');
                 if (backgroundLink.target == '_blank') window.open(backgroundLink.href);
                 else fastNavigateTo(backgroundLink.href);
-                recordPostEngagement(backgroundLink.closest('.post'), 'OpenedThread');
                 return true;
             }
         }
@@ -358,6 +358,7 @@ function fastNavigateIfLink(event) {
     var theaterUrl = a.dataset.theaterurl;
     if (a.classList.contains('post-image-for-threater')) { 
         theaterReturnUrl = location.href;
+        recordPostEngagement(a.closest('.post'), 'ViewedInTheaterOrWatchedVideo'); // So that we preserve SeenInFollowingFeed flag (page URL hasn't changed yet)
         fastNavigateTo(theaterUrl, false, false);
         event.preventDefault();
         return true;
@@ -396,6 +397,10 @@ function fastNavigateIfLink(event) {
 
     if (a.classList.contains('media-download-menu-item')) { 
         recordPostEngagement(a.closest('.post'), 'Downloaded');
+    }
+
+    if (a.classList.contains('post-background-link')) { 
+        recordPostEngagement(a.closest('.post'), 'OpenedThread');
     }
 
     if (a.target || a.download)
@@ -567,14 +572,27 @@ async function safeSignalrInvoke(methodName, ...args) {
     
 }
 
-async function recordPostEngagement(postElement, kind) { 
+async function recordPostEngagement(postElement, kind) {
     var quoterPost = postElement.parentElement.closest('.post');
     if (quoterPost)
         recordPostEngagement(quoterPost, kind);
+
+    var kinds = kind.split(',');
+
     // if (postElement.classList.contains('post-blocked')) return;
-    if (location.pathname == '/following' && !kind.includes('SeenInFollowingFeed')) { 
-        kind += ',SeenInFollowingFeed';
+
+    if (location.pathname == '/following' && !kinds.includes('SeenInFollowingFeed')) { 
+        kinds.push('SeenInFollowingFeed');
     }
+
+
+    kinds = kinds.filter(x => !postElement['recordedEngagement_' + x]);
+    if (kinds.length == 0) return;
+    for (const x of kinds) {
+        postElement['recordedEngagement_' + x] = true;
+    }
+
+    kind = kinds.join(',');
     console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
     var hasImages = !!postElement.querySelector('.post-image-list') && !postElement.classList.contains('post-small-media-thumbnail');
     var hasExternalPreview = !!postElement.querySelector('.post-external-preview-image') && !postElement.querySelector('.post-external-preview-compact');
@@ -1281,6 +1299,9 @@ function onInitialLoad() {
                             recordPostEngagement(postElement, 'OpenedExternalLink');
                         }
                         if (a.classList.contains('post-background-link')) { 
+                            recordPostEngagement(postElement, 'OpenedThread');
+                        }
+                        if (a.classList.contains('post-date')) { 
                             recordPostEngagement(postElement, 'OpenedThread');
                         }
                     }

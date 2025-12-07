@@ -102,6 +102,7 @@ namespace AppViewLite.PluggableProtocols
 
         public void OnRepostDiscovered(string reposterDid, QualifiedPluggablePostId qualifiedPostId, DateTime repostDate, RequestContext ctx)
         {
+            if (repostDate == default) throw new ArgumentException("repostDate is default.");
             ctx.AllowStale = false;
             EnsureOwnDid(reposterDid);
             EnsureValidDid(reposterDid);

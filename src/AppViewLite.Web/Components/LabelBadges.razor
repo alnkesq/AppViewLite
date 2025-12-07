@@ -11,13 +11,13 @@
             if (labelGroup.Count() == 1)
             {
                 var label = labelGroup.First();
-                <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + (label.Moderator != null ? "\n\n" + label.Moderator.DisplayNameOrFallback : null))">
+                <a class="label-badge" href="@label.BaseUrl" title="@((label.Description ?? "No description available") + (label.ModeratorDisplayName != null ? "\n\n" + label.ModeratorDisplayName : null))">
                     @labelGroup.Key
                 </a>
             }
             else
             {
-                <a class="label-badge" href="@labelGroup.First().BaseUrl" title="@("According to:" + string.Join(null, labelGroup.Select(x => "\n• " + x.Moderator!.DisplayNameOrFallback).Distinct().Order()))">
+                <a class="label-badge" href="@labelGroup.First().BaseUrl" title="@("According to:" + string.Join(null, labelGroup.Select(x => "\n• " + x.ModeratorDisplayName).Distinct().Order()))">
                     @(labelGroup.Key + " (×" + labelGroup.Count() + ")")
                 </a>
             }

@@ -258,7 +258,7 @@ namespace AppViewLite
             }
         }
 
-        public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash))).ToHashSet();
+        public HashSet<LabelId> NeedsLabels => _needsLabels ??= (LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash)).Concat(LabelSubscriptions.Where(x => x.ListRKey == 0).Select(x => new LabelId(default, x.LabelerNameHash)))).ToHashSet();
 
 
         private readonly static FrozenSet<string> _administratorDids = (AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_ADMINISTRATIVE_DIDS) ?? []).ToFrozenSet();

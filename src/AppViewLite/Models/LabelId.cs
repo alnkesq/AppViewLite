@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace AppViewLite.Models
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public record struct LabelId(Plc Labeler, ulong NameHash) : IComparable<LabelId>
+    public record struct LabelId(Plc Labeler /* empty if self-applied */, ulong NameHash) : IComparable<LabelId>
     {
         public int CompareTo(LabelId other)
         {

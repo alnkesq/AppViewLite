@@ -1,3 +1,4 @@
+
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
@@ -9,7 +10,6 @@ using FishyFlip.Lexicon.Com.Atproto.Label;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
 using AppViewLite.Storage;
-using DuckDbSharp;
 using DuckDbSharp.Types;
 using AppViewLite.Numerics;
 using AppViewLite.Storage;
@@ -3010,11 +3010,36 @@ namespace AppViewLite
                 PopulateViewerFlags(post.RepostedBy, ctx);
             if (post.QuotedPost != null)
                 PopulateViewerFlags(post.QuotedPost, ctx);
-            post.Labels = GetPostLabels(post.PostId, ctx.NeedsLabels).Select(x => GetLabel(x, ctx)).ToArray();
+            post.Labels = GetPostLabels(post.PostId, ctx.NeedsLabels).Select(x => GetLabel(x, ctx)).Concat(GetSelfLabelsAsLabels(post, ctx)).ToArray();
             post.IsMuted = post.ShouldMuteCore(ctx);
             post.DidPopulateViewerFlags = true;
         }
 
+        private IEnumerable<BlueskyLabel> GetSelfLabelsAsLabels(BlueskyPost post, RequestContext ctx)
+        {
+            var flags = post.Data?.SelfLabels ?? default;
+            if (flags == default) return [];
+
+            var result = new List<BlueskyLabel>();
+
+            void MaybeAddSelfLabel(SelfLabelsEnum labelEnum, string name)
+            {
+                if ((flags & labelEnum) != default)
+                {
+                    var labelId = new LabelId(default, HashLabelName(name));
+                    if (ctx.NeedsLabels.Contains(labelId))
+                    {
+                        result.Add(GetLabel(labelId, ctx));
+                    }
+                }
+            }
+            MaybeAddSelfLabel(SelfLabelsEnum.Porn, "porn");
+            MaybeAddSelfLabel(SelfLabelsEnum.Sexual, "sexual");
+            MaybeAddSelfLabel(SelfLabelsEnum.Nudity, "nudity");
+            MaybeAddSelfLabel(SelfLabelsEnum.GraphicMedia, "graphic-media");
+
+            return result;
+        }
 
         internal IEnumerable<BlueskyPost> EnumerateFeedWithNormalization(IEnumerable<BlueskyPost> posts, RequestContext ctx, HashSet<PostId>? alreadyReturned = null, bool onlyIfRequiresFullReplyChain = false, bool omitIfMuted = false, bool forGrid = false)
         {
@@ -3492,18 +3517,24 @@ namespace AppViewLite
         public BlueskyLabel GetLabel(LabelId x, RequestContext ctx)
         {
             if (ctx.LabelCache?.TryGetValue(x, out var cached) == true) return cached;
+
+
             var label = new BlueskyLabel
             {
                 LabelId = x,
-                Moderator = GetProfile(x.Labeler, ctx, canOmitDescription: true),
-                ModeratorDid = GetDid(x.Labeler),
+                Moderator = x.Labeler != default ? GetProfile(x.Labeler, ctx, canOmitDescription: true) : null,
+                ModeratorDid = x.Labeler != default ? GetDid(x.Labeler) : null,
                 Name = GetLabelName(x.NameHash),
                 Data = TryGetLabelData(x)
             };
 
             if (ctx.IsLoggedIn)
             {
-                var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(x => new Plc(x.LabelerPlc) == label.Moderator!.Plc && x.LabelerNameHash == label.LabelId.NameHash);
+                var subscription = ctx.PrivateProfile.LabelerSubscriptions.FirstOrDefault(subscription =>
+                {
+                    if (x.Labeler == default) return subscription.LabelerNameHash == label.LabelId.NameHash; // Self-applied label. Use the behavior of the first labeler subscription with a compatible name.
+                    return new Plc(subscription.LabelerPlc) == label.Moderator!.Plc && subscription.LabelerNameHash == label.LabelId.NameHash;
+                });
                 label.Mode = subscription?.Behavior ?? ModerationBehavior.None;
                 label.PrivateNickname = subscription?.OverrideDisplayName;
             }

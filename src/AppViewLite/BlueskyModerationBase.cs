@@ -20,6 +20,8 @@ namespace AppViewLite
         public abstract FacetData[]? DescriptionFacets { get; }
         public ModerationBehavior Mode;
 
+        public virtual string? ModeratorDisplayName => Moderator?.DisplayNameOrFallback;
+
     }
 }
 

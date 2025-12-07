@@ -3712,7 +3712,7 @@ namespace AppViewLite
         {
             if (labels.Length == 0) return labels;
 
-            await EnrichAsync(labels.Select(x => x.Moderator!).ToArray(), ctx, omitLabelsAndViewerFlags: true /* avoid infinite recursion */);
+            await EnrichAsync(labels.Select(x => x.Moderator).WhereNonNull().ToArray(), ctx, omitLabelsAndViewerFlags: true /* avoid infinite recursion */);
             if (!IsReadOnly)
             {
                 await AwaitWithShortDeadline(Task.WhenAll(labels.Where(x => x.Data == null).Select(async label =>

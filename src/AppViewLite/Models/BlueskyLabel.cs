@@ -16,16 +16,18 @@ namespace AppViewLite.Models
 
         public override string? Description => Data?.Description;
 
-        public override string BaseUrl => Moderator!.BaseUrl + "?labeler=1";
+        public override string BaseUrl => Moderator == null ? "/settings/moderation" : Moderator!.BaseUrl + "?labeler=1";
 
         public override FacetData[]? DescriptionFacets => null;
 
         public LabelId LabelId;
 
-        public override string GetAvatarUrl(RequestContext ctx)
+        public override string? GetAvatarUrl(RequestContext ctx)
         {
-            return Moderator!.AvatarUrl!;
+            return Moderator?.AvatarUrl;
         }
+
+        public override string? ModeratorDisplayName => Moderator != null ? Moderator.DisplayNameOrFallback : "(self-applied label)";
     }
 }
 

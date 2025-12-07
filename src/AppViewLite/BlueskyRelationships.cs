@@ -5,6 +5,7 @@ using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
+using FishyFlip.Lexicon.Com.Atproto.Label;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
 using AppViewLite.Storage;
@@ -1112,6 +1113,7 @@ namespace AppViewLite
         {
             if (postId == default) throw AssertionLiteException.Throw("StorePostInfoExceptData postId is default");
             if (PostData.ContainsKey(postId)) return null;
+
             var proto = new BlueskyPostData
             {
                 Text = string.IsNullOrEmpty(p.Text) ? null : p.Text,
@@ -1120,6 +1122,7 @@ namespace AppViewLite
                 // We will change them later if necessary.
                 RootPostPlc = postId.Author.PlcValue,
                 RootPostRKey = postId.PostRKey.TidValue,
+                SelfLabels = GetSelfLabels(p.Labels)
             };
             var lang = p.Langs?.FirstOrDefault();
 
@@ -1285,6 +1288,27 @@ namespace AppViewLite
             AddPostToRecentPostCache(postId.Author, new UserRecentPostWithScore(postId.PostRKey, proto.InReplyToPostId?.Author ?? default, 0));
 
             return proto;
+        }
+
+        private static SelfLabelsEnum GetSelfLabels(SelfLabels? labels)
+        {
+            if (labels == null) return default;
+
+            SelfLabelsEnum selfLabels = default;
+            foreach (var item in labels.Values)
+            {
+                var val = item.Val;
+                if (val == "sexual") selfLabels |= SelfLabelsEnum.Sexual;
+                else if (val == "porn") selfLabels |= SelfLabelsEnum.Porn;
+                else if (val == "graphic-media") selfLabels |= SelfLabelsEnum.GraphicMedia;
+                else if (val == "nudity") selfLabels |= SelfLabelsEnum.Nudity;
+                else if (val.Contains('=') /*skystack reaction_count=123*/) { }
+                else 
+                {
+                    LogInfo("Unknown self-label: " + val);
+                }
+            }
+            return selfLabels;
         }
 
         private readonly static HashedWord[] LanguageEnumToHashedSearchIndex = Enumerable.Range(0, (short)Enum.GetValues<LanguageEnum>().Max() + 1).Select(x => HashWord("%lang-" + ((LanguageEnum)x).ToString())).ToArray();

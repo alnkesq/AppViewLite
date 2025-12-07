@@ -53,6 +53,7 @@ namespace AppViewLite.Models
         [ProtoMember(28)] public string? PluggableAuthor;
         [ProtoMember(29)] public int? PluggableRepostCount;
         [ProtoMember(30)] public int? PluggableQuoteCount;
+        [ProtoMember(31)] public SelfLabelsEnum SelfLabels;
 
         // UPDATE IsSlimCandidate if you add fields!
 
@@ -78,7 +79,9 @@ namespace AppViewLite.Models
                 PluggableRepostCount == null &&
                 PluggableQuoteCount == null &&
                 PluggableLikeCountForScoring == null &&
-                PluggableAuthor == null
+                PluggableAuthor == null &&
+
+                SelfLabels == default
                 ;
         }
 

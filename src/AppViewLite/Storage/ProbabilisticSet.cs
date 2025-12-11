@@ -193,13 +193,18 @@ namespace AppViewLite
             var recommendedParameters = new ProbabilisticSetParameters((long)(m / 8), k);
             var scenarioDefinitelyNotExistsRatio = recommendedParameters.GetDefinitelyNotExistRatioEstimation((long)n);
 
+
+            if (ConfigurationParameterName != "APPVIEWLITE_PROBABILISTIC_SET_REL_LIKES_RECENT") return; // https://github.com/alnkesq/AppViewLite/issues/254
+
             lock (context.Problems)
             {
+                
                 context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedParameters.SizeInMegabytes}@{recommendedParameters.HashFunctions}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
 
                 if (scenarioDefinitelyNotExistsRatio < desiredDefinitelyNotExistsRatio)
                 {
-                    context.Problems.Add($"Minor bug: recommended parameters won't produce desired DefinitelyNotExistsRatio for {ConfigurationParameterName} (EstimatedItemCount={EstimatedItemCount}, scenarioDefinitelyNotExistsRatio={scenarioDefinitelyNotExistsRatio})");
+                    // Only observed once, and it was off by a trivial amount.
+                    // context.Problems.Add($"Minor bug: recommended parameters won't produce desired DefinitelyNotExistsRatio for {ConfigurationParameterName} (EstimatedItemCount={EstimatedItemCount}, scenarioDefinitelyNotExistsRatio={scenarioDefinitelyNotExistsRatio})");
                 }
             }
 

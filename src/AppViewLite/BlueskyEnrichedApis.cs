@@ -3452,6 +3452,8 @@ namespace AppViewLite
 
         public async Task<Tid> CreatePostAsync(string? text, PostIdString? inReplyTo, PostIdString? quotedPost, IReadOnlyList<BlobToUpload> attachments, string? language, Uri? externalLink, RequestContext ctx, CancellationToken ct = default)
         {
+            text = StringUtils.NormalizeLineEndings(text);
+
             if (string.IsNullOrEmpty(text)) text = null;
 
             if (externalLink != null && attachments.Count != 0)
@@ -3503,8 +3505,8 @@ namespace AppViewLite
                 {
                     External = new External 
                     {
-                        Title = opengraph.ExternalTitle ?? externalLink.ToString(),
-                        Description = opengraph.ExternalDescription ?? string.Empty,
+                        Title = StringUtils.NormalizeLineEndings(opengraph.ExternalTitle ?? externalLink.ToString()),
+                        Description = StringUtils.NormalizeLineEndings(opengraph.ExternalDescription ?? string.Empty),
                         Uri = externalLink.AbsoluteUri,
                         Thumb = thumb,
                     }

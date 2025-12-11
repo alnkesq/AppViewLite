@@ -1026,6 +1026,13 @@ namespace AppViewLite
             if (string.IsNullOrEmpty(href)) throw new UnexpectedFirehoseDataException("Missing URL in HTML element");
             return new Uri(pageUrl, href);
         }
+
+
+        [return: NotNullIfNotNull(nameof(text))]
+        public static string? NormalizeLineEndings(string? text)
+        {
+            return text?.Replace("\r", null);
+        }
     }
 }
 

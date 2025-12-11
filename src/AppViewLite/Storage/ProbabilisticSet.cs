@@ -194,7 +194,7 @@ namespace AppViewLite
             var scenarioDefinitelyNotExistsRatio = recommendedParameters.GetDefinitelyNotExistRatioEstimation((long)n);
 
 
-            if (ConfigurationParameterName != "APPVIEWLITE_PROBABILISTIC_SET_REL_LIKES_RECENT") return; // https://github.com/alnkesq/AppViewLite/issues/254
+            if (ConfigurationParameterName == "APPVIEWLITE_PROBABILISTIC_SET_REL_LIKES_RECENT") return; // https://github.com/alnkesq/AppViewLite/issues/254
 
             lock (context.Problems)
             {

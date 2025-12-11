@@ -1008,7 +1008,7 @@ namespace AppViewLite
 
         public static bool IsCaptchaOrProofOfWorkPageTitle(string? pageTitle)
         {
-            return pageTitle is "One moment, please..." or "Making sure you're not a bot!" or "Just a moment...";
+            return pageTitle is "One moment, please..." or "Making sure you're not a bot!" or "Just a moment..." or "Vercel Security Checkpoint";
         }
 
         public static Uri? TryGetHref(this IElement element, Uri pageUrl)

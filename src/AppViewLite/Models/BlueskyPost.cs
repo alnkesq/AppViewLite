@@ -201,14 +201,29 @@ namespace AppViewLite.Models
                 if (Data.PluggableAuthor != null && privateProfile.GlobalPluggableAuthorMuteRules.Contains(Data.PluggableAuthor))
                     return true;
 
-                if (Data.Text != null || urls.Length != 0)
+                var allText = new List<string>();
+                if (Data.Text != null) allText.Add(Data.Text);
+                if (Data.Media != null)
                 {
-                    muteRules = muteRules.Concat(privateProfile.TextCouldContainGlobalMuteWords(Data.Text, urls));
+                    foreach (var media in Data.Media)
+                    {
+                        if (media.AltText != null)
+                            allText.Add(media.AltText);
+                    }
+                }
+                if (Data.ExternalTitle != null) allText.Add(Data.ExternalTitle);
+                if (Data.ExternalDescription != null) allText.Add(Data.ExternalDescription);
+
+                if (allText.Count != 0 || urls.Length != 0)
+                {
+                    muteRules = muteRules.Concat(privateProfile.TextCouldContainGlobalMuteWords(allText, urls));
                 }
                 var muteRulesArray = muteRules.ToArray();
                 if (muteRulesArray.Length != 0)
                 {
-                    var words = StringUtils.GetAllWords(Data.Text).ToArray();
+                    // Order matters for multi-word mutes.
+                    // HACK: we concatenate text from all textual fields instead of checking separately.
+                    var words = allText.SelectMany(x => StringUtils.GetAllWords(x)).ToArray();
 
                     this.MutedByRule = muteRulesArray.FirstOrDefault(x => x.AppliesTo(words, urls, this));
                     if (MutedByRule != null)

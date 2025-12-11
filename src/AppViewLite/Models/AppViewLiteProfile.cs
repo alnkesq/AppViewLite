@@ -27,13 +27,13 @@ namespace AppViewLite.Models
         [ProtoMember(14)] public HashSet<PostIdProto> MutedThreads = null!;
 
         public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
-        public ObjectIdentityBasedCache<MuteRule[], Func<string?, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;
+        public ObjectIdentityBasedCache<MuteRule[], Func<IReadOnlyList<string>, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;
         public ObjectIdentityBasedCache<MuteRule[], HashSet<string>>? _globalPluggableAuthorMuteRules;
 
         public HashSet<string> GlobalPluggableAuthorMuteRules => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _globalPluggableAuthorMuteRules, x => x.Where(x => x.AppliesToPlc == null).Select(x => x.PluggableAuthorName).WhereNonNull().ToHashSet(StringComparer.OrdinalIgnoreCase));
         public ILookup<Plc, MuteRule> MuteRulesByPlc => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _muteRulesByPlc, x => x.Where(x => x.AppliesToPlc != null).ToLookup(x => new Plc(x.AppliesToPlc!.Value)));
         
-        public Func<string?, Uri[], MuteRule[]> TextCouldContainGlobalMuteWords => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _textCouldContainGlobalMuteWords, x =>
+        public Func<IReadOnlyList<string>, Uri[], MuteRule[]> TextCouldContainGlobalMuteWords => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _textCouldContainGlobalMuteWords, x =>
         {
             var globalMuteRules = x.Where(x => x.AppliesToPlc == null).ToArray();
 
@@ -51,10 +51,10 @@ namespace AppViewLite.Models
 
             // SearchValues only supports Ordinal and OrdinalIgnoreCase
             var regex = new Regex(@"\b(?:" + string.Join("|", longestWordForEachGlobalMuteRule.Select(x => Regex.Escape(x))) + @")\b", RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            return (postText, urls) =>
+            return (postTexts, urls) =>
             {
                 var isMatch =
-                    (postText != null && regex.IsMatch(postText)) ||
+                    postTexts.Any(x => regex.IsMatch(x)) ||
                     (urls.Length != 0 && urls.Any(x => regex.IsMatch(x.Host)));
                 return isMatch ? globalMuteRules : [];
             };

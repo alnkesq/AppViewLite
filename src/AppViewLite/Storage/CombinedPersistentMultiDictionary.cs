@@ -425,7 +425,7 @@ namespace AppViewLite.Storage
                 {
 
                     var cachePath = cache.GetCachePathForSlice(slice);
-                    if (!cache.IsAlreadyMaterialized(cachePath))
+                    if (!cache.IsAlreadyMaterialized(cachePath, slice))
                     {
                         Log("Materializing cache: " + cachePath);
                         cache.MaterializeCacheFileThreadSafe(slice, cachePath);
@@ -1768,7 +1768,7 @@ namespace AppViewLite.Storage
 
             public abstract void LoadFromOriginalSlice(SliceInfo slice);
 
-            public virtual bool IsAlreadyMaterialized(string cachePath)
+            public virtual bool IsAlreadyMaterialized(string cachePath, SliceInfo sourceSlice)
             {
                 return File.Exists(cachePath);
             }

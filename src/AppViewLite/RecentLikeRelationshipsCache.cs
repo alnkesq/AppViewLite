@@ -2,6 +2,7 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.Storage;
 using System;
+using System.IO;
 
 namespace AppViewLite
 {
@@ -33,6 +34,29 @@ namespace AppViewLite
                 }
             }
         }
+        public override bool IsAlreadyMaterialized(string cachePath, CombinedPersistentMultiDictionary<PostIdTimeFirst, Relationship>.SliceInfo sourceSlice)
+        {
+            if (!File.Exists(cachePath)) return false;
+
+            var cacheWasMaterializedAt = File.GetLastWriteTimeUtc(cachePath);
+            var sourceEndsAt = sourceSlice.EndTime;
+
+            var ageOnPreviousMaterialization = cacheWasMaterializedAt - sourceEndsAt;
+            var ageNow = DateTime.UtcNow - sourceEndsAt;
+
+            //if (ageWhenCacheWasMaterialized < TimeSpan.Zero) throw new Exception($"LastWriteTimeUtc of {cachePath} is antecedent to its source slice. This shouldn't normally happen.");
+
+            if (ageOnPreviousMaterialization < maxAge && ageNow > maxAge)
+            {
+                // It's worth rebuilding this cache, because by now, it will be mostly empty (won't pollute the probabilistic set)
+                return false;
+            }
+
+            return true;
+
+        }
+
+
 
         public override void Add(PostIdTimeFirst key, Relationship value)
         {

@@ -38,7 +38,7 @@ namespace AppViewLite.Storage
         }
         public override string Identifier => identifier;
 
-        public override bool IsAlreadyMaterialized(string cachePath)
+        public override bool IsAlreadyMaterialized(string cachePath, CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo sourceSlice)
         {
             return File.Exists(cachePath + ".col0.dat");
         }

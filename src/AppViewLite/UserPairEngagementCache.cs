@@ -16,8 +16,7 @@ namespace AppViewLite
         {
             return new ImmutableMultiDictionaryReader<Plc, UserEngagementStats>(cachePath, PersistentDictionaryBehavior.SortedValues, allowEmpty: true);
         }
-
-        public override bool IsAlreadyMaterialized(string cachePath)
+        public override bool IsAlreadyMaterialized(string cachePath, CombinedPersistentMultiDictionary<Plc, PostEngagement>.SliceInfo sourceSlice)
         {
             return File.Exists(cachePath + ".col2.dat");
         }

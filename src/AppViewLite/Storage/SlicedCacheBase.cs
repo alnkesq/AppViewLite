@@ -64,7 +64,7 @@ namespace AppViewLite.Storage
         public sealed override void OnSliceAdded(int insertedAt, CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice)
         {
             var cachePath = GetCachePathForSlice(slice);
-            if (!IsAlreadyMaterialized(cachePath))
+            if (!IsAlreadyMaterialized(cachePath, slice))
             {
                 MaterializeCacheFileThreadSafe(slice, cachePath);
             }

@@ -537,7 +537,7 @@
 
                             if (Post.Data?.Text != null || Post.Data?.ExternalDescription != null || Post.Data?.ExternalTitle != null || Post.Data?.Media?.Any(x => x.AltText != null) == true)
                             {
-                                <a href="/settings/mute?did=@(Uri.EscapeDataString(ReposterOrAuthor.Did) + (Post.Data.PluggableAuthor != null ? "&word=u:" + Uri.EscapeDataString(Post.Data.PluggableAuthor) : null))" class="menu-item">Specify words to mute…</a>
+                                <a href="/settings/mute?did=@(Uri.EscapeDataString(ReposterOrAuthor.Did) + (Post.Data.PluggableAuthor != null ? "&word=u:" + Uri.EscapeDataString(Post.Data.PluggableAuthor) : null))&return=/following" class="menu-item">Specify words to mute…</a>
                             }
                         }
                     }

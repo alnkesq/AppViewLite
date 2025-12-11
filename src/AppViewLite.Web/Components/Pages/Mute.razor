@@ -10,6 +10,7 @@
 @code{
     [Parameter][SupplyParameterFromQuery] public string? Did { get; set; }
     [Parameter][SupplyParameterFromQuery] public string? Word { get; set; }
+    [Parameter][SupplyParameterFromQuery] public string? Return { get; set; }
     [SupplyParameterFromForm] private MuteWordData? Model { get; set; }
     private Dictionary<Plc, BlueskyProfile>? ProfileByPlc;
     private Plc Plc;
@@ -76,7 +77,9 @@
             }
         }
         Apis.WithRelationshipsWriteLock(rels => rels.SaveAppViewLiteProfile(RequestContext), RequestContext);
-        Navigation.NavigateTo("/settings/mute");
+
+        if (!string.IsNullOrEmpty(Return)) Navigation.NavigateTo(Return);
+        else Navigation.NavigateTo("/settings/mute");
     }
 
     public class MuteWordData

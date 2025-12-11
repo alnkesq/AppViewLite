@@ -431,7 +431,7 @@ namespace AppViewLite.Web
 
         public static void AppendEssentialCookie(this HttpResponse response, string name, string value)
         {
-            response.Cookies.Append(name, value, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Strict });
+            response.Cookies.Append(name, value, new CookieOptions { IsEssential = true, MaxAge = TimeSpan.FromDays(3650), SameSite = SameSiteMode.Lax /* with Strict, navigation from external domains would create a cookieless page */, Secure = true });
         }
 
         public static Uri WithQueryParameter(this Uri url, string name, string? value)

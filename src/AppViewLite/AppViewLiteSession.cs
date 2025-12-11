@@ -58,6 +58,7 @@ namespace AppViewLite
 
         public bool FeedEngagementStatsDirty;
 
+
         public int UnreadMessageCount;
         public int CurrentlyActiveWebSockets;
 

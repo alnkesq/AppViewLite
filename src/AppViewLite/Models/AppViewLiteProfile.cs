@@ -25,6 +25,7 @@ namespace AppViewLite.Models
         [ProtoMember(12)] public bool AlwaysPreferBookmarkButton;
         [ProtoMember(13)] public string? LastPostLanguage;
         [ProtoMember(14)] public HashSet<PostIdProto> MutedThreads = null!;
+        [ProtoMember(15)] public DateTime LastClearUnreadMessageCountDate;
 
         public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
         public ObjectIdentityBasedCache<MuteRule[], Func<IReadOnlyList<string>, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;

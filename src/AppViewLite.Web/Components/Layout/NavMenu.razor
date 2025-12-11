@@ -85,7 +85,7 @@
             </NavLink>
         </div>
         <div>
-            <a href="https://bsky.app/messages" target="_blank">
+            <a href="https://bsky.app/messages" target="_blank" onclick="clearUnreadMessageCount()">
                 Chat
                 <span class="chat-badge @(ChatCount == 0 ? "display-none" : null)">@ChatCount</span>
             </a>

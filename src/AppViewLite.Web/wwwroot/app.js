@@ -41,7 +41,11 @@ function updatePageTitle() {
     updateBadge('.sidebar .chat-badge', conversationCount);
     updateBadge('.bottom-bar .chat-badge', conversationCount);
 }
-
+async function clearUnreadMessageCount() { 
+    conversationCount = 0;
+    updatePageTitle();
+    await httpPost('ClearUnreadMessageCount');
+}
 
 function parseHtmlAsElement(html) { 
     return parseHtmlAsWrapper(html).firstElementChild;

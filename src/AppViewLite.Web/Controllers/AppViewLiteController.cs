@@ -152,7 +152,7 @@ namespace AppViewLite.Web
         }
 
         [HttpGet(nameof(GetOpenGraphPreview))]
-        public async Task<object> GetOpenGraphPreview(Uri url) 
+        public async Task<object> GetOpenGraphPreview(Uri url)
         {
             var response = await apis.GetOpenGraphDataAsync(url, ctx);
             return new
@@ -316,6 +316,15 @@ namespace AppViewLite.Web
             apis.SaveAppViewLiteProfile(ctx);
         }
 
+        [HttpPost(nameof(ClearUnreadMessageCount))]
+        public void ClearUnreadMessageCount()
+        {
+            if (ctx.UserContext.UnreadMessageCount == 0) return;
+            ctx.UserContext.UnreadMessageCount = 0;
+            ctx.PrivateProfile.LastClearUnreadMessageCountDate = DateTime.UtcNow; // Doesn't need to be persisted right now, can remain in memory.
+            // Notifies other tabs
+            apis.DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
+        }
         public record DidAndRKey(string Did, string Rkey);
         public record DidAndRKeyWithVia(string Did, string Rkey, string? ViaDid, string? ViaRkey)
         {

@@ -4955,6 +4955,8 @@ namespace AppViewLite
                     profileProto.FeedSubscriptions ??= [];
                     profileProto.MutedThreads ??= [];
                     profileProto.LabelerSubscriptions ??= [];
+                    ExtensionMethods.MakeUtc(ref profileProto.FirstLogin);
+                    ExtensionMethods.MakeUtc(ref profileProto.LastClearUnreadMessageCountDate);
 
                     userContext = new AppViewLiteUserContext
                     {
@@ -5711,11 +5713,16 @@ namespace AppViewLite
                             var lastMessage = (conv.LastMessage as MessageView)?.SentAt ?? (conv.LastMessage as DeletedMessageView)?.SentAt;
                             if (lastMessage != null)
                             {
+
                                 if (lastMessage.Value > lastSeenMessage)
                                     lastSeenMessage = lastMessage.Value;
+
+                                if (lastMessage.Value >= ctx.PrivateProfile.LastClearUnreadMessageCountDate)
+                                {
+                                    unreadConversations++;
+                                }
                             }
 
-                            unreadConversations++;
                         }
                     }, ctx);
 

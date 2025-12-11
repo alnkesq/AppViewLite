@@ -11,8 +11,6 @@ using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Models;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
-using AppViewLite.Numerics;
-using AppViewLite.Storage;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Frozen;

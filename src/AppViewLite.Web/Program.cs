@@ -169,6 +169,12 @@ namespace AppViewLite.Web
             app.MapStaticAssets();
             app.Use(async (ctx, req) =>
             {
+                if (!IsKnownCacheablePath(ctx.Request.Path))
+                {
+                    ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+                    ctx.Response.Headers.Pragma = "no-cache";
+                    ctx.Response.Headers.Expires = "0";
+                }
 
                 var reqCtx = ctx.RequestServices.GetRequiredService<RequestContext>();
                 if (reqCtx.IsLoggedIn)
@@ -369,7 +375,18 @@ namespace AppViewLite.Web
 
         }
 
-
+        private static bool IsKnownCacheablePath(PathString path)
+        {
+            if (path.StartsWithSegments("/lib")) return true;
+            if (path.StartsWithSegments("/img")) return true;
+            var p = path.Value;
+            if (p != null)
+            {
+                if (p.StartsWith("/app.", StringComparison.Ordinal) && (p.EndsWith(".css", StringComparison.Ordinal) || p.EndsWith(".js", StringComparison.Ordinal)))
+                    return true;
+            }
+            return false;
+        }
 
         internal static IHubContext<AppViewLiteHub> AppViewLiteHubContext = null!;
         public static IServiceProvider StaticServiceProvider = null!;

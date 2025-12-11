@@ -8,6 +8,7 @@ using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Richtext;
+using FishyFlip.Lexicon.Chat.Bsky.Convo;
 using FishyFlip.Lexicon.Com.Atproto.Repo;
 using FishyFlip.Lexicon.Com.Atproto.Sync;
 using FishyFlip.Models;
@@ -5656,6 +5657,110 @@ namespace AppViewLite
             ctx.BumpMinimumVersion(version);
             return WithRelationshipsLock(rels => rels.GetOpenGraphData(urlString)!, ctx);
         }
+
+        public void OnWebSocketConnected(RequestContext ctx)
+        {
+            if (!ctx.IsLoggedIn) return;
+            var userContext = ctx.UserContext;
+
+            lock (userContext.ConversationPollingLock)
+            {
+                if (++userContext.CurrentlyActiveWebSockets == 1)
+                {
+                    BlueskyRelationships.Assert(userContext.StopConversationPolling == null);
+                    var cts = new CancellationTokenSource();
+                    Task.Run(() => RunConversationPollingLoopAsync(ctx.Session, cts.Token)).FireAndForget();
+                    userContext.StopConversationPolling = () => cts.Cancel();
+                }
+            }
+        }
+
+        private async Task RunConversationPollingLoopAsync(AppViewLiteSession session, CancellationToken ct)
+        {
+            await Task.Delay(1000, ct);
+            DateTime lastSeenMessage = DateTime.UtcNow.AddSeconds(-300); // best guess, in case first call returns no items
+            while (true)
+            {
+
+                try
+                {
+                    var ctx = RequestContext.CreateForRequest("ConversationPolling", session, urgent: false);
+                    
+                    var conversations = await PerformPdsActionAsync(async protocol => (await protocol.ChatBskyConvo.ListConvosAsync(limit: 100, readState: "unread", cancellationToken: ct)).HandleResult()!, ctx);
+                    ct.ThrowIfCancellationRequested();
+                    
+                    var unreadConversations = 0;
+
+                    WithRelationshipsLockForDids(conversations.Convos.SelectMany(x => x.Members.Select(x => x.Did.Handler!)).ToArray(), (_, rels) => 
+                    {
+                        foreach (var conv in conversations.Convos)
+                        {
+                            if (conv.Muted) continue;
+                            var hasAnyNonBlockedMembers = false;
+                            foreach (var member in conv.Members)
+                            {
+                                if (member.Did.Handler == ctx.UserContext.Did) continue;
+                                if (member.Associated == null) continue; // spam or dead account
+                                var plc = rels.SerializeDid(member.Did.Handler, ctx);
+                                if (rels.UsersHaveBlockRelationship(session.UserContext.Plc, plc, ctx) != default) continue;
+                                if (ctx.UserContext.PrivateProfile!.MuteRulesByPlc[plc].Any(x => x.Word == null)) continue;
+                                hasAnyNonBlockedMembers = true;
+                            }
+                            if (!hasAnyNonBlockedMembers) continue;
+
+                            var lastMessage = (conv.LastMessage as MessageView)?.SentAt ?? (conv.LastMessage as DeletedMessageView)?.SentAt;
+                            if (lastMessage != null)
+                            {
+                                if (lastMessage.Value > lastSeenMessage)
+                                    lastSeenMessage = lastMessage.Value;
+                            }
+
+                            unreadConversations++;
+                        }
+                    }, ctx);
+
+
+                    var userContext = session.UserContext;
+
+                    var prevUnreadCount = userContext.UnreadMessageCount;
+                    userContext.UnreadMessageCount = unreadConversations;
+                    if (prevUnreadCount != userContext.UnreadMessageCount)
+                    {
+                        DangerousUnlockedRelationships.UserNotificationSubscribersThreadSafe.MaybeNotifyOutsideLock(ctx.LoggedInUser, handler => handler(0));
+                    }
+                    var elapsedSinceLastMessage = (DateTime.UtcNow - lastSeenMessage).TotalSeconds;
+
+                    var delaySeconds = Math.Clamp(elapsedSinceLastMessage / 5, 10, 120);
+
+
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds), ct);
+                }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                {
+                    LogNonCriticalException("Could not check for unread conversations: ", ex);
+
+                    await Task.Delay(TimeSpan.FromMinutes(2), ct);
+                }
+            }
+        }
+
+        public static async void OnWebSocketDisconnected(RequestContext ctx)
+        {
+            if (!ctx.IsLoggedIn) return;
+
+            await Task.Delay(30_000); // So that transient reconnections don't cause the counter to go to zero, needlessly resetting the polling loop.
+            var userContext = ctx.UserContext;
+
+            lock (userContext.ConversationPollingLock)
+            {
+                if (--userContext.CurrentlyActiveWebSockets == 0)
+                {
+                    userContext.StopConversationPolling!();
+                    userContext.StopConversationPolling = null;
+                }
+            }
+        }
+
     }
 
     internal record struct BalancedFeedCandidatesForFollowee(Plc Plc, (Tid PostRKey, int LikeCount)[] Posts, (PostId PostId, Tid RepostRKey, bool IsReposteeFollowed, long LikeCount)[] Reposts);

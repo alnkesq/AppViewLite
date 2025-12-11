@@ -4,7 +4,9 @@ var pageLoadedTimeBeforeInitialScroll = Date.now();
 var visualViewportWasResizedSinceLastTheaterOrMenuOpen = false;
 var liveUpdatesPostIds = new Set();
 var pageTitleOverride = null;
-var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? 0);
+var notificationCount = parseInt(document.querySelector('.sidebar .notification-badge')?.textContent ?? '0');
+var conversationCount = parseInt(document.querySelector('.sidebar .chat-badge')?.textContent ?? '0');
+
 
 var currentFeedHasNewPosts = false;
 var currentFeedHasNewPostsDelay = -1;
@@ -22,18 +24,22 @@ var pendingProfileLoads = new Map();
 /** @type {Map<string, WeakRef<HTMLElement>>} */
 var pendingPostLoads = new Map();
 
+
+function updateBadge(selector, count) { 
+    var badge = document.querySelector(selector);
+    if (badge) {
+        badge.textContent = count;
+        badge.classList.toggle('display-none', count == 0);
+    }
+}
+
 function updatePageTitle() {
-    document.title = (notificationCount ? '(' + notificationCount + ') ' : '') + (pageTitleOverride ?? appliedPageObj.title);
-    var badge = document.querySelector('.sidebar .notification-badge');
-    if (badge) {
-        badge.textContent = notificationCount;
-        badge.classList.toggle('display-none', notificationCount == 0);
-    }
-    var badge = document.querySelector('.bottom-bar .notification-badge');
-    if (badge) {
-        badge.textContent = notificationCount;
-        badge.classList.toggle('display-none', notificationCount == 0);
-    }
+    var notificationOrConvoCount = notificationCount + conversationCount;
+    document.title = (notificationOrConvoCount ? '(' + notificationOrConvoCount + ') ' : '') + (pageTitleOverride ?? appliedPageObj.title);
+    updateBadge('.sidebar .notification-badge', notificationCount);
+    updateBadge('.bottom-bar .notification-badge', notificationCount);
+    updateBadge('.sidebar .chat-badge', conversationCount);
+    updateBadge('.bottom-bar .chat-badge', conversationCount);
 }
 
 
@@ -134,8 +140,9 @@ var liveUpdatesConnectionFuture = (async () => {
             intersectionObserver.observe(postElement);
         }
     });
-    connection.on('NotificationCount', (count) => {
-        notificationCount = count;
+    connection.on('NotificationCount', (notifCount, convoCount) => {
+        notificationCount = notifCount;
+        conversationCount = convoCount;
         updatePageTitle();
     });
     connection.on('ProfileRendered', (nodeid, html) => { 

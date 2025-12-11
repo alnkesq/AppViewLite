@@ -198,7 +198,7 @@ namespace AppViewLite.Web
                 {
                     var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
 
-                    client.SendAsync("NotificationCount", notificationCount).FireAndForget();
+                    client.SendAsync("NotificationCount", notificationCount, ctx.UserContext.UnreadMessageCount).FireAndForget();
                 },
             };
             if (!connectionIdToCallback.TryAdd(connectionId, context)) AssertionLiteException.Throw("connectionIdToCallback already contain an item for this key.");
@@ -222,8 +222,10 @@ namespace AppViewLite.Web
                 // In case notifications arrived while the websocket was broken or the browser tab was throttled or suspended
                 var client = Program.AppViewLiteHubContext.Clients.Client(connectionId);
                 var notificationCount = apis.GetNotificationCount(ctx.Session, ctx, false);
-                client.SendAsync("NotificationCount", notificationCount).FireAndForget();
+                client.SendAsync("NotificationCount", notificationCount, ctx.UserContext.UnreadMessageCount).FireAndForget();
             }
+
+            apis.OnWebSocketConnected(RequestContext);
             return Task.CompletedTask;
         }
 
@@ -248,6 +250,8 @@ namespace AppViewLite.Web
 
 
             }
+
+            BlueskyEnrichedApis.OnWebSocketDisconnected(RequestContext);
 
             return Task.CompletedTask;
         }

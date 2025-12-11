@@ -6,12 +6,14 @@
 
 @code{
     private long NotificationCount;
+    private long ChatCount;
     List<string> Announcements = [];
     private BlueskyProfile[] LoggedInAccounts = [];
     [Parameter] public bool NeedsNotificationCount { get; set; }
     protected override void OnParametersSet()
     {
         NotificationCount = NeedsNotificationCount ? Apis.GetNotificationCount(Session, RequestContext, dark: false) : -1;
+        ChatCount = RequestContext.IsLoggedIn ? RequestContext.UserContext.UnreadMessageCount : 0;
         var staleness = Apis.PlcDirectoryStaleness;
 
         var relationshipsUnlocked = Apis.primarySecondaryPair.relationshipsUnlocked;
@@ -81,6 +83,12 @@
                 Notifications
                 <span class="notification-badge @(NotificationCount == 0 ? "display-none" : null)">@NotificationCount</span>
             </NavLink>
+        </div>
+        <div>
+            <a href="https://bsky.app/messages" target="_blank">
+                Chat
+                <span class="chat-badge @(ChatCount == 0 ? "display-none" : null)">@ChatCount</span>
+            </a>
         </div>
     }
 

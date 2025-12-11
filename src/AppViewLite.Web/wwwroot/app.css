@@ -993,7 +993,7 @@ ul {
     text-align: left;
 }
 
-.notification-badge {
+.notification-badge, .chat-badge {
     background-color: var(--accent);
     min-width: 16px;
     height: 16px;
@@ -1011,7 +1011,7 @@ ul {
 }
 
 
-.bottom-bar .notification-badge {
+.bottom-bar .notification-badge, .bottom-bar .chat-badge {
     margin-top: -6px;
     margin-left: -12px;
 }

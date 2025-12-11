@@ -7,8 +7,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.IdentityModel.Tokens.Jwt;
-using System.Diagnostics;
-using System.Collections.Immutable;
 using System.Threading;
 
 namespace AppViewLite
@@ -59,6 +57,12 @@ namespace AppViewLite
         public long MinVersion;
 
         public bool FeedEngagementStatsDirty;
+
+        public int UnreadMessageCount;
+        public int CurrentlyActiveWebSockets;
+
+        public Lock ConversationPollingLock = new();
+        internal Action? StopConversationPolling;
 
         public AppViewLiteSessionProto? TryGetAppViewLiteSession(string? sessionId)
         {
@@ -114,6 +118,8 @@ namespace AppViewLite
                 this.RefreshTokenExpireDate,
                 UserEngagementCache = this.UserEngagementCache?.Count,
                 this.UserEngagementCacheVersion,
+                this.UnreadMessageCount,
+                this.CurrentlyActiveWebSockets,
                 PrivateProfile = this.PrivateProfile?.GetCountersThreadSafe(),
             };
         }

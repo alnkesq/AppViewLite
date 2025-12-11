@@ -3518,11 +3518,13 @@ namespace AppViewLite
             if (inReplyTo != null)
             {
                 var inReplyToRef = await GetPostStrongRefAsync(inReplyTo, ctx);
+                var originalRoot = inReplyToRef.Record.Reply?.Root;
+                originalRoot?.Type = null!;
                 replyRefDef = new ReplyRefDef
                 {
                     Type = null!,
                     Parent = inReplyToRef.StrongRef,
-                    Root = inReplyToRef.Record.Reply?.Root ?? inReplyToRef.StrongRef,
+                    Root = originalRoot ?? inReplyToRef.StrongRef,
                 };
             }
 
@@ -3541,7 +3543,7 @@ namespace AppViewLite
                 }, ctx);
                 processedAttachments.Add(new Image
                 {
-                    Alt = string.IsNullOrWhiteSpace(attachment.AltText) ? string.Empty : attachment.AltText.Trim(),
+                    Alt = string.IsNullOrWhiteSpace(attachment.AltText) ? string.Empty : StringUtils.NormalizeLineEndings(attachment.AltText.Trim()),
                     AspectRatio = new AspectRatio
                     {
                         Height = processedImage.Height,

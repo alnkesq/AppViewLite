@@ -97,11 +97,14 @@
             Feeds
         </NavLink>
     </div>
-    <div>
-        <NavLink href="@DiscoverUrl">
-            Discover
-        </NavLink>
-    </div>
+    @if (!Session.IsLoggedIn)
+    {
+        <div>
+            <NavLink href="@DiscoverUrl">
+                Discover
+            </NavLink>
+        </div>
+    }
 
     @if (Session.IsLoggedIn)
     {

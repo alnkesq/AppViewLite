@@ -1302,7 +1302,7 @@ namespace AppViewLite
                 else if (val == "porn") selfLabels |= SelfLabelsEnum.Porn;
                 else if (val == "graphic-media") selfLabels |= SelfLabelsEnum.GraphicMedia;
                 else if (val == "nudity") selfLabels |= SelfLabelsEnum.Nudity;
-                else if (val.Contains('=') /*skystack reaction_count=123*/) { }
+                else if (val.Contains(':') /*skystack reaction_count:123*/) { }
                 else 
                 {
                     LogInfo("Unknown self-label: " + val);

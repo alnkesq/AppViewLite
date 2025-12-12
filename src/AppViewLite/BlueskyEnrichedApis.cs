@@ -1122,6 +1122,7 @@ namespace AppViewLite
             StringUtils.ParseQueryModifiers(ref q, (k, v) =>
             {
                 if (string.IsNullOrEmpty(v)) return false;
+                k = k.ToLowerInvariant();
                 if (k == "from")
                     author = v;
                 else if (k == "since")

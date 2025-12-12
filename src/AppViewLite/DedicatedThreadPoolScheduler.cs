@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -80,7 +81,44 @@ namespace AppViewLite
             {
                 Interlocked.Increment(ref UncompletedSuspendableTasks);
                 Interlocked.Increment(ref TotalSuspendableTasks);
-                tasksSuspendable.Add(task);
+
+
+                // tasksSuspendable has bounded capacity, and we absolutely don't want to wait here, if we're on the DedicatedThreadPoolScheduled itself (we would deadlock)
+                if (IsDedicatedThreadPoolThread != 0)
+                {
+                    if (!tasksSuspendable.TryAdd(task, 1000))
+                    {
+                        LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: adding as non-suspendable instead.");
+
+                        // undo the previous increment and do the correct one instead
+                        Interlocked.Increment(ref TotalNonSuspendableTasks);
+
+                        Interlocked.Decrement(ref TotalSuspendableTasks);
+                        Interlocked.Decrement(ref UncompletedSuspendableTasks);
+                        
+
+                        tasksNonSuspendable.Add(task);
+                        //var sw = Stopwatch.StartNew();
+                        //LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: spawning new thread.");
+                        //var t = new Thread(() => 
+                        //{
+                        //    try
+                        //    {
+                        //        tasksSuspendable.Add(task);
+                        //        LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: tasks succesfully added to queue, took " + StringUtils.ToHumanTimeSpanForProfiler(sw.Elapsed));
+                        //    }
+                        //    catch (Exception ex)
+                        //    {
+                        //        LoggableBase.LogNonCriticalException("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: spawned thread failed.", ex);
+                        //    }
+                        //});
+                        //t.Start();
+                    }
+                }
+                else
+                {
+                    tasksSuspendable.Add(task);
+                }
             }
             else
             {
@@ -139,42 +177,53 @@ namespace AppViewLite
             }
         
         }
+
+        [ThreadStatic] private static int IsDedicatedThreadPoolThread;
+
         private void ThreadWorkerCore()
         {
-            using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
-            while (true)
+            IsDedicatedThreadPoolThread++;
+            try
             {
-                var index = BlockingCollection<Task>.TryTakeFromAny(bothCollections, out var task, Timeout.Infinite);
-                if (index == -1)
+                using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
+                while (true)
                 {
-                    Interlocked.Decrement(ref TotalThreads);
-                    BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted && tasksSuspendable.IsAddingCompleted);
-                    return;
+                    var index = BlockingCollection<Task>.TryTakeFromAny(bothCollections, out var task, Timeout.Infinite);
+                    if (index == -1)
+                    {
+                        Interlocked.Decrement(ref TotalThreads);
+                        BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted && tasksSuspendable.IsAddingCompleted);
+                        return;
+                    }
+
+                    Interlocked.Increment(ref BusyThreads);
+                    if (index == 0)
+                    {
+                        // non suspendable
+                        if (!TryExecuteTask(task!))
+                            BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
+                        LastProcessedNonSuspendableTask = DateTime.UtcNow;
+                        AfterTaskProcessed?.Invoke();
+
+                    }
+                    else if (index == 1)
+                    {
+                        // suspendable
+                        if (!TryExecuteTask(task!))
+                            BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of suspendable queued tasks was found to be already executed or running.");
+                        Interlocked.Decrement(ref UncompletedSuspendableTasks);
+                        LastProcessedSuspendableTask = DateTime.UtcNow;
+                        AfterTaskProcessed?.Invoke();
+
+                    }
+                    else BlueskyRelationships.ThrowFatalError("Invalid index returned by TryTakeFromAny");
+
+                    Interlocked.Decrement(ref BusyThreads);
                 }
-
-                Interlocked.Increment(ref BusyThreads);
-                if (index == 0)
-                {
-                    // non suspendable
-                    if (!TryExecuteTask(task!))
-                        BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
-                    LastProcessedNonSuspendableTask = DateTime.UtcNow;
-                    AfterTaskProcessed?.Invoke();
-
-                }
-                else if (index == 1)
-                {
-                    // suspendable
-                    if (!TryExecuteTask(task!))
-                        BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of suspendable queued tasks was found to be already executed or running.");
-                    Interlocked.Decrement(ref UncompletedSuspendableTasks);
-                    LastProcessedSuspendableTask = DateTime.UtcNow;
-                    AfterTaskProcessed?.Invoke();
-
-                }
-                else BlueskyRelationships.ThrowFatalError("Invalid index returned by TryTakeFromAny");
-
-                Interlocked.Decrement(ref BusyThreads);
+            }
+            finally 
+            {
+                IsDedicatedThreadPoolThread--;
             }
         }
 

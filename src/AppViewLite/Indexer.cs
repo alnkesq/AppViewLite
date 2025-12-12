@@ -398,7 +398,7 @@ namespace AppViewLite
 
                     if (!isRepositoryImport && !relationships.HaveCollectionForUser(commitPlc, RepositoryImportKind.ListEntries))
                     {
-                        Indexer.RunOnFirehoseProcessingThreadpool(async () =>
+                        Indexer.RunOnFirehoseProcessingThreadpoolFireAndForget(async () =>
                         {
                             var result = await Apis.EnsureHaveCollectionAsync(commitPlc, RepositoryImportKind.ListEntries, ctx, slowImport: true);
                             if (result != null && result.Error != null)
@@ -406,7 +406,7 @@ namespace AppViewLite
                                 Log($"Could not fetch full ListEntries collection for " + commitAuthor + ": " + result.Error);
                             }
                             return result;
-                        }).FireAndForget();
+                        });
                     }
                 }
                 else if (record is Threadgate threadGate)
@@ -1406,6 +1406,11 @@ namespace AppViewLite
             };
             FirehoseThreadpool = scheduler;
             FirehoseThreadpoolTaskFactory = new TaskFactory(scheduler);
+        }
+
+        public static async void RunOnFirehoseProcessingThreadpoolFireAndForget<T>(Func<Task<T>> func)
+        {
+            RunOnFirehoseProcessingThreadpool(func).FireAndForget();
         }
 
         public static async Task<T> RunOnFirehoseProcessingThreadpool<T>(Func<Task<T>> func)

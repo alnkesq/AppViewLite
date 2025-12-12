@@ -305,7 +305,7 @@ namespace AppViewLite.Web
                             .ToArray();
                     }, RequestContext.CreateForFirehose("StartListeningToAllLabelers"));
 
-                    Indexer.RunOnFirehoseProcessingThreadpool(async () =>
+                    Indexer.RunOnFirehoseProcessingThreadpoolFireAndForget(async () =>
                     {
                         // Approx 600 labelers
                         var delayMsBetweenLaunch = TimeSpan.FromSeconds(60).TotalMilliseconds / Math.Max(allLabelers.Length, 1);
@@ -318,7 +318,7 @@ namespace AppViewLite.Web
                         }
                         LoggableBase.Log("All labeler listeners were launched.");
                         return 0;
-                    }).FireAndForget();
+                    });
 
                 }
                 else

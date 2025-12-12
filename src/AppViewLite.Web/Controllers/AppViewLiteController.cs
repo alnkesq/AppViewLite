@@ -188,13 +188,12 @@ namespace AppViewLite.Web
                     theme = profile.Theme.ToString(),
                     accentColor = profile.AccentColor.ToString(),
                     lastPostLanguage = profile.LastPostLanguage,
-                    labelerSubscriptions = profile.LabelerSubscriptions.Select(x => new { labelerDid = rels.GetDid(new Plc(x.LabelerPlc)), overrideDisplayName = x.OverrideDisplayName, listRKey = x.ListRKey != default ? new Tid(x.ListRKey).ToString() : null, labelId = x.LabelerNameHash != default ? rels.GetLabelName(x.LabelerNameHash) : null, behavior = x.Behavior.ToString() }).ToArray(),
                     feedSubscriptions = profile.FeedSubscriptions.Select(x => new { feedDid = rels.GetDid(new Plc(x.FeedPlc)), feedRkey = x.FeedRKey, seenInFollowingFeed = x.SeenInFollowingFeed, seenInFollowingFeedEngagement = x.SeenInFollowingFeedEngagement }).ToArray(),
                     moderationSettings = profile.LabelerSubscriptions.Select(x => new
                     {
                         labelerDid = rels.GetDid(new Plc(x.LabelerPlc)),
                         listRkey = x.ListRKey != 0 ? new Tid(x.ListRKey).ToString() : null,
-                        labelName = x.ListRKey == 0 ? rels.GetLabel(new LabelId(new Plc(x.LabelerPlc), x.LabelerNameHash), ctx).Name : null,
+                        labelName = x.ListRKey == 0 ? rels.GetLabelName(x.LabelerNameHash) : null,
                         behavior = x.Behavior.ToString(),
                         privateNickname = x.OverrideDisplayName,
                     }).ToArray(),

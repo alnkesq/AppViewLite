@@ -871,43 +871,47 @@ namespace AppViewLite
             {
                 foreach (var table in keep)
                 {
-                    var directory = new DirectoryInfo(Path.Combine(rootOrAdditionalDirectory, table.TableName));
-                    if (!directory.Exists) continue;
+                    
+                    var directory = Path.Combine(rootOrAdditionalDirectory, table.TableName);
+                    if (!Directory.Exists(directory)) continue;
 
                     if (tablesWithPendingCompactations.Contains(table.TableName))
                         continue;
 
-                    foreach (var file in directory.EnumerateFiles())
-                    {
-                        var name = file.Name;
+                    
 
+                    foreach (var name in new System.IO.Enumeration.FileSystemEnumerable<string>(directory, (ref x) => x.FileName.ToString()))
+                    {
                         if (name.EndsWith(".tmp", StringComparison.Ordinal))
                         {
                             // might be a parallel compactation, except on startup
 
                             if (allowTempFileDeletion)
                             {
-                                LogInfo("Deleting old .tmp file: " + file.FullName);
-                                file.Delete();
+                                var fullPath = Path.Combine(directory, name);
+                                LogInfo("Deleting old .tmp file: " + fullPath);
+                                File.Delete(fullPath);
                             }
 
                             continue;
                         }
 
+                        var baseName = name;
                         var dot = name.IndexOf('.');
-                        if (dot != -1) name = name.Substring(0, dot);
+                        if (dot != -1) baseName = name.Substring(0, dot);
 
-                        var sliceName = SliceName.ParseBaseName(name);
+                        var sliceName = SliceName.ParseBaseName(baseName);
                         if (!table.SlicesToKeep.Contains(sliceName))
                         {
-                            LogInfo("Deleting obsolete slice: " + file.FullName);
+                            var fullPath = Path.Combine(directory, name);
+                            LogInfo("Deleting obsolete slice: " + fullPath);
                             try
                             {
-                                file.Delete();
+                                File.Delete(fullPath);
                             }
                             catch (Exception ex)
                             {
-                                LogNonCriticalException($"Deletion of old slice {file.FullName} failed", ex);
+                                LogNonCriticalException($"Deletion of old slice {fullPath} failed", ex);
                             }
                         }
                     }

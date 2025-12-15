@@ -18,7 +18,7 @@ namespace AppViewLite
         private readonly BlockingCollection<Task> tasksNonSuspendable = new();
         private readonly BlockingCollection<Task>[] bothCollections;
         private readonly List<Thread> threads;
-
+        private int threadsSynchronouslyBlockingOnDrain;
         protected override IEnumerable<Task>? GetScheduledTasks() => tasksNonSuspendable.Concat(tasksSuspendable).ToArray();
 
         public event Action? BeforeTaskEnqueued;
@@ -35,16 +35,6 @@ namespace AppViewLite
         internal static void NotifyTaskAboutToBeEnqueuedCanBeSuspended()
         {
             BlueskyRelationships.Assert(!notifyTaskAboutToBeEnqueuedCanBeSuspended);
-
-
-            if (UseSynchronousBlockingOnDrain)
-            {
-                while (Indexer.FirehoseThreadpool!.pauseBuffer != null)
-                {
-                    Thread.Sleep(100);
-                }
-            }
-
             notifyTaskAboutToBeEnqueuedCanBeSuspended = true;
         }
         protected override void QueueTask(Task task)
@@ -54,6 +44,27 @@ namespace AppViewLite
             {
                 canBeSuspended = true;
                 notifyTaskAboutToBeEnqueuedCanBeSuspended = false;
+
+                if (UseSynchronousBlockingOnDrain && Indexer.FirehoseThreadpool!.pauseBuffer != null)
+                {
+                    // we allow at most "threads.Count - 1" threads to block, so that we can't deadlock with every thread being in Sleep
+                    var canBlock = Interlocked.Increment(ref threadsSynchronouslyBlockingOnDrain) < threads.Count;
+                    if (canBlock)
+                    {
+                        // This is not about correctness, it's just to avoid flooding the pauseBuffer while we're suspended
+                        while (Indexer.FirehoseThreadpool.pauseBuffer != null)
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }
+                    else 
+                    {
+                        Thread.Sleep(100); // just slow down insertion of new tasks but don't block completely.
+                        LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTask deadlock avoidance: ignoring UseSynchronousBlockingOnDrain for last thread");
+                    }
+                    Interlocked.Decrement(ref threadsSynchronouslyBlockingOnDrain);
+                }
+
             }
             BeforeTaskEnqueued?.Invoke();
             QueueTaskCore(task, canBeSuspended);

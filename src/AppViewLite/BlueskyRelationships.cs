@@ -2796,13 +2796,14 @@ namespace AppViewLite
                     postCache.Add(postId, post);
                 }
             }
+            var actorProfile = actor != default ? GetProfile(actor, ctx, canOmitDescription: true) : null;
             return new BlueskyNotification
             {
                 EventDate = notification.EventDate,
                 Kind = notification.Kind,
                 Post = post,
-                Profile = actor != default ? GetProfile(actor, ctx, canOmitDescription: true) : default,
-                Hidden = !IsDarkNotification(notification.Kind) && actor != default && UsersHaveBlockRelationship(destination, actor, ctx) != default,
+                Profile = actorProfile,
+                Hidden = !IsDarkNotification(notification.Kind) && actor != default && (UsersHaveBlockRelationship(destination, actor, ctx) != default || !actorProfile!.IsActive),
                 NotificationCore = notification,
                 Feed = feed,
                 List = list,

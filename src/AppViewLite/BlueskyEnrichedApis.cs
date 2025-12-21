@@ -238,7 +238,7 @@ namespace AppViewLite
                         AdultOnly = def?.AdultOnly ?? false,
                         Severity = def?.Severity != null ? Enum.Parse<BlueskyLabelSeverity>(def.Severity, ignoreCase: true) : default,
                         Blur = def?.Blurs != null ? Enum.Parse<BlueskyLabelBlur>(def.Blurs, ignoreCase: true) : default,
-                        DefaultSetting = def?.DefaultSetting != null ? Enum.Parse<BlueskyLabelDefaultSetting>(def.DefaultSetting, ignoreCase: true) : default,
+                        DefaultSetting = Enum.TryParse<BlueskyLabelDefaultSetting>(def?.DefaultSetting, ignoreCase: true, out var defaultSetting) ? defaultSetting : default,
 
                     };
                     var labelId = new LabelId(plc, BlueskyRelationships.HashLabelName(policy));

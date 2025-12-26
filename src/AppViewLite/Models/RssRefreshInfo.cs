@@ -49,12 +49,12 @@ namespace AppViewLite.Models
             {
                 if (LastHttpError == RssProtocol.TimeoutError)
                     return "RSS fetch error: Timeout";
+                if (OtherException != null)
+                    return "RSS fetch error: " + OtherException;
                 if (LastHttpError != default)
                     return "RSS fetch error: " + LastHttpError;
                 if (LastHttpStatus != default && ((int)LastHttpStatus < 200 || (int)LastHttpStatus > 299))
                     return "RSS fetch error: HTTP " + ((int)LastHttpStatus) + " " + LastHttpError;
-                if (OtherException != null)
-                    return "RSS fetch error: " + OtherException;
                 return null;
             }
         }

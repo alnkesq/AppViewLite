@@ -4579,12 +4579,13 @@ namespace AppViewLite
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null, string? rateLimitingRealm = null, TimeSpan timeoutIncludingRateLimiting = default)
+        private static HttpClient CreateHttpClient(bool autoredirect, bool defaultHeaders = true, string? userAgent = null, string? rateLimitingRealm = null, bool forbidLocalIps = true, TimeSpan timeoutIncludingRateLimiting = default)
         {
             var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
             {
                 AllowAutoRedirect = autoredirect,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
+                ConnectCallback = forbidLocalIps ? BlocklistableHttpClientHandler.ConnectCallbackForbidLocalIps : null
             }, true)
             {
                 Timeout = TimeSpan.FromSeconds(10),

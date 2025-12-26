@@ -447,6 +447,8 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 refreshInfo.LastHttpStatus = ex.StatusCode ?? default;
                 refreshInfo.LastHttpError = ex.HttpRequestError;
+                if (ex.HttpRequestError == HttpRequestError.ConnectionError)
+                    refreshInfo.OtherException = ex.Message;
             }
             catch (TaskCanceledException)
             {

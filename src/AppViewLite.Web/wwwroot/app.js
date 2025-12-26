@@ -2076,7 +2076,7 @@ function countGraphemes(string) {
     return graphemes.length;
   }
   
-
+var isSubmittingPost = 0;
 var MAX_GRAPHEMES = 300;
 function composeTextAreaChanged() { 
     var textArea = document.querySelector('.compose-textarea');
@@ -2094,7 +2094,10 @@ function composeTextAreaChanged() {
     bar.style.width = Math.min(1, count / MAX_GRAPHEMES) * 100 + '%';
     var exceeds = count > MAX_GRAPHEMES;
     bar.classList.toggle('compose-textarea-limit-exceeded', exceeds);
-    document.querySelector('.compose-submit').disabled = exceeds;
+    const composeSubmit = document.querySelector('.compose-submit');
+    const composeCancel = document.querySelector('.compose-cancel-button');
+    if (composeSubmit) composeSubmit.disabled = exceeds || isSubmittingPost;
+    if (composeCancel) composeCancel.disabled = !!isSubmittingPost;
 }
 
 function closeAutocompleteMenu() { 
@@ -2409,6 +2412,8 @@ async function composeOnSubmit(formElement, e) {
     }
 
     try {
+        isSubmittingPost++;
+        composeTextAreaChanged();
         const response = await fetch(location.href, {
             method: 'POST',
             body: formData
@@ -2424,8 +2429,11 @@ async function composeOnSubmit(formElement, e) {
         clearFileUploads();
         await fastNavigateTo(postUrl);
         invalidateComposePage();
-    } catch (e) { 
+    } catch (e) {
         alert(getDisplayTextForException(e));
+    } finally { 
+        isSubmittingPost--;
+        composeTextAreaChanged();
     }
 }
 

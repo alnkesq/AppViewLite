@@ -97,7 +97,14 @@ namespace AppViewLite
             }
             catch (Exception ex)
             {
-                LoggableBase.LogLowImportanceException($"TaskDictionary error for {key}", ex);
+                if (ex is OperationCanceledException && BlueskyEnrichedApis.Instance.ShutdownRequested.IsCancellationRequested)
+                {
+                    // We're shutting down, so this is expected: don't log.
+                }
+                else
+                {
+                    LoggableBase.LogLowImportanceException($"TaskDictionary error for {key}", ex);
+                }
                 throw;
             }
             finally

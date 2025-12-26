@@ -32,6 +32,7 @@ namespace AppViewLite.Web
             var listenToFirehose = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_LISTEN_TO_FIREHOSE) ?? true;
             var builder = WebApplication.CreateBuilder(args);
             var bindUrls = AppViewLiteConfiguration.GetStringList(AppViewLiteParameter.APPVIEWLITE_BIND_URLS) ?? ["https://localhost:61749", "http://localhost:61750"];
+            builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.Zero); // Otherwise open websockets delay the shutdown until a long default timeout elapses
             builder.WebHost.UseUrls(bindUrls);
             // Add services to the container.
             builder.Logging.ClearProviders();

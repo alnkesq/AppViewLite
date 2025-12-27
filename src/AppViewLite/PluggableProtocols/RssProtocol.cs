@@ -1280,8 +1280,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     if (first is "user" or "c" || first.StartsWith('@'))
                     {
                         using var request = new HttpRequestMessage(HttpMethod.Get, url.GetLeftPart(UriPartial.Path));
-                        // If we DON'T submit any User-Agent, we don't get the cookie consent interstitial.
-                        using var ytresponse = await BlueskyEnrichedApis.DefaultHttpClientNoDefaultHeaders.SendAsync(request);
+                        using var ytresponse = await BlueskyEnrichedApis.DefaultHttpClient.SendAsync(request);
                         ytresponse.EnsureSuccessStatusCode();
                         if (ytresponse.RequestMessage?.RequestUri?.Host.StartsWith("consent.", StringComparison.Ordinal) == true)
                             throw AssertionLiteException.Throw("Could not resolve channel ID (cookie consent interstitial couldn't be bypassed)");

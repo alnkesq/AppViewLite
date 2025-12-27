@@ -14,13 +14,13 @@ namespace AppViewLite
     public class BlocklistableHttpClientHandler : HttpMessageHandler
     {
         private readonly HttpMessageHandler inner;
-        private MethodInfo invokeInnerMethod;
-        private bool disposeInner;
+        private readonly MethodInfo invokeInnerMethod;
+        private readonly bool disposeInner;
         public BlocklistableHttpClientHandler(HttpMessageHandler inner, bool disposeInner)
         {
             this.inner = inner;
             this.disposeInner = disposeInner;
-            this.invokeInnerMethod = inner.GetType().GetMethod("SendAsync", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, [typeof(HttpRequestMessage), typeof(CancellationToken)])!;
+            this.invokeInnerMethod = typeof(HttpMessageHandler).GetMethod("SendAsync", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, [typeof(HttpRequestMessage), typeof(CancellationToken)])!;
         }
 
         public TimeSpan? Timeout { get; set; }
@@ -29,6 +29,8 @@ namespace AppViewLite
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            HttpMessageHandler httpMessageHandler = inner;
+            ApplySiteQuirks(request, ref httpMessageHandler);
             AdministrativeBlocklist.Instance.GetValue().ThrowIfBlockedOutboundConnection(request.RequestUri!.Host);
             using var _ = await HostRateLimiter.AcquireUrlAsync(request.RequestUri, RateLimitingRealm, cancellationToken);
 
@@ -38,7 +40,19 @@ namespace AppViewLite
                 cts.CancelAfter(Timeout.Value);
                 cancellationToken = cts.Token;
             }
-            return await (Task<HttpResponseMessage>)invokeInnerMethod.Invoke(inner, [request, cancellationToken])!;
+
+            return await (Task<HttpResponseMessage>)invokeInnerMethod.Invoke(httpMessageHandler, [request, cancellationToken])!;
+        }
+
+        private static void ApplySiteQuirks(HttpRequestMessage request, ref HttpMessageHandler alternateHandler)
+        {
+            var url = request.RequestUri!;
+            
+            if (url.HasHostSuffix("youtube.com") && !url.AbsolutePath.StartsWith("/feeds/", StringComparison.Ordinal))
+            {
+                // If we DON'T submit any User-Agent, than we don't get the cookie consent interstitial (good!)
+                request.Headers.UserAgent.Clear();
+            }
         }
 
         protected override void Dispose(bool disposing)

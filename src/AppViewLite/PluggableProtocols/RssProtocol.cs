@@ -497,7 +497,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             var mediaGroup = item.Element(NsMedia + "group");
             var fullContentHtml =
                 Normalize(item.Element(NsContent + "encoded")) ??
-                GetValue(item, "content") ??
+                GetHtmlFromInlineXhtml(GetChild(item, "content")) ??
                 Normalize(mediaGroup?.Element(NsMedia + "description"));
 
             var (summaryText, summaryFacets) = StringUtils.ParseHtmlToText(summaryHtml, out var summaryDom, x => StringUtils.DefaultElementToFacet(x, url));
@@ -815,6 +815,17 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
             OnPostDiscovered(new QualifiedPluggablePostId(did, postId), null, null, data, ctx: ctx);
             return (dateParsed, url);
+        }
+
+        private static string? GetHtmlFromInlineXhtml(XElement? content)
+        {
+            if (content == null) return null;
+            var type = content.Attribute("type");
+            if (type?.Value == "xhtml")
+            {
+                return string.Join(null, content.Nodes().Select(x => x.ToString(SaveOptions.DisableFormatting)));
+            }
+            return content.Value;
         }
 
         private static IText? IsTumblrAttribution(IReadOnlyList<INode> content)

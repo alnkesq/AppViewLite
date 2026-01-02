@@ -1641,7 +1641,7 @@ namespace AppViewLite.Storage
                     {
                         if (ShouldPreserveKey != null && !ShouldPreserveKey(pruningContext, group.Key))
                         {
-                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan());
+                            prunedWriter.AddPresorted(group.Key, group.Values.AsSmallSpan());
                         }
                         else
                         {
@@ -1668,11 +1668,11 @@ namespace AppViewLite.Storage
                     {
                         if (ShouldPreserveKey!(pruningContext, group.Key))
                         {
-                            preservedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan());
+                            preservedWriter.AddPresorted(group.Key, group.Values.AsSmallSpan());
                         }
                         else
                         {
-                            prunedWriter.AddPresorted(group.Key, group.Values.Span.AsSmallSpan());
+                            prunedWriter.AddPresorted(group.Key, group.Values.AsSmallSpan());
                         }
                     }
                 }

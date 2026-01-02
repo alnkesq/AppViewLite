@@ -395,7 +395,7 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()
         {
-#if false
+#if true
             if (behavior != PersistentDictionaryBehavior.SingleValue && behavior != PersistentDictionaryBehavior.KeySetOnly) throw new InvalidOperationException();
 
             var keyCount = this.KeyCount;

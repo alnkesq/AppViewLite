@@ -14,7 +14,9 @@ namespace AppViewLite.Models
             return Low.CompareTo(other.Low);
         }
 
-        public override string ToString() => $"{nameof(RelationshipHash)}({new UInt48(High, Low)})";
+        public override string ToString() => $"{nameof(RelationshipHash)}({(UInt48)this})";
+
+        public static explicit operator UInt48(RelationshipHash h) => new UInt48(h.High, h.Low);
     }
 }
 

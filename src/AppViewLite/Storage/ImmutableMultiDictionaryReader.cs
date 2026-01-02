@@ -97,16 +97,8 @@ namespace AppViewLite.Storage
                         {
                             var pageOffsetBytes = pageIndex * PageSizeInBytes;
                             TKey firstEvenPartialKeyForPage;
-                            //if (pageOffsetBytes % sizeof(TKey) == 0)
-                            //{
                             var keyIndex = pageOffsetBytes / sizeof(TKey);
                             firstEvenPartialKeyForPage = keySpan[keyIndex];
-                            //}
-                            //else
-                            //{
-                            //    var keyIndex = pageOffsetBytes / sizeof(TKey);
-                            //    firstEvenPartialKeyForPage = keySpan[keyIndex];
-                            //}
                             cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in firstEvenPartialKeyForPage)));
                         }
                         cacheStream.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<TKey>(in keySpan[keySpan.Length - 1])));

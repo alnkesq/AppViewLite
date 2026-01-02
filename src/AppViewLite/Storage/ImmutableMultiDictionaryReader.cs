@@ -510,9 +510,9 @@ namespace AppViewLite.Storage
             }
             else if (behavior == PersistentDictionaryBehavior.KeySetOnly)
             {
-                for (long i = 0; i < count; i++)
+                foreach (var key in EnumerateKeys())
                 {
-                    yield return (keys[i], SingletonDefaultValue);
+                    yield return (key, SingletonDefaultValue);
                 }
             }
             else

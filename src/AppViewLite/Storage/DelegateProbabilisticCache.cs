@@ -40,14 +40,9 @@ namespace AppViewLite.Storage
 
         private void ReadInto(CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice, ProbabilisticSet<TProbabilisticKey> cache)
         {
-            foreach (var group in slice.Reader.Enumerate())
+            foreach (var entry in slice.Reader.EnumerateKeyValuePairs())
             {
-                var target = group.Key;
-                var valueSpan = group.Values.Span;
-                for (long i = 0; i < valueSpan.Length; i++)
-                {
-                    cache.Add(getProbabilisticKeyThreadSafe(target, valueSpan[i]));
-                }
+                cache.Add(getProbabilisticKeyThreadSafe(entry.Key, entry.Value));
             }
         }
 

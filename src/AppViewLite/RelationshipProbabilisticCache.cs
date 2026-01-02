@@ -37,14 +37,9 @@ namespace AppViewLite
 
         protected virtual void ReadInto(CombinedPersistentMultiDictionary<TTarget, Relationship>.SliceInfo slice, ProbabilisticSet<(TTarget, Plc)> cache)
         {
-            foreach (var group in slice.Reader.Enumerate())
+            foreach (var entry in slice.Reader.EnumerateKeyValuePairs())
             {
-                var target = group.Key;
-                var valueSpan = group.Values.Span;
-                for (long i = 0; i < valueSpan.Length; i++)
-                {
-                    cache.Add((target, valueSpan[i].Actor));
-                }
+                cache.Add((entry.Key, entry.Value.Actor));
             }
         }
 

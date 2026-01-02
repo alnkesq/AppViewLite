@@ -1314,13 +1314,9 @@ namespace AppViewLite.Storage
             using var _ = LogOperation(nameof(EnumerateUnsorted));
             foreach (var slice in slices)
             {
-                foreach (var group in slice.Reader.Enumerate())
+                foreach (var entry in slice.Reader.EnumerateKeyValuePairs())
                 {
-                    var q = group.Values;
-                    for (long i = 0; i < q.Length; i++)
-                    {
-                        yield return (group.Key, q[i]);
-                    }
+                    yield return entry;
                 }
             }
             foreach (var q in queue.AllEntries)

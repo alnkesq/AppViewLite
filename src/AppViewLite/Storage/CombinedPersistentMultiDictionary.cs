@@ -1228,7 +1228,7 @@ namespace AppViewLite.Storage
                 foreach (var group in groupedSlices)
                 {
                     var mostRecent = group.Values[^1];
-                    output.AddPresorted(group.Key, mostRecent.Span.AsSmallSpan());
+                    output.AddPresorted(group.Key, mostRecent.AsSmallSpan());
                 }
 
             }
@@ -1239,7 +1239,7 @@ namespace AppViewLite.Storage
                 {
                     if (group.Values.Count == 1)
                     {
-                        output.AddPresorted(group.Key, group.Values[0].Span.AsSmallSpan());
+                        output.AddPresorted(group.Key, group.Values[0].AsSmallSpan());
                     }
                     else
                     {

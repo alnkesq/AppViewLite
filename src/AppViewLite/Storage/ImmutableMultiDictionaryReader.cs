@@ -2,10 +2,8 @@ using AppViewLite;
 using AppViewLite.Numerics;
 using AppViewLite.Storage;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -42,7 +40,7 @@ namespace AppViewLite.Storage
         }
 
 
-        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null, bool allowEmpty = false)
+        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null, bool allowEmpty = false, bool usePageCache = true)
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
@@ -82,7 +80,7 @@ namespace AppViewLite.Storage
                     throw new Exception("Value column is smaller than it should be according to offsets file. Was this file truncated due to a partial file copy? " + safeFileHandleValues!.Path);
             }
 
-            if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache)
+            if (KeyCount * Unsafe.SizeOf<TKey>() >= MinSizeBeforeKeyCache && usePageCache)
             {
                 var keyCachePath = CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".pages-" + PageSizeInBytes + ".cache");
                 if (!File.Exists(keyCachePath))
@@ -91,9 +89,10 @@ namespace AppViewLite.Storage
                     CombinedPersistentMultiDictionary.Log("Materializing cache " + keyCachePath);
                     using (var cacheStream = new FileStream(keyCachePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
                     {
+                        // TODO: enumerate keys using stream
                         var keySpan = Keys.Span;
                         var keySpanBytes = keySpan.Length * sizeof(TKey);
-                        var pageCount = DivideWithCeiling(keySpanBytes, PageSizeInBytes);
+                        var pageCount = CombinedPersistentMultiDictionary.DivideWithCeiling(keySpanBytes, PageSizeInBytes);
                         for (long pageIndex = 0; pageIndex < pageCount; pageIndex++)
                         {
                             var pageOffsetBytes = pageIndex * PageSizeInBytes;
@@ -137,12 +136,6 @@ namespace AppViewLite.Storage
                 (HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0) +
                 (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
 
-        }
-
-        private static long DivideWithCeiling(long dividend, long divisor)
-        {
-            if (dividend % divisor == 0) return dividend / divisor;
-            return (dividend / divisor) + 1;
         }
 
         public IEnumerable<string> GetPotentiallyCorruptFiles(bool defaultKeysAreValid, bool defaultValuesAreValid)
@@ -410,8 +403,36 @@ namespace AppViewLite.Storage
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateSingleValues()
         {
+#if false
+            if (behavior != PersistentDictionaryBehavior.SingleValue && behavior != PersistentDictionaryBehavior.KeySetOnly) throw new InvalidOperationException();
+
+            var keyCount = this.KeyCount;
+            if (behavior == PersistentDictionaryBehavior.SingleValue)
+            {
+                using var keyReader = new UnmanagedStructReader<TKey>(OpenAsStream(safeFileHandleKeys));
+                using var valueReader = new UnmanagedStructReader<TValue>(OpenAsStream(safeFileHandleValues!));
+                for (long i = 0; i < keyCount; i++)
+                {
+                    var key = keyReader.Read();
+                    var value = valueReader.Read();
+                    yield return (key, value);
+                }
+            }
+            else if (behavior == PersistentDictionaryBehavior.KeySetOnly)
+            {
+                using var keyReader = new UnmanagedStructReader<TKey>(OpenAsStream(safeFileHandleKeys));
+                for (long i = 0; i < keyCount; i++)
+                {
+                    var key = keyReader.Read();
+                    yield return (key, default);
+                }
+            }
+            else throw new InvalidOperationException();
+
+#else
             var keys = this.Keys;
             var count = keys.Length;
+            if (count == 0) yield break;
 
             if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
@@ -430,12 +451,56 @@ namespace AppViewLite.Storage
                 }
             }
             else throw new InvalidOperationException();
+#endif
 
+        }
+
+        private static Stream OpenAsStream(MemoryMappedFileSlim mmap)
+        {
+            return new FileStream(mmap.Path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         }
 
         public IEnumerable<(TKey Key, TValue Value)> EnumerateKeyValuePairs()
         {
-            return Enumerate().SelectMany(x => x.Values, (a, b) => (a.Key, Value: b));
+            if (behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly)
+                return EnumerateSingleValues();
+            else
+            {
+                return EnumerateKeyValuePairs_Multiple();
+                //return Enumerate().SelectMany(x => x.Values, (a, b) => (a.Key, Value: b));
+            }
+        }
+
+        private IEnumerable<(TKey Key, TValue Value)> EnumerateKeyValuePairs_Multiple()
+        {
+            var keyCount = KeyCount;
+            if (keyCount == 0) yield break;
+
+            using var keyReader = new UnmanagedStructReader<TKey>(OpenAsStream(safeFileHandleKeys));
+            using var offsetReader = new UnmanagedStructReader<UInt48>(OpenAsStream(safeFileHandleOffsets!));
+            using var valueReader = new UnmanagedStructReader<TValue>(OpenAsStream(safeFileHandleValues!));
+
+
+            long prereadOffset = -1;
+
+            for (long i = 0; i < keyCount; i++)
+            {
+                var key = keyReader.Read();
+                var offset = prereadOffset != -1 ? prereadOffset : offsetReader.Read();
+                var nextOffset = i != keyCount - 1 ? offsetReader.Read() : ValueCount;
+
+                var count = nextOffset - offset;
+                for (long j = 0; j < count; j++)
+                {
+                    var val = valueReader.Read();
+                    yield return (key, val);
+                }
+
+                prereadOffset = nextOffset;
+            }
+            CombinedPersistentMultiDictionary.Assert(keyReader.RemainingStructs == 0);
+            CombinedPersistentMultiDictionary.Assert(offsetReader.RemainingStructs == 0);
+            CombinedPersistentMultiDictionary.Assert(valueReader.RemainingStructs == 0);
         }
 
         public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
@@ -574,6 +639,7 @@ namespace AppViewLite.Storage
         }
 
         private readonly static int SizeOfTKey = Unsafe.SizeOf<TKey>();
+        private readonly static int SizeOfTValue = Unsafe.SizeOf<TValue>();
 
         public static IoMethodPreference GetKeysIoPreference(MultiDictionaryIoPreference preference)
         {
@@ -598,9 +664,15 @@ namespace AppViewLite.Storage
             return preference;
         }
 
-        public DangerousHugeReadOnlyMemory<TKey> EnumerateKeys()
+        public IEnumerable<TKey> EnumerateKeys()
         {
-            return ((DangerousHugeReadOnlyMemory<TKey>)Keys);
+            using var reader = new UnmanagedStructReader<TKey>(OpenAsStream(safeFileHandleKeys));
+            var keyCount = KeyCount;
+            for (long i = 0; i < keyCount; i++)
+            {
+                yield return reader.Read();
+            }
+            //return ((DangerousHugeReadOnlyMemory<TKey>)Keys);
         }
     }
 

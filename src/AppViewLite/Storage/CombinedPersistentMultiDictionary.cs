@@ -85,6 +85,12 @@ namespace AppViewLite.Storage
             return enumerable => EnumerateThenDispose(enumerable, disposable);
         }
 
+        internal static long DivideWithCeiling(long dividend, long divisor)
+        {
+            if (dividend % divisor == 0) return dividend / divisor;
+            return (dividend / divisor) + 1;
+        }
+
         private static IEnumerable<T> EnumerateThenDispose<T>(IEnumerable<T> enumerable, IDisposable disposable)
         {
             try

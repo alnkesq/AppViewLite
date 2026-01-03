@@ -721,6 +721,9 @@ namespace AppViewLite.Storage
             {
                 try
                 {
+                    using var arena = new NativeArenaSlim(1024);
+                    var prevArena = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread;
+                    CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = arena;
                     CompactationSemaphore.Wait();
                     Compact(inputSlices.Select(x => x.Value).ToArray(), writer, OnCompactation);
 
@@ -739,6 +742,7 @@ namespace AppViewLite.Storage
                             cache.PrematerializeSliceCacheOnBackgroundCompactation(mergedSliceInfo);
                         }
                     }
+                    CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = prevArena;
                 }
                 catch (Exception ex)
                 {

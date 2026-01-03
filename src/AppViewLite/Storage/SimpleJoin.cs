@@ -361,6 +361,7 @@ namespace AppViewLite.Storage
                 {
                     var minEnumerator = minEnumeratorTuple.Enumerator;
                     var minItem = minEnumerator.Current;
+                    yield return minItem;
                     if (minEnumerator.MoveNext())
                     {
                         enumerators.Enqueue(minEnumeratorTuple, getSortKey(minEnumerator.Current, minEnumeratorTuple.SourceIndex));
@@ -369,7 +370,6 @@ namespace AppViewLite.Storage
                     {
                         minEnumerator.Dispose();
                     }
-                    yield return minItem;
                 }
             }
             finally

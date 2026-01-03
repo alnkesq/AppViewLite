@@ -93,6 +93,27 @@ namespace AppViewLite
             }
             return value;
         }
+
+        public unsafe TValue AddOrUpdate(TKey key, TValue addValue, Func<TKey, TValue, TValue> updateValueFactory)
+        {
+            var wasAdded = false;
+            var value = dict.AddOrUpdate(key, 
+                static (key, argg) =>
+                {
+                    argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                    return argg.addValue;
+                },
+                static (key, prev, argg) =>
+                {
+                    return argg.updateValueFactory(key, prev);
+                },
+                (addValue, updateValueFactory, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
+            if (wasAdded)
+                IncrementApproximateCountAndMaybeReset();
+            return value;
+        }
+
+
         public bool Add(TKey key, TValue value)
         {
             var wasAdded = true;
@@ -111,6 +132,11 @@ namespace AppViewLite
         private void IncrementApproximateCountAndMaybeReset(TValue value)
         {
             ValueAdded?.Invoke(value);
+            IncrementApproximateCountAndMaybeReset();
+        }
+
+        private void IncrementApproximateCountAndMaybeReset()
+        {
             var incremented = Interlocked.Increment(ref approximateCount);
             if (incremented >= capacity)
             {

@@ -112,7 +112,7 @@ namespace AppViewLite.Storage
 
         public abstract void MaybeCommitPendingCompactation();
         
-        public unsafe static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
+        public static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             if (TryGetSpan(enumerable, out var span))
             {

@@ -23,6 +23,7 @@ using System.Runtime.CompilerServices;
 using DuckDbSharp.Types;
 using FishyFlip.Lexicon.Com.Atproto.Label;
 using AppViewLite.PluggableProtocols;
+using AppViewLite;
 
 namespace AppViewLite
 {
@@ -159,8 +160,6 @@ namespace AppViewLite
 
 
 
-
-
         public void OnRecordCreated(string commitAuthor, CollectionAndRKey path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
@@ -222,6 +221,15 @@ namespace AppViewLite
 
                 if (record is Like l)
                 {
+                    var likeRkey = GetMessageTid(path, Like.RecordType);
+
+                    if (!Apis.LikeSpamThrottler.TryAddEvent(commitPlc, likeRkey))
+                    {
+                        if (Apis.PrintedLikeSpamMessages.Add(commitPlc))
+                            Log("Refusing post like spam events by " + commitAuthor);
+                        return;
+                    }
+
                     if (l.Subject!.Uri!.Collection == Post.RecordType)
                     {
                         // quick check to avoid noisy exceptions
@@ -232,7 +240,6 @@ namespace AppViewLite
                         BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
 
-                        var likeRkey = GetMessageTid(path, Like.RecordType);
                         if (relationships.Likes.Add(postId, new Relationship(commitPlc, likeRkey), preresolved.relationshipIsAbsentAsOf))
                         {
                             relationships.AddNotification(postId, NotificationKind.LikedYourPost, commitPlc, ctx, likeRkey.Date);
@@ -281,7 +288,6 @@ namespace AppViewLite
                         // TODO: handle deletions for feed likes
                         var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.Did!.Handler, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
 
-                        var likeRkey = GetMessageTid(path, Like.RecordType);
                         if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
                         {
                             var approxActorCount = relationships.FeedGeneratorLikes.GetApproximateActorCount(feedId);
@@ -297,8 +303,19 @@ namespace AppViewLite
                 else if (record is Follow f)
                 {
                     if (HasNumericRKey(path)) return;
-                    var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
+
                     var rkey = GetMessageTid(path, Follow.RecordType);
+                    
+
+                    if (!Apis.FollowSpamThrottler.TryAddEvent(commitPlc, rkey))
+                    {
+                        // TODO: what about follows from starter packs?
+                        if (Apis.PrintedFollowSpamMessages.Add(commitPlc))
+                            Log("Refusing follow spam events by " + commitAuthor);
+                        return;
+                    }
+
+                    var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
 
                     if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey), preresolved.relationshipIsAbsentAsOf))
                     {
@@ -353,7 +370,17 @@ namespace AppViewLite
                 }
                 else if (record is Post p)
                 {
-                    var postId = new PostId(commitPlc, GetMessageTid(path, Post.RecordType));
+                    var rkey = GetMessageTid(path, Post.RecordType);
+                    
+
+                    if (!Apis.PostSpamThrottler.TryAddEvent(commitPlc, rkey))
+                    {
+                        if (Apis.PrintedPostSpamMessages.Add(commitPlc))
+                            Log("Refusing post spam events by " + commitAuthor);
+                        return;
+                    }
+
+                    var postId = new PostId(commitPlc, rkey);
                     BlueskyRelationships.EnsureNotExcessivelyFutureDate(postId.PostRKey);
 
                     // Is this check too expensive?

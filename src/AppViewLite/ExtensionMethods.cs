@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
+using AppViewLite.Numerics;
 using FishyFlip.Models;
 using AppViewLite.Storage;
 using System;
@@ -256,6 +257,15 @@ namespace AppViewLite
         }
 
         public static CollectionAndRKey GetParsedPath(this ATUri uri) => new CollectionAndRKey(uri.Collection, uri.Rkey);
+
+        public static bool TryAddEvent(this EventSpamThrottlerBase<Plc, Tid> throttler, Plc actor, Tid rkey)
+        {
+            return throttler.TryAddEvent(actor, rkey, rkey.Date);
+        }
+        public static void AddEvent(this EventSpamThrottlerBase<Plc, Tid> throttler, Plc actor, Tid rkey)
+        {
+            throttler.AddEvent(actor, rkey, rkey.Date);
+        }
     }
 
 

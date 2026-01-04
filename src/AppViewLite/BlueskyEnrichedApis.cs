@@ -5326,6 +5326,9 @@ namespace AppViewLite
                 AlignedArenaPool = GetAllPooledObjects(AlignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
                 UnalignedArenaPool = GetAllPooledObjects(UnalignedArenaPool).Select(x => x.TotalAllocatedSize).ToArray(),
                 EfficientTextCompressor_TokenizerPool = GetAllPooledObjects(EfficientTextCompressor.TokenizerPool).Count,
+                LikeSpamThrottler = LikeSpamThrottler.GetCounters(),
+                FollowSpamThrottler = FollowSpamThrottler.GetCounters(),
+                PostSpamThrottler = PostSpamThrottler.GetCounters(),
                 GCMemoryInfo = new
                 {
                     gcMemoryInfo.FinalizationPendingCount,
@@ -5765,6 +5768,30 @@ namespace AppViewLite
                     userContext.StopConversationPolling = null;
                 }
             }
+        }
+
+        public readonly CombinedEventSpamThrottler<Plc, Tid> LikeSpamThrottler = CreateSpamThrottler(AppViewLiteParameter.APPVIEWLITE_SPAM_THROTTLER_LIKE, "8/2/100000,24/8/100000");
+        public readonly CombinedEventSpamThrottler<Plc, Tid> FollowSpamThrottler = CreateSpamThrottler(AppViewLiteParameter.APPVIEWLITE_SPAM_THROTTLER_FOLLOW,
+            "20/1" // be generous (we can't tell the difference between malicious spam and starter pack follows)
+            //"3/2,4/8"
+            );
+        public readonly CombinedEventSpamThrottler<Plc, Tid> PostSpamThrottler = CreateSpamThrottler(AppViewLiteParameter.APPVIEWLITE_SPAM_THROTTLER_POST, "2/1,3/2");
+
+
+        public ConcurrentFullEvictionSetCache<Plc> PrintedLikeSpamMessages = new(100);
+        public ConcurrentFullEvictionSetCache<Plc> PrintedFollowSpamMessages = new(100);
+        public ConcurrentFullEvictionSetCache<Plc> PrintedPostSpamMessages = new(100);
+
+        private static CombinedEventSpamThrottler<Plc, Tid> CreateSpamThrottler(AppViewLiteParameter parameter, string defaltParameters)
+        {
+            var parameters = (AppViewLiteConfiguration.GetString(parameter) ?? defaltParameters).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            return new CombinedEventSpamThrottler<Plc, Tid>(parameters.Select(x =>
+            {
+                if (x == "-") return null;
+                var parts = x.Split('/', StringSplitOptions.TrimEntries);
+                var dictionarySize = parts.Length >= 3 ? int.Parse(parts[2], CultureInfo.InvariantCulture) : 50_000;
+                return (EventSpamThrottlerBase<Plc, Tid>)new EventSpamThrottler<Plc, Tid>(TimeSpan.FromSeconds(double.Parse(parts[1], CultureInfo.InvariantCulture)), int.Parse(parts[0], CultureInfo.InvariantCulture), dictionarySize);
+            }).WhereNonNull().ToImmutableArray());
         }
 
     }

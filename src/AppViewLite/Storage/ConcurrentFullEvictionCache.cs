@@ -43,7 +43,8 @@ namespace AppViewLite
             }
         }
 
-        public object GetCounters() => new { Count, ApproximateCount, HitRatio = HitMissCounter.HitRatio, LastResetAgo = Stopwatch.GetElapsedTime(LastReset) };
+        public object GetCounters() => new { Count, ApproximateCount, HitRatio = HitMissCounter.HitRatio, LastResetAgo = LastResetAgo };
+        public TimeSpan LastResetAgo => Stopwatch.GetElapsedTime(LastReset);
 
         public int Count => dict.Count;
         public int ApproximateCount => approximateCount;

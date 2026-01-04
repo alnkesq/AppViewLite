@@ -121,6 +121,11 @@ namespace AppViewLite.Storage
             return ToNativeArrayCore(enumerable, UnalignedArenaForCurrentThread!);
         }
 
+        public static OneShotReadOnlySpanAccessor<T> ToNativeArrayAccessor<T>(IEnumerable<T> enumerable) where T: unmanaged
+        {
+            var nativeArray = ToNativeArray<T>(enumerable);
+            return new OneShotReadOnlySpanAccessor<T>(0, _ => nativeArray);
+        }
         public unsafe static DangerousHugeReadOnlyMemory<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             var arena = UnalignedArenaForCurrentThread!;

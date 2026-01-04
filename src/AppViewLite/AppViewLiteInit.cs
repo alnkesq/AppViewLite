@@ -1,5 +1,7 @@
 using Microsoft.Win32.SafeHandles;
 using AppViewLite.Storage;
+using DuckDbSharp.Bindings;
+using AppViewLite.Storage;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -52,7 +54,7 @@ namespace AppViewLite
                     if (updated > directIoBlockCacheCapacityBytes)
                         multiBlockCache.Reset();
                 };
-                CombinedPersistentMultiDictionary.DirectIoReadCache = new DirectIoReadCache(singleBlockCache.GetOrAdd, multiBlockCache.GetOrAdd, BlueskyRelationships.AllocUnaligned, () => 
+                CombinedPersistentMultiDictionary.DirectIoReadCache = new DirectIoReadCache(singleBlockCache.GetOrAdd, multiBlockCache.GetOrAdd, BlueskyRelationships.AllocUnaligned, () =>
                 {
                     return new
                     {
@@ -119,10 +121,23 @@ namespace AppViewLite
             };
 
             BlueskyRelationships.CreateTimeSeries();
-            var relationships = new BlueskyRelationships(
+            BlueskyRelationships relationships;
+
+            var prevArena = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread;
+            using var initArena = new NativeArenaSlim(64 * 1024);
+            CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = initArena;
+            
+            try
+            {
+                relationships = new BlueskyRelationships(
                 dataDirectory,
                 AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_READONLY) ?? false,
                 [dataDirectory, .. additionalDirectories]);
+            }
+            finally
+            {
+                CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = prevArena;
+            }
 
             relationships.MaybeEnterWriteLockAndPrune();
             var primarySecondaryPair = new PrimarySecondaryPair(relationships);
@@ -133,7 +148,7 @@ namespace AppViewLite
             {
                 table.PendingCompactationReadyForCommit += () =>
                 {
-                    apis.WithRelationshipsWriteLock(rels => 
+                    apis.WithRelationshipsWriteLock(rels =>
                     {
                         table.MaybeCommitPendingCompactation();
                     }, RequestContext.CreateForFirehose("CommitCompactation"));

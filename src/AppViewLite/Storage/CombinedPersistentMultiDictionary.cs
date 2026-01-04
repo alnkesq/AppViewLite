@@ -1227,56 +1227,62 @@ namespace AppViewLite.Storage
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)
         {
             using var _ = new ThreadPriorityScope(System.Threading.ThreadPriority.Lowest);
-            var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), (x, i) => (x.Key, i));
-            var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
+          
+            if (output.behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly)
+            {
+                CombinedPersistentMultiDictionary.Assert(onCompactation == null);
 
-            if (output.behavior == PersistentDictionaryBehavior.PreserveOrder)
+                var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.EnumerateSingleValues()).ToArray(), (x, i) => (x.Key, i));
+                var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
+                foreach (var group in groupedSlices)
+                {
+                    var mostRecent = group.Values[^1];
+                    output.AddPresorted(group.Key, [mostRecent]);
+                }
+            }
+            else if (output.behavior == PersistentDictionaryBehavior.PreserveOrder)
             {
                 if (onCompactation != null) throw new ArgumentException();
+                var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), (x, i) => (x.Key, i));
+                var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
 
                 foreach (var group in groupedSlices)
                 {
                     var mostRecent = group.Values[^1];
-                    output.AddPresorted(group.Key, mostRecent.AsSmallSpan());
+                    output.AddPresorted(group.Key, mostRecent.Span.AsSmallSpan());
                 }
 
             }
             else
             {
+                var concatenatedSlices = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(inputs.Select(x => x.Enumerate()).ToArray(), (x, i) => (x.Key, i));
+                var groupedSlices = SimpleJoin.GroupAssumingOrderedInput(concatenatedSlices);
 
                 foreach (var group in groupedSlices)
                 {
                     if (group.Values.Count == 1)
                     {
-                        output.AddPresorted(group.Key, group.Values[0].AsSmallSpan());
+                        output.AddPresorted(group.Key, group.Values[0].Span.AsSmallSpan());
                     }
                     else
                     {
-                        if (output.behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly)
-                        {
-                            var slices = group.Values;
-                            var lastSlice = slices[slices.Count - 1];
-                            if (lastSlice.Length != 1) throw new Exception();
-                            var lastValue = lastSlice[0];
-                            output.AddPresorted(group.Key, [lastValue]);
-                        }
-                        else
-                        {
-                            var enumerables = group.Values.Select(x => x.AsEnumerable()).ToArray();
-                            var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => x).DistinctAssumingOrderedInput();
-                            if (onCompactation != null)
-                                merged = onCompactation(merged);
+                        var enumerables = group.Values.Select(x => x.AsEnumerable()).ToArray();
+                        var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => x).DistinctAssumingOrderedInput();
+                        if (onCompactation != null)
+                            merged = onCompactation(merged);
 
-                            output.AddPresorted(group.Key, merged);
+                        output.AddPresorted(group.Key, merged);
+
+                        foreach (var g in group.Values)
+                        {
+                            g.AsSmallSpan();
                         }
                     }
                 }
             }
             // Don't commit yet (see caller)
         }
-
-
-        public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> EnumerateUnsortedGrouped()
+        public IEnumerable<(TKey Key, OneShotReadOnlySpanAccessor<TValue> Values)> EnumerateUnsortedGrouped()
         {
             using var _ = LogOperation(nameof(EnumerateUnsortedGrouped));
             foreach (var slice in slices)
@@ -1288,7 +1294,7 @@ namespace AppViewLite.Storage
             }
             foreach (var q in queue.Groups)
             {
-                yield return (q.Key, ToNativeArray(q.Value.ValuesUnsorted));
+                yield return (q.Key, CombinedPersistentMultiDictionary.ToNativeArrayAccessor(q.Value.ValuesUnsorted));
             }
         }
 
@@ -1298,14 +1304,14 @@ namespace AppViewLite.Storage
 
         public override bool HasPendingCompactation => pendingCompactation != null;
 
-        public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)> EnumerateSortedGrouped()
+        public IEnumerable<(TKey Key, OneShotReadOnlySpanAccessor<TValue>[] ValueChunks)> EnumerateSortedGrouped()
         {
-            var wrapEnumerable = LogOperationForEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue>[] ValueChunks)>(nameof(EnumerateSortedGrouped));
+            var wrapEnumerable = LogOperationForEnumerable<(TKey Key, OneShotReadOnlySpanAccessor<TValue>[] ValueChunks)>(nameof(EnumerateSortedGrouped));
             if (IsSingleValueOrKeySet) throw new InvalidOperationException();
             var s = slices.Select((x, sliceIndex) => x.Reader.Enumerate().Select(x => (KeyAndSliceIndex: (x.Key, sliceIndex), Values: x.Values)));
             if (queue.GroupCount != 0)
             {
-                s = s.Append(queue.OrderBy(x => x.Key).Select(x => ((x.Key, int.MaxValue), Values: ToNativeArray(x.Values.ValuesUnsorted))));
+                s = s.Append(queue.OrderBy(x => x.Key).Select(x => ((x.Key, int.MaxValue), Values: ToNativeArrayAccessor<TValue>(x.Values.ValuesUnsorted))));
             }
             return wrapEnumerable(SimpleJoin
                 .ConcatPresortedEnumerablesKeepOrdered(s.ToArray(), x => x.KeyAndSliceIndex)

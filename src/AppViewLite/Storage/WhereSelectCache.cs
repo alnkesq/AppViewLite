@@ -15,7 +15,7 @@ namespace AppViewLite.Storage
         private readonly string identifier;
         private readonly PersistentDictionaryBehavior behavior;
         private readonly Action<ImmutableMultiDictionaryReader<TKey, TValue>, ImmutableMultiDictionaryWriter<TCacheKey, TCacheValue>> materializeThreadSafe;
-        public WhereSelectCache(string identifier, PersistentDictionaryBehavior behavior, Func<TKey, DangerousHugeReadOnlyMemory<TValue>, (TCacheKey CacheKey, TCacheValue[] CacheValues)> funcThreadSafe)
+        public WhereSelectCache(string identifier, PersistentDictionaryBehavior behavior, Func<TKey, OneShotReadOnlySpanAccessor<TValue>, (TCacheKey CacheKey, TCacheValue[] CacheValues)> funcThreadSafe)
             : this(identifier, behavior, (reader, writer) =>
             {
                 foreach (var item in reader.Enumerate())

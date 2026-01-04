@@ -1,6 +1,7 @@
 using AppViewLite;
-using AppViewLite.Numerics;
+using DuckDbSharp.Bindings;
 using AppViewLite.Storage;
+using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -495,38 +496,127 @@ namespace AppViewLite.Storage
             CombinedPersistentMultiDictionary.Assert(valueReader.RemainingStructs == 0);
         }
 
-        public IEnumerable<(TKey Key, DangerousHugeReadOnlyMemory<TValue> Values)> Enumerate()
-        {
-            var keys = this.Keys;
-            var count = keys.Length;
 
+        private static T ChooseDoubleBuffered<T>(uint fp, T a, T b) => fp % 2 == 0 ? a : b;
+        private static ref T ChooseDoubleBufferedRef<T>(uint fp, ref T a, ref T b) => ref fp % 2 == 0 ? ref a : ref b;
+
+        public IEnumerable<(TKey Key, OneShotReadOnlySpanAccessor<TValue> Values)> Enumerate()
+        {
             if (behavior == PersistentDictionaryBehavior.SingleValue)
             {
-                var allValues = this.Values;
-                for (long i = 0; i < count; i++)
+                unsafe static UnsafePointer<TValue> AllocSingleton() => new UnsafePointer<TValue>((TValue*)CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread!.Allocate(Unsafe.SizeOf<TValue>()));
+                unsafe static DangerousHugeReadOnlyMemory<TValue> GetSingletonAsDangerousHugeReadOnlyMemory(UnsafePointer<TValue> ptr) => new DangerousHugeReadOnlyMemory<TValue>(ptr.Pointer, 1);
+                //var singleton = AllocSingleton();
+                //var singletonArray = GetSingletonAsDangerousHugeReadOnlyMemory(singleton);
+                var singleton1 = AllocSingleton();
+                var singletonArray1 = GetSingletonAsDangerousHugeReadOnlyMemory(singleton1);
+                var singleton2 = AllocSingleton();
+                var singletonArray2 = GetSingletonAsDangerousHugeReadOnlyMemory(singleton2);
+                uint currentFp = 0;
+                var func = (uint fp) =>
                 {
-                    yield return (keys[i], allValues.Slice(i, 1));
+                    AssertRecentFingerprint(fp, currentFp);
+                    //return singletonArray;
+                    return ChooseDoubleBuffered(fp, singletonArray1, singletonArray2);
+                };
+
+                foreach (var kv in EnumerateSingleValues())
+                {
+                    currentFp++;
+                    var singleton = ChooseDoubleBuffered(currentFp, singleton1, singleton2);
+                    singleton.AsRef = kv.Value;
+                    yield return (kv.Key, new(currentFp, func));
                 }
+                currentFp++;
             }
             else if (behavior == PersistentDictionaryBehavior.KeySetOnly)
             {
+                Func<uint, DangerousHugeReadOnlyMemory<TValue>> func = static (_) => SingletonDefaultValue;
                 foreach (var key in EnumerateKeys())
                 {
-                    yield return (key, SingletonDefaultValue);
+                    yield return (key, new(0, func));
                 }
             }
             else
             {
-                var allValues = this.Values;
-                var offsets = this.Offsets!;
-                for (long i = 0; i < count; i++)
+                var keyCount = KeyCount;
+                if (keyCount == 0) yield break;
+                
+                //using var arena = new NativeArenaSlim(256 * 1024);
+                using var arena1 = new NativeArenaSlim(256 * 1024);
+                using var arena2 = new NativeArenaSlim(256 * 1024);
+                unsafe static DangerousHugeReadOnlyMemory<TValue> ResetArenaAndReadValues(NativeArenaSlim arena, long count, Stream valueStream)
                 {
-                    var values = allValues.Slice(offsets[i], GetValueCount(i, MultiDictionaryIoPreference.OffsetsMmap));
-                    yield return (keys[i], values);
+                    arena.Reset();
+                    var arrayPtr = (TValue*)arena.Allocate(checked((int)(Unsafe.SizeOf<TValue>() * count)));
+
+                    valueStream.ReadExactly(MemoryMarshal.AsBytes(new Span<TValue>(arrayPtr, (int)count)));
+                    return new DangerousHugeReadOnlyMemory<TValue>(arrayPtr, count);
                 }
+                uint currentFp = 0;
+
+                //DangerousHugeReadOnlyMemory<TValue> currentValues = default;
+                DangerousHugeReadOnlyMemory<TValue> currentValues1 = default;
+                DangerousHugeReadOnlyMemory<TValue> currentValues2 = default;
+                var func = (uint fp) =>
+                {
+                    AssertRecentFingerprint(fp, currentFp);
+                    //return currentValues;
+                    return ChooseDoubleBuffered(fp, currentValues1, currentValues2);
+                };
+
+
+
+                using var keyReader = new UnmanagedStructReader<TKey>(OpenAsStream(safeFileHandleKeys));
+                using var offsetReader = new UnmanagedStructReader<UInt48>(OpenAsStream(safeFileHandleOffsets!));
+                //using var valueReader = new UnmanagedStructReader<TValue>(OpenAsStream(safeFileHandleValues!));
+                using var valueStream = OpenAsStream(safeFileHandleValues!);
+
+
+                long prereadOffset = -1;
+
+                for (long i = 0; i < keyCount; i++)
+                {
+                    var key = keyReader.Read();
+                    var offset = prereadOffset != -1 ? prereadOffset : offsetReader.Read();
+                    var nextOffset = i != keyCount - 1 ? offsetReader.Read() : ValueCount;
+
+                    var count = nextOffset - offset;
+                    currentFp++;
+
+                    var arena = ChooseDoubleBuffered(currentFp, arena1, arena2);
+                    ref DangerousHugeReadOnlyMemory<TValue> currentValues = ref ChooseDoubleBufferedRef(currentFp, ref currentValues1, ref currentValues2);
+                    
+                    currentValues = ResetArenaAndReadValues(arena, count, valueStream);
+
+                    prereadOffset = nextOffset;
+
+                    if (i == keyCount - 1)
+                    {
+                        // The last yielded group must outlive this state machine, because PresortedEnumerable functions reserve the right to early dispose the IEnumerators, once it's clear they contain no other items.
+                        var c = CombinedPersistentMultiDictionary.ToNativeArray(currentValues);
+                        yield return new(key, new(currentFp, fp => c));
+                    }
+                    else
+                    {
+                        yield return new(key, new(currentFp, func));
+                    }
+                }
+                currentFp++;
+                CombinedPersistentMultiDictionary.Assert(keyReader.RemainingStructs == 0);
+                CombinedPersistentMultiDictionary.Assert(offsetReader.RemainingStructs == 0);
+                //CombinedPersistentMultiDictionary.Assert(valueReader.RemainingStructs == 0);
+                CombinedPersistentMultiDictionary.Assert(valueStream.Position == valueStream.Length);
+
             }
         }
 
+        private static void AssertRecentFingerprint(uint fp, uint currentFingerprint)
+        {
+            //CombinedPersistentMultiDictionary.Assert(fp == currentFingerprint);
+            // Only the last 2 produced values are available (2 instead of 1 so that GroupAssumingOrderedInput and similar functions can work)
+            CombinedPersistentMultiDictionary.Assert(fp == currentFingerprint || fp == currentFingerprint - 1);
+        }
 
         private readonly ConcurrentFullEvictionCache<TKey, long>? _seekCache;
 

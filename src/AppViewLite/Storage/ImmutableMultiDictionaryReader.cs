@@ -591,9 +591,9 @@ namespace AppViewLite.Storage
 
                     prereadOffset = nextOffset;
 
-                    if (i == keyCount - 1)
+                    if (i >= keyCount - 2)
                     {
-                        // The last yielded group must outlive this state machine, because PresortedEnumerable functions reserve the right to early dispose the IEnumerators, once it's clear they contain no other items.
+                        // The last yielded group (and perhaps the preceding one) must outlive this state machine, because PresortedEnumerable functions reserve the right to early dispose the IEnumerators, once it's clear they contain no other items.
                         var c = CombinedPersistentMultiDictionary.ToNativeArray(currentValues);
                         yield return new(key, new(currentFp, fp => c));
                     }

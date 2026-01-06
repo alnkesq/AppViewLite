@@ -29,7 +29,7 @@ This AppView runs independently of the main `bsky.app` APIs.
 | Feature                     | AppViewLite (read) | AppViewLite (edit)  | bsky.app 
 | --------                    | -------            | -------             | -------  
 | Posts                       |  ✅                |✅                  |✅
-| Likes, bookmarks, reposts                       |  ✅                |✅                  |⚠️ No bookmarks
+| Likes, bookmarks, reposts                       |  ✅                |✅                  |✅
 | Profile pages               |  ✅                |                  |⚠️ No likes list
 | Follows                     |  ✅                |✅                  |⚠️ No private follows
 | Search                      |  ✅                |✅                  |⚠️ No media search

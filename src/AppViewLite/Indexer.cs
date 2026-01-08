@@ -709,7 +709,7 @@ namespace AppViewLite
                     OnLabelFirehoseEvent(s, e);
                     watchdog?.Kick();
                 }, nameForDebugging);
-            }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, useWatchdog: false, ct);
+            }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
         }
 
         private void CaptureFirehoseCursor()
@@ -720,7 +720,7 @@ namespace AppViewLite
             LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, bool useWatchdog = true, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -779,7 +779,7 @@ namespace AppViewLite
                         else Apis.DrainAndCaptureFirehoseCursors();
                     }
                 }
-            }, ct, retryPolicy: retryPolicy);
+            }, ct, retryPolicy: retryPolicy, errorsAreUnimportant: errorsAreUnimportant);
 
             CaptureFirehoseCursors -= CaptureFirehoseCursor;
         }

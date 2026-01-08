@@ -370,7 +370,7 @@ namespace AppViewLite.PluggableProtocols
             return null;
         }
 
-        public static async Task RetryInfiniteLoopAsync(string nameForDebugging, Func<CancellationToken, Task> attempt, CancellationToken ct, RetryPolicy? retryPolicy = null)
+        public static async Task RetryInfiniteLoopAsync(string nameForDebugging, Func<CancellationToken, Task> attempt, CancellationToken ct, RetryPolicy? retryPolicy = null, bool errorsAreUnimportant = false)
         {
             retryPolicy ??= RetryPolicy.CreateConstant(TimeSpan.FromSeconds(30));
             // This method must not throw, but CAN exit cleanly on CancellationToken.IsCancellationRequested (due to CaptureFirehoseCursors -= CaptureFirehoseCursor in callers)
@@ -386,7 +386,9 @@ namespace AppViewLite.PluggableProtocols
                 }
                 catch (Exception ex)
                 {
-                    LogNonCriticalException("Pluggable protocol error (" + nameForDebugging + ")", ex);
+                    var errorText = "Pluggable protocol error (" + nameForDebugging + ")";
+                    if (errorsAreUnimportant) LogLowImportanceException(errorText, ex);
+                    else LogNonCriticalException(errorText, ex);
                     await Task.Delay(retryPolicy.OnException(ex));
                 }
             }

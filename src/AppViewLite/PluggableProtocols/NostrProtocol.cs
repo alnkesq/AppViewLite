@@ -2,6 +2,7 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using NNostr.Client;
 using NNostr.Client.Protocols;
+using AppViewLite;
 using DuckDbSharp.Types;
 using System;
 using System.Buffers;

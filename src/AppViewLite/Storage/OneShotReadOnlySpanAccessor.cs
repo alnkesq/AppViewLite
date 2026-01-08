@@ -28,7 +28,7 @@ namespace AppViewLite
 
         public ReadOnlySpan<T> AsSmallSpan() => Span.AsSmallSpan();
         public HugeReadOnlySpan<T> Span => DangerousSpan.Span;
-        public DangerousHugeReadOnlyMemory<T> DangerousSpan => getItems(fingerprint);
+        public DangerousHugeReadOnlyMemory<T> DangerousSpan => getItems != null ? getItems(fingerprint) : default;
         public long Length => DangerousSpan.Length;
 
         public T this[long index] => DangerousSpan[index];

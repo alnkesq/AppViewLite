@@ -226,7 +226,7 @@ namespace AppViewLite
                     if (!Apis.LikeSpamThrottler.TryAddEvent(commitPlc, likeRkey))
                     {
                         if (Apis.PrintedLikeSpamMessages.Add(commitPlc))
-                            Log("Refusing post like spam events by " + commitAuthor);
+                            LogInfo("Refusing post like spam events by " + commitAuthor);
                         return;
                     }
 
@@ -311,7 +311,7 @@ namespace AppViewLite
                     {
                         // TODO: what about follows from starter packs?
                         if (Apis.PrintedFollowSpamMessages.Add(commitPlc))
-                            Log("Refusing follow spam events by " + commitAuthor);
+                            LogInfo("Refusing follow spam events by " + commitAuthor);
                         return;
                     }
 
@@ -376,7 +376,7 @@ namespace AppViewLite
                     if (!Apis.PostSpamThrottler.TryAddEvent(commitPlc, rkey))
                     {
                         if (Apis.PrintedPostSpamMessages.Add(commitPlc))
-                            Log("Refusing post spam events by " + commitAuthor);
+                            LogInfo("Refusing post spam events by " + commitAuthor);
                         return;
                     }
 

@@ -11,9 +11,22 @@ namespace AppViewLite
         {
             inner = new();
         }
+        public ConcurrentSet(IEqualityComparer<T> comparer)
+        {
+            inner = new(comparer);
+        }
 
         public ConcurrentSet(IEnumerable<T> source)
             : this()
+        {
+            foreach (var item in source)
+            {
+                Add(item);
+            }
+        }
+
+        public ConcurrentSet(IEnumerable<T> source, IEqualityComparer<T> comparer)
+            : this(comparer)
         {
             foreach (var item in source)
             {

@@ -72,6 +72,7 @@ namespace AppViewLite.Models
             if (domain.EndsWith(".a.co", StringComparison.Ordinal)) return true;
             if (domain.EndsWith(".flipboard.com.ap.brid.gy", StringComparison.Ordinal)) return true;
             if (domain.EndsWith(".awakari.com.ap.brid.gy", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".ngrok-free.app", StringComparison.Ordinal)) return true;
             if (domain.Contains('_')) return true;
             return false;
         }

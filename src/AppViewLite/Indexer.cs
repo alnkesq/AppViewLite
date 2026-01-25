@@ -371,13 +371,23 @@ namespace AppViewLite
                 else if (record is Post p)
                 {
                     var rkey = GetMessageTid(path, Post.RecordType);
-                    
 
-                    if (!Apis.PostSpamThrottler.TryAddEvent(commitPlc, rkey))
+
+                    var isRootPost = p.Reply == null;
+                    var isReplyToOwnThread = p.Reply?.Root.Uri.Did?.Handler == commitAuthor;
+
+                    if (isRootPost || !isReplyToOwnThread)
                     {
-                        if (Apis.PrintedPostSpamMessages.Add(commitPlc))
-                            LogInfo("Refusing post spam events by " + commitAuthor);
-                        return;
+                        if (!Apis.PostSpamThrottler.TryAddEvent(commitPlc, rkey))
+                        {
+                            if (Apis.PrintedPostSpamMessages.Add(commitPlc))
+                                LogInfo("Refusing post spam events by " + commitAuthor);
+                            return;
+                        }
+                    }
+                    else 
+                    {
+                        // Non-root reply to own thread. Don't count towards PostSpamThrottler, because bsky UI allows multi-post threads with a single submit button.
                     }
 
                     var postId = new PostId(commitPlc, rkey);

@@ -652,6 +652,7 @@ namespace AppViewLite
                     using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
                     await firehose.ConnectAsync(connectionCts.Token);
+                    connectionCts.CancelAfter(Timeout.Infinite); // connection succeeded, now disable the timeout (token is also used in receive loop)
 
                     currentFirehoseCursor.State = FirehoseState.Running;
                     await tcs.Task;
@@ -778,6 +779,8 @@ namespace AppViewLite
                     using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
                     await subscribeKind(firehose, currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null, connectionCts.Token);
+                    connectionCts.CancelAfter(Timeout.Infinite); // connection succeeded, now disable the timeout (token is also used in receive loop)
+
                     currentFirehoseCursor.State = FirehoseState.Running;
                     await tcs.Task;
                 }

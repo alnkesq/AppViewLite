@@ -301,7 +301,9 @@ function applyPageFocus() {
 }
 
 function closeTheater() { 
-    if (document.querySelector('.theater').classList.contains('display-none')) return;
+    const theater = document.querySelector('.theater');
+    if (theater.classList.contains('display-none')) return;
+    theater.classList.add('display-none');
     fastNavigateTo(theaterReturnUrl ?? trimMediaSegments(location.href), false, false);
 }
 

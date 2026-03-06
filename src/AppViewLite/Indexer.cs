@@ -648,7 +648,11 @@ namespace AppViewLite
                             watchdog?.Kick();
                         }, e.Record.Did?.Handler);
                     };
-                    await firehose.ConnectAsync(token: ct);
+
+                    using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
+                    await firehose.ConnectAsync(connectionCts.Token);
+
                     currentFirehoseCursor.State = FirehoseState.Running;
                     await tcs.Task;
                 }
@@ -674,6 +678,9 @@ namespace AppViewLite
             return RetryPolicy.CreateConstant(TimeSpan.FromSeconds(5));
         }
 
+
+        const int DefaultFirehoseConnectTimeoutMs = 10_000;
+
         private void LogFirehoseStartMessage(FirehoseCursor currentFirehoseCursor)
         {
             if (currentFirehoseCursor.CommittedCursor == null)
@@ -684,7 +691,7 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeReposAsync(cursor, token: ct), (protocol, cursor, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore((protocol, cursor, connectCt) => protocol.StartSubscribeReposAsync(cursor, token: connectCt), (protocol, cursor, watchdog) =>
             {
                 protocol.OnMessageReceived += (s, e) =>
                 {
@@ -707,7 +714,7 @@ namespace AppViewLite
 
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore((protocol, cursor) => protocol.StartSubscribeLabelsAsync(cursor, token: ct), (protocol, cursor, watchdog) =>
+            return StartListeningToAtProtoFirehoseCore((protocol, cursor, connectCt) => protocol.StartSubscribeLabelsAsync(cursor, token: connectCt), (protocol, cursor, watchdog) =>
             {
                 protocol.OnMessageReceived += (s, e) =>
                 {
@@ -730,7 +737,7 @@ namespace AppViewLite
             LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, CancellationToken, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -767,7 +774,10 @@ namespace AppViewLite
                         }
                     };
                     setupHandler(firehose, currentFirehoseCursor, watchdog);
-                    await subscribeKind(firehose, currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null);
+
+                    using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
+                    await subscribeKind(firehose, currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null, connectionCts.Token);
                     currentFirehoseCursor.State = FirehoseState.Running;
                     await tcs.Task;
                 }

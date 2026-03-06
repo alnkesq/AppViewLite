@@ -63,6 +63,16 @@ namespace AppViewLite.Web.Controllers
             apis.GlobalFlush("GlobalFlushAdminApiCall");
         }
 
+        [HttpPost("reopen-mmaps")]
+        public void ReopenMmaps(string? table)
+        {
+            ctx.EnsureAdministrator();
+            apis.WithRelationshipsWriteLock(rels => 
+            {
+                rels.ReopenMmaps(table);
+            }, ctx);
+        }
+
         [HttpPost("gc")]
         public void Gc(int generation, int loh = 0)
         {

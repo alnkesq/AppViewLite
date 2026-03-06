@@ -40,11 +40,14 @@ namespace AppViewLite.Storage
             return default;
         }
 
-
-        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null, bool allowEmpty = false, bool usePageCache = true)
+        private readonly bool allowEmpty;
+        private readonly bool usePageCache;
+        public unsafe ImmutableMultiDictionaryReader(string pathPrefix, PersistentDictionaryBehavior behavior, Func<TKey, MultiDictionaryIoPreference>? getIoPreference = null, bool allowEmpty = false, bool usePageCache = true /* IF you add parameters, update Reopen()*/)
         {
             this.PathPrefix = pathPrefix;
             this.behavior = behavior;
+            this.allowEmpty = allowEmpty;
+            this.usePageCache = usePageCache;
             this.columnarReader = new SimpleColumnarReader(pathPrefix,
                 behavior == PersistentDictionaryBehavior.KeySetOnly ? 1 :
                 behavior == PersistentDictionaryBehavior.SingleValue ? 2 :
@@ -755,6 +758,11 @@ namespace AppViewLite.Storage
                 yield return reader.Read();
             }
             //return ((DangerousHugeReadOnlyMemory<TKey>)Keys);
+        }
+
+        internal ImmutableMultiDictionaryReader<TKey, TValue> CloneWithReopen()
+        {
+            return new(PathPrefix, behavior, GetIoPreferenceForKeyFunc, allowEmpty: allowEmpty, usePageCache: usePageCache);
         }
     }
 

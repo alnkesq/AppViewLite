@@ -4714,6 +4714,19 @@ namespace AppViewLite
 
 
         internal static TimeSpan RecentPostsTimeSpan = TimeSpan.FromDays(7);
+
+
+
+        public void ReopenMmaps(string? onlyTable)
+        {
+            foreach (var t in AllMultidictionaries)
+            {
+                if (string.IsNullOrEmpty(onlyTable) || t.Name == onlyTable)
+                {
+                    t.ReopenMmaps();
+                }
+            }
+        }
     }
 
 

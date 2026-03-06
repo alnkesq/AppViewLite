@@ -283,6 +283,8 @@ namespace AppViewLite.Storage
 
         public abstract bool MaybePrune(Func<PruningContext> getPruningContext, long minSizeForPruning, TimeSpan pruningInterval);
 
+        public abstract void ReopenMmaps();
+
         public static Func<string, SliceName, bool> IsPrunedSlice = (_, s) => (s.PruneId % 2) == 1;
         public static bool TreatMissingSlicesAsPruned;
         public static DirectIoReadCache? DirectIoReadCache;
@@ -1768,6 +1770,26 @@ namespace AppViewLite.Storage
         public KeyProbabilisticCache<TKey, TValue>? GetKeyProbabilisticCache() => this.GetCache<KeyProbabilisticCache<TKey, TValue>>();
         public KeyValueProbabilisticCache<TKey, TValue>? GetKeyValueProbabilisticCache() => this.GetCache<KeyValueProbabilisticCache<TKey, TValue>>();
         public DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>? GetDelegateProbabilisticCache<TProbabilistcKey>() where TProbabilistcKey : unmanaged => this.GetCache<DelegateProbabilisticCache<TKey, TValue, TProbabilistcKey>>();
+
+        public override void ReopenMmaps()
+        {
+            try
+            {
+                for (int i = 0; i < SliceCount; i++)
+                {
+                    var slice = slices[i];
+                    var oldHandle = slice.ReaderHandle;
+                    var reopened = oldHandle.Value.CloneWithReopen();
+                    oldHandle.Dispose();
+                    slice.ReaderHandle = new(reopened);
+                    slices[i] = slice;
+                }
+            }
+            catch (Exception ex)
+            {
+                CombinedPersistentMultiDictionary.Abort(ex);
+            }
+        }
 
         public abstract class CachedView : IDisposable
         {

@@ -25,6 +25,28 @@ var pendingProfileLoads = new Map();
 var pendingPostLoads = new Map();
 
 
+
+
+function debugGetSnapshot() { 
+    return JSON.stringify({ href: location.href, historyStack, theaterReturnUrl, hasTheater: !document.querySelector('.theater')?.classList.contains('display-none')});
+}
+
+class FunctionLogContext {
+    constructor(name, ...args) { 
+        this.info = name + ': ' + JSON.stringify(args);
+        console.log(new Date().toISOString() + ' ' + this.info + ' ' + debugGetSnapshot());
+    }
+    [Symbol.dispose]() {
+        console.log(new Date().toISOString() + ' (exiting) ' + this.info + ' ' + debugGetSnapshot())
+    }
+}
+
+function logFunction(name, args) { 
+    return new FunctionLogContext(name, args);
+}
+
+
+
 function updateBadge(selector, count) { 
     var badge = document.querySelector(selector);
     if (badge) {
@@ -301,8 +323,11 @@ function applyPageFocus() {
 }
 
 function closeTheater() { 
+
     const theater = document.querySelector('.theater');
     if (theater.classList.contains('display-none')) return;
+
+    using _ = logFunction('closeTheater');
     theater.classList.add('display-none');
     fastNavigateTo(theaterReturnUrl ?? trimMediaSegments(location.href), false, false);
 }
@@ -445,6 +470,8 @@ var applyPageId = 0;
 var appliedPageObj = null;
 
 async function applyPage(href, preferRefresh = null, scrollToTop = null) { 
+    using _ = logFunction('applyPage', href, preferRefresh, scrollToTop);
+
     console.log('Load: ' + href);
     var token = ++applyPageId;
     
@@ -811,6 +838,8 @@ async function fetchOrReusePageAsync(href, token) {
 }
 
 async function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) { 
+    using _ = logFunction('fastNavigateTo', href, preferRefresh, scrollToTop);
+    
     if (href.startsWith('/')) href = location.origin + href;
     if (!href.startsWith(window.location.origin + '/')) { 
         window.location.href = href;
@@ -965,6 +994,7 @@ function updateSidebarButtonScrollVisibility() {
 }
 
 function switchTheaterImage(delta, allowWrap = true) { 
+    using _ = logFunction('switchTheaterImage', delta, allowWrap);
     var theater = tryTrimMediaSegments(location.href);
     if (!theater) return false;
     var imageCount = theater.getPostElement().querySelector('.post-image-list').children.length;
@@ -2468,4 +2498,5 @@ const mutationObserver = new MutationObserver(mutations => {
 
 mutationObserver.observe(document.body, { childList: true, subtree: true });
 onInitialLoad();
+
 

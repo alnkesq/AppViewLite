@@ -15,7 +15,15 @@ var currentFeedHasNewPostsTimeout = null;
 var theaterReturnUrl = null;
 
 var previousTabbedListHeaderScrollX = 0;
-var historyStack = [];
+
+
+function willBackLeadTo(url) {
+    return getBackUrl() == url;
+}
+
+function getBackUrl() { 
+    return history.state?.prevUrl;
+}
 var applyFocusOnNextPopstate = false;
 var isNoLayout = !document.querySelector('.page')
 
@@ -28,7 +36,7 @@ var pendingPostLoads = new Map();
 
 
 function debugGetSnapshot() { 
-    return JSON.stringify({ href: location.href, historyStack, theaterReturnUrl, hasTheater: !document.querySelector('.theater')?.classList.contains('display-none')});
+    return JSON.stringify({ href: location.href, backUrl: getBackUrl(), theaterReturnUrl, hasTheater: !document.querySelector('.theater')?.classList.contains('display-none')});
 }
 
 class FunctionLogContext {
@@ -407,8 +415,7 @@ function fastNavigateIfLink(event) {
     }
 
     if (a.id == 'bottom-bar-home-button') { 
-        var previousPage = historyStack[historyStack.length - 1];
-        if (previousPage == url) {
+        if (willBackLeadTo(url)) {
             console.log('Bottom bar home button: Back');
             history.back();
 
@@ -851,15 +858,15 @@ async function fastNavigateTo(href, preferRefresh = null, scrollToTop = null) {
             window.scrollTo(0, 0);
     } else {
 
-        if (href == historyStack[historyStack.length - 1]) { 
+        if (willBackLeadTo(href)) { 
             applyFocusOnNextPopstate = scrollToTop == true;
             if (preferRefresh)
                 recentPages = recentPages.filter(x => x.href != href);
             history.back();
             return;
         }
-        historyStack.push(location.href);
-        window.history.pushState(null, null, href);
+
+        history.pushState({ prevUrl: location.href }, "", href);
     }
     await applyPage(href, preferRefresh, scrollToTop);
 }
@@ -1161,10 +1168,6 @@ function onInitialLoad() {
         console.log('beforeunload event triggered.')
     });
     window.addEventListener('popstate', e => {
-        var popped = historyStack.pop();
-        if (popped != location.href) { 
-            console.log("History stack (" + popped +") / pushState (" + location.href + ") mismatch");
-        }
         applyPage(location.href, false, applyFocusOnNextPopstate ? true : false);
         applyFocusOnNextPopstate = false;
     });

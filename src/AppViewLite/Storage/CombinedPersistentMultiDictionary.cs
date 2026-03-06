@@ -1773,6 +1773,7 @@ namespace AppViewLite.Storage
 
         public override void ReopenMmaps()
         {
+            if (HasPendingCompactation) throw new InvalidOperationException();
             try
             {
                 for (int i = 0; i < SliceCount; i++)

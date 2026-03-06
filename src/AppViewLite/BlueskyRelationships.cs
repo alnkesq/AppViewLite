@@ -4723,7 +4723,8 @@ namespace AppViewLite
             {
                 if (string.IsNullOrEmpty(onlyTable) || t.Name == onlyTable)
                 {
-                    t.ReopenMmaps();
+                    if (!t.HasPendingCompactation)
+                        t.ReopenMmaps();
                 }
             }
         }

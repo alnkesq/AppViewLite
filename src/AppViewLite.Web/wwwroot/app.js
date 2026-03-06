@@ -606,7 +606,7 @@ async function recordPostEngagement(postElement, kind) {
     }
 
     kind = kinds.join(',');
-    console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
+    //console.log('Engagement: ' + kind + ' for /@' + postElement.dataset.postdid + '/' + postElement.dataset.postrkey);
     var hasImages = !!postElement.querySelector('.post-image-list') && !postElement.classList.contains('post-small-media-thumbnail');
     var hasExternalPreview = !!postElement.querySelector('.post-external-preview-image') && !postElement.querySelector('.post-external-preview-compact');
     var weight = hasImages || hasExternalPreview ? 2 : 1;

@@ -792,7 +792,7 @@ namespace AppViewLite
                 return new FacetData { Del = true };
             }
 
-            if (element.TagName is "B" or "I")
+            if (element.TagName is "B" or "I" or "STRONG" or "EM")
             {
                 return new FacetData { Bold = true };
             }

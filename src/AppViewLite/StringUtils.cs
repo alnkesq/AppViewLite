@@ -787,7 +787,7 @@ namespace AppViewLite
                 }
             }
 
-            if (element.TagName == "DEL")
+            if (element.TagName is "DEL" or "S" or "STRIKE")
             {
                 return new FacetData { Del = true };
             }

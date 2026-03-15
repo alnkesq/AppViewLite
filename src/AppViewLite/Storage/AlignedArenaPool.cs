@@ -93,7 +93,7 @@ namespace AppViewLite.Storage
 
         public bool Return(NativeArenaSlim obj)
         {
-            if (obj.TotalAllocatedSize == initialSize)
+            if (obj.TotalAllocatedSize <= initialSize)
             {
                 NativeArenaSlimPoolAcceptedReturns.OnHit();
                 obj.Reset();

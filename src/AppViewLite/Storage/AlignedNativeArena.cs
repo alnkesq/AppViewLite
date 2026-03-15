@@ -5,6 +5,7 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace AppViewLite.Storage
 {
@@ -83,12 +84,16 @@ namespace AppViewLite.Storage
                 chunkSize *= 2;
             lastChunkSize = chunkSize;
             nextAllocation = (byte*)NativeMemory.AlignedAlloc(chunkSize, Alignment);
+            Interlocked.Add(ref NativeMemoryAllocBytes, chunkSize);
             nextAllocationThreshold = nextAllocation + chunkSize;
             chunks.Add(((nuint)nextAllocation, chunkSize));
             consumedChunks++;
             Debug.Assert(consumedChunks == chunks.Count);
             return nextAllocation;
         }
+
+        public static ulong NativeMemoryAllocBytes;
+        public static ulong NativeMemoryFreedBytes;
 
         public long TotalAllocatedSize => chunks.Sum(x => (long)x.Length);
 
@@ -112,6 +117,7 @@ namespace AppViewLite.Storage
             foreach (var item in chunks)
             {
                 NativeMemory.AlignedFree((void*)item.Start);
+                Interlocked.Add(ref NativeMemoryFreedBytes, item.Length);
             }
             chunks = null!;
             nextAllocation = null;

@@ -60,13 +60,18 @@ namespace AppViewLite.Storage
             return new AlignedNativeArena(alignment, initialSize);
         }
 
+
+        public readonly static HitMissCounter AlignedNativeArenaPoolAcceptedReturns = new();
+
         public bool Return(AlignedNativeArena obj)
         {
             if (obj.TotalAllocatedSize == (long)initialSize)
             {
+                AlignedNativeArenaPoolAcceptedReturns.OnHit();
                 obj.Reset();
                 return true;
             }
+            AlignedNativeArenaPoolAcceptedReturns.OnMiss();
             return false;
         }
     }
@@ -84,13 +89,17 @@ namespace AppViewLite.Storage
             return new NativeArenaSlim(initialSize);
         }
 
+        public readonly static HitMissCounter NativeArenaSlimPoolAcceptedReturns = new();
+
         public bool Return(NativeArenaSlim obj)
         {
             if (obj.TotalAllocatedSize == initialSize)
             {
+                NativeArenaSlimPoolAcceptedReturns.OnHit();
                 obj.Reset();
                 return true;
             }
+            NativeArenaSlimPoolAcceptedReturns.OnMiss();
             return false;
         }
     }

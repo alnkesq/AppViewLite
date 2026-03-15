@@ -65,7 +65,7 @@ namespace AppViewLite.Storage
 
         public bool Return(AlignedNativeArena obj)
         {
-            if (obj.TotalAllocatedSize == (long)initialSize)
+            if (obj.TotalAllocatedSize <= (long)initialSize)
             {
                 AlignedNativeArenaPoolAcceptedReturns.OnHit();
                 obj.Reset();

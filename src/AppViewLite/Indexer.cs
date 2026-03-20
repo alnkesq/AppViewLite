@@ -614,7 +614,7 @@ namespace AppViewLite
                     currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.RestartCount++;
 
-                    LogFirehoseStartMessage(currentFirehoseCursor);
+                    LogFirehoseStartMessage(currentFirehoseCursor, isImportant: true);
                     if (this.currentFirehoseCursor.CommittedCursor != null)
                     {
                         options.WithCursor(long.Parse(currentFirehoseCursor.CommittedCursor));
@@ -682,12 +682,16 @@ namespace AppViewLite
 
         const int DefaultFirehoseConnectTimeoutMs = 10_000;
 
-        private void LogFirehoseStartMessage(FirehoseCursor currentFirehoseCursor)
+        private void LogFirehoseStartMessage(FirehoseCursor currentFirehoseCursor, bool isImportant)
         {
+            string message;
             if (currentFirehoseCursor.CommittedCursor == null)
-                Log($"Starting firehose {FirehoseUrl} at current time.");
+                message = $"Starting firehose {FirehoseUrl} at current time.";
             else
-                Log($"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.FirehoseTimeLastProcessed}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.FirehoseTimeLastProcessed, showSeconds: true)} ago)");
+                message = $"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.FirehoseTimeLastProcessed}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.FirehoseTimeLastProcessed, showSeconds: true)} ago)";
+            if (isImportant) Log(message); 
+            else LogInfo(message);
+
         }
 
         public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
@@ -752,7 +756,7 @@ namespace AppViewLite
                     currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.RestartCount++;
 
-                    LogFirehoseStartMessage(currentFirehoseCursor);
+                    LogFirehoseStartMessage(currentFirehoseCursor, isImportant: !errorsAreUnimportant);
                     using var firehose = new ATWebSocketProtocolBuilder()
                         .WithInstanceUrl(FirehoseUrl.GetNext())
                         .WithLogger(new LogWrapper())

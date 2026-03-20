@@ -77,21 +77,24 @@ namespace AppViewLite.PluggableProtocols.Rss
                     ExternalWebsite = profileDom.QuerySelector(".profile-website a")?.TryGetHref(profileUrl)?.AbsoluteUri,
                     Location = profileDom.QuerySelector(".profile-location")?.Text(),
                 };
-                var posts = profileDom.QuerySelectorAll(".timeline-item").Select(x =>
-                {
-                    var quote = x.QuerySelector(".quote");
-                    VirtualRssPost? quoted = null;
-                    ExtraProfile? quotedExtraProfile = null;
-                    if (quote != null)
+                var posts = profileDom.QuerySelectorAll(".timeline-item")
+                    .Where(x => !x.ClassList.Contains("more-replies-thread"))
+                    .Select(x =>
                     {
-                        quote.Remove();
-                        (quoted, quotedExtraProfile) = ParseNitterTweet(quote, profileUrl, null, username);
-                    }
+                        var quote = x.QuerySelector(".quote");
+                        VirtualRssPost? quoted = null;
+                        ExtraProfile? quotedExtraProfile = null;
+                        if (quote != null)
+                        {
+                            quote.Remove();
+                            (quoted, quotedExtraProfile) = ParseNitterTweet(quote, profileUrl, null, username);
+                        }
 
 
-                    var (post, extraProfile) = ParseNitterTweet(x, profileUrl, quoted, username);
-                    return (ExtraProfiles: new ExtraProfile?[] { extraProfile, quotedExtraProfile }, Post: post);
-                }).ToArray();
+                        var (post, extraProfile) = ParseNitterTweet(x, profileUrl, quoted, username);
+                        return (ExtraProfiles: new ExtraProfile?[] { extraProfile, quotedExtraProfile }, Post: post);
+                    })
+                    .ToArray();
                 var extraProfiles = posts.SelectMany(x => x.ExtraProfiles).WhereNonNull().DistinctBy(x => x.Did).ToArray();
                 if (extraProfiles.Length != 0)
                 { 
@@ -171,15 +174,16 @@ namespace AppViewLite.PluggableProtocols.Rss
                 ExternalDescription = x.QuerySelector(".card-description")?.TextContent,
                 Media = x.QuerySelectorAll(".attachment").Select(x =>
                 {
-                    if (x.ClassList.Contains("image"))
+                    var stillImage = x.QuerySelector(".still-image");
+                    if (stillImage != null)
                     {
                         return new BlueskyMediaData
                         {
                             AltText = x.QuerySelector("img")?.GetAttribute("alt"),
-                            Cid = ImageToCid(x.QuerySelector(".still-image")!.GetHref(profileUrl))!,
+                            Cid = ImageToCid(stillImage.GetHref(profileUrl))!,
                         };
                     }
-                    else if (x.ClassList.Contains("video-container"))
+                    else if (x.ClassList.Contains("video-container") || x.QuerySelector(".overlay-duration") != null)
                     {
                         var img = x.QuerySelector("img");
                         if (img != null)

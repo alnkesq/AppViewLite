@@ -5716,12 +5716,18 @@ namespace AppViewLite
                             if (lastMessage != null)
                             {
 
-                                if (lastMessage.Value > lastSeenMessage)
-                                    lastSeenMessage = lastMessage.Value;
+                                var lastMessageSender = (conv.LastMessage as MessageView)?.Sender.Did ?? (conv.LastMessage as DeletedMessageView)?.Sender.Did;
 
-                                if (lastMessage.Value >= ctx.PrivateProfile.LastClearUnreadMessageCountDate)
+                                if (lastMessageSender != null && lastMessageSender.Handler != session.Did)
                                 {
-                                    unreadConversations++;
+
+                                    if (lastMessage.Value > lastSeenMessage)
+                                        lastSeenMessage = lastMessage.Value;
+
+                                    if (lastMessage.Value >= ctx.PrivateProfile.LastClearUnreadMessageCountDate)
+                                    {
+                                        unreadConversations++;
+                                    }
                                 }
                             }
 

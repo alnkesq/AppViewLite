@@ -2,6 +2,7 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
+using AppViewLite.Storage;
 using FishyFlip.Lexicon.App.Bsky.Actor;
 using FishyFlip.Lexicon.App.Bsky.Embed;
 using FishyFlip.Lexicon.App.Bsky.Feed;
@@ -4526,9 +4527,9 @@ namespace AppViewLite
                 AlignedNativeArenaPoolAcceptedReturns_EventCount = AlignedNativeArenaPoolingPolicy.AlignedNativeArenaPoolAcceptedReturns.EventCount,
                 NativeArenaSlimPoolAcceptedReturns_HitRatio = NativeArenaSlimPoolingPolicy.NativeArenaSlimPoolAcceptedReturns.HitRatio,
                 NativeArenaSlimPoolAcceptedReturns_EventCount = NativeArenaSlimPoolingPolicy.NativeArenaSlimPoolAcceptedReturns.EventCount,
-                //NativeArenaSlim_NativeMemoryAllocBytes = NativeArenaSlim.NativeMemoryAllocBytes,
-                //NativeArenaSlim_NativeMemoryFreedBytes = NativeArenaSlim.NativeMemoryFreedBytes,
-                //NativeArenaSlim_NativeMemoryActiveBytes = NativeArenaSlim.NativeMemoryAllocBytes - NativeArenaSlim.NativeMemoryFreedBytes,
+                NativeArenaSlim_NativeMemoryAllocBytes = DuckDbSharp.Bindings.NativeArenaSlim.NativeMemoryAllocBytes,
+                NativeArenaSlim_NativeMemoryFreedBytes = DuckDbSharp.Bindings.NativeArenaSlim.NativeMemoryFreedBytes,
+                NativeArenaSlim_NativeMemoryActiveBytes = DuckDbSharp.Bindings.NativeArenaSlim.NativeMemoryAllocBytes - DuckDbSharp.Bindings.NativeArenaSlim.NativeMemoryFreedBytes,
                 AlignedNativeArena_NativeMemoryAllocBytes = AlignedNativeArena.NativeMemoryAllocBytes,
                 AlignedNativeArena_NativeMemoryFreedBytes = AlignedNativeArena.NativeMemoryFreedBytes,
                 AlignedNativeArena_NativeMemoryActiveBytes = AlignedNativeArena.NativeMemoryAllocBytes - AlignedNativeArena.NativeMemoryFreedBytes,

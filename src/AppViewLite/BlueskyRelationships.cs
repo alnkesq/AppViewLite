@@ -567,7 +567,7 @@ namespace AppViewLite
             {
                 var parts = custom.Split('@');
                 if (parts.Length != 2) throw new ArgumentException($"Invalid format for provided {parameter}");
-                var megabytes = int.Parse(parts[0]);
+                var megabytes = long.Parse(parts[0]);
                 hashFunctions = int.Parse(parts[1]);
                 sizeInBytes = megabytes * 1024 * 1024;
             }

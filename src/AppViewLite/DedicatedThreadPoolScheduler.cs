@@ -18,12 +18,35 @@ namespace AppViewLite
 
         private long TotalNonSuspendableTasks;
 
-        
+        public long TotalTasksHijackedToSystemScheduler;
+
         protected override void QueueTask(Task task)
         {
-            BeforeTaskEnqueued?.Invoke();
-            Interlocked.Increment(ref TotalNonSuspendableTasks);
-            tasksNonSuspendable.Add(task);
+            if (IsDedicatedThreadPoolSchedulerThread != 0)
+            {
+                // We must not block, othewise we can deadlock.
+
+                BeforeTaskEnqueued?.Invoke();
+                if (tasksNonSuspendable.TryAdd(task, 1000))
+                {
+                    Interlocked.Increment(ref TotalNonSuspendableTasks);
+                }
+                else
+                {
+                    Interlocked.Increment(ref TotalTasksHijackedToSystemScheduler);
+                    Task.Factory.StartNew(
+                        () => TryExecuteTask(task),
+                        CancellationToken.None,
+                        TaskCreationOptions.DenyChildAttach,
+                        TaskScheduler.Default);
+                }
+            }
+            else
+            {
+                BeforeTaskEnqueued?.Invoke();
+                Interlocked.Increment(ref TotalNonSuspendableTasks);
+                tasksNonSuspendable.Add(task);
+            }
 
         }
 
@@ -74,26 +97,38 @@ namespace AppViewLite
         
         }
 
+        [ThreadStatic]
+        private static int IsDedicatedThreadPoolSchedulerThread;
+
         private void ThreadWorkerCore()
         {
-            using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
-            while (true)
+            IsDedicatedThreadPoolSchedulerThread++;
+            try
             {
-                if (!tasksNonSuspendable.TryTake(out var task, Timeout.Infinite))
-                {
-                    Interlocked.Decrement(ref TotalThreads);
-                    BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted);
-                    return;
-                }
 
-                Interlocked.Increment(ref BusyThreads);
-           
-                if (!TryExecuteTask(task!))
-                    BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
-                LastProcessedNonSuspendableTask = DateTime.UtcNow;
-                AfterTaskProcessed?.Invoke();
-                    
-                Interlocked.Decrement(ref BusyThreads);
+                using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
+                while (true)
+                {
+                    if (!tasksNonSuspendable.TryTake(out var task, Timeout.Infinite))
+                    {
+                        Interlocked.Decrement(ref TotalThreads);
+                        BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted);
+                        return;
+                    }
+
+                    Interlocked.Increment(ref BusyThreads);
+
+                    if (!TryExecuteTask(task!))
+                        BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
+                    LastProcessedNonSuspendableTask = DateTime.UtcNow;
+                    AfterTaskProcessed?.Invoke();
+
+                    Interlocked.Decrement(ref BusyThreads);
+                }
+            }
+            finally
+            {
+                IsDedicatedThreadPoolSchedulerThread--;
             }
         }
 
@@ -104,6 +139,7 @@ namespace AppViewLite
                 PendingNonSuspendableTasks = tasksNonSuspendable.Count,
                 TotalNonSuspendableTasks,
                 LastProcessedNonSuspendableTaskAgo = DateTime.UtcNow - LastProcessedNonSuspendableTask,
+                TotalTasksHijackedToSystemScheduler,
                 BusyThreads,
                 TotalThreads,
             };

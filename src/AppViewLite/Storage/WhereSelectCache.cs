@@ -53,6 +53,10 @@ namespace AppViewLite.Storage
         {
             return new ImmutableMultiDictionaryReader<TCacheKey, TCacheValue>(cachePath, behavior, allowEmpty: true);
         }
+        public override long GetCacheFileBytesToRead(string cachePath)
+        {
+            return 0;
+        }
 
         public override void EnsureSupportsSourceBehavior(PersistentDictionaryBehavior behavior)
         {

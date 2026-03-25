@@ -444,7 +444,8 @@ namespace AppViewLite.Storage
                         cache.MaterializeCacheFileThreadSafe(slice, cachePath);
                     }
 
-                    Log("Reading cache: " + cachePath);
+                    var size = cache.GetCacheFileBytesToRead(cachePath);
+                    Log("Reading cache: " + cachePath + (size != 0 ? " (" + ToHumanBytes(size) + ")" : null));
                     cache.LoadCacheFile(slice, cachePath, sliceIndex);
                 }
                 else
@@ -1824,6 +1825,11 @@ namespace AppViewLite.Storage
             public abstract bool CanBeUsedByReplica { get; }
 
             public abstract void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context);
+
+            public virtual long GetCacheFileBytesToRead(string cachePath)
+            {
+                return new FileInfo(cachePath).Length;
+            }
         }
     }
 

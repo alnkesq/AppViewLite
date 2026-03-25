@@ -20,10 +20,9 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)][JsonInclude] public required string FirehoseUrl;
         [ProtoMember(2)][JsonInclude] public string? CommittedCursor;
-        [ProtoMember(3)][JsonInclude] public DateTime CursorCommitDate;
+        [ProtoMember(3)][JsonInclude] public DateTime SystemTimeLastProcessed;
 
         [ProtoMember(4)][JsonInclude] public DateTime FirehoseTimeLastProcessed; // NOT for firehose checkpointing, only for display/debug purposes.
-        [JsonInclude] public DateTime SystemTimeLastProcessed;
         [JsonInclude] public DateTime SystemTimeLastRawReceived;
 
         [JsonInclude][JsonConverter(typeof(JsonStringEnumConverter))] public FirehoseState State;
@@ -36,7 +35,6 @@ namespace AppViewLite.Models
 
         internal void MakeUtc()
         {
-            ExtensionMethods.MakeUtc(ref CursorCommitDate);
             ExtensionMethods.MakeUtc(ref FirehoseTimeLastProcessed);
             ExtensionMethods.MakeUtc(ref SystemTimeLastProcessed);
             ExtensionMethods.MakeUtc(ref SystemTimeLastRawReceived);

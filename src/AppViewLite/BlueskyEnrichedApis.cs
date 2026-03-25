@@ -5485,14 +5485,11 @@ namespace AppViewLite
             }
         }
 
-        private Lock globalFlushWithFirehoseCursorCaptureLock = new();
-
         public void NotifyShutdownRequested()
         {
 
             if (relationshipsUnlocked.ShutdownRequested.IsCancellationRequested) return;
             relationshipsUnlocked.ShutdownRequestedCts.Cancel();
-            CaptureFirehoseCursors();
             primarySecondaryPair.Dispose();
             FlushLog();
         }
@@ -5506,8 +5503,6 @@ namespace AppViewLite
         }
         public void GlobalFlush(string reason)
         {
-            TimeSpan elapsedCaptureCursors = TimeOperation(CaptureFirehoseCursors);
-
             var ctx = RequestContext.CreateForFirehose(reason);
 
             Log("Global periodic flush...");
@@ -5553,7 +5548,7 @@ namespace AppViewLite
             
             relationshipsUnlocked.UpdateAvailableDiskSpaceThreadSafe();
 
-            Log($"Global flush completed: flush_user_profiles={StringUtils.ToHumanTimeSpanForProfiler(flushUserProfiles)}, drain_capture_cursors={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCursors)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, final_write={StringUtils.ToHumanTimeSpanForProfiler(elapsedFinalWrite)}, slice_gc={StringUtils.ToHumanTimeSpanForProfiler(elapsedSliceGc)}");
+            Log($"Global flush completed: flush_user_profiles={StringUtils.ToHumanTimeSpanForProfiler(flushUserProfiles)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, final_write={StringUtils.ToHumanTimeSpanForProfiler(elapsedFinalWrite)}, slice_gc={StringUtils.ToHumanTimeSpanForProfiler(elapsedSliceGc)}");
             LogInfo($"====== END OF GLOBAL PERIODIC FLUSH ======");
 
         }
@@ -5568,14 +5563,6 @@ namespace AppViewLite
                         rels.SaveAppViewLiteProfile(userCtx);
                 }
             }, ctx);
-        }
-
-        internal void CaptureFirehoseCursors()
-        {
-            lock (globalFlushWithFirehoseCursorCaptureLock)
-            {
-                Indexer.CaptureFirehoseCursors?.Invoke();
-            }
         }
 
         public void LaunchLabelerListener(string[] allowedLabelerDids, string endpoint)

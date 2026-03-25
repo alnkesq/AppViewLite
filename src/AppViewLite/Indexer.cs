@@ -24,6 +24,7 @@ using DuckDbSharp.Types;
 using FishyFlip.Lexicon.Com.Atproto.Label;
 using AppViewLite.PluggableProtocols;
 using AppViewLite;
+using System.Globalization;
 
 namespace AppViewLite
 {
@@ -36,9 +37,6 @@ namespace AppViewLite
         {
             this.Apis = apis;
         }
-
-        internal static Action? CaptureFirehoseCursors;
-
         public void OnRecordDeleted(string commitAuthor, CollectionAndRKey path, bool ignoreIfDisposing = false, RequestContext? ctx = null)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
@@ -600,7 +598,6 @@ namespace AppViewLite
         public async Task StartListeningToJetstreamFirehose(RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
             await Task.Yield();
-            CaptureFirehoseCursors += CaptureFirehoseCursor;
             await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
             {
                 try
@@ -666,14 +663,7 @@ namespace AppViewLite
                     currentFirehoseCursor.LastExceptionDate = DateTime.UtcNow;
                     throw;
                 }
-                finally
-                {
-                    if (!ShutdownRequested.IsCancellationRequested)
-                        Apis.CaptureFirehoseCursors();
-                }
             }, ct, retryPolicy);
-
-            CaptureFirehoseCursors -= CaptureFirehoseCursor;
         }
 
         public static RetryPolicy CreateMainFirehoseRetryPolicy()
@@ -734,17 +724,9 @@ namespace AppViewLite
             }, RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
         }
 
-        private void CaptureFirehoseCursor()
-        {
-            if (largestSeenFirehoseCursor == 0) return;
-            currentFirehoseCursor!.CommittedCursor = largestSeenFirehoseCursor.ToString();
-            currentFirehoseCursor.CursorCommitDate = DateTime.UtcNow;
-        }
-
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, CancellationToken, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
-            CaptureFirehoseCursors += CaptureFirehoseCursor;
 
             await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
             {
@@ -794,16 +776,7 @@ namespace AppViewLite
                     currentFirehoseCursor.LastExceptionDate = DateTime.UtcNow;
                     throw;
                 }
-                finally
-                {
-                    if (!ShutdownRequested.IsCancellationRequested)
-                    {
-                         CaptureFirehoseCursor();
-                    }
-                }
             }, ct, retryPolicy: retryPolicy, errorsAreUnimportant: errorsAreUnimportant);
-
-            CaptureFirehoseCursors -= CaptureFirehoseCursor;
         }
 
         private Watchdog? CreateFirehoseWatchdog(TaskCompletionSource tcs)
@@ -820,19 +793,18 @@ namespace AppViewLite
         }
 
 
-        private long largestSeenFirehoseCursor;
-
         private void BumpLargestSeenFirehoseCursor(long? definitelyProcessedCursor, DateTime? recentEventDate)
         {
             if (definitelyProcessedCursor != null)
             {
-              
+                var definitelyProcessedCursorAsString = definitelyProcessedCursor.ToString();
+
                 while (true)
                 {
-                    var oldCursor = this.largestSeenFirehoseCursor;
-                    if (oldCursor >= definitelyProcessedCursor) break;
+                    var oldCursor = currentFirehoseCursor!.CommittedCursor;
+                    if (long.Parse(oldCursor ?? "0", CultureInfo.InvariantCulture) >= definitelyProcessedCursor) break;
 
-                    Interlocked.CompareExchange(ref largestSeenFirehoseCursor, definitelyProcessedCursor.Value, oldCursor);
+                    Interlocked.CompareExchange(ref currentFirehoseCursor!.CommittedCursor, definitelyProcessedCursorAsString, oldCursor);
                 }
             }
             if(recentEventDate != null)

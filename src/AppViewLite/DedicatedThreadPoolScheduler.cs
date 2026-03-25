@@ -35,7 +35,12 @@ namespace AppViewLite
                 {
                     Interlocked.Increment(ref TotalTasksHijackedToSystemScheduler);
                     Task.Factory.StartNew(
-                        () => TryExecuteTask(task),
+                        () =>
+                        {
+                            if (!TryExecuteTask(task))
+                                BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler TryExecuteTask with system scheduler hijack returned false.");
+                            AfterTaskProcessed?.Invoke();
+                        },
                         CancellationToken.None,
                         TaskCreationOptions.DenyChildAttach,
                         TaskScheduler.Default);

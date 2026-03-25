@@ -669,7 +669,7 @@ namespace AppViewLite
                 finally
                 {
                     if (!ShutdownRequested.IsCancellationRequested)
-                        Apis.DrainAndCaptureFirehoseCursors();
+                        Apis.CaptureFirehoseCursors();
                 }
             }, ct, retryPolicy);
 
@@ -709,14 +709,13 @@ namespace AppViewLite
                     OnRepoFirehoseEvent(s, e, protocol);
                     watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler);
-            }, retryPolicy, useApproximateFirehoseCapture: false, useWatchdog: useWatchdog, ct: ct);
+            }, retryPolicy, useWatchdog: useWatchdog, ct: ct);
         }
 
         private void OnRawMessageReceived()
         {
             currentFirehoseCursor!.SystemTimeLastRawReceived = DateTime.UtcNow;
             Interlocked.Increment(ref currentFirehoseCursor!.ReceivedEvents);
-            DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
         }
 
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
@@ -726,14 +725,13 @@ namespace AppViewLite
                 protocol.OnMessageReceived += (s, e) =>
                 {
                     Interlocked.Increment(ref cursor.ReceivedEvents);
-                    DedicatedThreadPoolScheduler.NotifyTaskAboutToBeEnqueuedCanBeSuspended();
                 };
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
                     OnLabelFirehoseEvent(s, e, protocol);
                     watchdog?.Kick();
                 }, nameForDebugging);
-            }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
+            }, RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
         }
 
         private void CaptureFirehoseCursor()
@@ -741,10 +739,9 @@ namespace AppViewLite
             if (largestSeenFirehoseCursor == 0) return;
             currentFirehoseCursor!.CommittedCursor = largestSeenFirehoseCursor.ToString();
             currentFirehoseCursor.CursorCommitDate = DateTime.UtcNow;
-            LogInfo($"Capturing cursor for {FirehoseUrl} = '{largestSeenFirehoseCursor}'");
         }
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, CancellationToken, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useApproximateFirehoseCapture, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
+        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, CancellationToken, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
             CaptureFirehoseCursors += CaptureFirehoseCursor;
@@ -801,11 +798,7 @@ namespace AppViewLite
                 {
                     if (!ShutdownRequested.IsCancellationRequested)
                     {
-                        if (useApproximateFirehoseCapture)
-                        {
-                            CaptureFirehoseCursor();
-                        }
-                        else Apis.DrainAndCaptureFirehoseCursors();
+                         CaptureFirehoseCursor();
                     }
                 }
             }, ct, retryPolicy: retryPolicy, errorsAreUnimportant: errorsAreUnimportant);

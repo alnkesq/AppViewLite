@@ -1,9 +1,6 @@
 using System;
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,130 +9,20 @@ namespace AppViewLite
 
     public sealed class DedicatedThreadPoolScheduler : TaskScheduler, IDisposable
     {
-
-
-        private readonly BlockingCollection<Task> tasksSuspendable = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 2000);
         private readonly BlockingCollection<Task> tasksNonSuspendable = new();
-        private readonly BlockingCollection<Task>[] bothCollections;
         private readonly List<Thread> threads;
-        private int threadsSynchronouslyBlockingOnDrain;
-        protected override IEnumerable<Task>? GetScheduledTasks() => tasksNonSuspendable.Concat(tasksSuspendable).ToArray();
-
+        protected override IEnumerable<Task>? GetScheduledTasks() => tasksNonSuspendable.ToArray();
         public event Action? BeforeTaskEnqueued;
         public event Action? AfterTaskProcessed;
-        private volatile BlockingCollection<Task>? pauseBuffer;
 
-        private long UncompletedSuspendableTasks;
-        private long TotalSuspendableTasks;
         private long TotalNonSuspendableTasks;
 
-        public readonly static bool UseSynchronousBlockingOnDrain = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DRAIN_FIREHOSE_VIA_SYNCHRONOUS_WAIT) ?? true;
-
-        [ThreadStatic] private static bool notifyTaskAboutToBeEnqueuedCanBeSuspended;
-        internal static void NotifyTaskAboutToBeEnqueuedCanBeSuspended()
-        {
-            BlueskyRelationships.Assert(!notifyTaskAboutToBeEnqueuedCanBeSuspended);
-            notifyTaskAboutToBeEnqueuedCanBeSuspended = true;
-        }
+        
         protected override void QueueTask(Task task)
         {
-            var canBeSuspended = false;
-            if (notifyTaskAboutToBeEnqueuedCanBeSuspended)
-            {
-                canBeSuspended = true;
-                notifyTaskAboutToBeEnqueuedCanBeSuspended = false;
-
-                if (UseSynchronousBlockingOnDrain && Indexer.FirehoseThreadpool!.pauseBuffer != null)
-                {
-                    // we allow at most "threads.Count - 1" threads to block, so that we can't deadlock with every thread being in Sleep
-                    var canBlock = Interlocked.Increment(ref threadsSynchronouslyBlockingOnDrain) < threads.Count;
-                    if (canBlock)
-                    {
-                        // This is not about correctness, it's just to avoid flooding the pauseBuffer while we're suspended
-                        while (Indexer.FirehoseThreadpool.pauseBuffer != null)
-                        {
-                            Thread.Sleep(100);
-                        }
-                    }
-                    else 
-                    {
-                        Thread.Sleep(100); // just slow down insertion of new tasks but don't block completely.
-                        LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTask deadlock avoidance: ignoring UseSynchronousBlockingOnDrain for last thread");
-                    }
-                    Interlocked.Decrement(ref threadsSynchronouslyBlockingOnDrain);
-                }
-
-            }
             BeforeTaskEnqueued?.Invoke();
-            QueueTaskCore(task, canBeSuspended);
-
-        }
-        private void QueueTaskCore(Task task, bool canBeSuspended)
-        {
-
-            var p = pauseBuffer;
-            if (p != null && canBeSuspended)
-            {
-                try
-                {
-                    p.Add(task);
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    // Between pauseBuffer read and Add(), the scheduler was resumed (CompleteAdding).
-                    // Continue as usual.
-                }
-            }
-
-            if (canBeSuspended)
-            {
-                Interlocked.Increment(ref UncompletedSuspendableTasks);
-                Interlocked.Increment(ref TotalSuspendableTasks);
-
-
-                // tasksSuspendable has bounded capacity, and we absolutely don't want to wait here, if we're on the DedicatedThreadPoolScheduled itself (we would deadlock)
-                if (IsDedicatedThreadPoolThread != 0)
-                {
-                    if (!tasksSuspendable.TryAdd(task, 1000))
-                    {
-                        LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: adding as non-suspendable instead.");
-
-                        // undo the previous increment and do the correct one instead
-                        Interlocked.Increment(ref TotalNonSuspendableTasks);
-
-                        Interlocked.Decrement(ref TotalSuspendableTasks);
-                        Interlocked.Decrement(ref UncompletedSuspendableTasks);
-                        
-
-                        tasksNonSuspendable.Add(task);
-                        //var sw = Stopwatch.StartNew();
-                        //LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: spawning new thread.");
-                        //var t = new Thread(() => 
-                        //{
-                        //    try
-                        //    {
-                        //        tasksSuspendable.Add(task);
-                        //        LoggableBase.Log("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: tasks succesfully added to queue, took " + StringUtils.ToHumanTimeSpanForProfiler(sw.Elapsed));
-                        //    }
-                        //    catch (Exception ex)
-                        //    {
-                        //        LoggableBase.LogNonCriticalException("DedicatedThreadPoolScheduler.QueueTaskCore deadlock avoidance: spawned thread failed.", ex);
-                        //    }
-                        //});
-                        //t.Start();
-                    }
-                }
-                else
-                {
-                    tasksSuspendable.Add(task);
-                }
-            }
-            else
-            {
-                Interlocked.Increment(ref TotalNonSuspendableTasks);
-                tasksNonSuspendable.Add(task);
-            }
+            Interlocked.Increment(ref TotalNonSuspendableTasks);
+            tasksNonSuspendable.Add(task);
 
         }
 
@@ -144,7 +31,6 @@ namespace AppViewLite
         public void Dispose()
         {
             tasksNonSuspendable.CompleteAdding();
-            tasksSuspendable.CompleteAdding();
             foreach (var thread in threads)
             {
                 thread.Join();
@@ -155,7 +41,6 @@ namespace AppViewLite
         public DedicatedThreadPoolScheduler(int threadCount, string? name)
         {
             TotalThreads = threadCount;
-            bothCollections = [tasksNonSuspendable, tasksSuspendable];
             threads = new List<Thread>(threadCount);
             for (int i = 0; i < threadCount; i++)
             {
@@ -173,7 +58,6 @@ namespace AppViewLite
 
         public int BusyThreads;
         public int TotalThreads;
-        public DateTime LastProcessedSuspendableTask;
         public DateTime LastProcessedNonSuspendableTask;
 
         private void ThreadWorker()
@@ -189,88 +73,27 @@ namespace AppViewLite
         
         }
 
-        [ThreadStatic] private static int IsDedicatedThreadPoolThread;
-
         private void ThreadWorkerCore()
         {
-            IsDedicatedThreadPoolThread++;
-            try
-            {
-                using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
-                while (true)
-                {
-                    var index = BlockingCollection<Task>.TryTakeFromAny(bothCollections, out var task, Timeout.Infinite);
-                    if (index == -1)
-                    {
-                        Interlocked.Decrement(ref TotalThreads);
-                        BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted && tasksSuspendable.IsAddingCompleted);
-                        return;
-                    }
-
-                    Interlocked.Increment(ref BusyThreads);
-                    if (index == 0)
-                    {
-                        // non suspendable
-                        if (!TryExecuteTask(task!))
-                            BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
-                        LastProcessedNonSuspendableTask = DateTime.UtcNow;
-                        AfterTaskProcessed?.Invoke();
-
-                    }
-                    else if (index == 1)
-                    {
-                        // suspendable
-                        if (!TryExecuteTask(task!))
-                            BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of suspendable queued tasks was found to be already executed or running.");
-                        Interlocked.Decrement(ref UncompletedSuspendableTasks);
-                        LastProcessedSuspendableTask = DateTime.UtcNow;
-                        AfterTaskProcessed?.Invoke();
-
-                    }
-                    else BlueskyRelationships.ThrowFatalError("Invalid index returned by TryTakeFromAny");
-
-                    Interlocked.Decrement(ref BusyThreads);
-                }
-            }
-            finally 
-            {
-                IsDedicatedThreadPoolThread--;
-            }
-        }
-
-        internal Action PauseAndDrain()
-        {
-            BlueskyRelationships.Assert(pauseBuffer == null);
-
-            pauseBuffer = new();
-            var delayMs = 50;
+            using var scope = BlueskyRelationshipsClientBase.CreateIngestionThreadPriorityScope();
             while (true)
             {
-                var remaining = Interlocked.Read(ref UncompletedSuspendableTasks);
-                LoggableBase.Log($"Draining firehose scheduler, remaining: {remaining}, waiting {(remaining == 0 ? 0 : delayMs)} ms, pause buffer: {pauseBuffer.Count}");
-                if (remaining == 0) break;
-
-                Thread.Sleep(delayMs);
-                delayMs += Math.Max(1, delayMs / 4);
-                delayMs = Math.Min(delayMs, 500);
-            }
-            BlueskyRelationships.Assert(tasksSuspendable.Count == 0);
-            return () =>
-            {
-                LoggableBase.Log("Resuming firehose scheduler");
-                BlueskyRelationships.Assert(UncompletedSuspendableTasks == 0);
-                BlueskyRelationships.Assert(tasksSuspendable.Count == 0);
-                var p = pauseBuffer;
-                pauseBuffer = null;
-                p.CompleteAdding();
-                var reenqueuedTasks = 0;
-                foreach (var task in p.GetConsumingEnumerable())
+                if (!tasksNonSuspendable.TryTake(out var task, Timeout.Infinite))
                 {
-                    QueueTaskCore(task, canBeSuspended: true);
-                    reenqueuedTasks++;
+                    Interlocked.Decrement(ref TotalThreads);
+                    BlueskyRelationships.Assert(tasksNonSuspendable.IsAddingCompleted);
+                    return;
                 }
-                LoggableBase.Log($"Reenqueued {reenqueuedTasks} previously paused firehose scheduler tasks.");
-            };
+
+                Interlocked.Increment(ref BusyThreads);
+           
+                if (!TryExecuteTask(task!))
+                    BlueskyRelationships.ThrowFatalError("DedicatedThreadPoolScheduler: a task taken from the BlockingCollection of non-suspendable queued tasks was found to be already executed or running.");
+                LastProcessedNonSuspendableTask = DateTime.UtcNow;
+                AfterTaskProcessed?.Invoke();
+                    
+                Interlocked.Decrement(ref BusyThreads);
+            }
         }
 
         public object GetCountersThreadSafe()
@@ -278,12 +101,7 @@ namespace AppViewLite
             return new
             {
                 PendingNonSuspendableTasks = tasksNonSuspendable.Count,
-                PendingSuspendableTasks = tasksSuspendable.Count,
-                PauseBuffer = pauseBuffer?.Count,
-                UncompletedSuspendableTasks,
-                TotalSuspendableTasks,
                 TotalNonSuspendableTasks,
-                LastProcessedSuspendableTaskAgo = DateTime.UtcNow - LastProcessedSuspendableTask,
                 LastProcessedNonSuspendableTaskAgo = DateTime.UtcNow - LastProcessedNonSuspendableTask,
                 BusyThreads,
                 TotalThreads,

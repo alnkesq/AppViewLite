@@ -5492,7 +5492,7 @@ namespace AppViewLite
 
             if (relationshipsUnlocked.ShutdownRequested.IsCancellationRequested) return;
             relationshipsUnlocked.ShutdownRequestedCts.Cancel();
-            DrainAndCaptureFirehoseCursors();
+            CaptureFirehoseCursors();
             primarySecondaryPair.Dispose();
             FlushLog();
         }
@@ -5506,7 +5506,7 @@ namespace AppViewLite
         }
         public void GlobalFlush(string reason)
         {
-            TimeSpan elapsedCaptureCursors = TimeOperation(DrainAndCaptureFirehoseCursors);
+            TimeSpan elapsedCaptureCursors = TimeOperation(CaptureFirehoseCursors);
 
             var ctx = RequestContext.CreateForFirehose(reason);
 
@@ -5570,22 +5570,11 @@ namespace AppViewLite
             }, ctx);
         }
 
-        internal void DrainAndCaptureFirehoseCursors()
+        internal void CaptureFirehoseCursors()
         {
             lock (globalFlushWithFirehoseCursorCaptureLock)
             {
-                if (AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DRAIN_FIREHOSE_BEFORE_CURSOR_CAPTURE, false))
-                {
-                    Log("Draining firehose threadpool...");
-                    var resume = Indexer.FirehoseThreadpool!.PauseAndDrain();
-                    Indexer.CaptureFirehoseCursors?.Invoke();
-                    resume();
-                }
-                else
-                {
-                    Indexer.CaptureFirehoseCursors?.Invoke();
-                }
-
+                Indexer.CaptureFirehoseCursors?.Invoke();
             }
         }
 

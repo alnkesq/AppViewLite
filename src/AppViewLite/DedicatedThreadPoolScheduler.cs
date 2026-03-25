@@ -27,7 +27,7 @@ namespace AppViewLite
                 // We must not block, othewise we can deadlock.
 
                 BeforeTaskEnqueued?.Invoke();
-                if (tasksNonSuspendable.TryAdd(task, 1000))
+                if (tasksNonSuspendable.TryAdd(task))
                 {
                     Interlocked.Increment(ref TotalNonSuspendableTasks);
                 }

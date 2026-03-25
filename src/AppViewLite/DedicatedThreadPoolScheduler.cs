@@ -9,7 +9,8 @@ namespace AppViewLite
 
     public sealed class DedicatedThreadPoolScheduler : TaskScheduler, IDisposable
     {
-        private readonly BlockingCollection<Task> tasksNonSuspendable = new(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 2000);
+        public readonly static int ThreadpoolBackpressure = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE) ?? 2000;
+        private readonly BlockingCollection<Task> tasksNonSuspendable = new(ThreadpoolBackpressure);
         private readonly List<Thread> threads;
         protected override IEnumerable<Task>? GetScheduledTasks() => tasksNonSuspendable.ToArray();
         public event Action? BeforeTaskEnqueued;

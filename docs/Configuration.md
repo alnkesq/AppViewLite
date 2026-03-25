@@ -36,9 +36,7 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_DISABLE_SLICE_GC`: If enabled, old slices won't be garbage collected, even after compactation (they will be however ignored and not loaded).
 * `APPVIEWLITE_RECENT_CHECKPOINTS_TO_KEEP`: How many old checkpoints to keep before garbage collecting old slices. Defaults to `3`.
 * `APPVIEWLITE_USE_PROBABILISTIC_SETS`: Uses a probabilistic cache to reduce disk reads. Defaults to `1`, but while developing you might want to set it to `0` since it increases startup time.
-* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD`: Prints a warning if the backlog of pending records to process is above this threshold. Defaults to `100`.
-* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD`: Errors out if the backlog of pending records to process is above this threshold. Defaults to `10000`.
-* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_DROP_EVENTS`: Drops firehose events instead of terminating the process if the error threshold is reached. Defaults to `0` (fatal exit).
+* `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD`: Prints a warning if the backlog of pending records to process is above this threshold. Defaults to `1000`.
 * `APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS`: How often to print lag behind warning messages, at most. Defaults to `500` ms.
 * `APPVIEWLITE_CHECK_NUL_FILES`: On startup, verifies that none of the slice files start or end with long sequences of `NUL` bytes, which could indicate corruption. Defaults to `1`.
 * `APPVIEWLITE_CAR_DOWNLOAD_SEMAPHORE`: How many CAR files can be downloaded at once. Defaults to `8`.
@@ -52,7 +50,6 @@ Each of these options can be specified (by descending priority):
 * `APPVIEWLITE_DIRECT_IO_PRINT_READS`: Prints to stderr every time a direct IO read is performed, with path, offset and length.
 * `APPVIEWLITE_FIREHOSE_THREADPOOL_BACKPRESSURE`: how many pending records to process can accumulate before the firehose websocket listener blocks waiting for work to complete. Defaults to `20000`.
 * `APPVIEWLITE_RESET_FIREHOSE_CURSORS`: URLs of the firehoses whose cursors should be reset on startup. Defaults to `*` to avoid a known [JetStream issue](https://github.com/bluesky-social/jetstream/issues/27).
-* `APPVIEWLITE_DRAIN_FIREHOSE_BEFORE_CURSOR_CAPTURE`: Uses a more precise checkpointing for firehose cursor save and restore (experimental). Defaults to `0`.
 * `APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_MB`: Size of the direct IO read cache for very small reads (≤ 2 sectors), in megabytes. Defaults to `128`.
 * `APPVIEWLITE_DIRECT_IO_MULTIBLOCK_CACHE_CAPACITY`: Size of the direct IO read cache for medium-sized reads (≥ 3 sectors, but small enough that mmap is not used), in megabytes. Defaults to `128`.
 * `APPVIEWLITE_LOW_DISK_SPACE_WARNING_MB`: Displays a warning on the sidebar when the available disk space is below this threshold, in megabytes. Defaults to `4096` (4 GB), enough for 1-2 days of firehose data.

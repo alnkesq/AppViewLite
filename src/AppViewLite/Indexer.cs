@@ -533,38 +533,6 @@ namespace AppViewLite
             var received = Interlocked.Read(ref RecordsReceived);
             var processed = Interlocked.Read(ref RecordsProcessed);
             var lagBehind = received - processed;
-            if (lagBehind >= LagBehindErrorThreshold && !Debugger.IsAttached)
-            {
-
-                if (LagBehindErrorDropEvents)
-                {
-                    lock (FirehoseLagBehindWarnLock)
-                    {
-                        if (LastDropEventsWarningPrint == null || LastDropEventsWarningPrint.ElapsedMilliseconds > 5000)
-                        {
-                            Log("Unable to process the firehose quickly enough, dropping events. Lagging behind: " + lagBehind);
-                            LastDropEventsWarningPrint ??= Stopwatch.StartNew();
-                            LastDropEventsWarningPrint.Restart();
-                        }
-
-
-                    }
-
-                    return false;
-                }
-                else
-                {
-                    // We must not block here, because we're inside a suspendable dedicated threadpool task (we would deadlock)
-                    Task.Run(() =>
-                    {
-                        Apis.GlobalFlush("FlushBeforeLagBehindExit");
-                        BlueskyRelationships.ThrowFatalError("Unable to process the firehose quickly enough, giving up. Lagging behind: " + lagBehind);
-                    });
-
-                    throw new Exception("Unable to process the firehose quickly enough.");
-                }
-            }
-
 
             if ((RecordsReceived % 30) == 0)
             {
@@ -1400,15 +1368,12 @@ namespace AppViewLite
         public static DedicatedThreadPoolScheduler? FirehoseThreadpool;
         public static TaskFactory? FirehoseThreadpoolTaskFactory;
 
-        private readonly static long LagBehindWarnIntervalMs = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS) ?? 500;
-        private readonly static long LagBehindWarnThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD) ?? 500;
-        public readonly static long LagBehindErrorThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_THRESHOLD) ?? 40000;
-        private readonly static bool LagBehindErrorDropEvents = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_ERROR_DROP_EVENTS) ?? false;
+        private readonly static long LagBehindWarnIntervalMs = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_INTERVAL_MS) ?? 3000;
+        public readonly static long LagBehindWarnThreshold = AppViewLiteConfiguration.GetInt64(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_PROCESSING_LAG_WARN_THRESHOLD) ?? 1000;
 
         private static long RecordsReceived;
         private static long RecordsProcessed;
         private static Stopwatch? LastLagBehindWarningPrint;
-        private static Stopwatch? LastDropEventsWarningPrint;
         private readonly static Lock FirehoseLagBehindWarnLock = new();
         public static void InitializeFirehoseThreadpool(BlueskyEnrichedApis apis)
         {

@@ -503,7 +503,7 @@ namespace AppViewLite
             });
         }
 
-        public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e)
+        public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e, ATJetStream firehose)
         {
             if (!OnFirehoseEventBeginProcessing()) return;
 
@@ -524,7 +524,8 @@ namespace AppViewLite
                 OnRecordDeleted(e.Record.Did!.ToString(), new CollectionAndRKey(e.Record.Commit.Collection!, e.Record.Commit.RKey!), ignoreIfDisposing: true);
             }
 
-            BumpLargestSeenFirehoseCursor(e.Record.TimeUs!.Value, DateTime.UnixEpoch.AddMicroseconds(e.Record.TimeUs.Value));
+            var date = e.Record.TimeUs;
+            BumpLargestSeenFirehoseCursor(firehose.LastDefinitelyProcessedCursor, date != null ? DateTime.UnixEpoch.AddMicroseconds(date.Value) : null);
         }
 
         private bool OnFirehoseEventBeginProcessing()
@@ -641,10 +642,11 @@ namespace AppViewLite
                     };
                     firehose.OnRecordReceived += (s, e) =>
                     {
+
                         // Called from a Task.Run(() => ...) by the firehose socket reader
                         TryProcessRecord(() =>
                         {
-                            OnJetStreamEvent(e);
+                            OnJetStreamEvent(e, firehose);
                             watchdog?.Kick();
                         }, e.Record.Did?.Handler);
                     };
@@ -704,7 +706,7 @@ namespace AppViewLite
                 };
                 protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
                 {
-                    OnRepoFirehoseEvent(s, e);
+                    OnRepoFirehoseEvent(s, e, protocol);
                     watchdog?.Kick();
                 }, e.Message.Commit?.Repo?.Handler);
             }, retryPolicy, useApproximateFirehoseCapture: false, useWatchdog: useWatchdog, ct: ct);
@@ -728,7 +730,7 @@ namespace AppViewLite
                 };
                 protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
                 {
-                    OnLabelFirehoseEvent(s, e);
+                    OnLabelFirehoseEvent(s, e, protocol);
                     watchdog?.Kick();
                 }, nameForDebugging);
             }, RetryPolicy.CreateForUnreliableServer(), useApproximateFirehoseCapture: true, useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
@@ -827,22 +829,27 @@ namespace AppViewLite
 
         private long largestSeenFirehoseCursor;
 
-        private void BumpLargestSeenFirehoseCursor(long cursor, DateTime eventDate)
+        private void BumpLargestSeenFirehoseCursor(long? definitelyProcessedCursor, DateTime? recentEventDate)
         {
-            while (true)
+            if (definitelyProcessedCursor != null)
             {
-                var oldCursor = this.largestSeenFirehoseCursor;
-                if (oldCursor >= cursor) break;
+              
+                while (true)
+                {
+                    var oldCursor = this.largestSeenFirehoseCursor;
+                    if (oldCursor >= definitelyProcessedCursor) break;
 
-                Interlocked.CompareExchange(ref largestSeenFirehoseCursor, cursor, oldCursor);
+                    Interlocked.CompareExchange(ref largestSeenFirehoseCursor, definitelyProcessedCursor.Value, oldCursor);
+                }
             }
-            currentFirehoseCursor!.FirehoseTimeLastProcessed = eventDate;
-            currentFirehoseCursor.SystemTimeLastProcessed = DateTime.UtcNow;
+            if(recentEventDate != null)
+                currentFirehoseCursor!.FirehoseTimeLastProcessed = recentEventDate.Value;
+            currentFirehoseCursor!.SystemTimeLastProcessed = DateTime.UtcNow;
         }
 
         internal FirehoseCursor? currentFirehoseCursor;
 
-        private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e)
+        private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e, ATWebSocketProtocol protocol)
         {
             if (!OnFirehoseEventBeginProcessing()) return;
 
@@ -871,8 +878,7 @@ namespace AppViewLite
                 }
             }
             
-            var seq = e.Message.Commit!.Seq;
-            BumpLargestSeenFirehoseCursor(seq, e.Message.Commit.Time!.Value);
+            BumpLargestSeenFirehoseCursor(protocol.LastDefinitelyProcessedCursor, e.Message.Commit?.Time);
         }
 
         private void OnAccountStateChanged(string did, bool active, string? status)
@@ -882,7 +888,7 @@ namespace AppViewLite
             Apis.SetAccountState(did, active, status, ctx);
         }
 
-        private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e)
+        private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e, ATWebSocketProtocol protocol)
         {
             var labels = e.Message.Labels?.LabelsValue;
             if (labels == null) return;
@@ -894,8 +900,7 @@ namespace AppViewLite
                 OnLabelCreated(label.Src.Handler, label, ctx);
             }
 
-            this.BumpLargestSeenFirehoseCursor(e.Message!.Labels!.Seq, e.Message.Labels!.LabelsValue.Last().Cts!.Value);
-
+            BumpLargestSeenFirehoseCursor(protocol.LastDefinitelyProcessedCursor, e.Message.Labels?.LabelsValue.LastOrDefault()?.Cts);
         }
 
         private void OnLabelCreated(string labeler, Label label, RequestContext ctx)

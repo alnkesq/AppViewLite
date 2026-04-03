@@ -168,6 +168,17 @@ namespace AppViewLite
             return apis;
         }
 
+        private static bool ShouldParallelPrefetchIndexes()
+        {
+            var apis = BlueskyEnrichedApis.Instance;
+            if (apis == null) return false;
+            var isUrgent = BlueskyRelationshipsClientBase.CurrentThreadRequestContext?.IsUrgent;
+            if (isUrgent == true) return true;
+            var primaryLock = apis.primarySecondaryPair.relationshipsUnlocked.Lock;
+            return primaryLock.IsWriteLockHeld;
+            //return false;
+        }
+
         private static async Task RunLargeObjectHeapCompactationLoop()
         {
             // As of .NET 9, the large object heap is never compacted automatically.

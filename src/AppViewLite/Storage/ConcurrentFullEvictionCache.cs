@@ -29,6 +29,8 @@ namespace AppViewLite
         public event Action? AfterReset;
         public event Action<TValue>? ValueAdded;
 
+        public bool ContainsKey(TKey key) => dict.ContainsKey(key);
+
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
             if (dict.TryGetValue(key, out value))

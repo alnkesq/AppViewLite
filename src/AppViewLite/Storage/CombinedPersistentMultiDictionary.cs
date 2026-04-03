@@ -57,6 +57,7 @@ namespace AppViewLite.Storage
         internal readonly static SemaphoreSlim CompactationSemaphore = new SemaphoreSlim(2);
 
         [ThreadStatic] public static NativeArenaSlim? UnalignedArenaForCurrentThread;
+        public static Func<bool>? ShouldParallelPrefetchIndexes;
 
         public event Action? PendingCompactationReadyForCommit;
         protected void OnPendingCompactationReadyForCommit()
@@ -824,17 +825,21 @@ namespace AppViewLite.Storage
                 value = default;
                 return false;
             }
+
 #if true
-            foreach (var slice in slices)
+
+            using (var __ = MaybeParallelPrefetchIndexesForKey(key, preference))
             {
-                var vals = slice.Reader.GetValues(key, preference);
-                if (vals.Length != 0)
+                foreach (var slice in slices)
                 {
-                    value = vals[0];
-                    return true;
+                    var vals = slice.Reader.GetValues(key, preference);
+                    if (vals.Length != 0)
+                    {
+                        value = vals[0];
+                        return true;
+                    }
                 }
             }
-
             if (queue.TryGetValues(key, out var q))
             {
                 value = q.First();
@@ -855,6 +860,48 @@ namespace AppViewLite.Storage
 #endif
             value = default;
             return false;
+        }
+
+        private IDisposable? MaybeParallelPrefetchIndexesForKey(TKey key, MultiDictionaryIoPreference preference)
+        {
+            var shouldPrefetchFunc = CombinedPersistentMultiDictionary.ShouldParallelPrefetchIndexes;
+            if (shouldPrefetchFunc == null || !shouldPrefetchFunc()) return null;
+
+            var slicesToInspect = slices.Where(x => x.Reader.IsKeyInMinMaxRange(key)).ToArray();
+            if (slicesToInspect.Length <= 1) return null; // Parallelism provides no benefits
+
+            var cts = new CancellationTokenSource();
+
+            var runningTasks = 0;
+
+            var task = Parallel.ForAsync(0, slicesToInspect.Length, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cts.Token }, (i, ct) => 
+            {
+                Interlocked.Increment(ref runningTasks);
+                try
+                {
+                    if (cts.IsCancellationRequested) return ValueTask.CompletedTask;
+                    var slice = slicesToInspect[slicesToInspect.Length - i - 1];
+                    var reader = slice.Reader;
+                    reader.PrefetchBinarySearch(key, preference, ct);
+                    return ValueTask.CompletedTask;
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref runningTasks);
+                }
+             
+            });
+            return new DelegateDisposable(() => 
+            {
+
+                cts.Cancel(); // No need to continue with the remaining slices (early exit)
+
+                // after the using(), we don't want to have pending parallel reads, because the ImmutableMultiDictionaryReader might get closed or compacted.
+
+                ((IAsyncResult)task).AsyncWaitHandle.WaitOne(); // Instead of task.Wait(), to avoid costly exception throw
+                CombinedPersistentMultiDictionary.Assert(Volatile.Read(in runningTasks) == 0);
+                CombinedPersistentMultiDictionary.Assert(task.IsCompleted);
+            });
         }
 
         public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default, bool skipLogging = false)
@@ -887,6 +934,7 @@ namespace AppViewLite.Storage
                     extraArr = ToNativeArray(extra);
                 }
             }
+
             var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);

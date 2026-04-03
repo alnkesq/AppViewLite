@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AppViewLite
@@ -23,6 +24,20 @@ namespace AppViewLite
             return BinarySearch(ref Unsafe.AsRef(in span.GetReference()), span.Length, comparable);
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long BinarySearchInterruptibleNoThrow<T, TComparable>(
+            HugeReadOnlySpan<T> span, TComparable comparable, CancellationToken ctNoThrow)
+            where TComparable : IComparable<T>, allows ref struct
+        {
+            if (!ctNoThrow.CanBeCanceled) return BinarySearch(span, comparable);
+
+            if (comparable == null)
+                throw new ArgumentNullException();
+
+            return BinarySearchInterruptibleNoThrow(ref Unsafe.AsRef(in span.GetReference()), span.Length, comparable, ctNoThrow);
+        }
+
         public static long BinarySearch<T, TComparable>(
             ref T spanStart, long length, TComparable comparable)
             where TComparable : IComparable<T>, allows ref struct
@@ -32,6 +47,7 @@ namespace AppViewLite
 #endif
             return BinarySearchNonInstrumented(ref spanStart, length, comparable);
         }
+
 
         public static long BinarySearchNonInstrumented<T, TComparable>(
             ref T spanStart, long length, TComparable comparable)
@@ -49,6 +65,47 @@ namespace AppViewLite
                 //       Saves one subtraction per loop compared to
                 //       `int i = lo + ((hi - lo) >> 1);`
                 long i = (long)(((ulong)hi + (ulong)lo) >> 1);
+
+                long c = comparable.CompareTo(Unsafe.Add(ref spanStart, (nint)i));
+                if (c == 0)
+                {
+                    return i;
+                }
+                else if (c > 0)
+                {
+                    lo = i + 1;
+                }
+                else
+                {
+                    hi = i - 1;
+                }
+            }
+            // If none found, then a negative number that is the bitwise complement
+            // of the index of the next element that is larger than or, if there is
+            // no larger element, the bitwise complement of `length`, which
+            // is `lo` at this point.
+            return ~lo;
+        }
+
+        public const long InterruptedDeadFoodPositive = long.MaxValue / 4;
+        public static long BinarySearchInterruptibleNoThrow<T, TComparable>(
+            ref T spanStart, long length, TComparable comparable, CancellationToken ctNoThrow)
+            where TComparable : IComparable<T>, allows ref struct
+        {
+            long lo = 0;
+            long hi = length - 1;
+            // If length == 0, hi == -1, and loop will not be entered
+            while (lo <= hi)
+            {
+                // PERF: `lo` or `hi` will never be negative inside the loop,
+                //       so computing median using uints is safe since we know
+                //       `length <= int.MaxValue`, and indices are >= 0
+                //       and thus cannot overflow an uint.
+                //       Saves one subtraction per loop compared to
+                //       `int i = lo + ((hi - lo) >> 1);`
+                long i = (long)(((ulong)hi + (ulong)lo) >> 1);
+
+                if (ctNoThrow.IsCancellationRequested) return InterruptedDeadFoodPositive;
 
                 long c = comparable.CompareTo(Unsafe.Add(ref spanStart, (nint)i));
                 if (c == 0)

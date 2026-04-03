@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace AppViewLite.Storage
 {
@@ -634,9 +635,35 @@ namespace AppViewLite.Storage
             return _seekCache.GetOrAdd(key, static (key, arg) => arg.This.BinarySearch<TKey>(key, arg.preference), (This: this, preference));
         }
 
+        public void PrefetchBinarySearch(TKey key, MultiDictionaryIoPreference preference, CancellationToken ctNoThrow)
+        {
+            if (_seekCache!.ContainsKey(key)) return;
+            
+            var result = BinarySearchInterruptibleNoThrow<TKey>(key, preference, ctNoThrow);
+            if (ctNoThrow.IsCancellationRequested) return;
+
+            _seekCache.Add(key, result);
+            
+
+        }
+
+        public bool IsKeyInMinMaxRange(TKey key)
+        {
+            if (key.CompareTo(MaximumKey) > 0) return false;
+            if (key.CompareTo(MinimumKey) < 0) return false;
+            return true;
+        }
 
         public long BinarySearch<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference = default) where TComparable : IComparable<TKey>
         {
+            return BinarySearchInterruptibleNoThrow(comparable, preference, ctNoThrow: default);
+        }
+
+
+        public long BinarySearchInterruptibleNoThrow<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference, CancellationToken ctNoThrow) where TComparable : IComparable<TKey>
+        {
+            // If ctNoThrow is canceled, will return a dummy value instead of throwing.
+
             if (comparable.CompareTo(MaximumKey) > 0) return ~this.Keys.Length;
             if (comparable.CompareTo(MinimumKey) < 0) return ~0;
 
@@ -654,7 +681,7 @@ namespace AppViewLite.Storage
 
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
-                result = BinarySearchPaginated(comparable, preference);
+                result = BinarySearchPaginatedInterruptibleNoThrow(comparable, preference, ctNoThrow);
                 if (false && Random.Shared.Next(100) < 25)
                 {
                     var checkedResult = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
@@ -664,7 +691,7 @@ namespace AppViewLite.Storage
             }
             else
             {
-                result = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
+                result = HugeSpanHelpers.BinarySearchInterruptibleNoThrow(this.Keys.Span, comparable, ctNoThrow);
 
             }
 
@@ -674,12 +701,16 @@ namespace AppViewLite.Storage
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private long BinarySearchPaginated<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference) where TComparable : IComparable<TKey>, allows ref struct
+        private long BinarySearchPaginatedInterruptibleNoThrow<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference, CancellationToken ctNoThrow) where TComparable : IComparable<TKey>, allows ref struct
         {
+            // If ctNoThrow is canceled, will return a dummy value instead of throwing.
+
             var keyCacheSpan = this.pageKeys.Span;
-            var pageIndex = HugeSpanHelpers.BinarySearch(keyCacheSpan, comparable);
+            var pageIndex = HugeSpanHelpers.BinarySearchInterruptibleNoThrow(keyCacheSpan, comparable, ctNoThrow);
             if (pageIndex < 0)
             {
+                // on ctNoThrow, pageIndex will be InterruptedDeadFoodPositive (which is positive), so this branch won't be taken.
+
                 pageIndex = (~pageIndex) - 1;
                 var pageStartsAtOffset = pageIndex * PageSizeInBytes;
                 var pageEndBytes = Math.Min(pageStartsAtOffset + PageSizeInBytes, Keys.Length * SizeOfTKey);

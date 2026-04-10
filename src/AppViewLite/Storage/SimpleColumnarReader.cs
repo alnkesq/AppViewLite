@@ -1,5 +1,3 @@
-using Microsoft.Win32.SafeHandles;
-using AppViewLite;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;

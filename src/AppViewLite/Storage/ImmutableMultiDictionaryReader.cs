@@ -1,8 +1,6 @@
-using AppViewLite;
-using DuckDbSharp.Bindings;
-using AppViewLite.Storage;
-using AppViewLite.Storage;
 using AppViewLite.Numerics;
+using AppViewLite.Storage;
+using DuckDbSharp.Bindings;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

@@ -1,10 +1,9 @@
-using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using AppViewLite.Models;
-using AppViewLite.Storage;
 using DuckDbSharp.Types;
+using AppViewLite.Storage;
 using System;
 using System.Buffers.Text;
 using System.Collections.Frozen;
@@ -15,12 +14,10 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace AppViewLite
 {

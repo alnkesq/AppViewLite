@@ -1,15 +1,15 @@
+using AppViewLite.Numerics;
+using DuckDbSharp.Types;
 using FishyFlip.Lexicon;
+using FishyFlip.Models;
 using FishyFlip.Tools;
 using PeterO.Cbor;
-using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using DuckDbSharp.Types;
 using System.Threading;
-using FishyFlip.Models;
 
 namespace AppViewLite
 {

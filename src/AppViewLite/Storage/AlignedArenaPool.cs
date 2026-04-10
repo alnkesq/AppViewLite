@@ -1,6 +1,6 @@
+using DuckDbSharp.Bindings;
 using Microsoft.Extensions.ObjectPool;
 using AppViewLite;
-using DuckDbSharp.Bindings;
 using AppViewLite.Storage;
 
 namespace AppViewLite.Storage

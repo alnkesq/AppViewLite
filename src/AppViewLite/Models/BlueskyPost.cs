@@ -1,9 +1,9 @@
 using AppViewLite.Numerics;
-using System;
 using AppViewLite.PluggableProtocols;
-using System.Linq;
-using System.Collections.Generic;
 using FishyFlip.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AppViewLite.Models
 {

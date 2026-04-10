@@ -1,6 +1,5 @@
-using Microsoft.Win32.SafeHandles;
-using AppViewLite.Storage;
 using DuckDbSharp.Bindings;
+using Microsoft.Win32.SafeHandles;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Concurrent;

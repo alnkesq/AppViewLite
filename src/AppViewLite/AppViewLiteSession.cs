@@ -1,14 +1,14 @@
-using FishyFlip.Models;
 using AppViewLite.Models;
+using FishyFlip.Models;
+using AppViewLite;
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
-using System.IdentityModel.Tokens.Jwt;
 using System.Threading;
-using AppViewLite;
+using System.Threading.Tasks;
 
 namespace AppViewLite
 {

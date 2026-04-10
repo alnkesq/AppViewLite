@@ -1,6 +1,8 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using AppViewLite.PluggableProtocols.Reddit;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
@@ -14,9 +16,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using System.Net.Http.Json;
-using AppViewLite.PluggableProtocols.Reddit;
-using AngleSharp.Html.Dom;
 
 namespace AppViewLite.PluggableProtocols.Rss
 {

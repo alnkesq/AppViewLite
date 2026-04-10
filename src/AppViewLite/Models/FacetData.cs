@@ -1,5 +1,5 @@
-using ProtoBuf;
 using DuckDbSharp.Types;
+using ProtoBuf;
 using System;
 using System.Text;
 

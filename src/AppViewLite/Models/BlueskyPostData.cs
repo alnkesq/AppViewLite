@@ -1,9 +1,8 @@
-using ProtoBuf;
 using AppViewLite.Numerics;
-using System;
-using System.Text;
-using System.Linq;
+using ProtoBuf;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace AppViewLite.Models
 {

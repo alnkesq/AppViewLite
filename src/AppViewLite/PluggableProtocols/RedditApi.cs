@@ -1,12 +1,8 @@
 using AppViewLite.Models;
-using AppViewLite.PluggableProtocols.Reddit;
 using AppViewLite.PluggableProtocols.Rss;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AppViewLite.PluggableProtocols.Reddit
 {

@@ -1,15 +1,11 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
 using AppViewLite;
-using DuckDbSharp.Types;
 using System;
 using System.Buffers;
-using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;

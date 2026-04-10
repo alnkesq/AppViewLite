@@ -1,12 +1,12 @@
-using ProtoBuf;
 using AppViewLite.Numerics;
 using DuckDbSharp;
 using DuckDbSharp.Types;
+using ProtoBuf;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Collections.Generic;
 using System.Text;
 
 namespace AppViewLite.Models

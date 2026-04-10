@@ -1,8 +1,6 @@
 // Copyright (c) Six Labors.
 // Licensed under the Six Labors Split License.
 
-using System.IO;
-using System;
 using System.Runtime.InteropServices;
 
 namespace SixLabors.ImageSharp.Formats.Icon;

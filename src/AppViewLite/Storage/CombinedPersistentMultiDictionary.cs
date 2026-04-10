@@ -1,6 +1,7 @@
 using AppViewLite;
 using DuckDbSharp.Bindings;
 using AppViewLite.Storage;
+using AppViewLite.Storage;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -82,7 +83,7 @@ namespace AppViewLite.Storage
             var disposable = LogOperation(operation, arg, skipLogging: skipLogging);
             if (disposable == null)
                 return enumerable => enumerable;
-            
+
             return enumerable => EnumerateThenDispose(enumerable, disposable);
         }
 
@@ -112,7 +113,7 @@ namespace AppViewLite.Storage
         public static Action? EnsureHasOperationContext;
 
         public abstract void MaybeCommitPendingCompactation();
-        
+
         public static HugeReadOnlySpan<T> ToSpan<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             if (TryGetSpan(enumerable, out var span))
@@ -122,7 +123,7 @@ namespace AppViewLite.Storage
             return ToNativeArrayCore(enumerable, UnalignedArenaForCurrentThread!);
         }
 
-        public static OneShotReadOnlySpanAccessor<T> ToNativeArrayAccessor<T>(IEnumerable<T> enumerable) where T: unmanaged
+        public static OneShotReadOnlySpanAccessor<T> ToNativeArrayAccessor<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             var nativeArray = ToNativeArray<T>(enumerable);
             return new OneShotReadOnlySpanAccessor<T>(0, _ => nativeArray);
@@ -297,7 +298,7 @@ namespace AppViewLite.Storage
 
         public abstract bool HasPendingCompactation { get; }
 
-        
+
     }
 
     public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
@@ -368,7 +369,7 @@ namespace AppViewLite.Storage
                             try
                             {
                                 s = OpenSlice(directory, sliceName, behavior, mandatory: true);
-                                
+
                             }
                             catch (FileNotFoundException) when (TreatMissingSlicesAsPruned)
                             {
@@ -552,7 +553,7 @@ namespace AppViewLite.Storage
         {
             if (onBeforeFlushNotificationInProgress != 0) return;
 
-            if (disposing) 
+            if (disposing)
                 MaybeCommitPendingCompactation(); // Might dispose old slices that might still have active ReadOnlySpan<>s, so we only run this if we're disposing everything anyways
 
             if (queue.GroupCount != 0)
@@ -874,7 +875,8 @@ namespace AppViewLite.Storage
 
             var runningTasks = 0;
 
-            var task = Parallel.ForAsync(0, slicesToInspect.Length, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cts.Token }, (i, ct) => 
+            // We use our own non-throwing ct (for performance), no ParallelOptions integration.
+            var task = Parallel.ForAsync(0, slicesToInspect.Length, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cts.Token }, (i, ct) =>
             {
                 Interlocked.Increment(ref runningTasks);
                 try
@@ -889,9 +891,9 @@ namespace AppViewLite.Storage
                 {
                     Interlocked.Decrement(ref runningTasks);
                 }
-             
+
             });
-            return new DelegateDisposable(() => 
+            return new DelegateDisposable(() =>
             {
 
                 cts.Cancel(); // No need to continue with the remaining slices (early exit)
@@ -1256,7 +1258,7 @@ namespace AppViewLite.Storage
 
         // Setting and reading this field requires a lock, but the underlying operation can finish at any time.
         private Task<Action>? pendingCompactation;
-        
+
         public override void MaybeCommitPendingCompactation()
         {
             // NOTE: Calling this method can invalidate previously extracted ReadOnlySpan<>s, because old superseded slices might end up being disposed.
@@ -1274,11 +1276,11 @@ namespace AppViewLite.Storage
             }
         }
 
-        
+
         private static void Compact(IReadOnlyList<ImmutableMultiDictionaryReader<TKey, TValue>> inputs, ImmutableMultiDictionaryWriter<TKey, TValue> output, Func<IEnumerable<TValue>, IEnumerable<TValue>>? onCompactation)
         {
             using var _ = new ThreadPriorityScope(System.Threading.ThreadPriority.Lowest);
-          
+
             if (output.behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly)
             {
                 CombinedPersistentMultiDictionary.Assert(onCompactation == null);

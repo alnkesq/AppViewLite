@@ -32,7 +32,7 @@ namespace AppViewLite
         public int HashFunctions => _hashFunctions;
 
         public ProbabilisticSetParameters Parameters => new(SizeInBytes, HashFunctions, ConfigurationParameterName);
-        
+
         public ProbabilisticSet(ProbabilisticSetParameters parameters)
             : this(parameters.SizeInBytes, parameters.HashFunctions)
         {
@@ -174,9 +174,9 @@ namespace AppViewLite
             var estimatedInsertions = EstimatedItemCount;
             LastEstimatedItemCount = estimatedInsertions;
             estimatedInsertions = Math.Max(1024, estimatedInsertions);
-            
 
-            
+
+
             var currentParameters = this.Parameters;
             var currentComputedDefinitelyNotExistsRatio = currentParameters.GetDefinitelyNotExistRatioEstimation(estimatedInsertions);
             LastComputedDefinitelyNotExistsRatio = currentComputedDefinitelyNotExistsRatio;
@@ -198,7 +198,7 @@ namespace AppViewLite
 
             lock (context.Problems)
             {
-                
+
                 context.Problems.Add($"Probabilistic cache should be increased for best performance. Consider setting {ConfigurationParameterName}={recommendedParameters.SizeInMegabytes}@{recommendedParameters.HashFunctions}"); //. (DefinitelyNotExistsRatio={RuleOutCounter.HitRatio:0.00}, EstimatedItemCount={EstimatedItemCount})");
 
                 if (scenarioDefinitelyNotExistsRatio < desiredDefinitelyNotExistsRatio)

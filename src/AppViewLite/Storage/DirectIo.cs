@@ -17,7 +17,7 @@ namespace AppViewLite.Storage
             if (read == 0)
             {
                 throw new EndOfStreamException();
-            } 
+            }
             return new NativeMemoryRange((nuint)ptr, (nuint)length);
         }
 
@@ -52,10 +52,10 @@ namespace AppViewLite.Storage
                 {
                     var cached = readCache.GetOrAddMultiblock((fileOffset, length, handle), () =>
                     {
-                        
+
                         var cacheReadArena = GetArenaForAlignedCacheReads(blockSize);
                         var alignedBuffer = ReadAligned(handle, alignedFileOffset, alignedLength, cacheReadArena).AsReadOnlySpan();
-                        var result = alignedBuffer.Slice((int)offsetWithinBlock, length).ToArray(); 
+                        var result = alignedBuffer.Slice((int)offsetWithinBlock, length).ToArray();
                         ResetArenaForAlignedCacheReads(cacheReadArena);
                         return result;
                     });
@@ -71,7 +71,7 @@ namespace AppViewLite.Storage
                             var result = ReadAligned(handle, blockStartFileOffset, blockSize, cacheReadArena).AsReadOnlySpan().ToArray();
                             ResetArenaForAlignedCacheReads(cacheReadArena);
                             return result;
-                            
+
                         }).AsSpan();
 
                         if (blockIndex == 0)
@@ -113,7 +113,7 @@ namespace AppViewLite.Storage
         private static void ResetArenaForAlignedCacheReads(AlignedNativeArena cacheReadArena)
         {
             cacheReadArena.Reset();
-            
+
             if (cacheReadArena.TotalAllocatedSize > ArenaForCacheReadsInitialBlockCount * (nint)cacheReadArena.Alignment)
             {
                 if (cacheReadArena != AlignedNativeArenaForCurrentThreadCacheReads) throw new ArgumentException();

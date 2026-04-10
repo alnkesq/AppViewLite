@@ -100,7 +100,7 @@ namespace AppViewLite
         public unsafe TValue AddOrUpdate(TKey key, TValue addValue, Func<TKey, TValue, TValue> updateValueFactory)
         {
             var wasAdded = false;
-            var value = dict.AddOrUpdate(key, 
+            var value = dict.AddOrUpdate(key,
                 static (key, argg) =>
                 {
                     argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only

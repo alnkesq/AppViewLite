@@ -1,6 +1,7 @@
 using AppViewLite;
 using DuckDbSharp.Bindings;
 using AppViewLite.Storage;
+using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using System;
 using System.Collections.Generic;
@@ -545,7 +546,7 @@ namespace AppViewLite.Storage
             {
                 var keyCount = KeyCount;
                 if (keyCount == 0) yield break;
-                
+
                 //using var arena = new NativeArenaSlim(256 * 1024);
                 using var arena1 = new NativeArenaSlim(256 * 1024);
                 using var arena2 = new NativeArenaSlim(256 * 1024);
@@ -590,7 +591,7 @@ namespace AppViewLite.Storage
 
                     var arena = ChooseDoubleBuffered(currentFp, arena1, arena2);
                     ref DangerousHugeReadOnlyMemory<TValue> currentValues = ref ChooseDoubleBufferedRef(currentFp, ref currentValues1, ref currentValues2);
-                    
+
                     currentValues = ResetArenaAndReadValues(arena, count, valueStream);
 
                     prereadOffset = nextOffset;
@@ -638,12 +639,12 @@ namespace AppViewLite.Storage
         public void PrefetchBinarySearch(TKey key, MultiDictionaryIoPreference preference, CancellationToken ctNoThrow)
         {
             if (_seekCache!.ContainsKey(key)) return;
-            
+
             var result = BinarySearchInterruptibleNoThrow<TKey>(key, preference, ctNoThrow);
             if (ctNoThrow.IsCancellationRequested) return;
 
             _seekCache.Add(key, result);
-            
+
 
         }
 

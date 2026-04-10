@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
-    public class UnmanagedStructReader<T> : IDisposable where T: unmanaged
+    public class UnmanagedStructReader<T> : IDisposable where T : unmanaged
     {
         private readonly Stream stream;
         //private byte[]? buffer;

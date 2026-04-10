@@ -50,7 +50,7 @@ namespace AppViewLite.Storage
         // https://github.com/alnkesq/AppViewLite/issues/236
         public readonly static OpenFlags? O_DIRECT = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? (
             RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? (OpenFlags)OpenFlags_LinuxARM64.O_DIRECT :
-            RuntimeInformation.ProcessArchitecture == Architecture.X64 ? (OpenFlags)OpenFlags_LinuxX64.O_DIRECT : 
+            RuntimeInformation.ProcessArchitecture == Architecture.X64 ? (OpenFlags)OpenFlags_LinuxX64.O_DIRECT :
             null
         ) : null;
 

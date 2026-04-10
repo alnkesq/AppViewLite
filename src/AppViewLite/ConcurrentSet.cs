@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace AppViewLite
 {
-    public class ConcurrentSet<T> : IReadOnlySet<T> where T :notnull
+    public class ConcurrentSet<T> : IReadOnlySet<T> where T : notnull
     {
         public ConcurrentSet()
         {

@@ -5,7 +5,7 @@ using AppViewLite.Numerics;
 public record struct CollectionAndRKey(string Collection, string RKey)
 {
     public CollectionAndRKey(string collection, Tid rkey) : this(collection, rkey.ToString()!)
-    { 
+    {
     }
 
     public static CollectionAndRKey ParseUnprefixed(string path)

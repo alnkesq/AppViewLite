@@ -99,7 +99,7 @@ namespace AppViewLite
             {
                 BlueskyRelationships.ThrowFatalError("One of the worker threads of DedicatedThreadPoolScheduler died: " + ex);
             }
-        
+
         }
 
         [ThreadStatic]

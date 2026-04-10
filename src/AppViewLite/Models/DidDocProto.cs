@@ -33,9 +33,9 @@ namespace AppViewLite.Models
         {
             get
             {
-                
+
                 // thousands of entries every 2-3 minutes since early April 2025
-                var isSpam = 
+                var isSpam =
                     Pds is "https://pds.trump.com" or "https://plc.surge.sh/gallery" ||
                     AllHandlesAndDomains.Any(x => x != null && IsSpamHandleOrDomain(x)) ||
                     (OtherUrls is { Length: >= 1 } && OtherUrls.Any(IsSpamOtherUrl)) ||
@@ -44,8 +44,8 @@ namespace AppViewLite.Models
                 if (!isSpam)
                 {
                     if (OriginalPayloadApproximateSize > 200)
-                    { 
-                    
+                    {
+
                     }
                 }
                 return isSpam;

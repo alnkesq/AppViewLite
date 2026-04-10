@@ -114,7 +114,7 @@ namespace AppViewLite.Web
             if (ctx.MarkAsReadThrottler == null) return;
             lock (ctx.PostEngagementPending)
             {
-                ctx.PostEngagementPending.Add(new PostEngagementStr(new PostIdString(did, rkey), Enum.Parse<PostEngagementKind>(kind), fromFeedDid != null ? new RelationshipStr(fromFeedDid, fromFeedRkey!) : default,  weight));
+                ctx.PostEngagementPending.Add(new PostEngagementStr(new PostIdString(did, rkey), Enum.Parse<PostEngagementKind>(kind), fromFeedDid != null ? new RelationshipStr(fromFeedDid, fromFeedRkey!) : default, weight));
             }
             ctx.MarkAsReadThrottler.Notify();
 

@@ -24,7 +24,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     Description = page.QuerySelector("meta[property='og:description']")?.GetAttribute("content"),
                     AvatarCidBytes = RssProtocol.UrlToCid(page.QuerySelector("meta[property='twitter:image']")?.GetAttribute("content"))
                 };
-                var posts = page.QuerySelectorAll(".tgme_widget_message_wrap").Select(x => 
+                var posts = page.QuerySelectorAll(".tgme_widget_message_wrap").Select(x =>
                 {
                     var time = x.QuerySelectorAll("time");
                     var date = DateTime.Parse(time[time.Count - 1].GetAttribute("datetime")!, CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
@@ -37,14 +37,14 @@ namespace AppViewLite.PluggableProtocols.Rss
                         Text = text,
                         Facets = facets,
                     };
-                    data.Media = x.QuerySelectorAll(".tgme_widget_message_photo_wrap").Select(x => 
+                    data.Media = x.QuerySelectorAll(".tgme_widget_message_photo_wrap").Select(x =>
                     {
                         var imageUrl = Regex.Match(x.GetAttribute("style")!, @"url\((.*?)\)").Groups[1].Value.Replace("'", null).Trim();
                         return new BlueskyMediaData
                         {
                             Cid = RssProtocol.UrlToCid(imageUrl)!
                         };
-                    }).Concat(x.QuerySelectorAll(".tgme_widget_message_video_player").Select(x => 
+                    }).Concat(x.QuerySelectorAll(".tgme_widget_message_video_player").Select(x =>
                     {
                         var thumb = Regex.Matches(x.QuerySelector(".tgme_widget_message_video_thumb")!.GetAttribute("style")!, @"url\('(.+?)'").First().Groups[1].Value;
                         return new BlueskyMediaData

@@ -195,7 +195,8 @@ namespace AppViewLite
                 var record = TryReadRecord(recordLocation);
                 if (record != null)
                     yield return (Did, item.Collection + "/" + item.RKey, record);
-            };
+            }
+            ;
         }
 
         private ATObject? TryReadRecord(RecordLocation recordLocation)

@@ -33,7 +33,7 @@ namespace AppViewLite.Models
 
         public HashSet<string> GlobalPluggableAuthorMuteRules => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _globalPluggableAuthorMuteRules, x => x.Where(x => x.AppliesToPlc == null).Select(x => x.PluggableAuthorName).WhereNonNull().ToHashSet(StringComparer.OrdinalIgnoreCase));
         public ILookup<Plc, MuteRule> MuteRulesByPlc => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _muteRulesByPlc, x => x.Where(x => x.AppliesToPlc != null).ToLookup(x => new Plc(x.AppliesToPlc!.Value)));
-        
+
         public Func<IReadOnlyList<string>, Uri[], MuteRule[]> TextCouldContainGlobalMuteWords => ObjectIdentityBasedCache.GetOrCreateCache(MuteRules, ref _textCouldContainGlobalMuteWords, x =>
         {
             var globalMuteRules = x.Where(x => x.AppliesToPlc == null).ToArray();

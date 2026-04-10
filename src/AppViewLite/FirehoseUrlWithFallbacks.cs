@@ -31,7 +31,7 @@ namespace AppViewLite
         {
             string? canonicalIdentifier = null;
             if (urls.StartsWith('['))
-            { 
+            {
                 var closeSquare = urls.IndexOf(']');
                 canonicalIdentifier = urls.Substring(1, closeSquare - 1);
                 urls = urls.Substring(closeSquare + 1);

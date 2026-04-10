@@ -86,7 +86,7 @@ namespace AppViewLite.Web.ApiCompat
 
         public override Task<Results<ATResult<GetSuggestedStarterPacksSkeletonOutput>, ATErrorResult>> GetSuggestedStarterPacksSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
         {
-            return new GetSuggestedStarterPacksSkeletonOutput 
+            return new GetSuggestedStarterPacksSkeletonOutput
             {
                 StarterPacks = []
             }

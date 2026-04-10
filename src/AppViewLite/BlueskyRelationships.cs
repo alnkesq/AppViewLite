@@ -36,7 +36,7 @@ namespace AppViewLite
         public long Version = 1;
         public int ManagedThreadIdWithWriteLock;
         public int ForbidUpgrades;
-        
+
         public RelationshipDictionary<PostIdTimeFirst> Likes;
         public RelationshipDictionary<PostIdTimeFirst> Reposts;
         public RelationshipDictionary<Plc> Follows;
@@ -175,7 +175,7 @@ namespace AppViewLite
                 getIoPreferenceForKey ?? GetIoPreferenceFunc<TKey>()
             )
             {
-                WriteBufferSize =  GetWriteBufferSize(behavior),
+                WriteBufferSize = GetWriteBufferSize(behavior),
                 OnCompactation = onCompactation,
                 ShouldPreserveKey = shouldPreserveKey,
                 ShouldPreserveValue = shouldPreserveValue,
@@ -540,7 +540,7 @@ namespace AppViewLite
                     }
 
                 }
-                if (e.CompareTo(exhaustiveForMoreRecentThan) >= 0) 
+                if (e.CompareTo(exhaustiveForMoreRecentThan) >= 0)
                 {
                     postsAfterThreshold++;
 
@@ -872,14 +872,14 @@ namespace AppViewLite
             {
                 foreach (var table in keep)
                 {
-                    
+
                     var directory = Path.Combine(rootOrAdditionalDirectory, table.TableName);
                     if (!Directory.Exists(directory)) continue;
 
                     if (tablesWithPendingCompactations.Contains(table.TableName))
                         continue;
 
-                    
+
 
                     foreach (var name in new System.IO.Enumeration.FileSystemEnumerable<string>(directory, (ref x) => x.FileName.ToString()))
                     {
@@ -1306,7 +1306,7 @@ namespace AppViewLite
                 else if (val == "graphic-media") selfLabels |= SelfLabelsEnum.GraphicMedia;
                 else if (val == "nudity") selfLabels |= SelfLabelsEnum.Nudity;
                 else if (val.Contains(':') /*skystack reaction_count:123*/) { }
-                else 
+                else
                 {
                     LogInfo("Unknown self-label: " + val);
                 }
@@ -3688,7 +3688,7 @@ namespace AppViewLite
             }
 
             var possibleFollowsArray = possibleFollows.Select(x => (Plc: x.Key, IsPrivate: x.Value == default)).ToArray();
-            
+
             // Following feed gives up on cold reads after a timeout, so be fair.
             new Random((DateTime.UtcNow.Ticks / TimeSpan.TicksPerMinute).GetHashCode()).Shuffle(possibleFollowsArray);
 
@@ -3759,7 +3759,7 @@ namespace AppViewLite
             };
         }
 
-       
+
         internal static bool IsPostSeen(PostIdTimeFirst postId, DangerousHugeReadOnlyMemory<PostEngagement>[] seenPostsSlices)
         {
             foreach (var slice in seenPostsSlices)

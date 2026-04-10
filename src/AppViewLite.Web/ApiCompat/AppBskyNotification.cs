@@ -27,11 +27,11 @@ namespace AppViewLite.Web.ApiCompat
 
         public override Task<Results<ATResult<GetPreferencesOutput>, ATErrorResult>> GetPreferencesAsync(CancellationToken cancellationToken = default)
         {
-            return new GetPreferencesOutput 
+            return new GetPreferencesOutput
             {
-                Preferences = new Preferences 
+                Preferences = new Preferences
                 {
-                    Chat = new ChatPreference 
+                    Chat = new ChatPreference
                     {
                         Include = "accepted",
                         Push = false,

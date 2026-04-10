@@ -314,7 +314,7 @@ namespace AppViewLite
         {
             var prev = CurrentThreadRequestContext;
             CurrentThreadRequestContext = ctx;
-            return new DelegateDisposable(() => 
+            return new DelegateDisposable(() =>
             {
                 CurrentThreadRequestContext = prev;
             });

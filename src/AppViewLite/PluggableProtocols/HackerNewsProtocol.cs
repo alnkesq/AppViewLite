@@ -68,7 +68,7 @@ namespace AppViewLite.PluggableProtocols.HackerNews
 
 
                         // var postDid = DidPrefix + username;
-                        var postDid =  HackerNewsMainDid;
+                        var postDid = HackerNewsMainDid;
 
                         var postId = new QualifiedPluggablePostId(postDid, new NonQualifiedPluggablePostId(CreateSyntheticTid(date, id.ToString()), id));
                         var assignedPostId = OnPostDiscovered(postId, null, null, data, ctx);

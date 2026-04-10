@@ -67,7 +67,7 @@ namespace AppViewLite.Web.Controllers
         public void ReopenMmaps(string? table)
         {
             ctx.EnsureAdministrator();
-            apis.WithRelationshipsWriteLock(rels => 
+            apis.WithRelationshipsWriteLock(rels =>
             {
                 rels.ReopenMmaps(table);
             }, ctx);

@@ -30,7 +30,7 @@ namespace AppViewLite
                 Interlocked.Increment(ref CountNonSpam);
                 return true;
             }
-            else 
+            else
             {
                 Interlocked.Increment(ref CountSpam);
                 return false;
@@ -76,7 +76,7 @@ namespace AppViewLite
 
         public override object GetCounters()
         {
-            return new { CountSpam, CountNonSpam, _seenEvents.LastResetAgo, Parameters = maxOnBitsPerSlot + "/" + slotTime.TotalSeconds.ToString(CultureInfo.InvariantCulture) + "/" + dictionarySize};
+            return new { CountSpam, CountNonSpam, _seenEvents.LastResetAgo, Parameters = maxOnBitsPerSlot + "/" + slotTime.TotalSeconds.ToString(CultureInfo.InvariantCulture) + "/" + dictionarySize };
         }
 
     }

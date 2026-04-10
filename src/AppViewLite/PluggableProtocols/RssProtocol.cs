@@ -129,7 +129,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             }
 
             averageDaysBetweenPosts = Math.Clamp(
-                averageDaysBetweenPosts.Value * 0.5, 
+                averageDaysBetweenPosts.Value * 0.5,
                 TimeSpan.FromMinutes(60).TotalDays,
                 BlueskyRelationships.BalancedFeedMaximumAge.TotalDays * 0.75
                 //TimeSpan.FromDays(90).TotalDays
@@ -253,7 +253,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         {
                             OnRepostDiscovered(did, post.PostId, post.RepostDate == default ? post.PostId.Tid.Date : post.RepostDate, ctx);
                         }
-                        
+
                     }
                     if (result.Profile != null)
                     {
@@ -798,7 +798,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                     if (imageUrl != null && imageUrl.HasHostSuffix("preview.redd.it") && imageUrl.AbsolutePath.Split('.').Last() is "jpg" or "jpeg" or "png" or "webp" or "gif")
                     {
                         imageUrl = new Uri("https://i.redd.it/" + imageUrl.GetSegments()[0]);
-                    };
+                    }
+                    ;
                     return new BlueskyMediaData
                     {
                         Cid = UrlToCid(imageUrl?.AbsoluteUri)!,
@@ -807,8 +808,8 @@ namespace AppViewLite.PluggableProtocols.Rss
                 }).Where(x => x.Cid != null).ToArray();
                 if ((data.Media == null || data.Media.Length == 0) && data.ExternalUrl == null && mediaThumb != null)
                 {
-                    data.Media = [new BlueskyMediaData 
-                    { 
+                    data.Media = [new BlueskyMediaData
+                    {
                         Cid = UrlToCid(mediaThumb)!
                     }];
                 }
@@ -906,7 +907,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         if (quotedExternalLinkUrl != null)
                             quotedExternalLinkTitle = linkText.Trim();
                         preludeBelongsToQuotee = true;
-                    } 
+                    }
                     else if (prelude.Any(x => x is IHtmlImageElement) && prelude.All(x => x is IHtmlImageElement || x is IHtmlBreakRowElement))
                     {
                         foreach (var item in prelude.AsEnumerable().Reverse())
@@ -1479,7 +1480,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 {
                     var r = ("https://github.com/" + string.Join("/", segments.Take(3))).ToLowerInvariant();
 
-                    if(r == feedUrl.AbsoluteUri)
+                    if (r == feedUrl.AbsoluteUri)
                     {
                         if (segments[2] == "commits")
                         {
@@ -1499,7 +1500,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                         }
                         throw new UnexpectedFirehoseDataException("Unrecognized GitHub URL. Only /commits, /releases, /issues and /pulls are supported.");
                     }
-                    
+
                     return (new Uri(r), null);
 
                 }

@@ -401,7 +401,7 @@ namespace AppViewLite
             {
             }
 
-            
+
             if (
                 rootPostId != null &&
                 (
@@ -411,7 +411,7 @@ namespace AppViewLite
             {
                 loadThreadgate = FetchAndStoreThreadgateDict.GetValueAsync(rootPostId, RequestContext.CreateForTaskDictionary(ctx));
             }
-            
+
 
             var version = WithRelationshipsWriteLock(rels =>
                 {
@@ -3427,7 +3427,7 @@ namespace AppViewLite
                 throw new Exception("Cannot hide reply on non-owned thread.");
             var threadRkey = postData.RootPostId.PostRKey;
 
-            
+
             var threadgate = (Threadgate?)(await TryGetRecordAsync(ctx.UserContext.Did!, Threadgate.RecordType, threadRkey.ToString()!, ctx))?.Value ?? new Threadgate();
 
             threadgate.CreatedAt = UtcNowMillis();
@@ -3504,7 +3504,7 @@ namespace AppViewLite
                 }
                 embedExternal = new EmbedExternal
                 {
-                    External = new External 
+                    External = new External
                     {
                         Title = StringUtils.NormalizeLineEndings(opengraph.ExternalTitle ?? externalLink.ToString()),
                         Description = StringUtils.NormalizeLineEndings(opengraph.ExternalDescription ?? string.Empty),
@@ -3601,7 +3601,7 @@ namespace AppViewLite
                         }
                         return new Facet { Type = null!, Index = byteSlice, Features = [new Link(link)] };
                     }
-                    
+
                     return null;
                 })
                 .WhereNonNull()
@@ -3612,19 +3612,20 @@ namespace AppViewLite
                 {
                     foreach (var feature in facet.Features)
                     {
-                        if (feature is Mention m) 
+                        if (feature is Mention m)
                         {
                             if (!m.Did.Handler.StartsWith("did:", StringComparison.Ordinal))
                             {
                                 var did = await this.ResolveHandleAsync(m.Did.Handler, ctx);
                                 m.Did = new ATDid(did);
                             }
-                        };
+                        }
+                        ;
                     }
                 }
                 postRecord.Facets = facets;
             }
-            
+
             return await CreateRecordAsync(postRecord, ctx);
         }
 
@@ -3886,7 +3887,7 @@ namespace AppViewLite
             {
                 return await GetRecordAsync(did, collection, rkey, ctx, ct);
             }
-            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATNetworkErrorException { AtError: ATError {  Detail: { Error: "RecordNotFound" }  } } )
+            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATNetworkErrorException { AtError: ATError { Detail: { Error: "RecordNotFound" } } })
             {
                 return null;
             }
@@ -4896,7 +4897,7 @@ namespace AppViewLite
             return null;
         }
 
-        
+
         public AppViewLiteSession? TryGetSessionFromCookie(SessionIdWithUnverifiedDid sessionIdCookie)
         {
             if (sessionIdCookie == default) return null;
@@ -4976,7 +4977,7 @@ namespace AppViewLite
 
 
         public void LogOut(SessionIdWithUnverifiedDid cookie, RequestContext ctx)
-        {            
+        {
             var unverifiedUserContext = GetOrCreateUserContext(cookie.UnverifiedDid, ctx);
             var session = unverifiedUserContext.TryGetAppViewLiteSession(cookie.SecretKey);
             if (session != null)
@@ -5545,7 +5546,7 @@ namespace AppViewLite
                 elapsedFinalWrite = TimeOperation(() => finalWrite!());
                 elapsedSliceGc = TimeOperation(() => rels.GarbageCollectOldSlices());
             }, ctx);
-            
+
             relationshipsUnlocked.UpdateAvailableDiskSpaceThreadSafe();
 
             Log($"Global flush completed: flush_user_profiles={StringUtils.ToHumanTimeSpanForProfiler(flushUserProfiles)}, flush_tables={StringUtils.ToHumanTimeSpanForProfiler(elapsedFlushAllTables)}, capture_checkpoint={StringUtils.ToHumanTimeSpanForProfiler(elapsedCaptureCheckpoint)}, optimistic_syncfs={StringUtils.ToHumanTimeSpanForProfiler(elapsedOptimisticSyncfs)}, final_write={StringUtils.ToHumanTimeSpanForProfiler(elapsedFinalWrite)}, slice_gc={StringUtils.ToHumanTimeSpanForProfiler(elapsedSliceGc)}");
@@ -5665,13 +5666,13 @@ namespace AppViewLite
                 try
                 {
                     var ctx = RequestContext.CreateForRequest("ConversationPolling", session, urgent: false);
-                    
+
                     var conversations = await PerformPdsActionAsync(async protocol => (await protocol.ChatBskyConvo.ListConvosAsync(limit: 100, readState: "unread", cancellationToken: ct)).HandleResult()!, ctx);
                     ct.ThrowIfCancellationRequested();
-                    
+
                     var unreadConversations = 0;
 
-                    WithRelationshipsLockForDids(conversations.Convos.SelectMany(x => x.Members.Select(x => x.Did.Handler!)).ToArray(), (_, rels) => 
+                    WithRelationshipsLockForDids(conversations.Convos.SelectMany(x => x.Members.Select(x => x.Did.Handler!)).ToArray(), (_, rels) =>
                     {
                         foreach (var conv in conversations.Convos)
                         {
@@ -5755,7 +5756,7 @@ namespace AppViewLite
         public readonly CombinedEventSpamThrottler<Plc, Tid> LikeSpamThrottler = CreateSpamThrottler(AppViewLiteParameter.APPVIEWLITE_SPAM_THROTTLER_LIKE, "8/2/100000,24/8/100000");
         public readonly CombinedEventSpamThrottler<Plc, Tid> FollowSpamThrottler = CreateSpamThrottler(AppViewLiteParameter.APPVIEWLITE_SPAM_THROTTLER_FOLLOW,
             "20/1" // be generous (we can't tell the difference between malicious spam and starter pack follows)
-            //"3/2,4/8"
+                   //"3/2,4/8"
             );
         public readonly CombinedEventSpamThrottler<Plc, Tid> PostSpamThrottler = CreateSpamThrottler(AppViewLiteParameter.APPVIEWLITE_SPAM_THROTTLER_POST, "2/1,3/2");
 
@@ -5780,7 +5781,7 @@ namespace AppViewLite
 
     internal record struct BalancedFeedCandidatesForFollowee(Plc Plc, (Tid PostRKey, int LikeCount)[] Posts, (PostId PostId, Tid RepostRKey, bool IsReposteeFollowed, long LikeCount)[] Reposts);
     public enum AuthorFeedShowReplies
-    { 
+    {
         NoReplies,
         AllReplies,
         RepliesToOwnPostsOnly,

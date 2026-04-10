@@ -97,17 +97,17 @@ namespace AppViewLite.PluggableProtocols.Rss
                     .ToArray();
                 var extraProfiles = posts.SelectMany(x => x.ExtraProfiles).WhereNonNull().DistinctBy(x => x.Did).ToArray();
                 if (extraProfiles.Length != 0)
-                { 
+                {
                     if (BlueskyEnrichedApis.Instance.WithRelationshipsLockForDids(extraProfiles.Select(x => x.Did).ToArray(), (plcs, rels) => plcs.Any(x => !rels.Profiles.ContainsKey(x)), ctx))
                     {
-                        BlueskyEnrichedApis.Instance.WithRelationshipsWriteLock(rels => 
+                        BlueskyEnrichedApis.Instance.WithRelationshipsWriteLock(rels =>
                         {
                             foreach (var extraProfile in extraProfiles)
                             {
                                 var plc = rels.SerializeDid(extraProfile.Did, ctx);
                                 if (!rels.Profiles.ContainsKey(plc))
                                 {
-                                    rels.StoreProfileBasicInfo(plc, new BlueskyProfileBasicInfo 
+                                    rels.StoreProfileBasicInfo(plc, new BlueskyProfileBasicInfo
                                     {
                                         DisplayName = StringUtils.NormalizeNull(extraProfile.DisplayName),
                                         AvatarCidBytes = extraProfile.Avatar != null ? ImageToCid(new Uri(extraProfile.Avatar)) : null
@@ -227,10 +227,10 @@ namespace AppViewLite.PluggableProtocols.Rss
 
             var isRetweet = x.QuerySelector(".retweet-header") != null;
             return (new VirtualRssPost(
-                new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)), 
+                new QualifiedPluggablePostId(GetDidForUsername(originalPoster), new NonQualifiedPluggablePostId(tid, tweetId)),
                 postData,
                 RepostDate: isRetweet ? tid.Date : default, // Initial approximation, we'll bump it later if we see out-of-order posts
-                QuotedPost: quotedPost, 
+                QuotedPost: quotedPost,
                 OnlyInsertIfNew: tweetStats == null
                 ), extraProfile);
         }

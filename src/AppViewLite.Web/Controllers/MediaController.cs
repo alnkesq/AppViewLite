@@ -319,7 +319,7 @@ namespace AppViewLite.Web.Controllers
                     return (null, bytes, blob.FileNameForDownload);
                 }
 
-                if (bytes.AsSpan().StartsWith("#EXTM3U"u8)) 
+                if (bytes.AsSpan().StartsWith("#EXTM3U"u8))
                     return (null, bytes, null);
 
                 if (!ImageUploadProcessor.StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public class LockLocalCache<TKey, TValue> where TKey: notnull
+    public class LockLocalCache<TKey, TValue> where TKey : notnull
     {
         private readonly Dictionary<TKey, TValue> _cache = new();
 

@@ -126,7 +126,7 @@ namespace AppViewLite
             var prevArena = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread;
             using var initArena = new NativeArenaSlim(64 * 1024);
             CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread = initArena;
-            
+
             try
             {
                 relationships = new BlueskyRelationships(
@@ -234,7 +234,7 @@ namespace AppViewLite
 
             var threadId = Environment.CurrentManagedThreadId;
             hasLogOperationContext++;
-            return new DelegateDisposable(() => 
+            return new DelegateDisposable(() =>
             {
                 hasLogOperationContext--;
                 BlueskyRelationships.Assert(Environment.CurrentManagedThreadId == threadId, "LogOperation completed on a thread other than the original thread.");

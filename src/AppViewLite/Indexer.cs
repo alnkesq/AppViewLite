@@ -303,7 +303,7 @@ namespace AppViewLite
                     if (HasNumericRKey(path)) return;
 
                     var rkey = GetMessageTid(path, Follow.RecordType);
-                    
+
 
                     if (!Apis.FollowSpamThrottler.TryAddEvent(commitPlc, rkey))
                     {
@@ -383,7 +383,7 @@ namespace AppViewLite
                             return;
                         }
                     }
-                    else 
+                    else
                     {
                         // Non-root reply to own thread. Don't count towards PostSpamThrottler, because bsky UI allows multi-post threads with a single submit button.
                     }
@@ -649,7 +649,7 @@ namespace AppViewLite
                 message = $"Starting firehose {FirehoseUrl} at current time.";
             else
                 message = $"Starting firehose {FirehoseUrl} at cursor '{currentFirehoseCursor.CommittedCursor}' (~{currentFirehoseCursor.FirehoseTimeLastProcessed}, {StringUtils.ToHumanTimeSpan(DateTime.UtcNow - currentFirehoseCursor.FirehoseTimeLastProcessed, showSeconds: true)} ago)";
-            if (isImportant) Log(message); 
+            if (isImportant) Log(message);
             else LogInfo(message);
 
         }
@@ -775,7 +775,7 @@ namespace AppViewLite
                     Interlocked.CompareExchange(ref currentFirehoseCursor!.CommittedCursor, definitelyProcessedCursorAsString, oldCursor);
                 }
             }
-            if(recentEventDate != null)
+            if (recentEventDate != null)
                 currentFirehoseCursor!.FirehoseTimeLastProcessed = recentEventDate.Value;
             currentFirehoseCursor!.SystemTimeLastProcessed = DateTime.UtcNow;
         }
@@ -810,7 +810,7 @@ namespace AppViewLite
                     OnRecordCreated(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), record, ignoreIfDisposing: true);
                 }
             }
-            
+
             BumpLargestSeenFirehoseCursor(protocol.LastDefinitelyProcessedCursor, e.Message.Commit?.Time);
         }
 

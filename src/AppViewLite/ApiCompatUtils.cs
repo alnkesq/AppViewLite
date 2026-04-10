@@ -252,7 +252,7 @@ namespace AppViewLite
         private static List<Facet>? ToApiCompatFacets(FacetData[]? facets, byte[]? utf8)
         {
             if (facets == null) return null;
-            return facets.Select(x => 
+            return facets.Select(x =>
             {
                 ATObject? feature = null;
                 if (x.Did != null)
@@ -398,9 +398,9 @@ namespace AppViewLite
         {
             return new ProfileAssociated
             {
-                 Lists = fullProfile.HasLists ? 1 : 0,
-                 Feedgens = fullProfile.HasFeeds ? 1 : 0,
-                 Labeler = fullProfile.Profile.DidDoc?.AtProtoLabeler != null,
+                Lists = fullProfile.HasLists ? 1 : 0,
+                Feedgens = fullProfile.HasFeeds ? 1 : 0,
+                Labeler = fullProfile.Profile.DidDoc?.AtProtoLabeler != null,
             };
         }
 
@@ -439,16 +439,16 @@ namespace AppViewLite
         {
             return new ListView
             {
-                 Avatar = x.AvatarUrl,
-                 Cid = GetSyntheticCid(x.AtUri),
-                 Creator = ToApiCompatProfileView(x.Moderator!),
-                 Description = x.Description,
-                 DescriptionFacets = ToApiCompatFacets(x.DescriptionFacets, Encoding.UTF8.GetBytes(x.Description ?? string.Empty)),
-                 IndexedAt = DateTime.UtcNow,
-                 Uri = x.AtUri,
-                 Purpose = ToApiCompatListPurpose(x.Data?.Purpose ?? default),
-                 Name = x.DisplayNameOrFallback,
-                 Viewer = ToApiCompatListViewer(x),
+                Avatar = x.AvatarUrl,
+                Cid = GetSyntheticCid(x.AtUri),
+                Creator = ToApiCompatProfileView(x.Moderator!),
+                Description = x.Description,
+                DescriptionFacets = ToApiCompatFacets(x.DescriptionFacets, Encoding.UTF8.GetBytes(x.Description ?? string.Empty)),
+                IndexedAt = DateTime.UtcNow,
+                Uri = x.AtUri,
+                Purpose = ToApiCompatListPurpose(x.Data?.Purpose ?? default),
+                Name = x.DisplayNameOrFallback,
+                Viewer = ToApiCompatListViewer(x),
             };
         }
 
@@ -456,9 +456,9 @@ namespace AppViewLite
         {
             return new ListViewerState()
             {
-                 //Blocked = x.Mode == ModerationBehavior.Block ? "dummy",
-                 Blocked = null,
-                 Muted = x.Mode == ModerationBehavior.Mute,
+                //Blocked = x.Mode == ModerationBehavior.Block ? "dummy",
+                Blocked = null,
+                Muted = x.Mode == ModerationBehavior.Mute,
             };
         }
 
@@ -482,7 +482,7 @@ namespace AppViewLite
             };
         }
 
-        public static async Task<T> RequestBodyToATObjectAsync<T>(Stream requestBody) where T: IJsonEncodable<T>
+        public static async Task<T> RequestBodyToATObjectAsync<T>(Stream requestBody) where T : IJsonEncodable<T>
         {
             using var reader = new StreamReader(requestBody);
             var json = await reader.ReadToEndAsync();
@@ -493,14 +493,14 @@ namespace AppViewLite
         {
             return new Generator
             {
-                  DisplayName = feed.DisplayNameOrFallback,
-                  Description = feed.Data?.Description,
-                  DescriptionFacets = ToApiCompatFacets(feed.Data?.DescriptionFacets, Encoding.UTF8.GetBytes(feed.Data?.Description ?? string.Empty)),
-                  Did = feed.Data?.ImplementationDid != null ? new ATDid(feed.Data.ImplementationDid) : null,
-                  Avatar = new Blob 
-                  { 
-                      Ref = feed.Data?.AvatarCid != null ? new ATLinkRef(ATCid.Read(feed.Data.AvatarCid)) : null
-                  }
+                DisplayName = feed.DisplayNameOrFallback,
+                Description = feed.Data?.Description,
+                DescriptionFacets = ToApiCompatFacets(feed.Data?.DescriptionFacets, Encoding.UTF8.GetBytes(feed.Data?.Description ?? string.Empty)),
+                Did = feed.Data?.ImplementationDid != null ? new ATDid(feed.Data.ImplementationDid) : null,
+                Avatar = new Blob
+                {
+                    Ref = feed.Data?.AvatarCid != null ? new ATLinkRef(ATCid.Read(feed.Data.AvatarCid)) : null
+                }
             };
         }
     }

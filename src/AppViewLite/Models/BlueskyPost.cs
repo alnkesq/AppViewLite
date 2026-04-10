@@ -42,7 +42,7 @@ namespace AppViewLite.Models
         public bool IsReply => Data?.InReplyToPlc != null || Data?.IsReplyToUnspecifiedPost == true;
         public bool IsNativeReply => Data?.InReplyToPlc != null;
         public bool IsRootPost => !IsReply;
-        
+
         public PostId? InReplyToPostId => Data?.InReplyToPostId;
         public PostId RootPostId => Data?.RootPostId ?? this.PostId;
 

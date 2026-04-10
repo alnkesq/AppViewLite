@@ -250,7 +250,7 @@ namespace AppViewLite
         public RequestContext? OnBehalfOf;
         public RequestContext RootOnBehalfOf
         {
-            get 
+            get
             {
                 var ctx = this;
                 while (ctx.OnBehalfOf != null) ctx = ctx.OnBehalfOf;
@@ -292,7 +292,7 @@ namespace AppViewLite
             return result;
         }
 
-        internal static void InitCacheField<TObject>([NotNull] ref TObject? field) where TObject: class, new()
+        internal static void InitCacheField<TObject>([NotNull] ref TObject? field) where TObject : class, new()
         {
             if (field != null) return;
             Interlocked.CompareExchange(ref field, new TObject(), null);
@@ -307,7 +307,7 @@ namespace AppViewLite
     public record OperationLogEntry(PerformanceSnapshot Start, PerformanceSnapshot End, string? TableName, string? Operation, object? Argument)
     {
         public PerformanceSnapshot Delta => End - Start;
-        public string TooltipText 
+        public string TooltipText
         {
             get
             {
@@ -316,8 +316,8 @@ namespace AppViewLite
                     (Operation != null ? TableName + "/" + Operation + (Argument != null ? ": " + Argument.ToString() : null) : "(Unknown)") +
                     (delta.IoReads != 0 ? "\nReads: " + StringUtils.ToHumanBytes(delta.IoReadBytes, allowByteGranularity: true) + (delta.IoReads != 1 ? " (" + delta.IoReads + " reads)" : null) : null) +
                     (delta.MmapPotentialReadBytes != 0 ? "\nMmap: " + StringUtils.ToHumanBytes(delta.MmapPotentialReadBytes, allowByteGranularity: true) : null) +
-                    (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null) + 
-                    "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks)) + " (seek: "+ StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.SeekStopwatchTicks)) + ")";
+                    (delta.MaxGcGeneration != -1 ? "\n[GC " + delta.MaxGcGeneration + "]" : null) +
+                    "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks)) + " (seek: " + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.SeekStopwatchTicks)) + ")";
             }
         }
     }

@@ -967,8 +967,8 @@ namespace AppViewLite
         {
             if (text == null) return text;
 
-            
-            if (text.Length > maxLength) 
+
+            if (text.Length > maxLength)
                 text = string.Concat(text.AsSpan(0, maxLength), "…");
 
             if (maxLines != null)

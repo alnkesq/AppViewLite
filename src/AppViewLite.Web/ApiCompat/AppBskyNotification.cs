@@ -3,13 +3,10 @@ using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.App.Bsky.Feed;
 using FishyFlip.Lexicon.App.Bsky.Graph;
 using FishyFlip.Lexicon.App.Bsky.Notification;
-using FishyFlip.Lexicon.App.Bsky.Unspecced;
-using FishyFlip.Lexicon.Chat.Bsky.Convo;
 using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using System.IO.Hashing;
 
 namespace AppViewLite.Web.ApiCompat
 {

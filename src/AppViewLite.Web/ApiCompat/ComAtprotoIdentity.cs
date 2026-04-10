@@ -1,4 +1,3 @@
-using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.Com.Atproto.Identity;
 using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;

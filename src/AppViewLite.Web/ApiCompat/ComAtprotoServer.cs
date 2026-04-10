@@ -1,5 +1,3 @@
-using Duende.IdentityModel.Client;
-using FishyFlip.Lexicon;
 using FishyFlip.Lexicon.Com.Atproto.Server;
 using FishyFlip.Models;
 using FishyFlip.Tools;

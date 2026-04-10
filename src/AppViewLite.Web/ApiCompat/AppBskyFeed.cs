@@ -6,8 +6,6 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using AppViewLite;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace AppViewLite.Web.ApiCompat
 {

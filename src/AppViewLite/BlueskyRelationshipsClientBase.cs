@@ -4,9 +4,11 @@ using DuckDbSharp.Bindings;
 using Microsoft.Extensions.ObjectPool;
 using AppViewLite.Storage;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 

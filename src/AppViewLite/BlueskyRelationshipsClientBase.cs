@@ -14,7 +14,6 @@ namespace AppViewLite
 {
     public abstract class BlueskyRelationshipsClientBase : LoggableBase
     {
-
         protected readonly BlueskyRelationships relationshipsUnlocked;
         public readonly PrimarySecondaryPair primarySecondaryPair;
         protected BlueskyRelationships? readOnlyReplicaRelationshipsUnlocked => primarySecondaryPair.readOnlyReplicaRelationshipsUnlocked;
@@ -24,6 +23,34 @@ namespace AppViewLite
             this.primarySecondaryPair = primarySecondaryPair;
         }
 
+
+        [DllImport("libc")]
+        private static extern int gettid();
+
+        private static bool wantManagedNativeThreadMapping = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_TRACK_MANAGED_NATIVE_THREAD_ID_MAPPINGS, true);
+        [ThreadStatic] private static bool DidLogManagedNativeThreadIdMappingForCurrentThread;
+
+        // Visual Studio debugger to remote linux doesn't display managed thread IDs (always 0 in the Threads window), but we need them in order to debug lock usage and lock owners.
+        public static void EnsureHaveManagedNativeThreadIdMapping()
+        {
+            if (!wantManagedNativeThreadMapping) return;
+            if (!OperatingSystem.IsLinux()) return;
+            if (DidLogManagedNativeThreadIdMappingForCurrentThread) return;
+
+            var managedThreadId = Environment.CurrentManagedThreadId;
+            var nativeThreadId = gettid();
+
+            _managedThreadIdToNativeThreadId[managedThreadId] = nativeThreadId;
+            _nativeThreadIdToManagedThreadId[nativeThreadId] = managedThreadId;
+
+            DidLogManagedNativeThreadIdMappingForCurrentThread = true;
+
+        }
+        public readonly static ConcurrentDictionary<int, int> _managedThreadIdToNativeThreadId = new();
+        public readonly static ConcurrentDictionary<int, int> _nativeThreadIdToManagedThreadId = new();
+
+        public static int GetNativeThreadIdForManaged(int managedThreadId) => _managedThreadIdToNativeThreadId[managedThreadId];
+        public static int GetManagedThreadIdForNative(int nativeThreadId) => _nativeThreadIdToManagedThreadId[nativeThreadId];
 
         public T WithRelationshipsLockForDid<T>(string did, Func<Plc, BlueskyRelationships, T> func, RequestContext ctx)
         {
@@ -160,7 +187,7 @@ namespace AppViewLite
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
-
+            EnsureHaveManagedNativeThreadIdMapping();
 
 
             // We capture a new replica only due to age (very rare, since ReadOnlyReplicaMaxStalenessOnExplicitRead >> ReadOnlyReplicaMaxStalenessOpportunistic),
@@ -402,6 +429,8 @@ namespace AppViewLite
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
+            EnsureHaveManagedNativeThreadIdMapping();
+
             if (urgent)
             {
                 return RunUrgentPrimaryTask(func, ctx, isWrite: true);
@@ -455,6 +484,7 @@ namespace AppViewLite
             if (ctx == null) BlueskyRelationships.ThrowIncorrectLockUsageException("Missing ctx");
             BlueskyRelationships.VerifyNotEnumerable<T>();
 
+            EnsureHaveManagedNativeThreadIdMapping();
 
             Interlocked.Increment(ref ctx.WriteOrUpgradeLockEnterCount);
 

@@ -789,7 +789,7 @@ namespace AppViewLite.Storage
 
                     AfterCompactation?.Invoke(this, EventArgs.Empty);
                 });
-            }, TaskCreationOptions.LongRunning);
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
             compactationThread.ConfigureAwait(false).GetAwaiter().OnCompleted(() =>
             {

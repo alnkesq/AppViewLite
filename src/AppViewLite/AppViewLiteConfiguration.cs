@@ -35,7 +35,7 @@ namespace AppViewLite
             return s != null ? double.Parse(s, CultureInfo.InvariantCulture) : null;
         }
 
-        public static bool GetBool(AppViewLiteParameter parameter, bool defaultValue) => GetBool(parameter) ?? false;
+        public static bool GetBool(AppViewLiteParameter parameter, bool defaultValue) => GetBool(parameter) ?? defaultValue;
         public static bool? GetBool(AppViewLiteParameter parameter)
         {
             var s = GetString(parameter)?.ToLowerInvariant();

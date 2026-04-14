@@ -40,6 +40,11 @@ namespace AppViewLite.Web.ApiCompat
             return new GetOnboardingSuggestedStarterPacksSkeletonOutput() { StarterPacks = [] }.ToJsonResultOkTask();
         }
 
+        public override Task<Results<ATResult<GetOnboardingSuggestedUsersSkeletonOutput>, ATErrorResult>> GetOnboardingSuggestedUsersSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
         public async override Task<Results<ATResult<GetPopularFeedGeneratorsOutput>, ATErrorResult>> GetPopularFeedGeneratorsAsync([FromQuery] int? limit = 50, [FromQuery] string? cursor = null, [FromQuery] string? query = null, CancellationToken cancellationToken = default)
         {
             var results = string.IsNullOrWhiteSpace(query) ? await apis.GetPopularFeedsAsync(cursor, limit ?? default, ctx) : await apis.SearchFeedsAsync(query, cursor, limit ?? default, ctx);
@@ -76,6 +81,11 @@ namespace AppViewLite.Web.ApiCompat
             }.ToJsonResultOkTask();
         }
 
+        public override Task<Results<ATResult<GetSuggestedOnboardingUsersOutput>, ATErrorResult>> GetSuggestedOnboardingUsersAsync([FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
         public override Task<Results<ATResult<GetSuggestedStarterPacksOutput>, ATErrorResult>> GetSuggestedStarterPacksAsync([FromQuery] int? limit = 10, CancellationToken cancellationToken = default)
         {
             return new GetSuggestedStarterPacksOutput
@@ -99,6 +109,36 @@ namespace AppViewLite.Web.ApiCompat
             {
                 Actors = []
             }.ToJsonResultOkTask();
+        }
+
+        public override Task<Results<ATResult<GetSuggestedUsersForDiscoverOutput>, ATErrorResult>> GetSuggestedUsersForDiscoverAsync([FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetSuggestedUsersForDiscoverSkeletonOutput>, ATErrorResult>> GetSuggestedUsersForDiscoverSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetSuggestedUsersForExploreOutput>, ATErrorResult>> GetSuggestedUsersForExploreAsync([FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetSuggestedUsersForExploreSkeletonOutput>, ATErrorResult>> GetSuggestedUsersForExploreSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetSuggestedUsersForSeeMoreOutput>, ATErrorResult>> GetSuggestedUsersForSeeMoreAsync([FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<Results<ATResult<GetSuggestedUsersForSeeMoreSkeletonOutput>, ATErrorResult>> GetSuggestedUsersForSeeMoreSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
 
         public override Task<Results<ATResult<GetSuggestedUsersSkeletonOutput>, ATErrorResult>> GetSuggestedUsersSkeletonAsync([FromQuery] ATDid? viewer = null, [FromQuery] string? category = null, [FromQuery] int? limit = 25, CancellationToken cancellationToken = default)

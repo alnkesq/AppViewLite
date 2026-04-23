@@ -127,7 +127,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             }
         }
         private readonly static JsonSerializerOptions JsonOptions = new JsonSerializerOptions() { IncludeFields = true, PropertyNameCaseInsensitive = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString };
-        private LruCache<(YotsubaBoardId Board, long PostId), int> LastObservedReplyCount = new(32 * 1024);
+        private readonly LruCache<(YotsubaBoardId Board, long PostId), int> LastObservedReplyCount = new(32 * 1024);
         private async Task<double> BoardIterationAsync(YotsubaBoardId boardId, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -360,9 +360,9 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
     public record struct YotsubaBoardId(string Host, string BoardName)
     {
-        public Uri BaseUrl => new Uri("https://" + Host + "/" + BoardName);
+        public readonly Uri BaseUrl => new Uri("https://" + Host + "/" + BoardName);
 
-        public override string ToString() => BaseUrl.ToString();
+        public override readonly string ToString() => BaseUrl.ToString();
     }
 
 

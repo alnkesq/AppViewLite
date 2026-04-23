@@ -60,7 +60,7 @@ namespace AppViewLite
         public static LruCache<nuint, long> LruCache = new((512 * 1024 * 1024) / PageSize);
         //public static ConcurrentDictionary<nuint, long> LastPageAccesses = new();
         //public static ConcurrentDictionary<nuint, long> CacheMisses = new();
-        public static Dictionary<nuint, long> CacheMisses = new();
+        public static Dictionary<nuint, long> CacheMisses = [];
 
         public static IReadOnlyList<(string TableName, long CacheMisses)> GetStats(Func<nuint, string?> pageToSection)
         {

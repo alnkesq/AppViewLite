@@ -138,8 +138,8 @@ namespace AppViewLite.Storage
 
     public record struct NativeMemoryRange(nuint Pointer, nuint Length)
     {
-        public unsafe Span<byte> AsSpan() => new Span<byte>((void*)Pointer, checked((int)Length));
-        public unsafe ReadOnlySpan<byte> AsReadOnlySpan() => AsSpan();
+        public readonly unsafe Span<byte> AsSpan() => new Span<byte>((void*)Pointer, checked((int)Length));
+        public readonly ReadOnlySpan<byte> AsReadOnlySpan() => AsSpan();
     }
 
     public enum IoMethodPreference

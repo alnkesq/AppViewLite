@@ -7,7 +7,7 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct PostIdTimeFirst(Tid PostRKey, Plc Author) : IComparable<PostIdTimeFirst>
     {
-        public int CompareTo(PostIdTimeFirst other)
+        public readonly int CompareTo(PostIdTimeFirst other)
         {
             var z = PostRKey.CompareTo(other.PostRKey);
             if (z != 0) return z;
@@ -16,14 +16,14 @@ namespace AppViewLite.Models
         public static implicit operator PostId(PostIdTimeFirst a) => new(a.Author, a.PostRKey);
         public static implicit operator PostIdTimeFirst(PostId a) => new(a.PostRKey, a.Author);
 
-        public string Serialize() => PostRKey.TidValue + "_" + Author.PlcValue;
+        public readonly string Serialize() => PostRKey.TidValue + "_" + Author.PlcValue;
         public static PostIdTimeFirst Deserialize(string s)
         {
             var parts = s.Split('_');
             return new PostIdTimeFirst(new Tid(long.Parse(parts[0])), new Plc(int.Parse(parts[1])));
         }
 
-        public override string ToString() => $"{nameof(PostIdTimeFirst)}({PostRKey}, {Author.PlcValue})";
+        public override readonly string ToString() => $"{nameof(PostIdTimeFirst)}({PostRKey}, {Author.PlcValue})";
     }
 }
 

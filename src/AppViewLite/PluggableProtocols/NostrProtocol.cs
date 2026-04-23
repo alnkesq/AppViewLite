@@ -24,7 +24,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
         }
 
-        private ConcurrentSet<UInt128> RecentlyAddedPosts = new();
+        private ConcurrentSet<UInt128> RecentlyAddedPosts = [];
 
         public override Task DiscoverAsync(CancellationToken ct)
         {
@@ -93,7 +93,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
                 return;
             if (RecentlyAddedPosts.Count >= 10_000)
-                RecentlyAddedPosts = new();
+                RecentlyAddedPosts = [];
 
             var ctx = RequestContext.CreateForFirehose("Nostr:" + kind + ":" + relay, allowStale: true);
             var previouslySeen = Apis.WithRelationshipsLock(rels => rels.NostrSeenPubkeyHashes.ContainsKey(didHash), ctx);
@@ -281,7 +281,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
 
                 }
                 if (!dict.ContainsKey(k))
-                    dict[k] = new();
+                    dict[k] = [];
                 dict[k].Add(v);
             }
             return dict;

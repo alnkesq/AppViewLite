@@ -35,23 +35,23 @@ namespace AppViewLite.PluggableProtocols.Rss
                     {
                         Text = text,
                         Facets = facets,
+                        Media = x.QuerySelectorAll(".tgme_widget_message_photo_wrap").Select(x =>
+                            {
+                                var imageUrl = Regex.Match(x.GetAttribute("style")!, @"url\((.*?)\)").Groups[1].Value.Replace("'", null).Trim();
+                                return new BlueskyMediaData
+                                {
+                                    Cid = RssProtocol.UrlToCid(imageUrl)!
+                                };
+                            }).Concat(x.QuerySelectorAll(".tgme_widget_message_video_player").Select(x =>
+                            {
+                                var thumb = Regex.Matches(x.QuerySelector(".tgme_widget_message_video_thumb")!.GetAttribute("style")!, @"url\('(.+?)'").First().Groups[1].Value;
+                                return new BlueskyMediaData
+                                {
+                                    IsVideo = true,
+                                    Cid = RssProtocol.UrlToCid(thumb, x.QuerySelector("video")!.GetAttribute("src"))!,
+                                };
+                            })).ToArray()
                     };
-                    data.Media = x.QuerySelectorAll(".tgme_widget_message_photo_wrap").Select(x =>
-                    {
-                        var imageUrl = Regex.Match(x.GetAttribute("style")!, @"url\((.*?)\)").Groups[1].Value.Replace("'", null).Trim();
-                        return new BlueskyMediaData
-                        {
-                            Cid = RssProtocol.UrlToCid(imageUrl)!
-                        };
-                    }).Concat(x.QuerySelectorAll(".tgme_widget_message_video_player").Select(x =>
-                    {
-                        var thumb = Regex.Matches(x.QuerySelector(".tgme_widget_message_video_thumb")!.GetAttribute("style")!, @"url\('(.+?)'").First().Groups[1].Value;
-                        return new BlueskyMediaData
-                        {
-                            IsVideo = true,
-                            Cid = RssProtocol.UrlToCid(thumb, x.QuerySelector("video")!.GetAttribute("src"))!,
-                        };
-                    })).ToArray();
                     if (data.Media.Length == 0 && text == null && x.QuerySelector(".message_media_not_supported_label") != null) return null;
                     var post = new VirtualRssPost(new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(PluggableProtocol.CreateSyntheticTid(date, postId), "/" + postId)), data);
                     return post;

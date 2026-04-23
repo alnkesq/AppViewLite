@@ -6,7 +6,7 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct PostEngagement(PostIdTimeFirst PostId, PostEngagementKind Kind) : IComparable<PostEngagement>
     {
-        public int CompareTo(PostEngagement other)
+        public readonly int CompareTo(PostEngagement other)
         {
             var cmp = this.PostId.CompareTo(other.PostId);
             if (cmp != 0) return cmp;

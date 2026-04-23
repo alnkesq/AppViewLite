@@ -4,7 +4,7 @@ namespace AppViewLite.Models
 {
     public record struct UserEngagementStats(Plc Target, int FollowingSeenPosts, int FollowingEngagedPosts, int EngagedPosts) : IComparable<UserEngagementStats>
     {
-        public int CompareTo(UserEngagementStats other)
+        public readonly int CompareTo(UserEngagementStats other)
         {
             var cmp = this.Target.CompareTo(other.Target);
             if (cmp != 0) return cmp;

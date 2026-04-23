@@ -7,7 +7,7 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct RecentPost(Tid RKey, Plc InReplyTo) : IComparable<RecentPost>
     {
-        public int CompareTo(RecentPost other)
+        public readonly int CompareTo(RecentPost other)
         {
             var cmp = this.RKey.CompareTo(other.RKey);
             if (cmp != 0) return cmp;

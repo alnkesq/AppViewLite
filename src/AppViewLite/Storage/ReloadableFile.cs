@@ -17,7 +17,7 @@ namespace AppViewLite.Storage
             this.read = read;
         }
 
-        private TimeSpan CheckInterval = TimeSpan.FromSeconds(2);
+        private readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(2);
         public T GetValue()
         {
             if (path == null)
@@ -26,10 +26,7 @@ namespace AppViewLite.Storage
                 {
                     lock (this)
                     {
-                        if (value == null)
-                        {
-                            value = read(null);
-                        }
+                        value ??= read(null);
                     }
                 }
                 return value;

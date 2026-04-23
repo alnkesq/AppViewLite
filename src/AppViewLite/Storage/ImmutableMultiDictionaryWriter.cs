@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace AppViewLite.Storage
 {
-    public class ImmutableMultiDictionaryWriter<TKey, TValue> : IDisposable where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
+    public sealed class ImmutableMultiDictionaryWriter<TKey, TValue> : IDisposable where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
     {
         private readonly SimpleColumnarWriter writer;
         internal PersistentDictionaryBehavior behavior;

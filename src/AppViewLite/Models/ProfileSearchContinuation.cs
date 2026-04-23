@@ -2,7 +2,7 @@ namespace AppViewLite.Models
 {
     internal record struct ProfileSearchContinuation(Plc MaxPlc, bool AlsoSearchDescriptions)
     {
-        public string Serialize() => MaxPlc.PlcValue + "_" + (AlsoSearchDescriptions ? 1 : 0);
+        public readonly string Serialize() => MaxPlc.PlcValue + "_" + (AlsoSearchDescriptions ? 1 : 0);
         public static ProfileSearchContinuation Deserialize(string s)
         {
             var parts = s.Split('_');

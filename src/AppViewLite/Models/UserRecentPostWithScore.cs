@@ -5,7 +5,7 @@ namespace AppViewLite.Models
 {
     public record struct UserRecentPostWithScore(Tid RKey, Plc InReplyTo, int ApproximateLikeCount) : IComparable<UserRecentPostWithScore>
     {
-        public int CompareTo(UserRecentPostWithScore other)
+        public readonly int CompareTo(UserRecentPostWithScore other)
         {
             var cmp = this.RKey.CompareTo(other.RKey);
             if (cmp != 0) return cmp;

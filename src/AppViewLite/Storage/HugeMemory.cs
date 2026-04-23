@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
-    public unsafe class HugeMemory<T> : IDisposable where T : unmanaged
+    public sealed unsafe class HugeMemory<T> : IDisposable where T : unmanaged
     {
         private T* ptr;
         private readonly long length;
@@ -48,7 +48,7 @@ namespace AppViewLite.Storage
 
 
 
-    public unsafe class HugeReadOnlyMemory<T> : IDisposable where T : unmanaged
+    public sealed unsafe class HugeReadOnlyMemory<T> : IDisposable where T : unmanaged
     {
         public T* Pointer => ptr;
         private T* ptr;
@@ -84,8 +84,8 @@ namespace AppViewLite.Storage
     {
         private T* ptr;
         private readonly long length;
-        public T* Pointer => ptr;
-        public HugeReadOnlySpan<T> Span
+        public readonly T* Pointer => ptr;
+        public readonly HugeReadOnlySpan<T> Span
         {
             get
             {
@@ -106,10 +106,10 @@ namespace AppViewLite.Storage
             this.length = length;
         }
 
-        public long Length => length;
+        public readonly long Length => length;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public long Count => length;
+        public readonly long Count => length;
 
         public void Dispose()
         {
@@ -118,13 +118,13 @@ namespace AppViewLite.Storage
         public static explicit operator HugeReadOnlyMemory<T>(DangerousHugeReadOnlyMemory<T> mem) => new(mem.ptr, mem.length);
 
 
-        public DangerousHugeReadOnlyMemory<T> Slice(long start, long length)
+        public readonly DangerousHugeReadOnlyMemory<T> Slice(long start, long length)
         {
             if ((ulong)start > (ulong)this.length) throw new ArgumentOutOfRangeException();
             if ((ulong)(start + length) > (ulong)this.length) throw new ArgumentOutOfRangeException();
             return new DangerousHugeReadOnlyMemory<T>(ptr + (nint)start, length);
         }
-        public DangerousHugeReadOnlyMemory<T> Slice(long start)
+        public readonly DangerousHugeReadOnlyMemory<T> Slice(long start)
         {
             if ((ulong)start > (ulong)this.length) throw new ArgumentOutOfRangeException();
             return new DangerousHugeReadOnlyMemory<T>(ptr + (nint)start, this.length - start);
@@ -145,9 +145,9 @@ namespace AppViewLite.Storage
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public HugeReadOnlySpan<T> AsSpan() => this.Span;
+        public readonly HugeReadOnlySpan<T> AsSpan() => this.Span;
 
-        public ReadOnlySpan<T> AsSmallSpan() => this.Span.AsSmallSpan();
+        public readonly ReadOnlySpan<T> AsSmallSpan() => this.Span.AsSmallSpan();
 
         public ref readonly T this[long index] => ref Unsafe.AsRef(in this.ptr[index]);
         public unsafe struct Enumerator : IEnumerator<T>
@@ -159,7 +159,7 @@ namespace AppViewLite.Storage
 
             object IEnumerator.Current => this.Current;
 
-            public void Dispose()
+            public readonly void Dispose()
             {
             }
 

@@ -33,7 +33,7 @@ namespace AppViewLite.Storage
 
     public record struct SliceName(DateTime StartTime, DateTime EndTime, long PruneId)
     {
-        public string BaseName => StartTime.Ticks + "-" + EndTime.Ticks + (PruneId != 0 ? "-" + PruneId : null);
+        public readonly string BaseName => StartTime.Ticks + "-" + EndTime.Ticks + (PruneId != 0 ? "-" + PruneId : null);
 
         public static SliceName ParseBaseName(string name)
         {
@@ -301,7 +301,7 @@ namespace AppViewLite.Storage
 
     }
 
-    public class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
+    public sealed class CombinedPersistentMultiDictionary<TKey, TValue> : CombinedPersistentMultiDictionary, IDisposable, IFlushable, ICheckpointable, ICloneableAsReadOnly where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>, IEquatable<TValue>
     {
         public int WriteBufferSize = 128 * 1024;
 
@@ -311,7 +311,7 @@ namespace AppViewLite.Storage
         public Func<PruningContext, TKey, TValue, bool>? ShouldPreserveValue;
 
         public event EventHandler? AfterCompactation;
-        private bool DeleteOldFilesOnCompactation;
+        private readonly bool DeleteOldFilesOnCompactation;
 
         private CachedView[]? Caches;
 
@@ -343,8 +343,8 @@ namespace AppViewLite.Storage
 
             System.IO.Directory.CreateDirectory(directory);
             this.GetIoPreferenceForKeyFunc = getIoPreferenceForKey;
-            this.slices = new();
-            this.prunedSlices = new();
+            this.slices = [];
+            this.prunedSlices = [];
             if (caches != null && caches.Length == 0) caches = null;
             this.Caches = caches;
             if (caches != null)
@@ -502,11 +502,11 @@ namespace AppViewLite.Storage
             {
 
             }
-            public ImmutableMultiDictionaryReader<TKey, TValue> Reader => ReaderHandle.Value;
+            public readonly ImmutableMultiDictionaryReader<TKey, TValue> Reader => ReaderHandle.Value;
 
-            public SliceName SliceName => new SliceName(this.StartTime, this.EndTime, this.PruneId);
+            public readonly SliceName SliceName => new SliceName(this.StartTime, this.EndTime, this.PruneId);
 
-            public override string ToString()
+            public readonly override string ToString()
             {
                 return SliceName + " (" + ToHumanBytes(SizeInBytes) + ")";
             }
@@ -1372,7 +1372,7 @@ namespace AppViewLite.Storage
                 .Select(x =>
                 {
                     if (behavior == PersistentDictionaryBehavior.PreserveOrder)
-                        return (x.Key, new[] { x.Values[x.Values.Count - 1].Values });
+                        return (x.Key, [x.Values[^1].Values]);
                     return (x.Key, x.Values.Select(x => x.Values).ToArray());
                 }));
         }
@@ -1506,10 +1506,12 @@ namespace AppViewLite.Storage
 
         public CombinedPersistentMultiDictionary<TKey, TValue> CloneAsReadOnly()
         {
-            var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.PruneId, x.ReaderHandle.AddRef())).ToList(), behavior);
-            copy.ReplicatedFrom = this;
-            copy.GetIoPreferenceForKeyFunc = this.GetIoPreferenceForKeyFunc;
-            copy.ownsCaches = false;
+            var copy = new CombinedPersistentMultiDictionary<TKey, TValue>(DirectoryPath, this.slices.Select(x => new SliceInfo(x.StartTime, x.EndTime, x.PruneId, x.ReaderHandle.AddRef())).ToList(), behavior)
+            {
+                ReplicatedFrom = this,
+                GetIoPreferenceForKeyFunc = this.GetIoPreferenceForKeyFunc,
+                ownsCaches = false
+            };
 
             if (this.Caches != null)
             {
@@ -1548,7 +1550,7 @@ namespace AppViewLite.Storage
                     else
                     {
 
-                        pooledHashSetForKeysToCopy ??= new();
+                        pooledHashSetForKeysToCopy ??= [];
                         pooledHashSetForKeysToCopy.Clear();
                         keysToCopy = pooledHashSetForKeysToCopy;
 
@@ -1600,11 +1602,7 @@ namespace AppViewLite.Storage
 
             }
 
-            if (copy.queue == null)
-            {
-                copy.queue = this.queue.CloneAndMaybeCreateNewVirtualSlice(q?.BackingDictionary);
-                //Log("Queued copied from scratch.");
-            }
+            copy.queue ??= this.queue.CloneAndMaybeCreateNewVirtualSlice(q?.BackingDictionary);
             copy.BeforeWrite += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
             copy.BeforeFlush += (_, _) => throw new InvalidOperationException("ReadOnly copy.");
             return copy;
@@ -1634,7 +1632,7 @@ namespace AppViewLite.Storage
             this.queue = null!;
         }
 
-        private List<MultiDictionary2<TKey, TValue>> NextReplicaCanBeBuiltFrom = new(); // only populated in primary
+        private readonly List<MultiDictionary2<TKey, TValue>> NextReplicaCanBeBuiltFrom = []; // only populated in primary
         private CombinedPersistentMultiDictionary<TKey, TValue>? ReplicatedFrom; // only populated in replica
 
         public TValue? GetValueWithPrefix(TKey key, TValue valueOrPrefix, Func<TValue, bool> hasDesiredPrefix)

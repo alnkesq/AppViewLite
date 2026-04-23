@@ -13,11 +13,11 @@ using System.Threading;
 
 namespace AppViewLite
 {
-    public class CarImporter : IDisposable
+    public sealed class CarImporter : IDisposable
     {
         private readonly string Did;
-        private readonly Dictionary<DuckDbUuid, RecordLocation> recordsByCid = new();
-        private readonly List<(string Collection, string RKey, DuckDbUuid CidHash)> pathToCid = new();
+        private readonly Dictionary<DuckDbUuid, RecordLocation> recordsByCid = [];
+        private readonly List<(string Collection, string RKey, DuckDbUuid CidHash)> pathToCid = [];
         private readonly string logPrefix;
 
         private FileStream? spilledRecords;
@@ -67,7 +67,7 @@ namespace AppViewLite
         private long currentImportDecodedBytes;
         internal static long GlobalDecodedBytes;
 
-        private HashSet<string> internedCollectionNames = new();
+        private readonly HashSet<string> internedCollectionNames = [];
         public void OnCarDecoded(CarProgressStatusEvent p)
         {
 

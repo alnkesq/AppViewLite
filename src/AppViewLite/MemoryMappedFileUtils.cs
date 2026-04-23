@@ -89,7 +89,7 @@ namespace AppViewLite
 
         record struct MemoryRange(ulong Start, ulong End, string? Path) : IComparable<MemoryRange>
         {
-            public int CompareTo(MemoryRange other)
+            public readonly int CompareTo(MemoryRange other)
             {
                 var cmp = this.Start.CompareTo(other.Start);
                 if (cmp != 0) return cmp;
@@ -98,7 +98,7 @@ namespace AppViewLite
                 return StringComparer.Ordinal.Compare(this.Path, other.Path);
             }
 
-            public override string ToString()
+            public override readonly string ToString()
             {
                 return Start.ToString("x") + "-" + End.ToString("x") + (Path != null ? " " + Path : null);
             }

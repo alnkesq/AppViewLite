@@ -7,7 +7,7 @@ namespace AppViewLite.Models
     public struct NonQualifiedPluggablePostId
     {
 
-        public string? AsString
+        public readonly string? AsString
         {
             get
             {
@@ -16,7 +16,7 @@ namespace AppViewLite.Models
             }
         }
 
-        public override string ToString()
+        public override readonly string ToString()
         {
             return Tid + " (" + (Bytes != null ? $"[binary, {Bytes.Length} bytes]" : AsString) + ")";
         }
@@ -53,7 +53,7 @@ namespace AppViewLite.Models
         [ProtoMember(3)] public byte[]? Bytes;
         [ProtoIgnore] public Tid Tid;
 
-        public bool HasExternalIdentifier => Int64 != 0 || String != null || Bytes != null;
+        public readonly bool HasExternalIdentifier => Int64 != 0 || String != null || Bytes != null;
 
         internal NonQualifiedPluggablePostId CloneWithoutTid() => WithTid(default);
 

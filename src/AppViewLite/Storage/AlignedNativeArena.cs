@@ -24,7 +24,7 @@ namespace AppViewLite.Storage
 
         }
 
-        private List<(nuint Start, nuint Length)> chunks = new();
+        private List<(nuint Start, nuint Length)> chunks = [];
         private byte* nextAllocation;
         private byte* nextAllocationThreshold;
 

@@ -10,7 +10,7 @@ namespace AppViewLite
     {
         private readonly TimeSpan maxAge;
         public DateTime Threshold => DateTime.UtcNow - maxAge;
-        private TimeSpan SafetyMargin = TimeSpan.FromHours(2);
+        private readonly TimeSpan SafetyMargin = TimeSpan.FromHours(2);
 
         public RecentLikeRelationshipsCache(ProbabilisticSetParameters parameters, TimeSpan maxAge) : base(parameters)
         {

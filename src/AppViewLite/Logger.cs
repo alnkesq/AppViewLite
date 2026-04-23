@@ -25,8 +25,10 @@ namespace AppViewLite
                 Mode = FileMode.Append,
                 Access = FileAccess.Write,
                 Share = FileShare.Read | FileShare.Delete,
-            });
-            LogFile.AutoFlush = true;
+            })
+            {
+                AutoFlush = true
+            };
         }
 
 
@@ -36,7 +38,7 @@ namespace AppViewLite
             {
                 lock (LogFile)
                 {
-                    LogFile.WriteLine($"[{DateTime.UtcNow.ToString("o")}] {text}");
+                    LogFile.WriteLine($"[{DateTime.UtcNow:o}] {text}");
                 }
             }
         }

@@ -7,7 +7,7 @@ namespace AppViewLite.Models
     public record struct BlobResult(byte[]? Bytes, Stream? Stream, string? FileNameForDownload, bool IsFavIcon = false) : IDisposable
     {
 
-        public async Task<byte[]> ReadAsBytesAsync()
+        public async readonly Task<byte[]> ReadAsBytesAsync()
         {
             if (Bytes != null) return Bytes;
             using var ms = new MemoryStream();
@@ -18,7 +18,7 @@ namespace AppViewLite.Models
             }
 
         }
-        public void Dispose()
+        public readonly void Dispose()
         {
             Stream?.Dispose();
         }

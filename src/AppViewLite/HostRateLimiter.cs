@@ -62,7 +62,7 @@ namespace AppViewLite
             host = host.ToLowerInvariant();
             var parts = host.Split('.');
             if (parts.Length is 1 or 2) return host;
-            var secondLast = parts[parts.Length - 2];
+            var secondLast = parts[^2];
             var keep = 2;
             if (secondLast is "gov" or "com" or "edu" or "co" or "org")
                 keep = 3;

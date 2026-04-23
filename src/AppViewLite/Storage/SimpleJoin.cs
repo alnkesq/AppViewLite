@@ -110,7 +110,7 @@ namespace AppViewLite.Storage
             }
         }
 
-        public class GroupAssumingOrderedInputStreamedEnumerator<TKey, T> : IEnumerable<GroupAssumingOrderedInputStreamedGroupEnumerator<TKey, T>>, IEnumerator<GroupAssumingOrderedInputStreamedGroupEnumerator<TKey, T>>
+        public sealed class GroupAssumingOrderedInputStreamedEnumerator<TKey, T> : IEnumerable<GroupAssumingOrderedInputStreamedGroupEnumerator<TKey, T>>, IEnumerator<GroupAssumingOrderedInputStreamedGroupEnumerator<TKey, T>>
         {
             internal IEnumerator<(TKey Key, T Value)>? Source;
             internal IEqualityComparer<TKey> KeyEqualityComparer = null!;
@@ -204,11 +204,11 @@ namespace AppViewLite.Storage
             internal int Token;
             internal GroupAssumingOrderedInputStreamedEnumerator<TKey, T> Owner;
             private bool isCompleted;
-            private void CheckToken()
+            private readonly void CheckToken()
             {
                 if (Token != Owner.currentToken) throw new NotSupportedException();
             }
-            public TKey Key
+            public readonly TKey Key
             {
                 get
                 {
@@ -216,7 +216,7 @@ namespace AppViewLite.Storage
                     return Owner.CurrentKey;
                 }
             }
-            public T Current
+            public readonly T Current
             {
                 get
                 {
@@ -244,7 +244,7 @@ namespace AppViewLite.Storage
 
             }
 
-            object IEnumerator.Current => Current!;
+            readonly object IEnumerator.Current => Current!;
             public void Dispose()
             {
                 Token = -1;

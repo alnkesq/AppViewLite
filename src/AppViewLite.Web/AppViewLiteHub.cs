@@ -20,10 +20,7 @@ namespace AppViewLite.Web
         {
             get
             {
-                if (_ctxWithoutConnectionId.SignalrConnectionId == null)
-                {
-                    _ctxWithoutConnectionId.SignalrConnectionId = this.Context.ConnectionId;
-                }
+                _ctxWithoutConnectionId.SignalrConnectionId ??= this.Context.ConnectionId;
                 if (_ctxWithoutConnectionId.Session == null)
                 {
                     var httpContext = this.Context.GetHttpContext();
@@ -265,13 +262,13 @@ namespace AppViewLite.Web
 
     class ConnectionContext : IDisposable
     {
-        public HashSet<PostId> PostIds = new();
+        public HashSet<PostId> PostIds = [];
         public required LiveNotificationDelegate LiveUpdatesCallback;
         public required Throttler<Versioned<PostStatsNotification>> LiveUpdatesCallbackThrottler;
         public Action<long>? UserNotificationCallback;
         public Plc? UserPlc;
         public Throttler? MarkAsReadThrottler;
-        public List<PostEngagementStr> PostEngagementPending = new();
+        public List<PostEngagementStr> PostEngagementPending = [];
         public void Dispose()
         {
             LiveUpdatesCallbackThrottler.Dispose();

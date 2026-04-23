@@ -10,7 +10,7 @@ namespace AppViewLite.Storage
 
         public sealed override bool CanBeUsedByReplica => false;
 
-        public List<(SliceName OriginalSlice, TSliceCache Cache)> cacheSlices = new();
+        public List<(SliceName OriginalSlice, TSliceCache Cache)> cacheSlices = [];
 
         public long Version = 1;
 
@@ -58,6 +58,7 @@ namespace AppViewLite.Storage
             {
                 (slice.Cache as IDisposable)?.Dispose();
             }
+            GC.SuppressFinalize(this);
         }
 
         public sealed override void OnSliceAdded(int insertedAt, CombinedPersistentMultiDictionary<TKey, TValue>.SliceInfo slice)

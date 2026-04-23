@@ -358,7 +358,7 @@ namespace AppViewLite.PluggableProtocols
             return instance;
         }
 
-        public readonly static List<PluggableProtocol> RegisteredPluggableProtocols = new();
+        public readonly static List<PluggableProtocol> RegisteredPluggableProtocols = [];
 
         public static PluggableProtocol? TryGetPluggableProtocolForDid(string did)
         {

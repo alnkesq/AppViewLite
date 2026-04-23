@@ -12,7 +12,7 @@ using System.Threading;
 
 namespace AppViewLite.Storage
 {
-    public unsafe class MemoryMappedFileSlim : IDisposable
+    public sealed unsafe class MemoryMappedFileSlim : IDisposable
     {
         public static ConcurrentDictionary<MemoryMappedFileSlim, byte> Sections = new();
         public string Path { get; private set; }
@@ -223,13 +223,13 @@ namespace AppViewLite.Storage
 
         internal readonly byte* ptr;
         internal SafeMemoryMappedViewHandle handle;
-        private MemoryMappedFile mmap;
+        private readonly MemoryMappedFile mmap;
         private int disposed;
 
         [Obsolete]
         public MemoryMappedMemory Memory => new MemoryMappedMemory(this, ptr, Length);
         public byte* Pointer => ptr;
-        private long _length;
+        private readonly long _length;
         public long Length => _length;
         public void Dispose()
         {
@@ -266,7 +266,7 @@ namespace AppViewLite.Storage
         internal long length;
         public readonly long Length => length;
 
-        public void EnsureValid()
+        public readonly void EnsureValid()
         {
             handle.EnsureValid();
         }

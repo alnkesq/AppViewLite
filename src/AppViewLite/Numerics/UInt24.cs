@@ -6,7 +6,7 @@ namespace AppViewLite.Numerics
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct UInt24(ushort High, byte Low) : IComparable<UInt24>
     {
-        public int CompareTo(UInt24 other)
+        public readonly int CompareTo(UInt24 other)
         {
             var z = High.CompareTo(other.High);
             if (z != 0) return z;
@@ -45,7 +45,7 @@ namespace AppViewLite.Numerics
             return (UInt24)sum;
         }
 
-        public override string ToString()
+        public override readonly string ToString()
         {
             return ((uint)this).ToString();
         }

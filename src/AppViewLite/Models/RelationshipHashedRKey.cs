@@ -10,7 +10,7 @@ namespace AppViewLite.Models
             : this(plc, System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(rkey)))
         {
         }
-        public int CompareTo(RelationshipHashedRKey other)
+        public readonly int CompareTo(RelationshipHashedRKey other)
         {
             var cmp = this.Plc.CompareTo(other.Plc);
             if (cmp != 0) return cmp;
@@ -19,14 +19,14 @@ namespace AppViewLite.Models
 
         public readonly static RelationshipHashedRKey MaxValue = new(Plc.MaxValue, ulong.MaxValue);
 
-        public string Serialize() => Plc.PlcValue + "_" + RKeyHash;
+        public readonly string Serialize() => Plc.PlcValue + "_" + RKeyHash;
         public static RelationshipHashedRKey Deserialize(string s)
         {
             var a = s.Split('_');
             return new RelationshipHashedRKey(new Plc(int.Parse(a[0])), ulong.Parse(a[1]));
         }
 
-        public override string ToString() => $"{nameof(RelationshipHashedRKey)}({Plc.PlcValue}, {RKeyHash})";
+        public override readonly string ToString() => $"{nameof(RelationshipHashedRKey)}({Plc.PlcValue}, {RKeyHash})";
     }
 }
 

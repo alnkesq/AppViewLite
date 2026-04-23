@@ -452,25 +452,27 @@ namespace AppViewLite
 
         public RelationshipDictionary<TTarget> CloneAsReadOnly()
         {
-            var copy = new RelationshipDictionary<TTarget>();
-            copy.creations = this.creations.CloneAsReadOnly();
-            copy.deletions = this.deletions.CloneAsReadOnly();
-            copy.deletionCounts = this.deletionCounts.CloneAsReadOnly();
-            copy.RelationshipCache = this.RelationshipCache; // Reads during writes are safe.
-            copy.relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly();
-            copy.targetToApproxTarget = this.targetToApproxTarget;
+            var copy = new RelationshipDictionary<TTarget>
+            {
+                creations = this.creations.CloneAsReadOnly(),
+                deletions = this.deletions.CloneAsReadOnly(),
+                deletionCounts = this.deletionCounts.CloneAsReadOnly(),
+                RelationshipCache = this.RelationshipCache, // Reads during writes are safe.
+                relationshipIdHashToApproxTarget = this.relationshipIdHashToApproxTarget?.CloneAsReadOnly(),
+                targetToApproxTarget = this.targetToApproxTarget
+            };
             copy._multidictionaries = new CombinedPersistentMultiDictionary?[] { copy.creations, copy.deletions, copy.deletionCounts, copy.relationshipIdHashToApproxTarget }.WhereNonNull().ToArray();
 
             var currentVersion = GetVersion!();
 
             NewRelationshipsSinceLastReadOnlySnapshotPrev = NewRelationshipsSinceLastReadOnlySnapshot;
-            NewRelationshipsSinceLastReadOnlySnapshot = new(new(), currentVersion);
+            NewRelationshipsSinceLastReadOnlySnapshot = new([], currentVersion);
             return copy;
         }
 
         public Func<long>? GetVersion;
-        private Versioned<HashSet<(TTarget Target, Plc Actor)>> NewRelationshipsSinceLastReadOnlySnapshot = new(new(), 0);
-        private Versioned<HashSet<(TTarget Target, Plc Actor)>> NewRelationshipsSinceLastReadOnlySnapshotPrev = new(new(), 0);
+        private Versioned<HashSet<(TTarget Target, Plc Actor)>> NewRelationshipsSinceLastReadOnlySnapshot = new([], 0);
+        private Versioned<HashSet<(TTarget Target, Plc Actor)>> NewRelationshipsSinceLastReadOnlySnapshotPrev = new([], 0);
 
         ICloneableAsReadOnly ICloneableAsReadOnly.CloneAsReadOnly() => CloneAsReadOnly();
     }

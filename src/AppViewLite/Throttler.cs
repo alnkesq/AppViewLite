@@ -41,7 +41,7 @@ namespace AppViewLite
 
     public class Throttler : IDisposable
     {
-        private Throttler<int> inner;
+        private readonly Throttler<int> inner;
         public Throttler(TimeSpan interval, Action callback)
         {
             this.inner = new Throttler<int>(interval, x => callback());

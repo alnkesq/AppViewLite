@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace AppViewLite.Storage
 {
-    public class SimpleColumnarReader : IDisposable
+    public sealed class SimpleColumnarReader : IDisposable
     {
         private readonly MemoryMappedFileSlim[] columns;
         public SimpleColumnarReader(string pathPrefix, int columnCount)
@@ -14,9 +14,10 @@ namespace AppViewLite.Storage
             {
                 for (int i = 0; i < columnCount; i++)
                 {
-                    var file = new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true);
-
-                    file.DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache;
+                    var file = new MemoryMappedFileSlim(CombinedPersistentMultiDictionary.ToPhysicalPath(pathPrefix + ".col" + i + ".dat"), randomAccess: true)
+                    {
+                        DirectIoReadCache = CombinedPersistentMultiDictionary.DirectIoReadCache
+                    };
                     cols.Add(file);
                 }
             }

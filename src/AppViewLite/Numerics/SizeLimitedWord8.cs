@@ -30,7 +30,7 @@ namespace AppViewLite.Numerics
             utf8.CopyTo(resultAsSpan);
             return result;
         }
-        public int Length
+        public readonly int Length
         {
             get
             {
@@ -39,11 +39,11 @@ namespace AppViewLite.Numerics
             }
         }
 
-        public bool IsEmpty => AsUint64 == 0;
+        public readonly bool IsEmpty => AsUint64 == 0;
 
-        [UnscopedRef] public ReadOnlySpan<byte> AllBytes => this;
+        [UnscopedRef] public readonly ReadOnlySpan<byte> AllBytes => this;
         [UnscopedRef] public ReadOnlySpan<byte> Bytes => AllBytes.Slice(0, Length);
-        public int CompareTo(SizeLimitedWord8 other)
+        public readonly int CompareTo(SizeLimitedWord8 other)
         {
             return AllBytes.SequenceCompareTo(other.AllBytes);
         }
@@ -62,17 +62,17 @@ namespace AppViewLite.Numerics
             return false;
         }
 
-        public bool Equals(SizeLimitedWord8 other)
+        public readonly bool Equals(SizeLimitedWord8 other)
         {
             return AsUint64 == other.AsUint64;
         }
 
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             return AsUint64.GetHashCode();
         }
 
-        private ulong AsUint64 => Unsafe.BitCast<SizeLimitedWord8, ulong>(this);
+        private readonly ulong AsUint64 => Unsafe.BitCast<SizeLimitedWord8, ulong>(this);
 
         const int MaxLength = 8;
 

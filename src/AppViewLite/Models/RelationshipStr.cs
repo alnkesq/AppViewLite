@@ -2,7 +2,7 @@ namespace AppViewLite.Models
 {
     public record struct RelationshipStr(string Did, string RKey)
     {
-        public override string ToString()
+        public override readonly string ToString()
         {
             return Did + "/" + RKey;
         }

@@ -13,9 +13,9 @@ namespace AppViewLite
     public class AdministrativeBlocklist
     {
 
-        private FrozenSetAndRegexList BlockDisplay;
-        private FrozenSetAndRegexList BlockIngestion;
-        private FrozenSetAndRegexList BlockOutboundConnections;
+        private readonly FrozenSetAndRegexList BlockDisplay;
+        private readonly FrozenSetAndRegexList BlockIngestion;
+        private readonly FrozenSetAndRegexList BlockOutboundConnections;
 
         public AdministrativeBlocklist(IEnumerable<string> preprocessedLines)
         {

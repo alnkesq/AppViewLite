@@ -6,7 +6,7 @@ namespace AppViewLite.Numerics
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct UInt40(uint High, byte Low) : IComparable<UInt40>
     {
-        public int CompareTo(UInt40 other)
+        public readonly int CompareTo(UInt40 other)
         {
             var z = High.CompareTo(other.High);
             if (z != 0) return z;
@@ -35,7 +35,7 @@ namespace AppViewLite.Numerics
 
         public readonly static UInt40 MaxValue = new UInt40(uint.MaxValue, byte.MaxValue);
         public readonly static ulong MaxValueAsUInt64 = MaxValue;
-        public override string ToString()
+        public override readonly string ToString()
         {
             return ((ulong)this).ToString();
         }

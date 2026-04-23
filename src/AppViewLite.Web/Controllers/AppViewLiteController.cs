@@ -164,7 +164,7 @@ namespace AppViewLite.Web
         [HttpGet(nameof(AppViewTakeout))]
         public object AppViewTakeout()
         {
-            string[] EnumFlagToArray<T>(T obj) where T : Enum => EqualityComparer<T>.Default.Equals(obj, default(T)) ? [] : obj.ToString().Split(',', StringSplitOptions.TrimEntries);
+            static string[] EnumFlagToArray<T>(T obj) where T : Enum => EqualityComparer<T>.Default.Equals(obj, default(T)) ? [] : obj.ToString().Split(',', StringSplitOptions.TrimEntries);
             var profile = ctx.UserContext.PrivateProfile!;
             var now = DateTime.UtcNow;
             var bookmarks = apis.GetBookmarks(16 * 1024 * 1024, null, ctx).ToArray();
@@ -210,7 +210,7 @@ namespace AppViewLite.Web
             return TypedResults.Stream(async stream =>
             {
                 await JsonSerializer.SerializeAsync(stream, obj, TakeoutJsonOptions);
-            }, fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now.ToString("yyyy-MM-dd-HHmmss")}.json");
+            }, fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now:yyyy-MM-dd-HHmmss}.json");
         }
 
         private readonly static JsonSerializerOptions TakeoutJsonOptions = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };

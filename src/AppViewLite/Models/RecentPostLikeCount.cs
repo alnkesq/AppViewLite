@@ -7,7 +7,7 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct RecentPostLikeCount(Tid PostRKey, int LikeCount) : IComparable<RecentPostLikeCount>
     {
-        public int CompareTo(RecentPostLikeCount other)
+        public readonly int CompareTo(RecentPostLikeCount other)
         {
             var cmp = this.PostRKey.CompareTo(other.PostRKey);
             if (cmp != 0) return cmp;

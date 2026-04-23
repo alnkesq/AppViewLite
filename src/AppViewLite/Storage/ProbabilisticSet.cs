@@ -255,12 +255,12 @@ namespace AppViewLite
         }
     }
 
-    public record struct ProbabilisticSetParameters(long SizeInBytes, int HashFunctions, string? FromConfigurationParameter = null)
+    public readonly record struct ProbabilisticSetParameters(long SizeInBytes, int HashFunctions, string? FromConfigurationParameter = null)
     {
         public override string ToString() => GetBitsPerFunction((ulong)SizeInBytes * 8) + "-" + HashFunctions;
         public static int GetBitsPerFunction(ulong arrayLengthInBits) => BitOperations.Log2(arrayLengthInBits);
 
-        public int SizeInMegabytes = (int)(SizeInBytes / (1024 * 1024));
+        public int SizeInMegabytes => (int)(SizeInBytes / (1024 * 1024));
         public long SizeInBits => SizeInBytes * 8;
         public double GetDefinitelyNotExistRatioEstimation(long itemCount)
         {

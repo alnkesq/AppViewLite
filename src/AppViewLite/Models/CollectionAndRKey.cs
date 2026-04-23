@@ -14,7 +14,7 @@ public record struct CollectionAndRKey(string Collection, string RKey)
         return new CollectionAndRKey(path.Substring(0, slash), path.Substring(slash + 1));
     }
 
-    public override string ToString()
+    public override readonly string ToString()
     {
         return Collection + "/" + RKey;
     }

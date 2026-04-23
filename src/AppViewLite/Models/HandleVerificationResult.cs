@@ -5,7 +5,7 @@ namespace AppViewLite.Models
 {
     public record struct HandleVerificationResult(ApproximateDateTime32 VerificationDate, Plc Plc) : IComparable<HandleVerificationResult>
     {
-        public int CompareTo(HandleVerificationResult other)
+        public readonly int CompareTo(HandleVerificationResult other)
         {
             var cmp = this.VerificationDate.CompareTo(other.VerificationDate);
             if (cmp != 0) return cmp;

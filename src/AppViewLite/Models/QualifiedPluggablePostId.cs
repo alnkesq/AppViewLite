@@ -5,18 +5,18 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Models
 {
-    public struct QualifiedPluggablePostId
+    public readonly struct QualifiedPluggablePostId
     {
         public readonly string Did { get; }
         public readonly NonQualifiedPluggablePostId PostId { get; }
 
 
-        public override string ToString()
+        public override readonly string ToString()
         {
             return Did + "/" + PostId.ToString();
         }
 
-        public Tid Tid => PostId.Tid;
+        public readonly Tid Tid => PostId.Tid;
 
 
         public QualifiedPluggablePostId(string did, NonQualifiedPluggablePostId postId)
@@ -39,7 +39,7 @@ namespace AppViewLite.Models
         }
 
 
-        public DuckDbUuid GetExternalPostIdHash()
+        public readonly DuckDbUuid GetExternalPostIdHash()
         {
             return StringUtils.HashToUuid([
                 ..MemoryMarshal.AsBytes<char>(Did),
@@ -50,9 +50,9 @@ namespace AppViewLite.Models
             ]);
         }
 
-        public bool HasExternalIdentifier => PostId.HasExternalIdentifier;
+        public readonly bool HasExternalIdentifier => PostId.HasExternalIdentifier;
 
-        public QualifiedPluggablePostId WithTid(Tid updatedTid) => new QualifiedPluggablePostId(Did, PostId.WithTid(updatedTid));
+        public readonly QualifiedPluggablePostId WithTid(Tid updatedTid) => new QualifiedPluggablePostId(Did, PostId.WithTid(updatedTid));
     }
 }
 

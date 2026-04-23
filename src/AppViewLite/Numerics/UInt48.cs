@@ -6,7 +6,7 @@ namespace AppViewLite.Numerics
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct UInt48(uint High, ushort Low) : IComparable<UInt48>
     {
-        public int CompareTo(UInt48 other)
+        public readonly int CompareTo(UInt48 other)
         {
             var z = High.CompareTo(other.High);
             if (z != 0) return z;
@@ -36,7 +36,7 @@ namespace AppViewLite.Numerics
         public readonly static UInt48 MaxValue = new UInt48(uint.MaxValue, ushort.MaxValue);
         public readonly static ulong MaxValueAsUInt64 = MaxValue;
 
-        public override string ToString()
+        public override readonly string ToString()
         {
             return ((ulong)this).ToString();
         }

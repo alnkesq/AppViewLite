@@ -6,7 +6,7 @@ namespace AppViewLite
 {
     public class RetryPolicy
     {
-        private Func<Exception, TimeSpan> getDelayAfterException;
+        private readonly Func<Exception, TimeSpan> getDelayAfterException;
         public RetryPolicy(Func<Exception, TimeSpan> getDelayAfterException)
         {
             this.getDelayAfterException = getDelayAfterException;

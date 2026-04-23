@@ -14,7 +14,7 @@ namespace AppViewLite.Storage
         }
     }
 
-    public class ReferenceCountHandle<T> : IDisposable where T : IDisposable
+    public sealed class ReferenceCountHandle<T> : IDisposable where T : IDisposable
     {
         public ReferenceCountHandle(T value)
         {
@@ -45,7 +45,7 @@ namespace AppViewLite.Storage
         {
             get
             {
-                if (_disposed != 0) throw new ObjectDisposedException(nameof(ReferenceCountHandle<T>));
+                if (_disposed != 0) throw new ObjectDisposedException(nameof(ReferenceCountHandle<>));
                 return _value;
             }
         }

@@ -41,14 +41,14 @@ namespace AppViewLite.Numerics
             return true;
         }
         const long MAX_SAFE_INTEGER = 9007199254740991;
-        public long Timestamp => this.TidValue >> 10;
-        public int ClockId => (int)(this.TidValue & 0b_11111_11111);
+        public readonly long Timestamp => this.TidValue >> 10;
+        public readonly int ClockId => (int)(this.TidValue & 0b_11111_11111);
 
-        public DateTime Date => DateTime.UnixEpoch.AddMicroseconds(Timestamp);
+        public readonly DateTime Date => DateTime.UnixEpoch.AddMicroseconds(Timestamp);
 
         public static Tid FromDateTime(DateTime d, uint clockId = 0) => FromMicroseconds(checked((d - DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerMicrosecond), clockId);
         public static Tid FromMicroseconds(long microseconds, uint clockId) => new Tid((microseconds << 10) | clockId);
-        public override string? ToString()
+        public override readonly string? ToString()
         {
             if (this == MaxValue) return "(max value)";
             if (this == default) return null;
@@ -58,13 +58,13 @@ namespace AppViewLite.Numerics
         }
 
         public readonly static Tid MaxValue = new Tid(long.MaxValue);
-        public int CompareTo(Tid other)
+        public readonly int CompareTo(Tid other)
         {
             return this.TidValue.CompareTo(other.TidValue);
         }
         public string RkeyString => ToString()!;
 
-        public Tid GetNext() => new Tid(TidValue + 1);
+        public readonly Tid GetNext() => new Tid(TidValue + 1);
     }
 }
 

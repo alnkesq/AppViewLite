@@ -180,7 +180,7 @@ namespace AppViewLite
             }
         }
 
-        private Dictionary<string, CancellationTokenSource> SecondaryFirehoses = new();
+        private readonly Dictionary<string, CancellationTokenSource> SecondaryFirehoses = [];
 
 
         public ReloadableFile<DidDocOverridesConfiguration> DidDocOverrides;
@@ -859,11 +859,11 @@ namespace AppViewLite
 
         public record struct CachedSearchResult(BlueskyPost? Post, long LikeCount);
 
-        private Dictionary<DuckDbUuid, SearchSession> recentSearches = new();
+        private readonly Dictionary<DuckDbUuid, SearchSession> recentSearches = [];
         private class SearchSession
         {
             public Stopwatch LastSeen = Stopwatch.StartNew();
-            public List<(PostId[] Posts, int NextContinuationMinLikes)> Pages = new();
+            public List<(PostId[] Posts, int NextContinuationMinLikes)> Pages = [];
             public ConcurrentDictionary<PostId, CachedSearchResult> AlreadyProcessed = new();
 
         }
@@ -1516,10 +1516,7 @@ namespace AppViewLite
                 return rels.RecentBookmarks.GetValuesSortedDescending(ctx.LoggedInUser, null, maxExclusive != null ? new BookmarkDateFirst(maxExclusive.Value, default) : null)
                     .Where(c =>
                     {
-                        if (deletedBookmarks == null)
-                        {
-                            deletedBookmarks = rels.BookmarkDeletions.GetValuesChunked(ctx.LoggedInUser).ToArray();
-                        }
+                        deletedBookmarks ??= rels.BookmarkDeletions.GetValuesChunked(ctx.LoggedInUser).ToArray();
 
                         if (deletedBookmarks.Any(chunk => chunk.AsSpan().BinarySearch(c.BookmarkRKey) >= 0))
                             return false;
@@ -1611,8 +1608,10 @@ namespace AppViewLite
                 var otherReplies = rels.DirectReplies.GetValuesSorted(focalPostId, parsedContinuation).Where(x => x.Author != focalPostId.Author).Take(wantMore).Select(x => rels.GetPost(x, ctx)).ToArray();
                 foreach (var otherReply in otherReplies)
                 {
-                    var group = new List<BlueskyPost>();
-                    group.Add(otherReply);
+                    var group = new List<BlueskyPost>
+                    {
+                        otherReply
+                    };
                     groups.Add(group);
 
                     if (rels.IsThreadReplyFullyVisible(otherReply, threadgate, ctx))
@@ -1655,7 +1654,7 @@ namespace AppViewLite
 
             Task.Run(() =>
             {
-                HashSet<Plc> wantFollowsFor = new();
+                HashSet<Plc> wantFollowsFor = [];
                 if (focalPost?.RootPostId is { } rootPostId)
                 {
                     WithRelationshipsLock(rels =>
@@ -2061,12 +2060,12 @@ namespace AppViewLite
                 var fetchFeedGeneratorsTask = EnsureHaveCollectionAsync(profile.Profile.Plc, RepositoryImportKind.FeedGenerators, ctx);
                 fetchListsTask.GetAwaiter().OnCompleted(() =>
                 {
-                    if (fetchListsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
+                    if (fetchListsTask is { IsCompletedSuccessfully: true, Result.TotalRecords: > 0 })
                         profile.HasLists = true;
                 });
                 fetchFeedGeneratorsTask.GetAwaiter().OnCompleted(() =>
                 {
-                    if (fetchFeedGeneratorsTask is { IsCompletedSuccessfully: true, Result: { TotalRecords: > 0 } })
+                    if (fetchFeedGeneratorsTask is { IsCompletedSuccessfully: true, Result.TotalRecords: > 0 })
                         profile.HasFeeds = true;
                 });
                 hasListsOrFeedsTask = Task.WhenAny(Task.WhenAll(fetchListsTask, fetchFeedGeneratorsTask), Task.Delay(700));
@@ -2398,7 +2397,7 @@ namespace AppViewLite
 
             var alreadySampledPost = new HashSet<PostId>();
             // last few posts from the previous page that aren't marked as read yet
-            var alreadyReturnedPosts = continuation != null ? (continuation.Split(",").Skip(1).Select(x => StringUtils.DeserializeFromString<PostId>(x)!.Value)).ToHashSet() : new();
+            var alreadyReturnedPosts = continuation != null ? (continuation.Split(",").Skip(1).Select(x => StringUtils.DeserializeFromString<PostId>(x)!.Value)).ToHashSet() : [];
 
 
             var finalPosts = new List<BlueskyPost>();
@@ -2805,8 +2804,7 @@ namespace AppViewLite
             try
             {
 
-                if (feedInfo == null)
-                    feedInfo = await this.GetFeedGeneratorDataAsync(did, feed.Subscription.FeedRKey, ctx);
+                feedInfo ??= await this.GetFeedGeneratorDataAsync(did, feed.Subscription.FeedRKey, ctx);
 
                 var (skeleton, _) = await this.GetFeedSkeletonAsync(did, feed.Subscription.FeedRKey, null, default, ctx, feedInfo.ImplementationDid, null);
 
@@ -3003,7 +3001,7 @@ namespace AppViewLite
 
         record struct ScoredBlueskyPost(PostId PostId, Models.Relationship Repost, FeedSubscription? FromFeed, bool IsAuthorFollowed, long LikeCount, float PerUserScore, float GlobalScore)
         {
-            public override string ToString()
+            public override readonly string ToString()
             {
                 return $"{PerUserScore:0.000} | {GlobalScore:0.000} | +{LikeCount} | {PostId}";
             }
@@ -3022,7 +3020,7 @@ namespace AppViewLite
             return (float)score;
         }
 
-        public ConcurrentSet<RepositoryImportEntry> RunningCarImports = new();
+        public ConcurrentSet<RepositoryImportEntry> RunningCarImports = [];
 
         public async Task<RepositoryImportEntry?> ImportCarIncrementalAsync(Plc plc, RepositoryImportKind kind, RequestContext ctx, Func<RepositoryImportEntry, bool>? ignoreIfPrevious = null, bool incremental = true, CancellationToken ct = default, bool slowImport = false)
         {
@@ -3887,7 +3885,7 @@ namespace AppViewLite
             {
                 return await GetRecordAsync(did, collection, rkey, ctx, ct);
             }
-            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATNetworkErrorException { AtError: ATError { Detail: { Error: "RecordNotFound" } } })
+            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATNetworkErrorException { AtError: ATError { Detail.Error: "RecordNotFound" } })
             {
                 return null;
             }
@@ -4492,10 +4490,7 @@ namespace AppViewLite
                 {
                     pds = "https://" + pds;
                 }
-                if (pds == null)
-                {
-                    pds = (await GetDidDocAsync(did, ctx)).Pds;
-                }
+                pds ??= (await GetDidDocAsync(did, ctx)).Pds;
                 return await GetBlobFromUrlAsync(new Uri($"{pds}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}"), ignoreFileName: true, ct: ct, preferredSize: preferredSize);
             }
         }
@@ -4796,8 +4791,7 @@ namespace AppViewLite
 
             lock (session)
             {
-                if (session.InitializeAsync == null)
-                    session.InitializeAsync = OnSessionCreatedOrRestoredCoreAsync(session, ctx);
+                session.InitializeAsync ??= OnSessionCreatedOrRestoredCoreAsync(session, ctx);
 
             }
             await session.InitializeAsync!;
@@ -4937,7 +4931,7 @@ namespace AppViewLite
         }
 
 
-        private Dictionary<string, AppViewLiteUserContext> UserContexts = new();
+        private readonly Dictionary<string, AppViewLiteUserContext> UserContexts = [];
 
         public AppViewLiteUserContext GetOrCreateUserContext(string did, RequestContext ctx)
         {
@@ -5145,7 +5139,7 @@ namespace AppViewLite
             var now = DateTime.UtcNow;
             if (userCtx.FeedCredits == null)
             {
-                userCtx.FeedCredits = new();
+                userCtx.FeedCredits = [];
                 var accountedPosts = new HashSet<PostId>();
                 WithRelationshipsLock(rels =>
                 {

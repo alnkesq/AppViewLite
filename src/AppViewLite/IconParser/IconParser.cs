@@ -56,36 +56,34 @@ namespace AppViewLite.IconParser
             const int infoHeaderSize = 40;
             int bmpSize = fileHeaderSize + infoHeaderSize + imageSize;
 
-            using (MemoryStream ms = new MemoryStream())
-            using (BinaryWriter writer = new BinaryWriter(ms))
+            using MemoryStream ms = new MemoryStream();
+            using BinaryWriter writer = new BinaryWriter(ms);
+            var infoHeader = MemoryMarshal.Cast<byte, BITMAPINFOHEADER>(entryBytes)[0];
+
+            int paletteSize = 0;
+            var bitCount = infoHeader.biBitCount;
+            if (bitCount <= 8)
             {
-                var infoHeader = MemoryMarshal.Cast<byte, BITMAPINFOHEADER>(entryBytes)[0];
-
-                int paletteSize = 0;
-                var bitCount = infoHeader.biBitCount;
-                if (bitCount <= 8)
-                {
-                    var colorCount = colorCountFromEntry;
-                    int maxColors = 1 << bitCount;
-                    var actualColors = (colorCount > 0 && colorCount < maxColors) ? colorCount : maxColors;
-                    paletteSize = bitCount <= 8 ? actualColors * 4 : 0;
-                }
-
-                writer.WriteUnmanaged(new BITMAPFILEHEADER
-                {
-                    bfType = 0x4D42, // "BM"
-                    bfSize = (uint)bmpSize,
-                    bfOffBits = (uint)(fileHeaderSize + infoHeaderSize + paletteSize)
-                });
-
-
-                infoHeader.biHeight /= 2;
-                writer.WriteUnmanaged(infoHeader);
-
-                entryBytes = entryBytes.Slice(infoHeaderSize);
-                writer.Write(entryBytes);
-                return ms.ToArray();
+                var colorCount = colorCountFromEntry;
+                int maxColors = 1 << bitCount;
+                var actualColors = (colorCount > 0 && colorCount < maxColors) ? colorCount : maxColors;
+                paletteSize = bitCount <= 8 ? actualColors * 4 : 0;
             }
+
+            writer.WriteUnmanaged(new BITMAPFILEHEADER
+            {
+                bfType = 0x4D42, // "BM"
+                bfSize = (uint)bmpSize,
+                bfOffBits = (uint)(fileHeaderSize + infoHeaderSize + paletteSize)
+            });
+
+
+            infoHeader.biHeight /= 2;
+            writer.WriteUnmanaged(infoHeader);
+
+            entryBytes = entryBytes.Slice(infoHeaderSize);
+            writer.Write(entryBytes);
+            return ms.ToArray();
         }
 
     }

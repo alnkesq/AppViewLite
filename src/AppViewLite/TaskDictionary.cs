@@ -7,7 +7,7 @@ namespace AppViewLite
 {
     public class TaskDictionary<TKey, TExtraArgs> where TKey : notnull
     {
-        private TaskDictionary<TKey, TExtraArgs, byte> inner;
+        private readonly TaskDictionary<TKey, TExtraArgs, byte> inner;
         public TaskDictionary(Func<TKey, TExtraArgs, Task> compute)
         {
             inner = new TaskDictionary<TKey, TExtraArgs, byte>(async (key, extraArgs) =>

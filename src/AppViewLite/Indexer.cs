@@ -484,7 +484,7 @@ namespace AppViewLite
         }
 
 
-        private ConcurrentSet<string> currentlyRunningRecordRetrievals = new();
+        private readonly ConcurrentSet<string> currentlyRunningRecordRetrievals = [];
         private void ScheduleRecordIndexing(ATUri uri, RequestContext ctx)
         {
             if (!currentlyRunningRecordRetrievals.TryAdd(uri.ToString())) return;
@@ -1310,10 +1310,8 @@ namespace AppViewLite
                 Date = date,
                 TrustedDid = trustedDid,
                 AtProtoLabeler = labeler,
+                Pds = pds
             };
-
-
-            proto.Pds = pds;
 
             var handles = new List<string>();
             var other = new List<string>();
@@ -1434,12 +1432,12 @@ namespace AppViewLite
             var onePerPage = authenticatedCtx == null;
             while (!done)
             {
-                Func<ATProtocol, Task<(GetFollowersOutput Response, bool Trusted)>> protocolFunc = async protocol =>
+                async Task<(GetFollowersOutput Response, bool Trusted)> protocolFunc(ATProtocol protocol)
                 {
                     ct.ThrowIfCancellationRequested();
                     var response = (await protocol.GetFollowersAsync(new ATDid(did), onePerPage ? 1 : 100, cursor, ct)).HandleResult()!;
                     return (response, PdsIsTrustedToProvideRealBackreferences(protocol));
-                };
+                }
 
                 var (response, isTrustedPds) = authenticatedCtx != null ? await Apis.PerformPdsActionAsync(protocolFunc, authenticatedCtx) : await protocolFunc(Apis.CreateQuickBackfillProtocol());
                 cursor = response.Cursor;

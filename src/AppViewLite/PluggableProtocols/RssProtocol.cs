@@ -37,7 +37,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             return url.Host + " " + url.PathAndQuery;
         }
 
-        private ConcurrentSet<Plc> ScheduledRefreshes = new();
+        private readonly ConcurrentSet<Plc> ScheduledRefreshes = [];
 
         public override async Task DiscoverAsync(CancellationToken ct)
         {
@@ -193,7 +193,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 if ((feedUrl.Host != "www.reddit.com" ||
                     feedUrl.AbsolutePath != feedUrl.AbsolutePath.ToLowerInvariant()) ||
-                    feedUrl.AbsolutePath.EndsWith("/", StringComparison.Ordinal) ||
+                    feedUrl.AbsolutePath.EndsWith('/') ||
                     feedUrl.GetSegments().Length != 2 ||
                     feedUrl.AbsolutePath.Contains("//", StringComparison.Ordinal) ||
                     feedUrl.Query.Length != 0 ||
@@ -577,10 +577,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             {
                 hasFullContent = true;
 
-                if (bodyDom == null)
-                {
-                    bodyDom = StringUtils.AsWrappedTextNode(title ?? string.Empty);
-                }
+                bodyDom ??= StringUtils.AsWrappedTextNode(title ?? string.Empty);
 
                 foreach (var altTag in bodyDom!.QuerySelectorAll(".tmblr-alt-text-helper").ToArray())
                 {
@@ -938,12 +935,12 @@ namespace AppViewLite.PluggableProtocols.Rss
 
         public record struct TumblrPostId(string BlogId, long PostId, Tid SuggestedTid)
         {
-            public override string ToString()
+            public override readonly string ToString()
             {
                 return BlogId + "/" + PostId;
             }
 
-            public QualifiedPluggablePostId AsQualifiedPostId
+            public readonly QualifiedPluggablePostId AsQualifiedPostId
             {
                 get
                 {
@@ -1016,7 +1013,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             if (bodyAsText == null) return false;
             var withoutEllipsis = summaryText.Replace("read more", null, StringComparison.OrdinalIgnoreCase).Replace("continue reading", null, StringComparison.OrdinalIgnoreCase);
-            string Normalize(string text) => Regex.Replace(text, @"\W", string.Empty);
+            static string Normalize(string text) => Regex.Replace(text, @"\W", string.Empty);
             return Normalize(bodyAsText).StartsWith(Normalize(withoutEllipsis), StringComparison.OrdinalIgnoreCase);
         }
 

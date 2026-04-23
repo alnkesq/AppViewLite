@@ -32,7 +32,7 @@ using System.Threading;
 
 namespace AppViewLite
 {
-    public class BlueskyRelationships : LoggableBase, IDisposable, ICloneableAsReadOnly
+    public sealed partial class BlueskyRelationships : LoggableBase, IDisposable, ICloneableAsReadOnly
     {
 
         public long Version = 1;
@@ -123,8 +123,8 @@ namespace AppViewLite
         public bool IsReplica => ReplicaAge != null;
         public bool IsPrimary => !IsReplica;
 
-        private HashSet<Plc> registerForNotificationsCache = new();
-        private List<ICheckpointable> disposables = new();
+        private readonly HashSet<Plc> registerForNotificationsCache = [];
+        private readonly List<ICheckpointable> disposables = [];
 
         public IReadOnlyList<CombinedPersistentMultiDictionary> AllMultidictionaries; // Must enumerate thread-safely
 
@@ -145,10 +145,10 @@ namespace AppViewLite
         }
 
         public string BaseDirectory { get; private set; }
-        private FileStream? lockFile;
-        private Dictionary<string, SliceName[]>? checkpointToLoad;
-        private Dictionary<string, FirehoseCursor>? firehoseCursors;
-        private GlobalCheckpoint? loadedCheckpoint;
+        private readonly FileStream? lockFile;
+        private readonly Dictionary<string, SliceName[]>? checkpointToLoad;
+        private readonly Dictionary<string, FirehoseCursor>? firehoseCursors;
+        private readonly GlobalCheckpoint? loadedCheckpoint;
         internal long diskWriteIndex = 1;
         internal long diskWasSyncfsAtIndex;
 
@@ -287,7 +287,7 @@ namespace AppViewLite
             firehoseCursors = loadedCheckpoint?.FirehoseCursors?
                 .Select(x => { x.MakeUtc(); return x; })
                 .Where(x => !(resetFirehoseCursors.Contains(x.FirehoseUrl) || resetFirehoseCursors.Contains("*")))
-                .ToDictionary(x => x.FirehoseUrl, x => x) ?? new();
+                .ToDictionary(x => x.FirehoseUrl, x => x) ?? [];
 
             LastRetrievedPlcDirectoryEntry = RegisterDictionary<DateTime, byte>("last-retrieved-plc-directory-6", PersistentDictionaryBehavior.KeySetOnly);
             PlcDirectorySyncDate = LastRetrievedPlcDirectoryEntry.MaximumKey ?? new DateTime(2022, 11, 17, 00, 35, 16, DateTimeKind.Utc) /* first event on the PLC directory */;
@@ -398,7 +398,7 @@ namespace AppViewLite
             LastAssignedPlc = new Plc(Math.Max((PlcToDidOther.MaximumKey ?? default).PlcValue, (PlcToDidPlc.MaximumKey ?? default).PlcValue));
             InitAllMultidictionaries();
 
-            registerForNotificationsCache = new();
+            registerForNotificationsCache = [];
             foreach (var chunk in LastSeenNotifications.EnumerateKeyChunks())
             {
                 var span = chunk.AsSpan();
@@ -751,7 +751,7 @@ namespace AppViewLite
             {
                 Log("Capturing checkpoint");
                 BeforeCaptureCheckpoint?.Invoke();
-                loadedCheckpoint!.Tables ??= new();
+                loadedCheckpoint!.Tables ??= [];
                 loadedCheckpoint.FirehoseCursors = firehoseCursors!.Values.ToList();
                 foreach (var table in disposables)
                 {
@@ -3185,8 +3185,7 @@ namespace AppViewLite
             if (!ctx.ListCache.TryGetValue(listId, out var result))
             {
                 result = GetListCore(listId, listData, ctx);
-                if (ctx != null)
-                    ctx.ListCache[listId] = result;
+                ctx?.ListCache[listId] = result;
             }
             return result;
         }
@@ -3570,7 +3569,7 @@ namespace AppViewLite
             if (PostLabels.GetKeyProbabilisticCache()?.PossiblyContainsKey(postId) == false) return [];
             return PostLabels.GetValuesSorted(postId)
                 .GroupAssumingOrderedInput(x => x.Labeler)
-                .Select(x => x.Values[x.Values.Count - 1])
+                .Select(x => x.Values[^1])
                 .Where(x => !x.Neg)
                 .Select(x => new LabelId(x.Labeler, x.KindHash))
                 .Where(x => onlyLabels?.Contains(x) ?? true)
@@ -3580,7 +3579,7 @@ namespace AppViewLite
         {
             return ProfileLabels.GetValuesSorted(plc)
                 .GroupAssumingOrderedInput(x => x.Labeler)
-                .Select(x => x.Values[x.Values.Count - 1])
+                .Select(x => x.Values[^1])
                 .Where(x => !x.Neg)
                 .Select(x => new LabelId(x.Labeler, x.KindHash))
                 .Where(x => onlyLabels?.Contains(x) ?? true)
@@ -3894,21 +3893,23 @@ namespace AppViewLite
         {
             AssertCanRead();
             var sw = Stopwatch.StartNew();
-            var copy = new BlueskyRelationships(isReadOnly: true);
-            copy.BaseDirectory = this.BaseDirectory;
-            copy.Version = this.Version;
-            copy.Lock = new();
-            copy.IsReadOnly = true;
-            copy.DidToPlcConcurrentCache = this.DidToPlcConcurrentCache;
-            copy.PlcToDidConcurrentCache = this.PlcToDidConcurrentCache;
-            copy.ShutdownRequestedCts = this.ShutdownRequestedCts;
-            copy.UserToRecentPopularPosts = this.UserToRecentPopularPosts;
-            copy.UserToRecentRepostsCache = this.UserToRecentRepostsCache;
-            copy.DefaultLabelSubscriptions = this.DefaultLabelSubscriptions;
-            copy.PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot;
-            copy.RepostersSinceLastReplicaSnapshot = this.RepostersSinceLastReplicaSnapshot;
-            copy.ApproximateLikeCountCache = this.ApproximateLikeCountCache;
-            copy.ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache;
+            var copy = new BlueskyRelationships(isReadOnly: true)
+            {
+                BaseDirectory = this.BaseDirectory,
+                Version = this.Version,
+                Lock = new(),
+                IsReadOnly = true,
+                DidToPlcConcurrentCache = this.DidToPlcConcurrentCache,
+                PlcToDidConcurrentCache = this.PlcToDidConcurrentCache,
+                ShutdownRequestedCts = this.ShutdownRequestedCts,
+                UserToRecentPopularPosts = this.UserToRecentPopularPosts,
+                UserToRecentRepostsCache = this.UserToRecentRepostsCache,
+                DefaultLabelSubscriptions = this.DefaultLabelSubscriptions,
+                PostAuthorsSinceLastReplicaSnapshot = this.PostAuthorsSinceLastReplicaSnapshot,
+                RepostersSinceLastReplicaSnapshot = this.RepostersSinceLastReplicaSnapshot,
+                ApproximateLikeCountCache = this.ApproximateLikeCountCache,
+                ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache
+            };
             var fields = typeof(BlueskyRelationships).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             foreach (var field in fields)
             {
@@ -4008,10 +4009,7 @@ namespace AppViewLite
         }
         public Tid? TryGetLatestBookmarkForPost(PostId postId, Plc loggedInUser, ref DangerousHugeReadOnlyMemory<BookmarkPostFirst>[]? userBookmarks, ref DangerousHugeReadOnlyMemory<Tid>[]? userDeletedBookmarks)
         {
-            if (userBookmarks == null)
-            {
-                userBookmarks = this.Bookmarks.GetValuesChunkedLatestFirst(loggedInUser).ToArray();
-            }
+            userBookmarks ??= this.Bookmarks.GetValuesChunkedLatestFirst(loggedInUser).ToArray();
             foreach (var chunk in userBookmarks)
             {
                 var span = chunk.AsSpan();
@@ -4030,10 +4028,7 @@ namespace AppViewLite
 
                 if ((PostId)bookmark.PostId != postId) continue;
 
-                if (userDeletedBookmarks == null)
-                {
-                    userDeletedBookmarks = this.BookmarkDeletions.GetValuesChunked(loggedInUser).ToArray();
-                }
+                userDeletedBookmarks ??= this.BookmarkDeletions.GetValuesChunked(loggedInUser).ToArray();
                 if (userDeletedBookmarks.Any(x => x.AsSpan().BinarySearch(bookmark.BookmarkRKey) >= 0))
                     return null;
 
@@ -4203,8 +4198,8 @@ namespace AppViewLite
                 .ToArray();
         }
 
-        public ConcurrentSet<Plc> PostAuthorsSinceLastReplicaSnapshot = new();
-        public ConcurrentSet<Plc> RepostersSinceLastReplicaSnapshot = new();
+        public ConcurrentSet<Plc> PostAuthorsSinceLastReplicaSnapshot = [];
+        public ConcurrentSet<Plc> RepostersSinceLastReplicaSnapshot = [];
 
         public void IncrementRecentPopularPostLikeCount(PostId postId, int? setTo)
         {

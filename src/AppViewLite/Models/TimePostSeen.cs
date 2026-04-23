@@ -6,14 +6,14 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct TimePostSeen(DateTime Date, PostId PostId) : IComparable<TimePostSeen>
     {
-        public int CompareTo(TimePostSeen other)
+        public readonly int CompareTo(TimePostSeen other)
         {
             var cmp = this.Date.CompareTo(other.Date);
             if (cmp != 0) return cmp;
             return this.PostId.CompareTo(other.PostId);
         }
 
-        public string Serialize() => Date.Ticks + "_" + PostId.Serialize();
+        public readonly string Serialize() => Date.Ticks + "_" + PostId.Serialize();
         public static TimePostSeen Deserialize(string s)
         {
             var parts = s.Split('_', 2);

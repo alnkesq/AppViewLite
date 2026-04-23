@@ -4,7 +4,7 @@ namespace AppViewLite
 {
     public record struct SessionIdWithUnverifiedDid(string UnverifiedDid, string SecretKey)
     {
-        public override string ToString()
+        public override readonly string ToString()
         {
             return SecretKey + "=" + UnverifiedDid;
         }

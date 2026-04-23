@@ -6,7 +6,7 @@ namespace AppViewLite
 {
     public record struct PerformanceSnapshot(long StopwatchTicks, int Gc0Count, int Gc1Count, int Gc2Count, long AllocatedBytes, long IoReads, long IoReadBytes, long MmapPotentialReadBytes, long SeekCount, long SeekStopwatchTicks)
     {
-        public int MaxGcGeneration =>
+        public readonly int MaxGcGeneration =>
                 Gc2Count != 0 ? 2 :
                 Gc1Count != 0 ? 1 :
                 Gc0Count != 0 ? 0 :

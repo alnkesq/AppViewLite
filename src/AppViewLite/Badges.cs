@@ -38,7 +38,7 @@ namespace AppViewLite
             return badge;
         }).ToFrozenDictionary(x => (x.Handle ?? x.Did)!));
 
-        private static string? WikidataPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_WIKIDATA_VERIFICATION);
+        private static readonly string? WikidataPath = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_WIKIDATA_VERIFICATION);
 
         public static ReloadableFile<ILookup<DuckDbUuid, ProfileBadgeWikidataParquet>>? Wikidata =
             WikidataPath != null ?

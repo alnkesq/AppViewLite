@@ -12,7 +12,7 @@ namespace AppViewLite
     {
         public Tid LastReturnedTid;
         public bool RemoteEnumerationExhausted;
-        private Func<Tid, Task<PostReference[]>> RetrieveAsync;
+        private readonly Func<Tid, Task<PostReference[]>> RetrieveAsync;
         public MergeablePostEnumerator(Tid lastReturnedTid, Func<Tid, Task<PostReference[]>> retrieve, CollectionKind kind)
         {
             this.LastReturnedTid = lastReturnedTid;
@@ -68,7 +68,7 @@ namespace AppViewLite
     public record struct PostReference(string RKey, PostIdString PostId, Post? PostRecord = null);
     public record struct ParsedPostReference(Tid RKey, MergeablePostEnumerator Source, PostIdString PostId, Post? PostRecord = null)
     {
-        public CollectionKind Kind => Source.Kind;
+        public readonly CollectionKind Kind => Source.Kind;
     }
 
     public enum CollectionKind

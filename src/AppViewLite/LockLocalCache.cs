@@ -7,7 +7,7 @@ namespace AppViewLite
 {
     public class LockLocalCache<TKey, TValue> where TKey : notnull
     {
-        private readonly Dictionary<TKey, TValue> _cache = new();
+        private readonly Dictionary<TKey, TValue> _cache = [];
 
         public TValue GetOrFetch(TKey key, Func<TValue> fetch)
         {

@@ -5,7 +5,7 @@ namespace AppViewLite
 {
     public class LruCache<TKey, TValue> where TKey : notnull
     {
-        private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> dict = new();
+        private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> dict = [];
         private readonly LinkedList<KeyValuePair<TKey, TValue>> lru = new();
         private readonly int capacity;
         public LruCache(int capacity)

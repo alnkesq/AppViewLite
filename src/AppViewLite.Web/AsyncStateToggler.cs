@@ -8,9 +8,9 @@ namespace AppViewLite.Web
         private Tid? rkey;
         public bool HaveRelationship { get; set; }
         private bool busy;
-        private Func<Task<Tid>> addRelationship;
-        private Func<Tid, Task> deleteRelationship;
-        private Action notifyChange;
+        private readonly Func<Task<Tid>> addRelationship;
+        private readonly Func<Tid, Task> deleteRelationship;
+        private readonly Action notifyChange;
         public string? RKey => rkey?.ToString();
 
         public AsyncStateToggler(long actorCount, Tid? rkey, Func<Task<Tid>> addRelationship, Func<Tid, Task> deleteRelationship, Action notifyChange)

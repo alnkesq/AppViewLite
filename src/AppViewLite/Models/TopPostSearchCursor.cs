@@ -5,7 +5,7 @@ namespace AppViewLite.Models
     public record struct TopPostSearchCursor(int MinLikes, DuckDbUuid SearchId, int PageIndex)
     {
 
-        public string Serialize() => PageIndex + "-" + MinLikes + "-" + SearchId.ToString().Replace("-", null);
+        public readonly string Serialize() => PageIndex + "-" + MinLikes + "-" + SearchId.ToString().Replace("-", null);
         public static TopPostSearchCursor Deserialize(string s)
         {
             var array = s.Split('-');

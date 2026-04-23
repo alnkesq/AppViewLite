@@ -44,7 +44,7 @@ namespace AppViewLite
 
         public Session? PdsSession;
 
-        public Dictionary<Plc, PrivateFollow> PrivateFollows = new();
+        public Dictionary<Plc, PrivateFollow> PrivateFollows = [];
         public AppViewLiteProfileProto? PrivateProfile;
         public IEnumerable<ListEntry> PrivateFollowsAsListEntries => PrivateFollows.Keys.Select(x => new ListEntry(x, default));
         public Plc? LoggedInUser => Profile?.Plc;
@@ -128,8 +128,8 @@ namespace AppViewLite
 
 
         public Lock FeedInterleavingLock = new(); // Lock ordering: must NOT hold relationships lock
-        public Dictionary<RelationshipHashedRKey, DateTime> FeedToLastInterleavedSeenDate = new();
-        public Dictionary<RelationshipHashedRKey, FeedPostsForInterleaving> FeedPostsForInterleaving = new();
+        public Dictionary<RelationshipHashedRKey, DateTime> FeedToLastInterleavedSeenDate = [];
+        public Dictionary<RelationshipHashedRKey, FeedPostsForInterleaving> FeedPostsForInterleaving = [];
     }
 
     public class FeedPostsForInterleaving

@@ -479,7 +479,7 @@ namespace AppViewLite
 
             void MaybeTrimLastAddedSpace()
             {
-                if (sb.Length != 0 && sb[sb.Length - 1] == ' ')
+                if (sb.Length != 0 && sb[^1] == ' ')
                 {
                     if (!facets.Any(x => x.End >= sb.Length))
                     {
@@ -492,14 +492,14 @@ namespace AppViewLite
             void AppendNewLineIfNecessary()
             {
                 MaybeTrimLastAddedSpace();
-                if (sb.Length != 0 && sb[sb.Length - 1] != '\n')
+                if (sb.Length != 0 && sb[^1] != '\n')
                     AppendChar('\n');
             }
             void AppendNewLineIfNecessaryAllowEmptyLine()
             {
                 MaybeTrimLastAddedSpace();
                 if (sb.Length == 0) return;
-                if (sb.Length >= 2 && sb[sb.Length - 2] == '\n' && sb[sb.Length - 1] == '\n')
+                if (sb.Length >= 2 && sb[^2] == '\n' && sb[^1] == '\n')
                     return;
                 AppendChar('\n');
             }
@@ -522,7 +522,7 @@ namespace AppViewLite
                             var ch = text[i];
                             if (char.IsWhiteSpace(ch))
                             {
-                                if (sb.Length != 0 && !char.IsWhiteSpace(sb[sb.Length - 1]))
+                                if (sb.Length != 0 && !char.IsWhiteSpace(sb[^1]))
                                 {
                                     AppendChar(' ');
                                 }
@@ -590,7 +590,7 @@ namespace AppViewLite
 
             if (facets.Count == 0) facets = null;
 
-            while (sb.Length != 0 && sb[sb.Length - 1] == '\n')
+            while (sb.Length != 0 && sb[^1] == '\n')
             {
                 sb.Length--;
             }

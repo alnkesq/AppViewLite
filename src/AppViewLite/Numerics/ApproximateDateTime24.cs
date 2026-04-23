@@ -5,7 +5,7 @@ namespace AppViewLite.Numerics
 {
     public record struct ApproximateDateTime24(UInt24 Value) : IComparable<ApproximateDateTime24>
     {
-        public int CompareTo(ApproximateDateTime24 other)
+        public readonly int CompareTo(ApproximateDateTime24 other)
         {
             return Value.CompareTo(other.Value);
         }

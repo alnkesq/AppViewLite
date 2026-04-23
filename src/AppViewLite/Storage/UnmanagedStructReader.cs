@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
-    public class UnmanagedStructReader<T> : IDisposable where T : unmanaged
+    public sealed class UnmanagedStructReader<T> : IDisposable where T : unmanaged
     {
         private readonly Stream stream;
         //private byte[]? buffer;
-        private T[] buffer;
+        private readonly T[] buffer;
         private int bufferOffsetStructs;
         private long remainingStructs;
         private readonly int bufferSizeStructs;

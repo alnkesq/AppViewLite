@@ -29,7 +29,7 @@ namespace AppViewLite
         [DllImport("libc")]
         private static extern int gettid();
 
-        private static bool wantManagedNativeThreadMapping = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_TRACK_MANAGED_NATIVE_THREAD_ID_MAPPINGS, true);
+        private static readonly bool wantManagedNativeThreadMapping = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_TRACK_MANAGED_NATIVE_THREAD_ID_MAPPINGS, true);
         [ThreadStatic] private static bool DidLogManagedNativeThreadIdMappingForCurrentThread;
 
         // Visual Studio debugger to remote linux doesn't display managed thread IDs (always 0 in the Threads window), but we need them in order to debug lock usage and lock owners.

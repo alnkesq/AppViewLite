@@ -59,8 +59,8 @@ namespace AppViewLite
         public ConcurrentDictionary<Relationship, BlueskyList>? ListCache;
         public ConcurrentDictionary<(PostId RootPostId, Plc ReplyAuthor), bool>? ThreadgateAllowsUserCache;
         public ConcurrentDictionary<PostId, BlueskyThreadgate?>? ThreadgateCache;
-        public ConcurrentBag<OperationLogEntry> OperationLogEntries = new();
-        public ConcurrentBag<OperationLogEntry> LockLogEntries = new();
+        public ConcurrentBag<OperationLogEntry> OperationLogEntries = [];
+        public ConcurrentBag<OperationLogEntry> LockLogEntries = [];
         public ConcurrentBag<OperationLogEntry>? NetworkLogEntries;
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();

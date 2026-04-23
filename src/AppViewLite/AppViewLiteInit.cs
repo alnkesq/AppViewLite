@@ -110,7 +110,7 @@ namespace AppViewLite
                 if (!path.StartsWith(dataDirectory + Path.DirectorySeparatorChar, StringComparison.Ordinal)) return path;
                 var relativePath = Path.GetRelativePath(dataDirectory, path);
                 BlueskyRelationships.Assert(!relativePath.StartsWith("../", StringComparison.Ordinal) && !relativePath.StartsWith("..\\", StringComparison.Ordinal));
-                BlueskyRelationships.Assert(!relativePath.StartsWith("/", StringComparison.Ordinal) && !relativePath.StartsWith("\\", StringComparison.Ordinal));
+                BlueskyRelationships.Assert(!relativePath.StartsWith('/') && !relativePath.StartsWith('\\'));
                 foreach (var additional in additionalDirectories)
                 {
                     var newPath = Path.Combine(additional, relativePath);
@@ -256,10 +256,12 @@ namespace AppViewLite
         {
             try
             {
-                var processStartInfo = new ProcessStartInfo("git", ["log", "-1", "--pretty=format:%H %ad", "--date=short"]);
-                processStartInfo.RedirectStandardOutput = true;
-                processStartInfo.RedirectStandardError = true;
-                processStartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var processStartInfo = new ProcessStartInfo("git", ["log", "-1", "--pretty=format:%H %ad", "--date=short"])
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+                };
                 using var process = Process.Start(processStartInfo)!;
                 var version = process.StandardOutput.ReadToEnd().Trim();
                 process.WaitForExit();

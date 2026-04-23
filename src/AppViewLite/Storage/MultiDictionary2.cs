@@ -10,7 +10,7 @@ namespace AppViewLite
 {
     public class MultiDictionary2<TKey, TValue> : IEnumerable<(TKey Key, MultiDictionary2<TKey, TValue>.ValueGroup Values)> where TValue : IComparable<TValue>, IEquatable<TValue> where TKey : notnull
     {
-        private readonly static SortedSet<TValue> EmptyValueSet = new();
+        private readonly static SortedSet<TValue> EmptyValueSet = [];
 
         private readonly static int PerKeySize = Unsafe.SizeOf<TKey>() + Unsafe.SizeOf<MultiDictionary2<TKey, TValue>.ValueGroup>();
         private readonly static int PerValueSize = Unsafe.SizeOf<TValue>();
@@ -86,7 +86,7 @@ namespace AppViewLite
                 }
             }
 
-            public long ExtraSizeBytes
+            public readonly long ExtraSizeBytes
             {
                 get
                 {
@@ -111,7 +111,7 @@ namespace AppViewLite
 
 
             [UnscopedRef]
-            public bool TryAsUnsortedSpan(out ReadOnlySpan<TValue> span)
+            public readonly bool TryAsUnsortedSpan(out ReadOnlySpan<TValue> span)
             {
                 if (_manyValuesPreserved != null)
                 {
@@ -136,8 +136,8 @@ namespace AppViewLite
         }
 
         public Dictionary<TKey, ValueGroup> BackingDictionary => dict;
-        private Dictionary<TKey, ValueGroup> dict = new();
-        public List<MultiDictionary2VirtualSlice> virtualSlices = new();
+        private Dictionary<TKey, ValueGroup> dict = [];
+        public List<MultiDictionary2VirtualSlice> virtualSlices = [];
         public MultiDictionary2VirtualSlice? currentVirtualSlice;
 
         public long FirstVirtualSliceId;
@@ -272,13 +272,14 @@ namespace AppViewLite
             var d = recyclableDictionary ?? new Dictionary<TKey, ValueGroup>(this.dict.Capacity);
             foreach (var item in this.dict)
             {
-                var v = item.Value;
                 d.Add(item.Key, item.Value.Clone());
             }
-            var copy = new MultiDictionary2<TKey, TValue>(sortedValues: !preserveOrder);
-            copy.dict = d;
-            copy.FirstVirtualSliceId = this.virtualSlices[0].Id;
-            copy.LastVirtualSliceIdExclusive = this.virtualSlices[^1].Id + 1;
+            var copy = new MultiDictionary2<TKey, TValue>(sortedValues: !preserveOrder)
+            {
+                dict = d,
+                FirstVirtualSliceId = this.virtualSlices[0].Id,
+                LastVirtualSliceIdExclusive = this.virtualSlices[^1].Id + 1
+            };
             if (this.currentVirtualSlice!.DirtyKeys.Count != 0)
             {
                 this.CreateVirtualSlice();
@@ -294,7 +295,7 @@ namespace AppViewLite
         public class MultiDictionary2VirtualSlice
         {
             public required long Id;
-            public HashSet<TKey> DirtyKeys = new();
+            public HashSet<TKey> DirtyKeys = [];
 
             public override string ToString()
             {

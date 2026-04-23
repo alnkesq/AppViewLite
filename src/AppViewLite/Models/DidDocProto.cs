@@ -170,8 +170,10 @@ namespace AppViewLite.Models
                 return proto;
             }
             if (onlyIfProtobufEncoding) return null;
-            var result = new DidDocProto();
-            result.Date = Unsafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32());
+            var result = new DidDocProto
+            {
+                Date = Unsafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32())
+            };
             if ((format & DidDocEncoding.HasPds) != 0)
             {
                 result.PdsId = br.Read7BitEncodedInt();

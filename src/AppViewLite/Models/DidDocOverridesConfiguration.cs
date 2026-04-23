@@ -7,13 +7,15 @@ namespace AppViewLite.Models
 {
     public class DidDocOverridesConfiguration
     {
-        public Dictionary<string, (string Pds, string[] Handles)> CustomDidDocs = new();
+        public Dictionary<string, (string Pds, string[] Handles)> CustomDidDocs = [];
         private DateTime date;
 
         internal static DidDocOverridesConfiguration ReadFromFile(string? path)
         {
-            var result = new DidDocOverridesConfiguration();
-            result.date = path != null ? File.GetLastWriteTimeUtc(path) : default;
+            var result = new DidDocOverridesConfiguration
+            {
+                date = path != null ? File.GetLastWriteTimeUtc(path) : default
+            };
 
 
             foreach (var line in StringUtils.ReadTextFile(path))

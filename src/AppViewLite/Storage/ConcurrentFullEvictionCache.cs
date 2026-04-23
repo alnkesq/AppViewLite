@@ -10,7 +10,7 @@ namespace AppViewLite
     public class ConcurrentFullEvictionCache<TKey, TValue> where TKey : notnull
     {
         private ConcurrentDictionary<TKey, TValue> dict;
-        private int capacity;
+        private readonly int capacity;
         private int approximateCount; // Approximate because dict = new() and approximateCount = 0 don't happen atomically.
         public ConcurrentFullEvictionCache(int capacity, HitMissCounter? hitMissCounter = null)
         {
@@ -169,7 +169,7 @@ namespace AppViewLite
 
     public class ConcurrentFullEvictionSetCache<TKey> where TKey : notnull
     {
-        private ConcurrentFullEvictionCache<TKey, byte> inner;
+        private readonly ConcurrentFullEvictionCache<TKey, byte> inner;
         public ConcurrentFullEvictionSetCache(int capacity)
         {
             this.inner = new(capacity);

@@ -9,7 +9,7 @@ namespace AppViewLite.Models
     {
         // Semantics of RKey are kind-dependant.
 
-        public int CompareTo(Notification other)
+        public readonly int CompareTo(Notification other)
         {
             var cmp = this.EventDate.CompareTo(other.EventDate);
             if (cmp != 0) return cmp;
@@ -21,7 +21,7 @@ namespace AppViewLite.Models
             return cmp;
         }
 
-        public string Serialize() => string.Join("/", EventDate.Value, Actor.PlcValue, RKey.TidValue, (int)Kind);
+        public readonly string Serialize() => string.Join("/", EventDate.Value, Actor.PlcValue, RKey.TidValue, (int)Kind);
         public static Notification Deserialize(string s)
         {
             var parts = s.Split('/');

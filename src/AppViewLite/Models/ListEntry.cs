@@ -8,13 +8,13 @@ namespace AppViewLite.Models
     public record struct ListEntry(Plc Member, Tid ListItemRKey) : IComparable<ListEntry>
     {
 
-        public int CompareTo(ListEntry other)
+        public readonly int CompareTo(ListEntry other)
         {
             var z = Member.CompareTo(other.Member);
             if (z != 0) return z;
             return ListItemRKey.CompareTo(other.ListItemRKey);
         }
-        public string Serialize() => Member.PlcValue + "_" + ListItemRKey.TidValue;
+        public readonly string Serialize() => Member.PlcValue + "_" + ListItemRKey.TidValue;
         public static ListEntry Deserialize(string s)
         {
             var parts = s.Split('_');

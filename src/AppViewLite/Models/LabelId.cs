@@ -6,7 +6,7 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct LabelId(Plc Labeler /* empty if self-applied */, ulong NameHash) : IComparable<LabelId>
     {
-        public int CompareTo(LabelId other)
+        public readonly int CompareTo(LabelId other)
         {
             var cmp = this.Labeler.CompareTo(other.Labeler);
             if (cmp != 0) return cmp;

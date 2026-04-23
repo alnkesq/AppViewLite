@@ -12,7 +12,7 @@ using System.Threading;
 
 namespace AppViewLite.Storage
 {
-    public class ImmutableMultiDictionaryReader<TKey, TValue> : IDisposable where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
+    public sealed class ImmutableMultiDictionaryReader<TKey, TValue> : IDisposable where TKey : unmanaged, IComparable<TKey> where TValue : unmanaged, IComparable<TValue>
     {
         private readonly SimpleColumnarReader columnarReader;
         public string PathPrefix;
@@ -516,12 +516,12 @@ namespace AppViewLite.Storage
                 var singleton2 = AllocSingleton();
                 var singletonArray2 = GetSingletonAsDangerousHugeReadOnlyMemory(singleton2);
                 uint currentFp = 0;
-                var func = (uint fp) =>
+                DangerousHugeReadOnlyMemory<TValue> func(uint fp)
                 {
                     AssertRecentFingerprint(fp, currentFp);
                     //return singletonArray;
                     return ChooseDoubleBuffered(fp, singletonArray1, singletonArray2);
-                };
+                }
 
                 foreach (var kv in EnumerateSingleValues())
                 {
@@ -534,7 +534,7 @@ namespace AppViewLite.Storage
             }
             else if (behavior == PersistentDictionaryBehavior.KeySetOnly)
             {
-                Func<uint, DangerousHugeReadOnlyMemory<TValue>> func = static (_) => SingletonDefaultValue;
+                static DangerousHugeReadOnlyMemory<TValue> func(uint _) => SingletonDefaultValue;
                 foreach (var key in EnumerateKeys())
                 {
                     yield return (key, new(0, func));
@@ -561,12 +561,12 @@ namespace AppViewLite.Storage
                 //DangerousHugeReadOnlyMemory<TValue> currentValues = default;
                 DangerousHugeReadOnlyMemory<TValue> currentValues1 = default;
                 DangerousHugeReadOnlyMemory<TValue> currentValues2 = default;
-                var func = (uint fp) =>
+                DangerousHugeReadOnlyMemory<TValue> func(uint fp)
                 {
                     AssertRecentFingerprint(fp, currentFp);
                     //return currentValues;
                     return ChooseDoubleBuffered(fp, currentValues1, currentValues2);
-                };
+                }
 
 
 
@@ -796,7 +796,7 @@ namespace AppViewLite.Storage
         }
     }
 
-    internal struct SingletonDefaultNativeMemory<T> where T : unmanaged
+    internal readonly struct SingletonDefaultNativeMemory<T> where T : unmanaged
     {
         static unsafe SingletonDefaultNativeMemory()
         {

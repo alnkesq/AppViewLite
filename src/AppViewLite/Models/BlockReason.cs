@@ -6,14 +6,14 @@ namespace AppViewLite.Models
     public record struct BlockReason(BlockReasonKind Kind, Relationship List)
     {
 
-        public BlockReasonDisplayStringAndList? ToDisplayStringWithList(BlockSubjects subjects, RequestContext ctx)
+        public readonly BlockReasonDisplayStringAndList? ToDisplayStringWithList(BlockSubjects subjects, RequestContext ctx)
         {
             var text = ToDisplayString(subjects);
             var listId = List;
             var list = text != null && listId != default ? BlueskyEnrichedApis.Instance.WithRelationshipsLock(rels => rels.GetList(listId, ctx: ctx), ctx) : null;
             return text != null ? new BlockReasonDisplayStringAndList(text, list) : null;
         }
-        public string? ToDisplayString(BlockSubjects subjects)
+        public readonly string? ToDisplayString(BlockSubjects subjects)
         {
             if (this == default) return null;
             if (subjects == BlockSubjects.YouAndAuthor)

@@ -18,7 +18,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
         public new const string DidPrefix = "did:fedi:";
 
         private Stopwatch? RecentlyStoredProfilesLastReset;
-        private HashSet<UInt128> RecentlyStoredProfiles = new();
+        private readonly HashSet<UInt128> RecentlyStoredProfiles = [];
         public static ActivityPubProtocol? Instance;
         public ConcurrentFullEvictionSetCache<QualifiedPluggablePostId> RecentlyStoredPosts = new(50_000);
 
@@ -493,7 +493,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
 
     public record struct ActivityPubUserId(string Instance, string UserName)
     {
-        public ActivityPubUserId Normalize()
+        public readonly ActivityPubUserId Normalize()
         {
             if (this == default) return default;
             string instance = StringUtils.TrimWww(this.Instance.ToLowerInvariant());
@@ -518,7 +518,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
             return new ActivityPubUserId(parts[1], parts[0]);
         }
 
-        public override string ToString()
+        public override readonly string ToString()
         {
             return "@" + UserName + "@" + Instance;
         }

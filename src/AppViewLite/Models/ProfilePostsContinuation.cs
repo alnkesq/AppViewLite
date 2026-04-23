@@ -6,7 +6,7 @@ namespace AppViewLite.Models
     internal record struct ProfilePostsContinuation(Tid MaxTidPosts, Tid MaxTidReposts, Tid MaxTidLikes, Tid MaxTidBookmarks, PostIdString[] FastReturnedPosts)
     {
 
-        public string Serialize()
+        public readonly string Serialize()
         {
             return $"{MaxTidPosts.TidValue}|{MaxTidReposts.TidValue}|{MaxTidLikes.TidValue}|{MaxTidBookmarks.TidValue}{string.Join(null, FastReturnedPosts.Select(x => "|" + x.Serialize()))}";
         }

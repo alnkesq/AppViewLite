@@ -25,7 +25,7 @@ namespace AppViewLite.Models
             return result;
         }
 
-        public int Length
+        public readonly int Length
         {
             get
             {
@@ -34,11 +34,11 @@ namespace AppViewLite.Models
             }
         }
 
-        public bool IsEmpty => AsUint16 == 0;
+        public readonly bool IsEmpty => AsUint16 == 0;
 
-        [UnscopedRef] public ReadOnlySpan<byte> AllBytes => this;
+        [UnscopedRef] public readonly ReadOnlySpan<byte> AllBytes => this;
         [UnscopedRef] public ReadOnlySpan<byte> Bytes => AllBytes.Slice(0, Length);
-        public int CompareTo(SizeLimitedWord2 other)
+        public readonly int CompareTo(SizeLimitedWord2 other)
         {
             return this.AllBytes.SequenceCompareTo(other.AllBytes);
         }
@@ -57,17 +57,17 @@ namespace AppViewLite.Models
             return false;
         }
 
-        public bool Equals(SizeLimitedWord2 other)
+        public readonly bool Equals(SizeLimitedWord2 other)
         {
             return this.AsUint16 == other.AsUint16;
         }
 
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             return AsUint16.GetHashCode();
         }
 
-        private ushort AsUint16 => Unsafe.BitCast<SizeLimitedWord2, ushort>(this);
+        private readonly ushort AsUint16 => Unsafe.BitCast<SizeLimitedWord2, ushort>(this);
 
         const int MaxLength = 2;
 

@@ -160,10 +160,7 @@ namespace AppViewLite.Web
             {
                 await req();
                 var requestContext = ctx.RequestServices.GetService<RequestContext>();
-                if (requestContext != null)
-                {
-                    requestContext.CompletionTimeStopwatchTicks = Stopwatch.GetTimestamp();
-                }
+                requestContext?.CompletionTimeStopwatchTicks = Stopwatch.GetTimestamp();
             });
 
             app.MapStaticAssets();

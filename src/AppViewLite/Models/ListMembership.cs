@@ -7,7 +7,7 @@ namespace AppViewLite.Models
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public record struct ListMembership(Plc ListAuthor, Tid ListRKey, Tid ListItemRKey) : IComparable<ListMembership>
     {
-        public int CompareTo(ListMembership other)
+        public readonly int CompareTo(ListMembership other)
         {
             var cmp = this.ListAuthor.CompareTo(other.ListAuthor);
             if (cmp != 0) return cmp;
@@ -17,7 +17,7 @@ namespace AppViewLite.Models
 
         }
 
-        public string Serialize() => ListAuthor.PlcValue + "_" + ListRKey.TidValue + "_" + ListItemRKey.TidValue;
+        public readonly string Serialize() => ListAuthor.PlcValue + "_" + ListRKey.TidValue + "_" + ListItemRKey.TidValue;
         public static ListMembership Deserialize(string s)
         {
             var parts = s.Split('_');

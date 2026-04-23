@@ -5,10 +5,10 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite.Storage
 {
-    public class SimpleColumnarWriter : IDisposable
+    public sealed class SimpleColumnarWriter : IDisposable
     {
         private bool wasCommitted;
-        private (BinaryWriter Writer, Action Commit, string TempFile)[] _columnWriters;
+        private readonly (BinaryWriter Writer, Action Commit, string TempFile)[] _columnWriters;
         public SimpleColumnarWriter(string destinationPrefix, int columnCount)
         {
             _columnWriters = Enumerable.Range(0, columnCount).Select(i =>

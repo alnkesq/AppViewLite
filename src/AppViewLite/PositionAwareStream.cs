@@ -7,7 +7,7 @@ namespace AppViewLite
 {
     public class PositionAwareStream : Stream
     {
-        private Stream stream;
+        private readonly Stream stream;
         private long position;
         public PositionAwareStream(Stream stream)
         {

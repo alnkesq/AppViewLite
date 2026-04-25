@@ -335,8 +335,8 @@ namespace AppViewLite.Storage
             : base(directory, behavior)
         {
 
-            CompactStructCheck<TKey>.Check();
-            CompactStructCheck<TValue>.Check();
+            CompactStructCheck.Check<TKey>();
+            CompactStructCheck.Check<TValue>();
 
             if (behavior == PersistentDictionaryBehavior.KeySetOnly && typeof(TValue) != typeof(byte))
                 throw new ArgumentException("When behavior is KeySetOnly, the dummy TValue must be System.Byte.");

@@ -153,7 +153,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                 }
             }
 
-            var sample = postDates.OrderByDescending(x => x).Take(postDates.Count / 4).ToArray(); // ignore old posts for frequency estimation (threads can disappear if they're not bumped)
+            var sample = postDates.OrderDescending().Take(postDates.Count / 4).ToArray(); // ignore old posts for frequency estimation (threads can disappear if they're not bumped)
 
             var threadsPerDay = (double)sample.Length / (DateTime.UtcNow - (sample?.LastOrDefault() ?? default)).TotalDays;
 

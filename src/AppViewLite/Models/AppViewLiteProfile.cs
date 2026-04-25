@@ -51,7 +51,7 @@ namespace AppViewLite.Models
             if (longestWordForEachGlobalMuteRule.Length == 0) return (_, _) => [];
 
             // SearchValues only supports Ordinal and OrdinalIgnoreCase
-            var regex = new Regex(@"\b(?:" + string.Join("|", longestWordForEachGlobalMuteRule.Select(x => Regex.Escape(x))) + @")\b", RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var regex = new Regex(@"\b(?:" + string.Join('|', longestWordForEachGlobalMuteRule.Select(x => Regex.Escape(x))) + @")\b", RegexOptions.NonBacktracking | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             return (postTexts, urls) =>
             {
                 var isMatch =

@@ -210,7 +210,7 @@ namespace AppViewLite.Web
             return TypedResults.Stream(async stream =>
             {
                 await JsonSerializer.SerializeAsync(stream, obj, TakeoutJsonOptions);
-            }, fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(":", "_")}-{now:yyyy-MM-dd-HHmmss}.json");
+            }, fileDownloadName: $"AppViewLite-{ctx.UserContext.Did!.Replace(':', '_')}-{now:yyyy-MM-dd-HHmmss}.json");
         }
 
         private readonly static JsonSerializerOptions TakeoutJsonOptions = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };

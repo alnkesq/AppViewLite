@@ -973,7 +973,7 @@ namespace AppViewLite
                 var lines = text.Split('\n');
                 if (lines.Length > maxLines)
                 {
-                    text = string.Join("\n", lines.Take(maxLines.Value)) + "…";
+                    text = string.Join('\n', lines.Take(maxLines.Value)) + "…";
                 }
             }
             return text;

@@ -66,7 +66,7 @@ namespace AppViewLite
             var keep = 2;
             if (secondLast is "gov" or "com" or "edu" or "co" or "org")
                 keep = 3;
-            return string.Join(".", parts.Skip(parts.Length - keep));
+            return string.Join('.', parts.Skip(parts.Length - keep));
         }
     }
 }

@@ -927,7 +927,7 @@ namespace AppViewLite
                 return (mandatoryPosts, mandatoryNextContinuation?.Serialize());
             }
 
-            bool HasEnoughPrefetchedResults() => searchSession.AlreadyProcessed.Count(x => x.Value.LikeCount != -1) > limit; // strictly greater (we want limit + 1)
+            bool HasEnoughPrefetchedResults() => searchSession.AlreadyProcessed.Where(x => x.Value.LikeCount != -1).Skip(limit).Any(); // strictly greater (we want limit + 1)
 
 
             if (!HasEnoughPrefetchedResults())
@@ -946,7 +946,7 @@ namespace AppViewLite
                     }
                     if (minLikes == 0) break;
                     if (minLikes == 1) minLikes = 0;
-                    else minLikes = minLikes / 2;
+                    else minLikes /= 2;
                     if (minLikes < options.MinLikes / 2) break;
                 }
             }
@@ -1025,7 +1025,7 @@ namespace AppViewLite
                 }
                 return true;
             }
-            var coreSearchTerms = queryWords.Select(x => x.ToString()).Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x));
+            var coreSearchTerms = queryWords.Where(x => !tags.Contains(x)).Concat(tags.Select(x => "#" + x));
             if (options.MinLikes > BlueskyRelationships.SearchIndexPopularityMinLikes)
             {
                 coreSearchTerms = coreSearchTerms.Append(BlueskyRelationships.GetPopularityIndexConstraint("likes", options.MinLikes));
@@ -1072,15 +1072,14 @@ namespace AppViewLite
                         var posts = postsCore
                             .Where(x =>
                             {
+                                if (author != default && x.Key.Author != author) return false;
                                 if (alreadyProcessedPosts != null)
                                 {
                                     if (!alreadyProcessedPosts.TryAdd(x.Key, new CachedSearchResult(null, -1))) // Will be overwritten later with actual post, if it matches
                                         return false;
                                 }
-                                return true;
+                                return !rels.PostDeletions.ContainsKey(x.Key);
                             })
-                            .Where(x => !rels.PostDeletions.ContainsKey(x.Key))
-                            .Where(x => author != default ? x.Key.Author == author : true)
                             .Select(x => (PostId: x.Key, Data: BlueskyRelationships.DeserializePostData(x.Values.AsSmallSpan(), x.Key)))
                             .Where(x => x.Data.Error == null);
 
@@ -1908,7 +1907,13 @@ namespace AppViewLite
                 {
                     return rels.GetFirehosePosts(slice, maxPostIdExclusive, now, ctx); //.AssertOrderedAllowDuplicates(x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)));
                 })
-                .Append(rels.PostData.QueuedItems.Where(x => x.Key.PostRKey.Date < now).Where(x => (!maxPostIdExclusive.HasValue || x.Key.CompareTo(maxPostIdExclusive.Value) < 0) && !rels.PostDeletions.ContainsKey(x.Key)).OrderByDescending(x => x.Key).Take(limit).Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key), ctx)))
+                .Append(
+                    rels.PostData.QueuedItems
+                    .Where(x => x.Key.PostRKey.Date < now && (!maxPostIdExclusive.HasValue || x.Key.CompareTo(maxPostIdExclusive.Value) < 0) && !rels.PostDeletions.ContainsKey(x.Key))
+                    .OrderByDescending(x => x.Key)
+                    .Take(limit)
+                    .Select(x => rels.GetPost((PostId)x.Key, BlueskyRelationships.DeserializePostData(x.Values.AsUnsortedSpan(), x.Key), ctx))
+                )
                 .ToArray();
 
                 var merged = SimpleJoin.ConcatPresortedEnumerablesKeepOrdered(enumerables, x => (PostIdTimeFirst)x.PostId, new DelegateComparer<PostIdTimeFirst>((a, b) => b.CompareTo(a)))
@@ -2359,7 +2364,7 @@ namespace AppViewLite
 
             var posts = result.FinalPosts.ToArray();
             await EnrichAsync(posts, ctx);
-            return new PostsAndContinuation(posts, result.ProducedEnoughPosts ? string.Join(",", result.FinalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
+            return new PostsAndContinuation(posts, result.ProducedEnoughPosts ? string.Join(',', result.FinalPosts.TakeLast(10).Select(x => StringUtils.SerializeToString(x.PostId)).Prepend(StringUtils.SerializeToString(Guid.NewGuid()))) : null);
         }
 
         public (List<BlueskyPost> FinalPosts, bool ProducedEnoughPosts) GetBalancedFollowingFeed(string? continuation, int limit, RequestContext ctx)
@@ -2373,7 +2378,7 @@ namespace AppViewLite
             var minDate = now - BlueskyRelationships.BalancedFeedMaximumAge;
 
             var loggedInUser = ctx.LoggedInUser;
-            var random = new Random((now.Ticks / TimeSpan.TicksPerMinute + "|" + continuation).GetHashCode());
+            var random = new Random(StringComparer.Ordinal.GetHashCode((now.Ticks / TimeSpan.TicksPerMinute + "|" + continuation)));
 
             var postsFromFeedsBeforeFiltering = GetPostsFromFeedsForInterleaving(ctx);
 
@@ -2529,11 +2534,13 @@ namespace AppViewLite
                                 }
                             }
                             if (replies.Count == 0) return null;
+#pragma warning disable MA0063 // Use Where before OrderBy (isPostSeen is potentially expensive compared to the OrderByDescending)
                             foreach (var reply in replies.OrderByDescending(x => (x.PostId.Author == post.AuthorId, x.PerUserScore)).Where(x => !isPostSeen(x.PostId)))
                             {
                                 var p = rels.GetPost(reply.PostId, ctx);
                                 if (ShouldInclude(p)) return p;
                             }
+#pragma warning restore MA0063
 
                             return null;
                         }
@@ -2833,13 +2840,11 @@ namespace AppViewLite
             var postsFast = rels.GetRecentPopularPosts(plc, couldBePluggablePost: couldBePluggablePost /*pluggables can only repost pluggables, atprotos can only repost atprotos*/, onlyIfAlreadyInRam: timedOut());
 
             var posts = (postsFast ?? [])
-                .Where(x => !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
-                .Where(x => x.RKey.Date >= minDate)
+                .Where(x => x.RKey.Date >= minDate && !isPostSeen(new PostIdTimeFirst(x.RKey, plc)))
                 .ToArray();
 
             var reposts = (rels.GetRecentReposts(plc, couldBePluggablePost: couldBePluggablePost, onlyIfAlreadyInRam: timedOut()) ?? [])
-                .Where(x => !isPostSeen(x.PostId) && x.PostId.Author != loggedInUser)
-                .Where(x => x.RepostRKey.Date >= minDate)
+                .Where(x => x.RepostRKey.Date >= minDate && x.PostId.Author != loggedInUser && !isPostSeen(x.PostId))
                 .ToArray();
 
             if (posts.Length == 0 && reposts.Length == 0) return default;
@@ -3618,7 +3623,6 @@ namespace AppViewLite
                                 m.Did = new ATDid(did);
                             }
                         }
-                        ;
                     }
                 }
                 postRecord.Facets = facets;
@@ -3984,8 +3988,7 @@ namespace AppViewLite
                 {
                     return rels.SearchProfiles(queryWords, SizeLimitedWord8.Create(wordPrefix, out _), parsedContinuation.MaxPlc, alsoSearchDescriptions: parsedContinuation.AlsoSearchDescriptions)
                     .Select(x => rels.GetProfile(x, ctx))
-                    .Where(x => rels.ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix))
-                    .Where(x => alreadyReturned.Add(x.Plc))
+                    .Where(x => rels.ProfileMatchesSearchTerms(x, parsedContinuation.AlsoSearchDescriptions, queryWords, wordPrefix) && alreadyReturned.Add(x.Plc))
                     .Select(x =>
                     {
                         followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);

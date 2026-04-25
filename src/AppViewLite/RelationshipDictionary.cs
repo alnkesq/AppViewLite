@@ -406,7 +406,7 @@ namespace AppViewLite
             return new RelationshipHash((uint)likeHash, (ushort)(likeHash >> 32));
         }
 
-        public void Flush(bool disposing)
+        public void Flush(bool disposing = false)
         {
             creations.Flush(disposing);
             deletions.Flush(disposing);

@@ -22,7 +22,7 @@ namespace AppViewLite.PluggableProtocols
                 var url = $"https://github.com/{owner}/{repo}/commit/{x.sha}";
                 var id = new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(PluggableProtocol.CreateSyntheticTid(x.commit.author.date, x.sha), url));
                 var parts = x.commit.message.Split('\n', 2);
-                var text = string.Join("\n", parts.ElementAtOrDefault(1)?.Split("\n", StringSplitOptions.TrimEntries)
+                var text = string.Join('\n', parts.ElementAtOrDefault(1)?.Split("\n", StringSplitOptions.TrimEntries)
                     .Where(x => x != "---------" && !x.StartsWith("Co-authored-by:", StringComparison.Ordinal))
                     .Select(x => AsteriskToBullet(x)) ?? []).Trim();
                 return new VirtualRssPost(id, new BlueskyPostData { Text = StringUtils.TrimTextWithEllipsis(Regex.Replace(text, "\n{2,}• ", "\n• "), 1000, 14), ExternalTitle = parts[0].Trim(), ExternalUrl = url });
@@ -51,7 +51,7 @@ namespace AppViewLite.PluggableProtocols
             {
                 var url = $"https://github.com/{owner}/{repo}/releases/tag/{x.tag_name}";
                 var id = new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(PluggableProtocol.CreateSyntheticTid(x.published_at, x.tag_name), url));
-                return new VirtualRssPost(id, new BlueskyPostData { ExternalTitle = x.name, PluggableLikeCount = x.reactions?.total_count, ExternalUrl = url, ExternalDescription = StringUtils.TrimTextWithEllipsis(string.Join("\n", (x.body?.Split('\n') ?? []).Select(AsteriskToBullet)), 1000, 14) });
+                return new VirtualRssPost(id, new BlueskyPostData { ExternalTitle = x.name, PluggableLikeCount = x.reactions?.total_count, ExternalUrl = url, ExternalDescription = StringUtils.TrimTextWithEllipsis(string.Join('\n', (x.body?.Split('\n') ?? []).Select(AsteriskToBullet)), 1000, 14) });
             }).ToArray());
         }
 

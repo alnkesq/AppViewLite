@@ -54,14 +54,14 @@ namespace AppViewLite
             }
         }
 
-        public TValue GetOrAdd(TKey key, Func<TValue> factory)
+        public unsafe TValue GetOrAdd(TKey key, Func<TValue> factory)
         {
             var wasAdded = false;
-            var value = dict.GetOrAdd(key, (key) =>
+            var value = dict.GetOrAdd(key, static (key, arg) =>
             {
-                wasAdded = true; // racy but doesn't matter, approximation only
-                return factory();
-            });
+                arg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                return arg.Factory();
+            }, (Factory: factory, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
             if (wasAdded)
             {
                 HitMissCounter.OnMiss();
@@ -113,14 +113,14 @@ namespace AppViewLite
         }
 
 
-        public bool Add(TKey key, TValue value)
+        public unsafe bool Add(TKey key, TValue value)
         {
             var wasAdded = true;
-            dict.AddOrUpdate(key, value, (key, old) =>
+            dict.AddOrUpdate(key, static (key, arg) => arg.Value, static (key, old, arg) =>
             {
-                wasAdded = false; // Updating, so we must NOT increment approx count
-                return value;
-            });
+                arg.WasAddedPtr.AsRef = false; // Updating, so we must NOT increment approx count
+                return arg.Value;
+            }, (Value: value, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
             if (wasAdded)
             {
                 IncrementApproximateCountAndMaybeReset(value);

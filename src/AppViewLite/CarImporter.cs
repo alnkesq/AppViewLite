@@ -196,7 +196,6 @@ namespace AppViewLite
                 if (record != null)
                     yield return (Did, item.Collection + "/" + item.RKey, record);
             }
-            ;
         }
 
         private ATObject? TryReadRecord(RecordLocation recordLocation)

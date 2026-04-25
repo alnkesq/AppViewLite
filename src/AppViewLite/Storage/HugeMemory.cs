@@ -130,13 +130,13 @@ namespace AppViewLite.Storage
             return new DangerousHugeReadOnlyMemory<T>(ptr + (nint)start, this.length - start);
         }
 
-        public Enumerator GetEnumerator() => new Enumerator { ptr = this.ptr - 1, Remaining = this.length };
+        public readonly Enumerator GetEnumerator() => new Enumerator { ptr = this.ptr - 1, Remaining = this.length };
 
-        IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
+        readonly IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
 
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        readonly IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        public IEnumerable<T> Reverse()
+        public readonly IEnumerable<T> Reverse()
         {
             for (long i = this.length - 1; i >= 0; i--)
             {
@@ -149,15 +149,15 @@ namespace AppViewLite.Storage
 
         public readonly ReadOnlySpan<T> AsSmallSpan() => this.Span.AsSmallSpan();
 
-        public ref readonly T this[long index] => ref Unsafe.AsRef(in this.ptr[index]);
+        public readonly ref readonly T this[long index] => ref Unsafe.AsRef(in this.ptr[index]);
         public unsafe struct Enumerator : IEnumerator<T>
         {
             internal T* ptr;
             internal long Remaining;
 
-            public T Current => *ptr;
+            public readonly T Current => *ptr;
 
-            object IEnumerator.Current => this.Current;
+            readonly object IEnumerator.Current => this.Current;
 
             public readonly void Dispose()
             {
@@ -171,7 +171,7 @@ namespace AppViewLite.Storage
                 return true;
             }
 
-            public void Reset()
+            public readonly void Reset()
             {
                 throw new NotSupportedException();
             }

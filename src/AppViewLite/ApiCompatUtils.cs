@@ -216,7 +216,7 @@ namespace AppViewLite
 
         private static string ToApiCompatLanguage(LanguageEnum language)
         {
-            return language.ToString().Replace("_", "-");
+            return language.ToString().Replace('_', '-');
         }
 
 

@@ -47,7 +47,7 @@ namespace AppViewLite
             internal TValue[]? _manyValuesPreserved; // Contents of this array must NOT change.
             internal TValue _singleValue;
 
-            public ValueGroup Clone()
+            public readonly ValueGroup Clone()
             {
                 return new()
                 {

@@ -795,7 +795,6 @@ namespace AppViewLite.PluggableProtocols.Rss
                     {
                         imageUrl = new Uri("https://i.redd.it/" + imageUrl.GetSegments()[0]);
                     }
-                    ;
                     return new BlueskyMediaData
                     {
                         Cid = UrlToCid(imageUrl?.AbsoluteUri)!,
@@ -986,7 +985,7 @@ namespace AppViewLite.PluggableProtocols.Rss
         {
             public override string ToString()
             {
-                return PostId + ": " + (QuotedPost != null ? "(quoting post) " : null) + string.Join(" ", Content.Select(x => x.TextContent));
+                return PostId + ": " + (QuotedPost != null ? "(quoting post) " : null) + string.Join(' ', Content.Select(x => x.TextContent));
             }
         }
 
@@ -1078,7 +1077,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 schemePrefix = "http://";
             }
             if (parts.Length <= 1) throw new UnexpectedFirehoseDataException("Invalid RSS did.");
-            return new Uri(schemePrefix + string.Join("/", parts.Select(x => Uri.UnescapeDataString(x.Replace("_", "%")))));
+            return new Uri(schemePrefix + string.Join('/', parts.Select(x => Uri.UnescapeDataString(x.Replace('_', '%')))));
         }
 
         public static string UrlToDid(Uri url)
@@ -1088,7 +1087,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (!url.IsDefaultPort || !string.IsNullOrEmpty(url.UserInfo))
                 throw new NotSupportedException("RSS feeds on custom ports or user login info are not supported.");
             return
-               DidPrefix + (url.Scheme == Uri.UriSchemeHttp ? "http:" : null) + Uri.EscapeDataString(url.AbsoluteUri.AsSpan(url.Scheme.Length + 3)).Replace("_", "%5F").Replace("%2F", ":").Replace("%", "_");
+               DidPrefix + (url.Scheme == Uri.UriSchemeHttp ? "http:" : null) + Uri.EscapeDataString(url.AbsoluteUri.AsSpan(url.Scheme.Length + 3)).Replace("_", "%5F").Replace("%2F", ":").Replace('%', '_');
         }
 
         public async override Task<BlobResult> GetBlobAsync(string did, byte[] cid, ThumbnailSize preferredSize, CancellationToken ct)
@@ -1154,10 +1153,10 @@ namespace AppViewLite.PluggableProtocols.Rss
             var second = parts[^2];
             if (second.Length <= 3 && parts.Length >= 3) // example.co.uk -> example
             {
-                return string.Join(".", parts.SkipLast(2));
+                return string.Join('.', parts.SkipLast(2));
             }
 
-            return string.Join(".", parts.SkipLast(1)); // example.com -> example
+            return string.Join('.', parts.SkipLast(1)); // example.com -> example
 
         }
 
@@ -1420,7 +1419,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             if (url.HasHostSuffix("github.com"))
             {
                 var segments = url.GetSegments().Take(2).ToArray();
-                return "github.com/" + string.Join("/", segments);
+                return "github.com/" + string.Join('/', segments);
             }
             if (url.HasHostSuffix("youtube.com"))
             {
@@ -1474,7 +1473,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                     segments = segments.Append("commits").ToArray();
                 if (segments.Length >= 3)
                 {
-                    var r = ("https://github.com/" + string.Join("/", segments.Take(3))).ToLowerInvariant();
+                    var r = ("https://github.com/" + string.Join('/', segments.Take(3))).ToLowerInvariant();
 
                     if (r == feedUrl.AbsoluteUri)
                     {

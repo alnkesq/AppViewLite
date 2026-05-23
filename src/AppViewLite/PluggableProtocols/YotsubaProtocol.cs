@@ -67,7 +67,21 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
 
             var ctx = RequestContext.CreateForFirehose("Yotsuba:" + host);
 
-            var boards = boardsFromConfig ?? (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaBoardMetadataResponseJson>(HostConfiguration[host].BoardsJsonUrl, JsonOptions, ct))!.boards;
+            YotsubaBoardMetadataJson[] boards;
+            while (true)
+            {
+                try
+                {
+                    boards = boardsFromConfig ?? (await BlueskyEnrichedApis.DefaultHttpClient.GetFromJsonAsync<YotsubaBoardMetadataResponseJson>(HostConfiguration[host].BoardsJsonUrl, JsonOptions, ct))!.boards;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    LogNonCriticalException(ex);
+                    await Task.Delay(TimeSpan.FromHours(1), ct);
+                }
+            }
+            
 
             foreach (var board in boards)
             {

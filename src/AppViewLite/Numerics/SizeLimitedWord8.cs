@@ -42,18 +42,18 @@ namespace AppViewLite.Numerics
         public readonly bool IsEmpty => AsUint64 == 0;
 
         [UnscopedRef] public readonly ReadOnlySpan<byte> AllBytes => this;
-        [UnscopedRef] public ReadOnlySpan<byte> Bytes => AllBytes.Slice(0, Length);
+        [UnscopedRef] public readonly ReadOnlySpan<byte> Bytes => AllBytes.Slice(0, Length);
         public readonly int CompareTo(SizeLimitedWord8 other)
         {
             return AllBytes.SequenceCompareTo(other.AllBytes);
         }
 
-        public override string ToString()
+        public readonly override string ToString()
         {
             return Encoding.UTF8.GetString(Bytes);
         }
 
-        public override bool Equals([NotNullWhen(true)] object? obj)
+        public override readonly bool Equals([NotNullWhen(true)] object? obj)
         {
             if (obj is SizeLimitedWord8 other)
             {
@@ -78,7 +78,7 @@ namespace AppViewLite.Numerics
 
         public readonly static SizeLimitedWord8 MaxValue = Unsafe.BitCast<ulong, SizeLimitedWord8>(ulong.MaxValue);
 
-        public SizeLimitedWord8 GetMaxExclusiveForPrefixRange()
+        public readonly SizeLimitedWord8 GetMaxExclusiveForPrefixRange()
         {
             // hello -> hellp
 

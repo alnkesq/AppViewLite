@@ -256,7 +256,7 @@ namespace AppViewLite.Storage
                 return this;
             }
             IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
-            public void Reset() => throw new NotSupportedException();
+            public readonly void Reset() => throw new NotSupportedException();
             IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
         }
         public static GroupAssumingOrderedInputStreamedEnumerator<TKey, TValue> GroupAssumingOrderedInputStreamed<TKey, TValue>(this IEnumerable<(TKey Key, TValue Value)> sortedInput, bool skipCheck = false, IEqualityComparer<TKey>? keyEqualityComparer = null)

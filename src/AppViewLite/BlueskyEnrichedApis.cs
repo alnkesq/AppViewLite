@@ -3954,10 +3954,11 @@ namespace AppViewLite
                 .Select(x => rels.TryGetFeedGenerator(x, ctx)!)
                 .Where(x =>
                 {
+                    if (x == null) return false;
+                    if (x.Data?.Deleted == true) return false;
                     var words = StringUtils.GetAllWords(x.Data?.DisplayName).Concat(StringUtils.GetAllWords(x.Data?.Description)).Distinct().ToArray();
                     return queryWords.All(x => words.Contains(x));
                 })
-                .Where(x => x != null && x.Data?.Deleted != true)
                 .Take(limit + 1)
                 .ToArray();
             }, ctx);
@@ -4029,8 +4030,7 @@ namespace AppViewLite
                             rels.SearchProfiles(updatedSearchTerms, SizeLimitedWord8.Create(updatedWordPrefix, out _), Plc.MaxValue, false)
                             .Where(x => !alreadyReturned.Contains(x))
                             .Select(x => rels.GetProfile(x, ctx))
-                            .Where(x => x.DisplayName == null) // otherwise should've matched earlier
-                            .Where(x => rels.ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
+                            .Where(x => x.DisplayName == null /*otherwise should've matched earlier*/ && rels.ProfileMatchesSearchTerms(x, alsoSearchDescriptions: false, updatedSearchTerms, updatedWordPrefix))
                             .Select(x =>
                             {
                                 followerCount[x.Plc] = rels.Follows.GetActorCount(x.Plc);

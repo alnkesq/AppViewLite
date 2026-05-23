@@ -1,11 +1,12 @@
 using AppViewLite.Numerics;
 using DuckDbSharp.Types;
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace AppViewLite.Models
 {
-    public readonly struct QualifiedPluggablePostId
+    public readonly struct QualifiedPluggablePostId : IEquatable<QualifiedPluggablePostId>
     {
         public readonly string Did { get; }
         public readonly NonQualifiedPluggablePostId PostId { get; }
@@ -53,6 +54,32 @@ namespace AppViewLite.Models
         public readonly bool HasExternalIdentifier => PostId.HasExternalIdentifier;
 
         public readonly QualifiedPluggablePostId WithTid(Tid updatedTid) => new QualifiedPluggablePostId(Did, PostId.WithTid(updatedTid));
+
+        public override bool Equals(object? obj)
+        {
+            return obj is QualifiedPluggablePostId id && Equals(id);
+        }
+
+        public bool Equals(QualifiedPluggablePostId other)
+        {
+            return Did == other.Did &&
+                   EqualityComparer<NonQualifiedPluggablePostId>.Default.Equals(PostId, other.PostId);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Did, PostId);
+        }
+
+        public static bool operator ==(QualifiedPluggablePostId left, QualifiedPluggablePostId right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(QualifiedPluggablePostId left, QualifiedPluggablePostId right)
+        {
+            return !(left == right);
+        }
     }
 }
 

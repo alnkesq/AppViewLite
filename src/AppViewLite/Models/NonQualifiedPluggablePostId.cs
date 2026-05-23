@@ -55,9 +55,9 @@ namespace AppViewLite.Models
 
         public readonly bool HasExternalIdentifier => Int64 != 0 || String != null || Bytes != null;
 
-        internal NonQualifiedPluggablePostId CloneWithoutTid() => WithTid(default);
+        internal readonly NonQualifiedPluggablePostId CloneWithoutTid() => WithTid(default);
 
-        internal NonQualifiedPluggablePostId WithTid(Tid updatedTid) => new NonQualifiedPluggablePostId
+        internal readonly NonQualifiedPluggablePostId WithTid(Tid updatedTid) => new NonQualifiedPluggablePostId
         {
             Int64 = Int64,
             String = String,

@@ -37,18 +37,18 @@ namespace AppViewLite.Models
         public readonly bool IsEmpty => AsUint16 == 0;
 
         [UnscopedRef] public readonly ReadOnlySpan<byte> AllBytes => this;
-        [UnscopedRef] public ReadOnlySpan<byte> Bytes => AllBytes.Slice(0, Length);
+        [UnscopedRef] public readonly ReadOnlySpan<byte> Bytes => AllBytes.Slice(0, Length);
         public readonly int CompareTo(SizeLimitedWord2 other)
         {
             return this.AllBytes.SequenceCompareTo(other.AllBytes);
         }
 
-        public override string ToString()
+        public readonly override string ToString()
         {
             return Encoding.UTF8.GetString(Bytes);
         }
 
-        public override bool Equals([NotNullWhen(true)] object? obj)
+        public readonly override bool Equals([NotNullWhen(true)] object? obj)
         {
             if (obj is SizeLimitedWord2 other)
             {
@@ -73,7 +73,7 @@ namespace AppViewLite.Models
 
         public readonly static SizeLimitedWord2 MaxValue = Unsafe.BitCast<ushort, SizeLimitedWord2>(ushort.MaxValue);
 
-        public SizeLimitedWord2 GetMaxExclusiveForPrefixRange()
+        public readonly SizeLimitedWord2 GetMaxExclusiveForPrefixRange()
         {
             // hello -> hellp
 

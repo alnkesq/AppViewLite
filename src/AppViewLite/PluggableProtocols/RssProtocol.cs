@@ -1228,8 +1228,7 @@ namespace AppViewLite.PluggableProtocols.Rss
                 var links = dom.QuerySelectorAll("a")
                     .Select(x => Uri.TryCreate(url, x.GetAttribute("href"), out var u) ? u : null)
                     .WhereNonNull()
-                    .Where(x => x.Host == url.Host)
-                    .Where(x => Regex.IsMatch(x.PathAndQuery, @"\b(?:feed|rss|\.xml|atom)\b"))
+                    .Where(x => x.Host == url.Host && Regex.IsMatch(x.PathAndQuery, @"\b(?:feed|rss|\.xml|atom)\b"))
                     .DistinctBy(x => x.GetLeftPart(UriPartial.Query))
                     .OrderBy(x => x.AbsoluteUri.Length);
                 foreach (var link in links.Take(2))

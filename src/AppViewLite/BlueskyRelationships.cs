@@ -2393,8 +2393,7 @@ namespace AppViewLite
             {
 
                 var result = myFollowees
-                    .Where(x => Follows.HasActor(plc, x.Member, out _))
-                    .Where(x => !Follows.IsDeleted(new Relationship(x.Member, x.ListItemRKey)))
+                    .Where(x => Follows.HasActor(plc, x.Member, out _) && !Follows.IsDeleted(new Relationship(x.Member, x.ListItemRKey)))
                     .Select(x => x.Member)
                     .ToArray();
                 return result;
@@ -3332,7 +3331,7 @@ namespace AppViewLite
         public BlueskyThreadgate? TryGetThreadgate(PostId postid, RequestContext ctx)
         {
             RequestContext.InitCacheField(ref ctx.ThreadgateCache);
-            return ctx.ThreadgateCache.GetOrAdd(postid, postid => TryGetThreadgateCore(postid));
+            return ctx.ThreadgateCache.GetOrAdd(postid, static (postid, tthis) => tthis.TryGetThreadgateCore(postid), this);
         }
         private BlueskyThreadgate? TryGetThreadgateCore(PostId postid)
         {
@@ -3346,7 +3345,7 @@ namespace AppViewLite
         public bool ThreadgateAllowsUser(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor, RequestContext ctx)
         {
             RequestContext.InitCacheField(ref ctx.ThreadgateAllowsUserCache);
-            return ctx.ThreadgateAllowsUserCache.GetOrAdd((rootPostId, replyAuthor), _ => ThreadgateAllowsUserCore(rootPostId, threadgate, replyAuthor));
+            return ctx.ThreadgateAllowsUserCache.GetOrAdd((rootPostId, replyAuthor), static (_, arg) => arg.tthis.ThreadgateAllowsUserCore(arg.rootPostId, arg.threadgate, arg.replyAuthor), (tthis: this, rootPostId, threadgate, replyAuthor));
         }
 
         private bool ThreadgateAllowsUserCore(PostId rootPostId, BlueskyThreadgate threadgate, Plc replyAuthor)
@@ -3632,6 +3631,7 @@ namespace AppViewLite
             return KnownMirrorsToIgnore.ContainsKey(hash);
         }
 
+        [SuppressMessage("Performance", "MA0106:Avoid closure by using an overload with the 'factoryArgument' parameter", Justification = "Would complicate code, because it depends on local function IsStillFollowedGetRkeyCore")]
         public FollowingFastResults GetFollowingFast(RequestContext ctx) // The lambda is SAFE to reuse across re-locks
         {
             var StillPrivateFollowed = Tid.MaxValue;

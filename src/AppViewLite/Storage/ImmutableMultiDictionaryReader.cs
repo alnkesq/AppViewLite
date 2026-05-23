@@ -670,10 +670,6 @@ namespace AppViewLite.Storage
             {
                 InitializeIoPreferenceForKey((TKey)(object)comparable, ref preference);
             }
-            else
-            {
-
-            }
 
             var startTime = Stopwatch.GetTimestamp();
             long result;

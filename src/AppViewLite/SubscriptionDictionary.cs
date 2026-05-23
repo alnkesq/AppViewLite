@@ -27,14 +27,14 @@ namespace AppViewLite
             if (handler == null) return;
             if (!subscriptions.TryRemove(new(key, handler)))
             {
-                subscriptions.AddOrUpdate(key, handler, (_, prev) => (TDelegate)Delegate.Remove(prev, handler)!);
+                subscriptions.AddOrUpdate(key, static (_,  handler) => handler, static (_, prev, handler) => (TDelegate)Delegate.Remove(prev, handler)!, handler);
             }
         }
 
         public void Subscribe(TKey postId, TDelegate? handler)
         {
             if (handler == null) return;
-            subscriptions.AddOrUpdate(postId, handler, (_, prev) => (TDelegate)Delegate.Combine(prev, handler));
+            subscriptions.AddOrUpdate(postId, static (_, handler) => handler, static (_, prev, handler) => (TDelegate)Delegate.Combine(prev, handler), handler);
         }
     }
 }

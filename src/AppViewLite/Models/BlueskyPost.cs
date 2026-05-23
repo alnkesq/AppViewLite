@@ -257,7 +257,7 @@ namespace AppViewLite.Models
         {
 
             var postUtf8 = Data?.GetUtf8IfNeededByCompactFacets();
-            var externalDomainForMute = (StringUtils.TryParseUri(Data?.ExternalUrl) ?? Data?.Facets?.Select(x => x.GetLink(postUtf8)).WhereNonNull().Select(x => StringUtils.TryParseUri(x)).Where(x => x != null && x.Host != "bsky.app").FirstOrDefault(x => x != null))?.Host;
+            var externalDomainForMute = (StringUtils.TryParseUri(Data?.ExternalUrl) ?? Data?.Facets?.Select(x => x.GetLink(postUtf8)).WhereNonNull().Select(x => StringUtils.TryParseUri(x)).FirstOrDefault(x => x != null && x.Host != "bsky.app"))?.Host;
             if (externalDomainForMute != null) externalDomainForMute = StringUtils.TrimWww(externalDomainForMute);
 
             return externalDomainForMute ?? QuotedPost?.GetExternalDomainForMuteHint();

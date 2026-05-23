@@ -59,9 +59,7 @@ namespace AppViewLite.PluggableProtocols
         {
             var response = (await BlueskyEnrichedApis.DefaultHttpClientForRss.GetFromJsonAsync<GitHubIssue[]>($"https://api.github.com/repos/{owner}/{repo}/issues?state=all&filter=all&per_page=100"))!;
             return new VirtualRssResult(new Models.BlueskyProfileBasicInfo { DisplayName = repo + (pulls ? " (pull requests)" : " (issues)"), CustomFields = [new CustomFieldProto("web", $"https://github.com/{owner}/{repo}/issues")] }, response
-                .Where(x => (x.pull_request != null) == pulls)
-                .Where(x => !IsNoiseAuthor(x.user))
-                .Select(x =>
+            .Where(x => (x.pull_request != null) == pulls && !IsNoiseAuthor(x.user)).Select(x =>
             {
                 var url = $"https://github.com/{owner}/{repo}/{(x.pull_request != null ? "pull" : "issues")}/{x.number}";
                 var id = new QualifiedPluggablePostId(did, new NonQualifiedPluggablePostId(PluggableProtocol.CreateSyntheticTid(x.created_at, x.number.ToString()), url));

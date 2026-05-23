@@ -357,25 +357,8 @@ namespace AppViewLite.Storage
                     {
                         if (CombinedPersistentMultiDictionary.PrintDirectIoReads)
                         {
-                            var sliceKind = Path.GetFileName(fileHandle.Path);
-                            var kind = sliceKind.Substring(sliceKind.IndexOf('.') + 1);
-                            var sliceKey = Path.GetFileName(Path.GetDirectoryName(fileHandle.Path)) + "_" + kind;
-                            CombinedPersistentMultiDictionary.DirectIoReadStats.AddOrUpdate(sliceKey, 0, (_, prev) => prev += lengthInBytes);
-
-                            bool isDuplicateRead = false;
-                            lock (fileHandle.RecentReadsForDebugging)
-                            {
-                                if (fileHandle.RecentReadsForDebugging.Any(x => x.File == fileHandle && Math.Abs(x.Offset - offsetInBytes) < 200))
-                                {
-                                    isDuplicateRead = true;
-                                }
-                                if (fileHandle.RecentReadsForDebugging.Count >= 10)
-                                    fileHandle.RecentReadsForDebugging.Dequeue();
-                                fileHandle.RecentReadsForDebugging.Enqueue((fileHandle, offsetInBytes));
-                            }
-                            Console.Error.WriteLine((isDuplicateRead ? "Dupe: " : "Read: ") + fileHandle.Path + " " + offsetInBytes + " (" + lengthInBytes + ")");
+                            PrintIoRead(fileHandle, lengthInBytes, offsetInBytes);
                         }
-
 
                         CombinedPersistentMultiDictionary.CurrentThreadIoReads++;
                         CombinedPersistentMultiDictionary.CurrentThreadIoReadBytes += lengthInBytes;
@@ -393,7 +376,28 @@ namespace AppViewLite.Storage
             return hugeSpan.Slice(index, length);
         }
 
+        private static void PrintIoRead(MemoryMappedFileSlim fileHandle, long lengthInBytes, long offsetInBytes)
+        {
+            var sliceKind = Path.GetFileName(fileHandle.Path);
+            var kind = sliceKind.Substring(sliceKind.IndexOf('.') + 1);
+            var sliceKey = Path.GetFileName(Path.GetDirectoryName(fileHandle.Path)) + "_" + kind;
+#pragma warning disable MA0106 // Avoid closure by using an overload with the 'factoryArgument' parameter [dev-only code path]
+            CombinedPersistentMultiDictionary.DirectIoReadStats.AddOrUpdate(sliceKey, 0, (_, prev) => prev += lengthInBytes);
+#pragma warning restore MA0106
 
+            bool isDuplicateRead = false;
+            lock (fileHandle.RecentReadsForDebugging)
+            {
+                if (fileHandle.RecentReadsForDebugging.Any(x => x.File == fileHandle && Math.Abs(x.Offset - offsetInBytes) < 200))
+                {
+                    isDuplicateRead = true;
+                }
+                if (fileHandle.RecentReadsForDebugging.Count >= 10)
+                    fileHandle.RecentReadsForDebugging.Dequeue();
+                fileHandle.RecentReadsForDebugging.Enqueue((fileHandle, offsetInBytes));
+            }
+            Console.Error.WriteLine((isDuplicateRead ? "Dupe: " : "Read: ") + fileHandle.Path + " " + offsetInBytes + " (" + lengthInBytes + ")");
+        }
 
         private readonly static DangerousHugeReadOnlyMemory<TValue> SingletonDefaultValue = SingletonDefaultNativeMemory<TValue>.Singleton;
 

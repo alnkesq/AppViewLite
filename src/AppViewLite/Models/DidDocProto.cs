@@ -75,7 +75,11 @@ namespace AppViewLite.Models
             if (domain.EndsWith(".ngrok-free.app", StringComparison.Ordinal)) return true;
             if (domain.EndsWith(".polymarket.social", StringComparison.Ordinal)) return true;
             if (domain.EndsWith(".pds.test", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".tz2at.store", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".kabcash.com", StringComparison.Ordinal)) return true;
             if (domain.EndsWith(".railway.app", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".example.test", StringComparison.Ordinal)) return true;
+            if (domain.EndsWith(".pds.test", StringComparison.Ordinal)) return true;
             if (domain.StartsWith("test-", StringComparison.Ordinal) && domain.EndsWith(".invalid", StringComparison.Ordinal)) return true;
             if (domain.Contains('_')) return true;
             return false;

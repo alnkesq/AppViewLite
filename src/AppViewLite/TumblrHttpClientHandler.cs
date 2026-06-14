@@ -1,120 +1,42 @@
 using System;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using AppViewLite;
 
 namespace AppViewLite
 {
-    class TumblrHttpClientHandler : HttpMessageHandler
+    class TumblrHttpClientHandler : ProofOfWorkHttpClientHandlerBase<string, string>
     {
-        private readonly HttpClient inner;
 
-        private Stopwatch? lastChallengeResolutionAttempt;
         public TumblrHttpClientHandler(HttpMessageHandler inner)
+            : base(inner)
         {
-            this.inner = new HttpClient(inner);
         }
 
 
-        private static async Task<Func<HttpRequestMessage>> CloneRequestMessageAsync(HttpRequestMessage req)
+        protected override void AddCookie(HttpRequestMessage request, string cookie)
         {
-            var method = req.Method;
-            var url = req.RequestUri;
-            var body = req.Content != null ? await req.Content.ReadAsByteArrayAsync() : null;
-            var contentHeaders = req.Content?.Headers;
-            var headers = req.Headers;
-
-            return () =>
-            {
-                var clone = new HttpRequestMessage(method, url);
-
-                if (body != null)
-                {
-                    clone.Content = new ByteArrayContent(body);
-
-                    foreach (var h in contentHeaders!)
-                        clone.Content.Headers.TryAddWithoutValidation(h.Key, h.Value);
-                }
-
-                foreach (var h in headers)
-                    clone.Headers.TryAddWithoutValidation(h.Key, h.Value);
-
-                return clone;
-            };
-       
+            request.Headers.Add("Cookie", "_hcp=" + cookie);
         }
 
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public override bool TryGetChallenge(HttpResponseMessage response, [NotNullWhen(true)] out string? challenge)
         {
-            var cloner = await CloneRequestMessageAsync(request);
-            var request1 = cloner();
+            challenge = null;
+            if (response.StatusCode != System.Net.HttpStatusCode.Forbidden) return false;
 
-            var preexistingHcp = getHcpAsync;
-            
-            if (preexistingHcp?.Status == TaskStatus.RanToCompletion)
-            {
-                AddHcpCookie(request1, preexistingHcp.Result);
-            }
-
-            var response1 = await inner.SendAsync(request1, cancellationToken);
-            if (response1.StatusCode != System.Net.HttpStatusCode.Forbidden) return response1;
-
-            var hccCookie = response1.GetSetCookie("_hcc");
-            if (hccCookie == null) return response1;
-
-
-            response1.Dispose();
-
-            var result = await GetHcpAsync(request.RequestUri!, hccCookie, preexistingHcp);
-
-            var request2 = cloner();
-            AddHcpCookie(request2, result);
-
-            var response2 = await inner.SendAsync(request2, cancellationToken);
-
-            return response2;
-
+            challenge = response.GetSetCookie("_hcc");
+            return challenge != null;
 
         }
 
-        private static void AddHcpCookie(HttpRequestMessage request, HcpResult hcp)
-        {
-            request.Headers.Add("Cookie", "_hcp=" + hcp.Hcp);
-        }
-
-        private Task<HcpResult>? getHcpAsync;
-
-        [MethodImpl(MethodImplOptions.Synchronized)]
-        private Task<HcpResult> GetHcpAsync(Uri baseUrl, string hccCookie, Task<HcpResult>? knownBrokenHcp)
-        {
-            if (getHcpAsync == knownBrokenHcp)
-                getHcpAsync = null;
-
-            if (getHcpAsync == null || (getHcpAsync.Status == TaskStatus.RanToCompletion && DateTime.UtcNow > getHcpAsync.Result.Expiration))
-            {
-                getHcpAsync = GetHcpCoreAsync(baseUrl, hccCookie);
-            }
-            return getHcpAsync;
-        }
-
-
-        private async Task<HcpResult> GetHcpCoreAsync(Uri baseUrl, string hccCookie)
+        protected async override Task<CookieWithExpiration> PerformChallengeAsync(Uri baseUrl, string challenge)
         {
 
-            if (lastChallengeResolutionAttempt != null && lastChallengeResolutionAttempt.Elapsed.TotalSeconds < 60)
-            {
-                throw new Exception("Tumblr: a challenge resolution was already recently attempted. Refusing to perform a new one.");
-            }
-            lastChallengeResolutionAttempt = Stopwatch.StartNew();
-
-            var solution = GetSolution(hccCookie);
-
+            var solution = GetSolution(challenge);
 
             var challengeRequest = new HttpRequestMessage(System.Net.Http.HttpMethod.Post, new Uri(baseUrl, "/__challenge"));
             challengeRequest.Headers.Add("X-Hashcash-Solution", solution.XHashcashSolution);
@@ -122,7 +44,7 @@ namespace AppViewLite
             challengeRequest.Headers.TryAddWithoutValidation("User-Agent", BlueskyEnrichedApis.DefaultUserAgent);
 
             await Task.Delay(3500);
-            using var challengeResponse = await inner.SendAsync(challengeRequest);
+            using var challengeResponse = await InnerHttpClient.SendAsync(challengeRequest);
             if (!challengeResponse.IsSuccessStatusCode)
             {
                 Console.Error.WriteLine(await challengeResponse.Content.ReadAsStringAsync());
@@ -153,7 +75,7 @@ namespace AppViewLite
             bool o, // needs checkbox
             string n, // X-Interactive (if checkbox needed)
             int t);
-        private record struct HcpResult(string Hcp, DateTime Expiration);
+
         private static string Btoa(string input)
         {
             if (input.Any(c => c > 255))

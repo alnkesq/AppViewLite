@@ -4566,29 +4566,36 @@ namespace AppViewLite
         public readonly static HttpClient DefaultHttpClientForRss;
         public readonly static HttpClient DefaultHttpClientNoAutoRedirect;
         public readonly static HttpClient DefaultHttpClientOpenGraph;
-
+        public readonly static HttpMessageHandler HttpClientHandlerForTumblr;
         static BlueskyEnrichedApis()
         {
             DefaultHttpClient = CreateHttpClient(autoredirect: true);
             DefaultHttpClientNoAutoRedirect = CreateHttpClient(autoredirect: false);
             DefaultHttpClientForRss = CreateHttpClient(autoredirect: false, rateLimitingRealm: "Rss", timeoutIncludingRateLimiting: TimeSpan.FromHours(2));
             DefaultHttpClientOpenGraph = CreateHttpClient(autoredirect: false, userAgent: "facebookexternalhit/1.1");
+            HttpClientHandlerForTumblr = new TumblrHttpClientHandler(CreateSocketsHttpHandler(autoredirect: false, forbidLocalIps: true));
             Instance = null!;
         }
 
-        private static HttpClient CreateHttpClient(bool autoredirect, string? userAgent = null, string? rateLimitingRealm = null, bool forbidLocalIps = true, TimeSpan timeoutIncludingRateLimiting = default)
+
+        public static HttpMessageHandler CreateSocketsHttpHandler(bool autoredirect, bool forbidLocalIps)
         {
-            var client = new HttpClient(new BlocklistableHttpClientHandler(new SocketsHttpHandler
+            return new SocketsHttpHandler
             {
                 AllowAutoRedirect = autoredirect,
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
                 ConnectCallback = forbidLocalIps ? BlocklistableHttpClientHandler.ConnectCallbackForbidLocalIps : null
-            }, true)
+            };
+        }
+        public readonly static string DefaultUserAgent = "Mozilla/5.0";
+        public static HttpClient CreateHttpClient(bool autoredirect, string? userAgent = null, string? rateLimitingRealm = null, bool forbidLocalIps = true, TimeSpan timeoutIncludingRateLimiting = default)
+        {
+            var client = new HttpClient(new BlocklistableHttpClientHandler(CreateSocketsHttpHandler(autoredirect, forbidLocalIps), true)
             {
                 Timeout = TimeSpan.FromSeconds(10),
                 RateLimitingRealm = rateLimitingRealm,
             }, true);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? "Mozilla/5.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent ?? DefaultUserAgent);
             client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
             //client.Timeout = TimeSpan.FromSeconds(10);
             if (timeoutIncludingRateLimiting == default)

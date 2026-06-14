@@ -53,6 +53,10 @@ namespace AppViewLite
                 // If we DON'T submit any User-Agent, than we don't get the cookie consent interstitial (good!)
                 request.Headers.UserAgent.Clear();
             }
+            if (url.HasHostSuffix("tumblr.com"))
+            {
+                alternateHandler = BlueskyEnrichedApis.HttpClientHandlerForTumblr;
+            }
         }
 
         protected override void Dispose(bool disposing)

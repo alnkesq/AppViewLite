@@ -1030,6 +1030,31 @@ namespace AppViewLite
         {
             return text?.Replace("\r", null);
         }
+
+
+
+        public static string? GetSetCookie(this HttpResponseMessage response, string name)
+        {
+            if (!response.Headers.TryGetValues("Set-Cookie", out var values)) return null;
+
+            foreach (var setCookie in values)
+            {
+                var parts = setCookie.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var firstPart = parts.FirstOrDefault();
+                if (firstPart == null) continue;
+                var eq = firstPart.IndexOf('=');
+                if (eq == -1) continue;
+                var currentName = firstPart.Substring(0, eq);
+                if (currentName == name)
+                {
+                    var val = firstPart.Substring(eq + 1).Trim();
+                    if (val.Length == 0) return null;
+                    return val;
+                }
+            }
+            return null;
+        }
+
     }
 }
 

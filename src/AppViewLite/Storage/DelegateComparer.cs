@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace AppViewLite.Storage
+namespace AppViewLite
 {
     public class DelegateComparer<T> : IComparer<T>, IEqualityComparer<T>
     {

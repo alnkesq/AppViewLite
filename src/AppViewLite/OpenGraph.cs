@@ -38,7 +38,10 @@ namespace AppViewLite
 
                     var html = await response.Content.ReadAsStringAsync();
                     var dom = StringUtils.ParseHtml(html);
-                    var imageUrl = GetMetaProperty(dom, "og:image");
+                    var imageUrl = StringUtils.TryParseUri(url, GetMetaProperty(dom, "og:image"));
+                    if (imageUrl != null && imageUrl.HasHostSuffix("tumblr.com") && imageUrl.AbsolutePath.Contains("/s200x200"))
+                        imageUrl = null; // Text only post, but Tumblr returns the user avatar. We don't want it.
+
                     var pageTitle = StringUtils.NormalizeNull(dom.QuerySelector("title")?.TextContent?.Trim());
                     if (StringUtils.IsCaptchaOrProofOfWorkPageTitle(pageTitle))
                     {
@@ -55,7 +58,7 @@ namespace AppViewLite
                         ExternalDescription = GetMetaProperty(dom, "og:description"),
                         DateFetched = DateTime.UtcNow,
                         ExternalUrl = url.AbsoluteUri,
-                        ExternalThumbnailUrl = (imageUrl != null ? new Uri(url, imageUrl) : null)?.AbsoluteUri,
+                        ExternalThumbnailUrl = imageUrl?.AbsoluteUri,
                     };
 
                     if (url.HasHostSuffix("tumblr.com"))

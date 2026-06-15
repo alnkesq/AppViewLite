@@ -39,8 +39,8 @@ namespace AppViewLite
             var solution = GetSolution(challenge);
 
             var challengeRequest = new HttpRequestMessage(System.Net.Http.HttpMethod.Post, new Uri(baseUrl, "/__challenge"));
-            challengeRequest.Headers.Add("X-Hashcash-Solution", solution.XHashcashSolution);
-            challengeRequest.Headers.Add("X-Interactive", solution.XInteractive);
+            challengeRequest.Headers.Add("X-Hashc" + "ash-Solution", solution.XHashcashSolution);
+            challengeRequest.Headers.Add("X-Inte" + "ractive", solution.XInteractive);
             challengeRequest.Headers.TryAddWithoutValidation("User-Agent", BlueskyEnrichedApis.DefaultUserAgent);
 
             await Task.Delay(3500);

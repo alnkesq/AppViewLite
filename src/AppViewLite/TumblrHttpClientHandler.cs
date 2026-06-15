@@ -44,6 +44,8 @@ namespace AppViewLite
             challengeRequest.Headers.TryAddWithoutValidation("User-Agent", BlueskyEnrichedApis.DefaultUserAgent);
 
             await Task.Delay(3500);
+            if (!string.IsNullOrEmpty(solution.XInteractive))
+                await Task.Delay(1200);
             using var challengeResponse = await InnerHttpClient.SendAsync(challengeRequest);
             if (!challengeResponse.IsSuccessStatusCode)
             {

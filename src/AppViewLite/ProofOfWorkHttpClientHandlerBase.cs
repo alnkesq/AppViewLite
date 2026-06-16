@@ -49,7 +49,7 @@ namespace AppViewLite
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var cloner = await CreateRequestCloner(request);
+            var cloner = await CreateRequestClonerAsync(request);
             var request1 = cloner();
 
             var preexistingCookie = getCookie;
@@ -76,7 +76,7 @@ namespace AppViewLite
             return response2;
         }
 
-        private static async Task<Func<HttpRequestMessage>> CreateRequestCloner(HttpRequestMessage req)
+        public static async Task<Func<HttpRequestMessage>> CreateRequestClonerAsync(HttpRequestMessage req)
         {
             var method = req.Method;
             var url = req.RequestUri;

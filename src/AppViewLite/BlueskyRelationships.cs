@@ -2522,7 +2522,7 @@ namespace AppViewLite
             return SerializeProto(proto, x => x.Dummy = true);
         }
 
-        public static ReadOnlySpan<byte> SerializeProto<T>(T proto, Action<T>? setDummyValue = null)
+        public static byte[] SerializeProto<T>(T proto, Action<T>? setDummyValue = null)
         {
             using var protoMs = new MemoryStream();
             ProtoBuf.Serializer.Serialize(protoMs, proto);

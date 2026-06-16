@@ -155,12 +155,13 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
             {
                 foreach (var thread in threadPage.Threads)
                 {
+                    ct.ThrowIfCancellationRequested();
                     try
                     {
                         var date = IndexThread(plc, boardId, thread, ctx);
                         postDates.Add(date);
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (!ct.IsCancellationRequested)
                     {
                         LogNonCriticalException(ex);
                     }

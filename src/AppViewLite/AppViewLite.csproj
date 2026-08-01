@@ -24,6 +24,7 @@
     <PackageReference Include="System.Threading.RateLimiting" Version="10.0.5" />
     <PackageReference Include="SimpleBase" Version="5.6.0" />
     <PackageReference Include="SkiaSharp" Version="4.150.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.150.1" />
   </ItemGroup>
 
 </Project>

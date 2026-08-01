@@ -602,6 +602,7 @@ namespace SkiaSharp
 
         public void MutateResizedMax(Size maxSize, SKResizeQuality quality)
         {
+            if (bitmap.Width <= maxSize.Width && bitmap.Height <= maxSize.Height) return;
             ReplaceWith(bitmap.CloneResizedMax(maxSize, quality));
         }
 

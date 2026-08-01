@@ -23,6 +23,7 @@ namespace SkiaSharp
         public const SKColorType BlittableSKColorType = SKColorType.Bgra8888;
         public const int DefaultWebpQuality = 75;
         public const int DefaultJpegQuality = 85;
+        //public const int DefaultJpegXlQuality = 80;
         public static SKColorFilter CreateBrightnessFilter(float brightness)
         {
             return SKColorFilter.CreateColorMatrix(
@@ -118,6 +119,11 @@ namespace SkiaSharp
                 using var data = bitmap.Encode(SKEncodedImageFormat.Jpeg, quality);
                 SaveBytes(data, destination);
             }
+            //public void SaveAsJpegXl(string destination, int quality = ImageSharpCompat.DefaultJpegXlQuality)
+            //{
+            //    using var data = bitmap.Encode(SKEncodedImageFormat.Jpegxl, quality);
+            //    SaveBytes(data, destination);
+            //}
             public void SaveAsPng(System.IO.Stream destination)
             {
                 using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
@@ -133,6 +139,11 @@ namespace SkiaSharp
                 using var data = bitmap.Encode(SKEncodedImageFormat.Jpeg, quality);
                 SaveBytes(data, destination);
             }
+            //public void SaveAsJpegXl(System.IO.Stream destination, int quality = ImageSharpCompat.DefaultJpegXlQuality)
+            //{
+            //    using var data = bitmap.Encode(SKEncodedImageFormat.Jpegxl, quality);
+            //    SaveBytes(data, destination);
+            //}
 
             private static void SaveBytes(SKData data, string destination)
             {
@@ -640,8 +651,13 @@ namespace SkiaSharp
 
 
         public void SaveAsPng(string destination) => bitmap.SaveAsPng(destination);
+        public void SaveAsJpeg(string destination, int quality = ImageSharpCompat.DefaultJpegQuality) => bitmap.SaveAsJpeg(destination, quality);
+        //public void SaveAsJpegXl(string destination, int quality = ImageSharpCompat.DefaultJpegXlQuality) => bitmap.SaveAsJpegXl(destination, quality);
         public void SaveAsWebp(string destination, int quality = ImageSharpCompat.DefaultWebpQuality) => bitmap.SaveAsWebp(destination, quality);
+
         public void SaveAsPng(System.IO.Stream destination) => bitmap.SaveAsPng(destination);
+        public void SaveAsJpeg(System.IO.Stream destination, int quality = ImageSharpCompat.DefaultJpegQuality) => bitmap.SaveAsJpeg(destination, quality);
+        //public void SaveAsJpegXl(System.IO.Stream destination, int quality = ImageSharpCompat.DefaultJpegXlQuality) => bitmap.SaveAsJpegXl(destination, quality);
         public void SaveAsWebp(System.IO.Stream destination, int quality = ImageSharpCompat.DefaultWebpQuality) => bitmap.SaveAsWebp(destination, quality);
         [Pure]
         public void ApplyExifRotation(SKEncodedOrigin orientation)

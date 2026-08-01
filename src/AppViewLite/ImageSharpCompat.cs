@@ -89,6 +89,7 @@ namespace SkiaSharp
 
         extension(SKBitmap bitmap)
         {
+#if NET11_0_OR_GREATER
             [Obsolete("SKBitmap[int x, int y] is slow, prefer ProcessPixelRows instead.")]
             public SKColor this[int x, int y]
             {
@@ -101,6 +102,7 @@ namespace SkiaSharp
                     bitmap.SetPixel(x, y, value);
                 }
             }
+#endif
             public void SaveAsPng(string destination)
             {
                 using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);

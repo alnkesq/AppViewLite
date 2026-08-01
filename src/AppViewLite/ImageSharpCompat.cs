@@ -266,7 +266,11 @@ namespace SkiaSharp
             {
                 if (quality == SKResizeQuality.High)
                 {
+#if MINIMAL_IMAGESHARP_COMPAT
+                    throw new NotSupportedException();
+#else
                     AppViewLite.LanczosResizer.ResizeLanczos3(source, bitmap, srcRect, destRect);
+#endif
                 }
                 else
                 {
@@ -282,10 +286,12 @@ namespace SkiaSharp
                 }
             }
 
+#if !MINIMAL_IMAGESHARP_COMPAT
             public SKBitmap CloneQuantized(int maxColors)
             {
                 return bitmap.ProcessPixelRows(accessor => AppViewLite.SkiaQuantizer.Quantize(accessor, maxColors));
             }
+#endif
 
             public SKBitmap CloneResizedMax(Size maxSize, SKResizeQuality quality)
             {

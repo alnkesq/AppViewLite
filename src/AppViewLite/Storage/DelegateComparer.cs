@@ -80,5 +80,27 @@ namespace AppViewLite
             return _comparer.Compare(_keySelector(y!), _keySelector(x!));
         }
     }
+
+
+
+
+    public record struct KeyedSortable<T>(int Key, T Value) where T : IComparable<T>;
+
+    public class KeyedSortableComparer<T> : IComparer<KeyedSortable<T>> where T : IComparable<T>
+    {
+        public readonly static KeyedSortableComparer<T> Instance = new();
+        public int Compare(KeyedSortable<T> x, KeyedSortable<T> y)
+        {
+            return x.Value.CompareTo(y.Value);
+        }
+    }
+    public class KeyedSortableReverseComparer<T> : IComparer<KeyedSortable<T>> where T : IComparable<T>
+    {
+        public readonly static KeyedSortableReverseComparer<T> Instance = new();
+        public int Compare(KeyedSortable<T> x, KeyedSortable<T> y)
+        {
+            return y.Value.CompareTo(x.Value);
+        }
+    }
 }
 

@@ -14,7 +14,11 @@ namespace AppViewLite
                 throw new Exception("Unsupported image format.");
 
             ct.ThrowIfCancellationRequested();
-            using var image = SKBitmap.Load(uploadedBytes);
+
+            using var image = (SKReplaceableBitmap)SKBitmap.Load(uploadedBytes, out var codec);
+            image.ApplyExifRotation(codec.EncodedOrigin);
+
+            image.MutateResizedMax(new System.Drawing.Size(3000, 3000), SKResizeQuality.Medium);
 
 #if IMAGESHARP
             //using var redrawn = new SKBitmap(image.Width, image.Height);

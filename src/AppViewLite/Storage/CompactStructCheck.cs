@@ -80,8 +80,8 @@ namespace AppViewLite.Storage
                     {
                         fieldSize = Marshal.SizeOf<IntPtr>();
                     }
-                    
-                    if(fieldSize == CompactStructCheck.SizeWasteful) return CompactStructCheck.SizeWasteful;
+
+                    if (fieldSize == CompactStructCheck.SizeWasteful) return CompactStructCheck.SizeWasteful;
                     computedSum += fieldSize;
                 }
                 var inlineArray = typeof(T).GetCustomAttribute<InlineArrayAttribute>();

@@ -93,7 +93,7 @@ namespace AppViewLite
             return Latin1.GetString(bytes);
         }
 
-        
+
         private static (string XHashcashSolution, string XInteractive) GetSolution(string hcc)
         {
             try

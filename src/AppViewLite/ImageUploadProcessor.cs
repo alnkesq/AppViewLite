@@ -1,7 +1,4 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 using System;
 using System.IO;
 using System.Threading;
@@ -17,19 +14,21 @@ namespace AppViewLite
                 throw new Exception("Unsupported image format.");
 
             ct.ThrowIfCancellationRequested();
-            using var image = Image<Rgba32>.Load(uploadedBytes);
-            using var redrawn = new Image<Rgba32>(image.Width, image.Height);
+            using var image = SKBitmap.Load(uploadedBytes);
 
-            redrawn.Mutate(m => m.DrawImage(image, 1));
+#if IMAGESHARP
+            //using var redrawn = new SKBitmap(image.Width, image.Height);
+            //redrawn.Mutate(m => m.DrawBitmap(image, 0, 0));
+#else
+            // SkiaSharp bitmaps don't carry EXIF information with them, unlike ImageSharp images. No need to redraw.
+#endif
+
             //int[] qualityAttempts = [85, 75, 60, 40, 20, 5]; // JPEG
             int[] qualityAttempts = [75, 70, 63, 50, 20];
             var ms = new MemoryStream();
             foreach (var attemptQuality in qualityAttempts)
             {
-                await redrawn.SaveAsWebpAsync(ms, new WebpEncoder
-                {
-                    Quality = attemptQuality
-                }, ct);
+                image.SaveAsWebp(ms, attemptQuality);
 
                 ms.Seek(0, SeekOrigin.Begin);
 

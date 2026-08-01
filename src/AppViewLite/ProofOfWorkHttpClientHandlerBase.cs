@@ -62,7 +62,7 @@ namespace AppViewLite
             var response1 = await inner.SendAsync(request1, cancellationToken);
 
             if (!TryGetChallenge(response1, out var challenge)) return response1;
-            
+
 
             response1.Dispose();
 

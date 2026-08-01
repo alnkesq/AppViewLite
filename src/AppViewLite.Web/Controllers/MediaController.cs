@@ -1,11 +1,9 @@
 using AppViewLite.Models;
 using Microsoft.AspNetCore.Mvc;
 using AppViewLite.Storage;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Transforms;
+using SkiaSharp;
 using System.Buffers;
+using System.Drawing;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
@@ -263,7 +261,7 @@ namespace AppViewLite.Web.Controllers
         }
 
         private static bool IsVideo(ThumbnailSize size) => size is ThumbnailSize.feed_video_blob or ThumbnailSize.feed_video_playlist;
-        private static async Task WriteImageOrBytesAsync(Image<Rgba32>? image, byte[]? bytes, Stream cacheStream, CancellationToken ct)
+        private static async Task WriteImageOrBytesAsync(SKBitmap? image, byte[]? bytes, Stream cacheStream, CancellationToken ct)
         {
             if (bytes != null)
             {
@@ -273,23 +271,20 @@ namespace AppViewLite.Web.Controllers
             {
                 using (image)
                 {
-                    var webpEncoder = new SixLabors.ImageSharp.Formats.Webp.WebpEncoder
-                    {
-                        Quality =
+                    var webpQuality =
                             image!.Width <= 16 ? 98 :
                             image.Width <= 32 ? 90 :
-                            70
-                    };
+                            70;
 
                     if (cacheStream.CanSeek)
                     {
-                        await image.SaveAsWebpAsync(cacheStream, webpEncoder, ct);
+                        image.SaveAsWebp(cacheStream, webpQuality);
                     }
                     else
                     {
                         // SaveAsWebp seems to truncate the image when saving to a non seekable stream.
                         using var ms = new MemoryStream();
-                        image.SaveAsWebp(ms, webpEncoder);
+                        image.SaveAsWebp(ms, webpQuality);
                         ms.Seek(0, SeekOrigin.Begin);
                         await ms.CopyToAsync(cacheStream, ct);
                     }
@@ -305,7 +300,7 @@ namespace AppViewLite.Web.Controllers
                 .Replace('.', ',') /* avoids CON.com_etcetera issue on windows */;
         }
 
-        private async Task<(Image<Rgba32>? Image, byte[]? PassThruBytes, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, bool forCache, CancellationToken ct)
+        private async Task<(SKBitmap? Image, byte[]? PassThruBytes, string? FileNameForDownload)> GetImageAsync(string did, string cid, string? pds, int sizePixels, ThumbnailSize sizeEnum, bool forCache, CancellationToken ct)
         {
             try
             {
@@ -322,9 +317,11 @@ namespace AppViewLite.Web.Controllers
                     return (null, bytes, null);
 
                 if (!ImageUploadProcessor.StartsWithAllowlistedMagicNumber(bytes)) throw new UnexpectedFirehoseDataException("Unrecognized image format.");
-                Image<Rgba32> image;
+                SKReplaceableBitmap image;
                 if (bytes.AsSpan().StartsWith(ImageUploadProcessor.Magic_ICO))
-                    image = IconParser.IconUtils.LoadLargestImage(bytes);
+                {
+                    image = (SKReplaceableBitmap)IconParser.IconUtils.LoadLargestImage(bytes);
+                }
                 else
                 {
                     var canPassThru = !(
@@ -335,49 +332,63 @@ namespace AppViewLite.Web.Controllers
 
                     if (canPassThru)
                         return (null, blob.Bytes, blob.FileNameForDownload); // Don't waste time re-encoding.
-                    image = SixLabors.ImageSharp.Image.Load<Rgba32>(bytes);
+                    image = (SKReplaceableBitmap)SKBitmap.Load(bytes, out var codec);
+                    if (codec.FrameCount > 1)
+                    {
+                        image.Dispose();
+                        return (null, blob.Bytes, blob.FileNameForDownload);
+                    }
                 }
-
-                if (image.Frames.Count > 1) return (image, null, blob.FileNameForDownload);
 
                 if (Math.Max(image.Width, image.Height) > sizePixels)
                 {
+
+#if IMAGESHARP
                     image.Mutate(m => m.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new SixLabors.ImageSharp.Size(sizePixels, sizePixels) }));
+#else
+
+                    image.MutateResizedMax(new System.Drawing.Size(sizePixels, sizePixels), SKResizeQuality.Medium);
+#endif
                 }
 
                 if ((image.Width <= 60) && sizeEnum == ThumbnailSize.avatar_thumbnail)
                 {
-                    var borderColor = GetBorderAverageColor(image);
-                    image.Mutate(m =>
-                    {
-                        var size = Math.Min(image.Width, image.Height) + 16;
-                        m.Pad(size, size, borderColor);
-                    });
+                    var borderColor = image.Bitmap.ProcessPixelRows(GetBorderAverageColor);
+                    var s = Math.Min(image.Width, image.Height) + 16;
+                    image.MutatePad(new Size(s, s), borderColor);
                 }
 
                 if (sizeEnum == ThumbnailSize.emoji_profile_name)
                 {
-                    EnsureNotConfusableWithVerifiedBadge(ref image);
+                    EnsureNotConfusableWithVerifiedBadge(image);
                 }
 
                 if (sizeEnum == ThumbnailSize.avatar_thumbnail)
                 {
+                    // Workaround for https://github.com/alnkesq/AppViewLite/issues/87
+#if IMAGESHARP
                     image.Mutate(m =>
                     {
-                        // Workaround for https://github.com/alnkesq/AppViewLite/issues/87
                         m.BackgroundColor(Color.White);
                     });
+#else
+                    image.ReplaceWithCanvas((image, canvas) => 
+                    {
+                        canvas.Clear(SKColors.White);
+                        canvas.DrawBitmap(image, 0, 0, SKSamplingOptions.NearestNeighbor);
+                    });
+#endif
                 }
 
 
 
-                var other = new Image<Rgba32>(image.Width, image.Height);
-                using (image)
-                {
-                    other.Mutate(m => m.DrawImage(image, new Point(0, 0), 1));
-                }
+                //var other = new SKBitmap(image.Width, image.Height);
+                //using (image)
+                //{
+                //    other.Mutate(m => m.DrawBitmap(image.Bitmap));
+                //}
 
-                return (other, null, blob.FileNameForDownload);
+                return (image.Bitmap, null, blob.FileNameForDownload);
             }
             catch (Exception) when (sizeEnum == ThumbnailSize.avatar_thumbnail && did.StartsWith(AppViewLite.PluggableProtocols.Rss.RssProtocol.DidPrefix, StringComparison.Ordinal))
             {
@@ -385,79 +396,72 @@ namespace AppViewLite.Web.Controllers
             }
         }
 
-        private static int Pow2(int a) => a * a;
-        public static double ColorDistance(Rgba32 a, Rgba32 b)
+
+        private static SKColor GetBorderAverageColor(PixelAccessor accessor)
         {
-            var diff = Math.Sqrt(Pow2(a.R - b.R) + Pow2(a.G - b.G) + Pow2(a.B - b.B));
-            return diff;
-        }
-        private static Color GetBorderAverageColor(Image<Rgba32> image)
-        {
-            Color borderColor = default;
-            var nw = image[0, 0];
-            var ne = image[image.Width - 1, 0];
-            var sw = image[0, image.Height - 1];
-            var se = image[image.Width - 1, image.Height - 1];
-            var cornerAverageColors = new Rgba32(
+            SKColor borderColor = default;
+            var nw = accessor[0, 0];
+            var ne = accessor[accessor.Width - 1, 0];
+            var sw = accessor[0, accessor.Height - 1];
+            var se = accessor[accessor.Width - 1, accessor.Height - 1];
+            var cornerAverageColors = new SKColor(
                 (byte)(((int)nw.R + ne.R + sw.R + se.R) / 4),
                 (byte)(((int)nw.G + ne.G + sw.G + se.G) / 4),
                 (byte)(((int)nw.B + ne.B + sw.B + se.B) / 4),
                 (byte)(((int)nw.A + ne.A + sw.A + se.A) / 4)
                 );
             cornerAverageColors = BlendWithWhiteBackground(cornerAverageColors);
-            image.ProcessPixelRows(accessor =>
+
+            var r = 0;
+            var g = 0;
+            var b = 0;
+            var a = 0;
+            int borderCount = 0;
+            var borderColorFrequency = new Dictionary<SKColor, int>();
+            void Accumulate(SKColor pixel)
             {
-                var r = 0;
-                var g = 0;
-                var b = 0;
-                var a = 0;
-                int borderCount = 0;
-                var borderColorFrequency = new Dictionary<Rgba32, int>();
-                void Accumulate(Rgba32 pixel)
-                {
-                    r += pixel.R;
-                    g += pixel.G;
-                    b += pixel.B;
-                    a += pixel.A;
-                    CollectionsMarshal.GetValueRefOrAddDefault(borderColorFrequency, pixel, out _)++;
-                    borderCount++;
-                }
-                foreach (var pixel in accessor.GetRowSpan(0))
-                {
-                    Accumulate(pixel);
-                }
-                foreach (var pixel in accessor.GetRowSpan(accessor.Height - 1))
-                {
-                    Accumulate(pixel);
-                }
-                for (int i = accessor.Height - 2; i >= 1; i--)
-                {
-                    Accumulate(image[0, i]);
-                    Accumulate(image[accessor.Width - 1, i]);
-                }
-                var borderCountFloat = (float)borderCount * 255;
-                var borderAverage = new Rgba32(r / borderCountFloat, g / borderCountFloat, b / borderCountFloat, a / borderCountFloat);
-                var borderMostFrequent = borderColorFrequency.MaxBy(x => x.Value).Key;
-                if (ColorDistance(borderAverage, cornerAverageColors) > 50)
-                {
-                    // Rounded image that fills most of the borders, but not the corners. Prefer corner color (usually white background)
-                    borderColor = cornerAverageColors;
-                }
-                else if (ColorDistance(borderAverage, borderMostFrequent) < 50) borderColor = borderMostFrequent;
-                else
-                {
-                    borderColor = borderAverage;
-                }
-            });
+                r += pixel.R;
+                g += pixel.G;
+                b += pixel.B;
+                a += pixel.A;
+                CollectionsMarshal.GetValueRefOrAddDefault(borderColorFrequency, pixel, out _)++;
+                borderCount++;
+            }
+            foreach (var pixel in accessor.GetRowSpan(0))
+            {
+                Accumulate(pixel);
+            }
+            foreach (var pixel in accessor.GetRowSpan(accessor.Height - 1))
+            {
+                Accumulate(pixel);
+            }
+            for (int i = accessor.Height - 2; i >= 1; i--)
+            {
+                Accumulate(accessor[0, i]);
+                Accumulate(accessor[accessor.Width - 1, i]);
+            }
+            var borderCountFloat = (float)borderCount * 255;
+            var borderAverage = new SKColor((byte)(r / borderCountFloat), (byte)(g / borderCountFloat), (byte)(b / borderCountFloat), (byte)(a / borderCountFloat));
+            var borderMostFrequent = borderColorFrequency.MaxBy(x => x.Value).Key;
+            if (ImageSharpCompat.ColorDistancePow(borderAverage, cornerAverageColors) > 50)
+            {
+                // Rounded image that fills most of the borders, but not the corners. Prefer corner color (usually white background)
+                borderColor = cornerAverageColors;
+            }
+            else if (ImageSharpCompat.ColorDistancePow(borderAverage, borderMostFrequent) < 50) borderColor = borderMostFrequent;
+            else
+            {
+                borderColor = borderAverage;
+            }
             return borderColor;
         }
 
-        private readonly static Rgba32 Color_VerifiedGeneric = new Rgba32(0x1D, 0xA1, 0xF2);
-        private readonly static Rgba32 Color_VerifiedOrganization = new Rgba32(0xE2, 0xB7, 0x19);
-        private readonly static Rgba32 Color_VerifiedGovernment = new Rgba32(0x82, 0x9A, 0xAB);
+        private readonly static SKColor Color_VerifiedGeneric = new SKColor(0x1D, 0xA1, 0xF2);
+        private readonly static SKColor Color_VerifiedOrganization = new SKColor(0xE2, 0xB7, 0x19);
+        private readonly static SKColor Color_VerifiedGovernment = new SKColor(0x82, 0x9A, 0xAB);
         private const double VerifiedBadgeThreshold = 0.9;
         private const int ColorComponentDeltaThreshold = 30;
-        private static bool AreColorsSimilar(Rgba32 a, Rgba32 b)
+        private static bool AreColorsSimilar(SKColor a, SKColor b)
         {
             var deltaR = Math.Abs((int)a.R - b.R);
             var deltaG = Math.Abs((int)a.G - b.G);
@@ -467,12 +471,12 @@ namespace AppViewLite.Web.Controllers
                 deltaG < ColorComponentDeltaThreshold &&
                 deltaB < ColorComponentDeltaThreshold;
         }
-        private static Rgba32 BlendWithWhiteBackground(Rgba32 color)
+        private static SKColor BlendWithWhiteBackground(SKColor color)
         {
             byte alpha = color.A;
 
-            if (alpha == 255) return new Rgba32(color.R, color.G, color.B, 255);
-            if (alpha == 0) return new Rgba32(255, 255, 255, 255);
+            if (alpha == 255) return new SKColor(color.R, color.G, color.B, 255);
+            if (alpha == 0) return new SKColor(255, 255, 255, 255);
 
             float alphaFactor = alpha / 255f;
 
@@ -480,16 +484,12 @@ namespace AppViewLite.Web.Controllers
             byte g = (byte)(color.G * alphaFactor + 255 * (1 - alphaFactor));
             byte b = (byte)(color.B * alphaFactor + 255 * (1 - alphaFactor));
 
-            return new Rgba32(r, g, b, 255);
+            return new SKColor(r, g, b, 255);
         }
-        public static void EnsureNotConfusableWithVerifiedBadge(ref Image<Rgba32> image)
+        public static void EnsureNotConfusableWithVerifiedBadge(SKReplaceableBitmap image)
         {
-            using var small = image.Clone(m => m.Resize(new ResizeOptions
-            {
-                Mode = ResizeMode.Max,
-                Size = new SixLabors.ImageSharp.Size(48, 48),
-                Sampler = new NearestNeighborResampler(),
-            }));
+            using var small = image.Bitmap.CloneResizedMax(new Size(48, 48), SKResizeQuality.NearestNeighbor);
+
             int pixelsTotal = 0;
             var pixelsVerifiedGeneric = 0;
             var pixelsVerifiedOrganization = 0;
@@ -505,10 +505,10 @@ namespace AppViewLite.Web.Controllers
                     for (int col = 0; col < rowSpan.Length; col++)
                     {
                         var pixel = rowSpan[col];
-                        Rgba32 debugColor;
+                        SKColor debugColor;
                         if (pixel.A < 48)
                         {
-                            debugColor = Color.Gray;
+                            debugColor = SKColors.Gray;
                         }
                         else
                         {
@@ -516,11 +516,11 @@ namespace AppViewLite.Web.Controllers
                             var opaque = BlendWithWhiteBackground(pixel);
 
 
-                            if (AreColorsSimilar(opaque, Color.White))
+                            if (AreColorsSimilar(opaque, SKColors.White))
                             {
 
                                 pixelsWhite++;
-                                debugColor = Color.Red;
+                                debugColor = SKColors.Red;
                             }
                             else
                             {
@@ -529,17 +529,17 @@ namespace AppViewLite.Web.Controllers
                                 if (AreColorsSimilar(opaque, Color_VerifiedGeneric))
                                 {
                                     pixelsVerifiedGeneric++;
-                                    debugColor = Color.Green;
+                                    debugColor = SKColors.Green;
                                 }
                                 else if (AreColorsSimilar(opaque, Color_VerifiedOrganization))
                                 {
                                     pixelsVerifiedOrganization++;
-                                    debugColor = Color.Blue;
+                                    debugColor = SKColors.Blue;
                                 }
                                 else if (AreColorsSimilar(opaque, Color_VerifiedGovernment))
                                 {
                                     pixelsVerifiedGovernment++;
-                                    debugColor = Color.DeepPink;
+                                    debugColor = SKColors.DeepPink;
                                 }
                                 else
                                 {
@@ -567,26 +567,42 @@ namespace AppViewLite.Web.Controllers
             if (verifiedGenericRatio > VerifiedBadgeThreshold ||
                 verifiedOrganizationRatio > VerifiedBadgeThreshold)
             {
-                image.Mutate(m => m.Saturate(0.3f).Opacity(0.3f));
-                RemoveOldPalette(ref image);
+                image.ReplaceWithCanvas((src, dest) => 
+                {
+
+                    using var paint = new SKPaint { ColorFilter = DesaturateAndReduceOpacityFilter };
+                    dest.DrawBitmap(src, 0, 0, SKSamplingOptions.NearestNeighbor, paint);
+                });
+                //RemoveOldPalette(ref image);
             }
             else if (verifiedGovernmentRatio > VerifiedBadgeThreshold)
             {
-                image.Mutate(m => m.Brightness(0.3f));
-                RemoveOldPalette(ref image);
+                image.ReplaceWithCanvas((src, dest) =>
+                {
+
+                    using var paint = new SKPaint { ColorFilter = ReduceBrightnessFilter };
+                    dest.DrawBitmap(src, 0, 0, SKSamplingOptions.NearestNeighbor, paint);
+                });
+                //image.Mutate(m => m.Brightness(0.3f));
+                //RemoveOldPalette(ref image);
             }
 
         }
+        public static readonly SKColorFilter DesaturateAndReduceOpacityFilter =
+            SKColorFilter.CreateCompose(ImageSharpCompat.CreateSaturationFilter(0.3f), ImageSharpCompat.CreateOpacityFilter(0.3f));
+        public static readonly SKColorFilter ReduceBrightnessFilter =
+            ImageSharpCompat.CreateBrightnessFilter(0.3f);
 
-        private static void RemoveOldPalette(ref Image<Rgba32> image)
-        {
-            // https://github.com/SixLabors/ImageSharp/issues/2865
-            var other = new Image<Rgba32>(image.Width, image.Height);
-            var image_ = image;
-            other.Mutate(m => m.DrawImage(image_, 1));
-            image.Dispose();
-            image = other;
-        }
+
+        //private static void RemoveOldPalette(ref Image<Rgba32> image)
+        //{
+        //    // https://github.com/SixLabors/ImageSharp/issues/2865
+        //    var other = new Image<Rgba32>(image.Width, image.Height);
+        //    var image_ = image;
+        //    other.Mutate(m => m.DrawImage(image_, 1));
+        //    image.Dispose();
+        //    image = other;
+        //}
 
         private void SetMediaHeaders(string? nameForDownload, string contentType = "image/jpeg", ReadOnlyMemory<byte> initialBytes = default)
         {

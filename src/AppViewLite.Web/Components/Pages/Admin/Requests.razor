@@ -1,5 +1,5 @@
 @page "/debug/requests"
-@using SixLabors.ImageSharp.PixelFormats
+@using SkiaSharp
 @layout AppViewLite.Web.Components.Layout.NoLayout
 @inject RequestContext RequestContext
 <PageTitle>Requests</PageTitle>
@@ -25,7 +25,7 @@
 
         var brightness = (byte)Math.Clamp((int)Math.Round((1 - ratio) * 255), 0, 255);
 
-        var color = new Rgba32(255, brightness, brightness);
+        var color = new SkiaSharp.SKColor(255, brightness, brightness);
         return "#" + color.ToHex();
     }
 }

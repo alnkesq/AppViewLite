@@ -81,7 +81,7 @@ namespace AppViewLite.PluggableProtocols.Yotsuba
                     await Task.Delay(TimeSpan.FromHours(1), ct);
                 }
             }
-            
+
 
             foreach (var board in boards)
             {

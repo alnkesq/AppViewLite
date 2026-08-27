@@ -24,6 +24,15 @@ namespace SkiaSharp
         public const int DefaultWebpQuality = 75;
         public const int DefaultJpegQuality = 85;
         //public const int DefaultJpegXlQuality = 80;
+        public static SKColorFilter CreateGrayscaleFilter()
+        {
+            return SKColorFilter.CreateColorMatrix([
+                0.2126f, 0.7152f, 0.0722f, 0, 0,
+                0.2126f, 0.7152f, 0.0722f, 0, 0,
+                0.2126f, 0.7152f, 0.0722f, 0, 0,
+                0,       0,       0,       1, 0
+            ]);
+        }
         public static SKColorFilter CreateBrightnessFilter(float brightness)
         {
             return SKColorFilter.CreateColorMatrix(
@@ -206,14 +215,17 @@ namespace SkiaSharp
                     EncodedFormat = codec.EncodedFormat,
                 };
             }
-            public static SKBitmap Load(ReadOnlySpan<byte> bytes, out SKCodecInfoStruct info)
+            public static SKBitmap Load(ReadOnlySpan<byte> bytes, out SKCodecInfoStruct info, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul)
             {
                 fixed (byte* b = bytes)
                 {
                     using var skdata = SKData.Create((IntPtr)b, bytes.Length);
                     using var codec = SKCodec.Create(skdata).CheckSucceeded();
                     info = CopyCodecInfo(codec);
-                    var result = SKBitmap.Decode(codec);
+                    var infoReal = codec.Info;
+                    infoReal.ColorType = colorType;
+                    infoReal.AlphaType = alphaType;
+                    var result = SKBitmap.Decode(codec, infoReal);
                     if (result == null) throw new InvalidDataException("Image could not be parsed.");
                     return result;
                 }
@@ -233,6 +245,7 @@ namespace SkiaSharp
                 cloned.Mutate(action);
                 return cloned;
             }
+
             public Memory<SKColor> DangerousGetPixelRowMemory(int row)
             {
                 return new SKBitmapRowMemoryManager(bitmap, row).Memory;
@@ -546,9 +559,9 @@ namespace SkiaSharp
             }
             this.pixels = (byte*)bitmap.GetPixels();
             var rowBytes = info.RowBytes;
-            this.pixelLength = rowBytes * info.Height;
             this.width = info.Width;
             this.height = info.Height;
+            this.pixelLength = info.Width * info.Height;
             if (width * 4 != rowBytes) throw new NotSupportedException();
         }
 
@@ -561,6 +574,13 @@ namespace SkiaSharp
             return new Span<SKColor>(pointer, width);
         }
 
+        public unsafe Span<SKColor> AllPixels
+        {
+            get
+            {
+                return new Span<SKColor>(pixels, pixelLength);
+            }
+        }
         public unsafe ref SKColor this[int x, int y]
         {
             get
@@ -618,6 +638,7 @@ namespace SkiaSharp
                 dest.Mutate(canvas => update(src, canvas));
             });
         }
+
         public void ReplaceWithCanvas(Size size, Action<SKBitmap, SKCanvas> update)
         {
             ReplaceWith(size, (src, dest) =>
@@ -740,8 +761,14 @@ namespace SkiaSharp
 
         }
 
-
-
+        public void ApplyColorFilter(SKColorFilter colorFilter)
+        {
+            ReplaceWithCanvas((src, dest) =>
+            {
+                using var paint = new SKPaint { ColorFilter = colorFilter };
+                dest.DrawBitmap(src, 0, 0, SKSamplingOptions.NearestNeighbor, paint);
+            });
+        }
     }
     public record struct SKCodecInfoStruct
     {

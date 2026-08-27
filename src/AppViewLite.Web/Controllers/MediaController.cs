@@ -567,22 +567,15 @@ namespace AppViewLite.Web.Controllers
             if (verifiedGenericRatio > VerifiedBadgeThreshold ||
                 verifiedOrganizationRatio > VerifiedBadgeThreshold)
             {
-                image.ReplaceWithCanvas((src, dest) => 
-                {
 
-                    using var paint = new SKPaint { ColorFilter = DesaturateAndReduceOpacityFilter };
-                    dest.DrawBitmap(src, 0, 0, SKSamplingOptions.NearestNeighbor, paint);
-                });
+                image.ApplyColorFilter(DesaturateAndReduceOpacityFilter);
+
                 //RemoveOldPalette(ref image);
             }
             else if (verifiedGovernmentRatio > VerifiedBadgeThreshold)
             {
-                image.ReplaceWithCanvas((src, dest) =>
-                {
+                image.ApplyColorFilter(ReduceBrightnessFilter);
 
-                    using var paint = new SKPaint { ColorFilter = ReduceBrightnessFilter };
-                    dest.DrawBitmap(src, 0, 0, SKSamplingOptions.NearestNeighbor, paint);
-                });
                 //image.Mutate(m => m.Brightness(0.3f));
                 //RemoveOldPalette(ref image);
             }

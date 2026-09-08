@@ -1,58 +1,92 @@
+using AppViewLite;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace AppViewLite
 {
-    public abstract class ProofOfWorkHttpClientHandlerBase<TChallenge, TCookie> : HttpMessageHandler
+    public abstract class ProofOfWorkHttpClientHandlerBase : HttpMessageHandler
+    {
+        protected internal abstract void AddCookieUntyped(HttpRequestMessage request, object cookie);
+        protected internal abstract Task<CookieWithExpiration<object>> PerformChallengeUntypedAsync(Uri baseUrl, object challenge, Action<HttpRequestMessage> setupRequest);
+    }
+    public abstract class ProofOfWorkHttpClientHandlerBase<TChallenge, TCookie> : ProofOfWorkHttpClientHandlerBase
     {
         private readonly HttpClient inner;
         protected HttpClient InnerHttpClient => inner;
 
-        private Stopwatch? lastChallengeResolutionAttempt;
+        private readonly Dictionary<string, DataForDomain> cache = new();
+
         public ProofOfWorkHttpClientHandlerBase(HttpMessageHandler inner)
         {
             this.inner = new HttpClient(inner);
         }
 
-        public record struct CookieWithExpiration(TCookie Solution, DateTime Expiration);
+        protected virtual string GetVaryKey(HttpRequestMessage request)
+        {
+            return request.RequestUri!.Host;
+        }
 
-        private Task<CookieWithExpiration>? getCookie;
+        private ref DataForDomain GetOrCreateData(HttpRequestMessage request) => ref CollectionsMarshal.GetValueRefOrAddDefault(cache, GetVaryKey(request), out _);
 
         [MethodImpl(MethodImplOptions.Synchronized)]
-        private Task<CookieWithExpiration> PerformChallengeOrReuseCookieAsync(Uri baseUrl, TChallenge challenge, Task<CookieWithExpiration>? knownBrokenCookie)
+        private Task<CookieWithExpiration<TCookie>> PerformChallengeOrReuseCookieAsync(HttpRequestMessage request, TChallenge challenge, Task<CookieWithExpiration<TCookie>>? knownBrokenCookie)
         {
-            if (getCookie == knownBrokenCookie)
-                getCookie = null;
+            ref var data = ref GetOrCreateData(request);
 
-            if (getCookie == null || (getCookie.Status == TaskStatus.RanToCompletion && DateTime.UtcNow > getCookie.Result.Expiration))
+            if (data.GetCookie == knownBrokenCookie)
+                data.GetCookie = null;
+
+
+
+            if (data.GetCookie == null || (data.GetCookie.Status == TaskStatus.RanToCompletion && DateTime.UtcNow > data.GetCookie.Result.Expiration))
             {
-                if (lastChallengeResolutionAttempt != null && lastChallengeResolutionAttempt.Elapsed.TotalSeconds < 60)
+                if (data.LastChallengeResolutionAttempt != null && data.LastChallengeResolutionAttempt.Elapsed.TotalSeconds < 60)
                 {
                     throw new Exception("Cookie proof of work: a challenge resolution was already recently attempted. Refusing to perform a new one.");
                 }
-                lastChallengeResolutionAttempt = Stopwatch.StartNew();
-                getCookie = PerformChallengeAsync(baseUrl, challenge);
+                data.LastChallengeResolutionAttempt = Stopwatch.StartNew();
+
+                var userAgent = request.Headers.UserAgent.ToString();
+                data.GetCookie = PerformChallengeAsync(request.RequestUri!, challenge, req => 
+                {
+                    req.Headers.UserAgent.Clear();
+                    if (!string.IsNullOrEmpty(userAgent))
+                        req.Headers.UserAgent.ParseAdd(userAgent);
+                });
             }
-            return getCookie;
+            return data.GetCookie;
         }
 
-        protected abstract void AddCookie(HttpRequestMessage request, TCookie cookie);
+        protected sealed internal override void AddCookieUntyped(HttpRequestMessage request, object cookie)
+        {
+            AddCookie(request, (TCookie)cookie);
+        }
 
-        protected abstract Task<CookieWithExpiration> PerformChallengeAsync(Uri baseUrl, TChallenge challenge);
+        protected sealed internal override async Task<CookieWithExpiration<object>> PerformChallengeUntypedAsync(Uri baseUrl, object challenge, Action<HttpRequestMessage> setupRequest)
+        {
+            var result = await PerformChallengeAsync(baseUrl, (TChallenge)challenge, setupRequest);
+            return new CookieWithExpiration<object>(result.Solution!, result.Expiration);
+        }
 
-        public abstract bool TryGetChallenge(HttpResponseMessage response, [NotNullWhen(true)] out TChallenge? challenge);
+        protected internal abstract void AddCookie(HttpRequestMessage request, TCookie cookie);
+
+        protected abstract Task<CookieWithExpiration<TCookie>> PerformChallengeAsync(Uri baseUrl, TChallenge challenge, Action<HttpRequestMessage> setupRequest);
+
+        public abstract Task<GenericNullable<TChallenge>> TryGetChallengeAsync(HttpResponseMessage response, CancellationToken ct);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var cloner = await CreateRequestClonerAsync(request);
             var request1 = cloner();
 
-            var preexistingCookie = getCookie;
+            var data = GetOrCreateData(request);
+            var preexistingCookie = data.GetCookie;
 
             if (preexistingCookie?.Status == TaskStatus.RanToCompletion)
             {
@@ -61,12 +95,13 @@ namespace AppViewLite
 
             var response1 = await inner.SendAsync(request1, cancellationToken);
 
-            if (!TryGetChallenge(response1, out var challenge)) return response1;
+            var challenge = await TryGetChallengeAsync(response1, cancellationToken);
+            if (challenge.IsNull) return response1;
 
 
             response1.Dispose();
 
-            var result = await PerformChallengeOrReuseCookieAsync(request.RequestUri!, challenge, preexistingCookie);
+            var result = await PerformChallengeOrReuseCookieAsync(request, challenge.Value, preexistingCookie);
 
             var request2 = cloner();
             AddCookie(request2, result.Solution);
@@ -99,13 +134,15 @@ namespace AppViewLite
 
                 foreach (var h in headers)
                     clone.Headers.TryAddWithoutValidation(h.Key, h.Value);
-
+                
                 return clone;
             };
 
         }
 
-
+        internal record struct DataForDomain(Stopwatch? LastChallengeResolutionAttempt, Task<CookieWithExpiration<TCookie>>? GetCookie);
     }
+    public record struct CookieWithExpiration<TCookie>(TCookie Solution, DateTime Expiration);
+
 }
 

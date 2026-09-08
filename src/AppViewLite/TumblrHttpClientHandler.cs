@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using AppViewLite;
 
@@ -18,30 +19,33 @@ namespace AppViewLite
         }
 
 
-        protected override void AddCookie(HttpRequestMessage request, string cookie)
+        protected override string GetVaryKey(HttpRequestMessage request)
+        {
+            if (request.RequestUri!.HasHostSuffix("tumblr.com")) return "tumblr.com";
+            return base.GetVaryKey(request);
+        }
+
+        protected internal override void AddCookie(HttpRequestMessage request, string cookie)
         {
             request.Headers.Add("Cookie", "_hcp=" + cookie);
         }
 
-        public override bool TryGetChallenge(HttpResponseMessage response, [NotNullWhen(true)] out string? challenge)
+        public override async Task<GenericNullable<string>> TryGetChallengeAsync(HttpResponseMessage response, CancellationToken ct)
         {
-            challenge = null;
-            if (response.StatusCode != System.Net.HttpStatusCode.Forbidden) return false;
-
-            challenge = response.GetSetCookie("_hcc");
-            return challenge != null;
-
+            if (response.StatusCode != System.Net.HttpStatusCode.Forbidden) return null;
+            return response.GetSetCookie("_hcc");
         }
 
-        protected async override Task<CookieWithExpiration> PerformChallengeAsync(Uri baseUrl, string challenge)
+        protected override async Task<CookieWithExpiration<string>> PerformChallengeAsync(Uri baseUrl, string challenge, Action<HttpRequestMessage> setupRequest)
         {
+       
 
             var solution = GetSolution(challenge);
 
             var challengeRequest = new HttpRequestMessage(System.Net.Http.HttpMethod.Post, new Uri(baseUrl, "/__challenge"));
             challengeRequest.Headers.Add("X-Hashc" + "ash-Solution", solution.XHashcashSolution);
             challengeRequest.Headers.Add("X-Inte" + "ractive", solution.XInteractive);
-            challengeRequest.Headers.TryAddWithoutValidation("User-Agent", BlueskyEnrichedApis.DefaultUserAgent);
+            setupRequest(challengeRequest);
 
             await Task.Delay(3500);
             if (!string.IsNullOrEmpty(solution.XInteractive))

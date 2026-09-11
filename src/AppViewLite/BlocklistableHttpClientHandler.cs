@@ -1,3 +1,4 @@
+using AppViewLite;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -13,14 +14,10 @@ namespace AppViewLite
 {
     public class BlocklistableHttpClientHandler : HttpMessageHandler
     {
-        private readonly HttpMessageHandler inner;
-        private readonly MethodInfo invokeInnerMethod;
-        private readonly bool disposeInner;
-        public BlocklistableHttpClientHandler(HttpMessageHandler inner, bool disposeInner)
+        private readonly AccessibleHttpMessageHandler inner;
+        public BlocklistableHttpClientHandler(HttpMessageHandler inner)
         {
-            this.inner = inner;
-            this.disposeInner = disposeInner;
-            this.invokeInnerMethod = typeof(HttpMessageHandler).GetMethod("SendAsync", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, [typeof(HttpRequestMessage), typeof(CancellationToken)])!;
+            this.inner = new AccessibleHttpMessageHandler(inner);
         }
 
         public TimeSpan? Timeout { get; set; }
@@ -29,8 +26,8 @@ namespace AppViewLite
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            HttpMessageHandler httpMessageHandler = inner;
-            ApplySiteQuirks(request, ref httpMessageHandler);
+            ApplySiteQuirks(request, out var alternateHandler);
+
             AdministrativeBlocklist.Instance.GetValue().ThrowIfBlockedOutboundConnection(request.RequestUri!.Host);
             using var _ = await HostRateLimiter.AcquireUrlAsync(request.RequestUri, RateLimitingRealm, cancellationToken);
 
@@ -41,12 +38,16 @@ namespace AppViewLite
                 cancellationToken = cts.Token;
             }
 
-            return await (Task<HttpResponseMessage>)invokeInnerMethod.Invoke(httpMessageHandler, [request, cancellationToken])!;
+            var handler = alternateHandler != null ? new AccessibleHttpMessageHandler(alternateHandler) : inner;
+
+            return await handler.PublicSendAsync(request, cancellationToken);
+
         }
 
-        private static void ApplySiteQuirks(HttpRequestMessage request, ref HttpMessageHandler alternateHandler)
+        private static void ApplySiteQuirks(HttpRequestMessage request, out HttpMessageHandler? alternateHandler)
         {
             var url = request.RequestUri!;
+            alternateHandler = null;
 
             if (url.HasHostSuffix("youtube.com") && !url.AbsolutePath.StartsWith("/feeds/", StringComparison.Ordinal))
             {
@@ -61,8 +62,7 @@ namespace AppViewLite
 
         protected override void Dispose(bool disposing)
         {
-            if (disposeInner)
-                inner.Dispose();
+            inner.Dispose();
         }
 
 

@@ -4590,7 +4590,7 @@ namespace AppViewLite
         public readonly static string DefaultUserAgent = "Mozilla/5.0";
         public static HttpClient CreateHttpClient(bool autoredirect, string? userAgent = null, string? rateLimitingRealm = null, bool forbidLocalIps = true, TimeSpan timeoutIncludingRateLimiting = default)
         {
-            var client = new HttpClient(new BlocklistableHttpClientHandler(CreateSocketsHttpHandler(autoredirect, forbidLocalIps), true)
+            var client = new HttpClient(new BlocklistableHttpClientHandler(CreateSocketsHttpHandler(autoredirect, forbidLocalIps))
             {
                 Timeout = TimeSpan.FromSeconds(10),
                 RateLimitingRealm = rateLimitingRealm,

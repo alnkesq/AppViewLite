@@ -900,39 +900,45 @@ namespace AppViewLite.Storage
             }
 
             Interlocked.Increment(ref PrefetchedDiskLookups);
+
             var cts = new CancellationTokenSource();
+            var ct = cts.Token;
 
-            var runningTasks = 0;
+            var tasks = new List<DiskPrefetchTask>();
 
-            var task = Parallel.ForAsync(0, slicesToInspect.Length, new ParallelOptions { CancellationToken = cts.Token }, (i, ct) =>
+            for (int i = slicesToInspect.Length - 1; i >= 0; i--)
             {
-                Interlocked.Increment(ref runningTasks);
-                try
+                var sliceReader = slicesToInspect[i].Reader;
+                var task = new DiskPrefetchTask
                 {
-                    if (cts.IsCancellationRequested) return ValueTask.CompletedTask;
-                    var slice = slicesToInspect[slicesToInspect.Length - i - 1];
-                    var reader = slice.Reader;
-                    reader.PrefetchBinarySearch(key, preference, ct);
-                    Interlocked.Increment(ref PrefetchedDiskLookupsSlices);
-                    return ValueTask.CompletedTask;
-                }
-                finally
-                {
-                    Interlocked.Decrement(ref runningTasks);
-                }
+                    Prefetch = task => 
+                    {
+                        if (ct.IsCancellationRequested) return;
 
-            });
-            return new DelegateDisposable(() =>
+                        if (task.TryClaim())
+                        {
+                            sliceReader.PrefetchBinarySearch(key, preference, ct);
+                            Interlocked.Increment(ref PrefetchedDiskLookupsSlices);
+                            task.PrefetchCompleted!.Set();
+                        }
+                    }
+                };
+                tasks.Add(task);
+                DiskPrefetcher.Instance!.Enqueue(task);
+            }
+            return new DelegateDisposable(() => 
             {
-
-                cts.Cancel(); // No need to continue with the remaining slices (early exit)
-
-                // after the using(), we don't want to have pending parallel reads, because the ImmutableMultiDictionaryReader might get closed or compacted.
-
-                ((IAsyncResult)task).AsyncWaitHandle.WaitOne(); // Instead of task.Wait(), to avoid costly exception throw
-                CombinedPersistentMultiDictionary.Assert(Volatile.Read(in runningTasks) == 0);
-                CombinedPersistentMultiDictionary.Assert(task.IsCompleted);
+                cts.Cancel();
+                foreach (var task in tasks)
+                {
+                    if (!task.TryClaim())
+                    {
+                        task.PrefetchCompleted!.Wait();
+                    }
+                    task.PrefetchCompleted.Dispose();
+                }
             });
+
         }
 
         public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default, bool skipLogging = false)

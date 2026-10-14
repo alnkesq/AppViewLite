@@ -4534,6 +4534,7 @@ namespace AppViewLite
                 DidToPlcConcurrentCache = this.DidToPlcConcurrentCache.GetCounters(),
                 ApproximateLikeCountCache = this.ApproximateLikeCountCache.GetCounters(),
                 ReplicaOnlyApproximateLikeCountCache = this.ReplicaOnlyApproximateLikeCountCache.GetCounters(),
+                DiskPrefetcher_EnqueuedTasks = DiskPrefetcher.Instance!.EnqueuedTasks,
                 PlcToDidConcurrentCache = this.PlcToDidConcurrentCache.GetCounters(),
                 CombinedPersistentMultiDictionary = CombinedPersistentMultiDictionary.GetCountersStatic(),
                 Caches = this.AllMultidictionaries.SelectMany(x => x.GetCounters()).ToDictionary(x => x.Name, x => x.Value),

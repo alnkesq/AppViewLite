@@ -975,10 +975,17 @@ namespace AppViewLite.Storage
                 }
             }
 
+            using var __ = MaybeParallelPrefetchIndexesForKey(key, preference, bigSlicesFirst: true);
+
             var z = slices.Select(slice => slice.Reader.GetValues(key, minExclusive: minExclusive, maxExclusive: maxExclusive, preference)).Where(x => x.Length != 0);
             if (extraArr.Count != 0)
                 z = z.Append(extraArr);
-            return wrapEnumerable(z);
+
+            foreach (var item in z)
+            {
+                yield return item;
+            }
+            //return wrapEnumerable(z);
         }
 
 

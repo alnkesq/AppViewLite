@@ -66,10 +66,26 @@ namespace AppViewLite.Storage
             PendingCompactationReadyForCommit?.Invoke();
         }
 
+        public static object GetCountersStatic()
+        {
+            return new
+            {
+                PrefetchedDiskLookupsSlices,
+                PrefetchedDiskLookups,
+                NonPrefetchedDiskLookups,
+                CombinedPersistentMultiDictionary.SeekCacheCounter,
+            };
+        }
+
+
         public abstract void CheckProbabilisticSetHealthThreadSafe(ProbabilisticSetHealthCheckContext context);
 
         public bool DefaultKeysAreValid;
         public bool DefaultValuesAreValid;
+
+        public static long PrefetchedDiskLookupsSlices;
+        public static long PrefetchedDiskLookups;
+        public static long NonPrefetchedDiskLookups;
 
         public IDisposable? LogOperation(string operation, object? arg = null, bool skipLogging = false)
         {
@@ -863,16 +879,27 @@ namespace AppViewLite.Storage
             return false;
         }
 
+
+
         private IDisposable? MaybeParallelPrefetchIndexesForKey(TKey key, MultiDictionaryIoPreference preference)
         {
             var shouldPrefetchFunc = CombinedPersistentMultiDictionary.ShouldParallelPrefetchIndexes;
-            if (shouldPrefetchFunc == null || !shouldPrefetchFunc()) return null;
+            if (shouldPrefetchFunc == null || !shouldPrefetchFunc())
+            {
+                Interlocked.Increment(ref NonPrefetchedDiskLookups);
+                return null;
+            }
 
             // Take a snapshot of the slices array. Individual slices are safe to read concurrently.
             // They WON'T be disposed while we're still prefetching, because the returned DelegateDisposable waits for the Parallel.ForAsync to complete.
             var slicesToInspect = slices.Where(x => x.Reader.IsKeyInMinMaxRange(key)).ToArray();
-            if (slicesToInspect.Length <= 1) return null; // Parallelism provides no benefits
+            if (slicesToInspect.Length <= 1)
+            {
+                Interlocked.Increment(ref NonPrefetchedDiskLookups);
+                return null; // Parallelism provides no benefits
+            }
 
+            Interlocked.Increment(ref PrefetchedDiskLookups);
             var cts = new CancellationTokenSource();
 
             var runningTasks = 0;
@@ -886,6 +913,7 @@ namespace AppViewLite.Storage
                     var slice = slicesToInspect[slicesToInspect.Length - i - 1];
                     var reader = slice.Reader;
                     reader.PrefetchBinarySearch(key, preference, ct);
+                    Interlocked.Increment(ref PrefetchedDiskLookupsSlices);
                     return ValueTask.CompletedTask;
                 }
                 finally

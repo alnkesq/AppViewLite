@@ -627,6 +627,8 @@ namespace AppViewLite.Storage
 
         private readonly ConcurrentFullEvictionCache<TKey, long>? _seekCache;
 
+        public bool IsKeyCached(TKey key) => _seekCache != null && _seekCache.ContainsKey(key);
+
 
         public long BinarySearch(TKey key, MultiDictionaryIoPreference preference = default)
         {

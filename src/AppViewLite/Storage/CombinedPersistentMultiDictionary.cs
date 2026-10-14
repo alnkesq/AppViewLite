@@ -892,7 +892,7 @@ namespace AppViewLite.Storage
 
             // Take a snapshot of the slices array. Individual slices are safe to read concurrently.
             // They WON'T be disposed while we're still prefetching, because the returned DelegateDisposable waits for the Parallel.ForAsync to complete.
-            var slicesToInspect = slices.Where(x => x.Reader.IsKeyInMinMaxRange(key)).ToArray();
+            var slicesToInspect = slices.Where(x => x.Reader.IsKeyInMinMaxRange(key) && !x.Reader.IsKeyCached(key)).ToArray();
             if (slicesToInspect.Length <= 1)
             {
                 Interlocked.Increment(ref NonPrefetchedDiskLookups);

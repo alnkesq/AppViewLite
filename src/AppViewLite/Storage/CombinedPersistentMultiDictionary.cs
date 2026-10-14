@@ -845,7 +845,7 @@ namespace AppViewLite.Storage
 
 #if true
 
-            using (var __ = MaybeParallelPrefetchIndexesForKey(key, preference))
+            using (var __ = MaybeParallelPrefetchIndexesForKey(key, preference, bigSlicesFirst: true))
             {
                 foreach (var slice in slices)
                 {
@@ -881,7 +881,7 @@ namespace AppViewLite.Storage
 
 
 
-        private IDisposable? MaybeParallelPrefetchIndexesForKey(TKey key, MultiDictionaryIoPreference preference)
+        private IDisposable? MaybeParallelPrefetchIndexesForKey(TKey key, MultiDictionaryIoPreference preference, bool bigSlicesFirst = false)
         {
             var shouldPrefetchFunc = CombinedPersistentMultiDictionary.ShouldParallelPrefetchIndexes;
             if (shouldPrefetchFunc == null || !shouldPrefetchFunc())
@@ -905,6 +905,9 @@ namespace AppViewLite.Storage
             var ct = cts.Token;
 
             var tasks = new List<DiskPrefetchTask>();
+
+            if (bigSlicesFirst)
+                Array.Reverse(slicesToInspect);
 
             for (int i = slicesToInspect.Length - 1; i >= 0; i--)
             {
@@ -988,11 +991,17 @@ namespace AppViewLite.Storage
             {
                 yield return ToNativeArray(extra.ValuesUnsorted); // this will actually be sorted
             }
-            for (int i = slices.Count - 1; i >= 0; i--)
+
+
+            using (var __ = MaybeParallelPrefetchIndexesForKey(key, preference))
             {
-                var vals = slices[i].Reader.GetValues(key, preference);
-                if (vals.Length != 0)
-                    yield return vals;
+
+                for (int i = slices.Count - 1; i >= 0; i--)
+                {
+                    var vals = slices[i].Reader.GetValues(key, preference);
+                    if (vals.Length != 0)
+                        yield return vals;
+                }
             }
         }
 
@@ -1155,9 +1164,12 @@ namespace AppViewLite.Storage
             if (GetKeyProbabilisticCache()?.PossiblyContainsKey(key) == false) return false;
 
             InitializeIoPreferenceForKey(key, ref preference);
-            foreach (var slice in slices)
+            using (var __ = MaybeParallelPrefetchIndexesForKey(key, preference, bigSlicesFirst: true))
             {
-                if (slice.Reader.ContainsKey(key, preference)) return true;
+                foreach (var slice in slices)
+                {
+                    if (slice.Reader.ContainsKey(key, preference)) return true;
+                }
             }
             if (queue.ContainsKey(key)) return true;
             return false;
@@ -1174,9 +1186,12 @@ namespace AppViewLite.Storage
             using var _ = LogOperation(nameof(GetValueCount), key);
             InitializeIoPreferenceForKey(key, ref preference);
             long num = 0;
-            foreach (var slice in slices)
+            using (var __ = MaybeParallelPrefetchIndexesForKey(key, preference, bigSlicesFirst: true))
             {
-                num += slice.Reader.GetValueCount(key, preference);
+                foreach (var slice in slices)
+                {
+                    num += slice.Reader.GetValueCount(key, preference);
+                }
             }
             num += queue.TryGetValues(key).Count;
             return num;

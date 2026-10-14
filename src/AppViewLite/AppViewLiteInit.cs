@@ -36,6 +36,7 @@ namespace AppViewLite
             CombinedPersistentMultiDictionary.DiskSectorSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_SECTOR_SIZE) ?? 512;
             CombinedPersistentMultiDictionary.PrintDirectIoReads = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_PRINT_READS) ?? false;
             CombinedPersistentMultiDictionary.SliceSeekCacheSize = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_PER_SLICE_SEEK_CACHE_SIZE) ?? 512;
+            CombinedPersistentMultiDictionary.ShouldParallelPrefetchIndexes = ShouldParallelPrefetchIndexes;
             var directIoBlockCacheCapacityBytes = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_BLOCK_CACHE_CAPACITY_MB) ?? 128) * 1024 * 1024;
             var directIoMultiBlockCacheCapacity = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_DIRECT_IO_MULTIBLOCK_CACHE_CAPACITY) ?? 128 * 1024;
             if (directIoBlockCacheCapacityBytes != 0)

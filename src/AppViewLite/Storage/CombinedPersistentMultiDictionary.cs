@@ -868,6 +868,8 @@ namespace AppViewLite.Storage
             var shouldPrefetchFunc = CombinedPersistentMultiDictionary.ShouldParallelPrefetchIndexes;
             if (shouldPrefetchFunc == null || !shouldPrefetchFunc()) return null;
 
+            // Take a snapshot of the slices array. Individual slices are safe to read concurrently.
+            // They WON'T be disposed while we're still prefetching, because the returned DelegateDisposable waits for the Parallel.ForAsync to complete.
             var slicesToInspect = slices.Where(x => x.Reader.IsKeyInMinMaxRange(key)).ToArray();
             if (slicesToInspect.Length <= 1) return null; // Parallelism provides no benefits
 
@@ -875,8 +877,7 @@ namespace AppViewLite.Storage
 
             var runningTasks = 0;
 
-            // We use our own non-throwing ct (for performance), no ParallelOptions integration.
-            var task = Parallel.ForAsync(0, slicesToInspect.Length, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cts.Token }, (i, ct) =>
+            var task = Parallel.ForAsync(0, slicesToInspect.Length, new ParallelOptions { CancellationToken = cts.Token }, (i, ct) =>
             {
                 Interlocked.Increment(ref runningTasks);
                 try

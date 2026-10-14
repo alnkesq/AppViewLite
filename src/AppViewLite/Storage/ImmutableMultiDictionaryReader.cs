@@ -659,6 +659,7 @@ namespace AppViewLite.Storage
 
         public long BinarySearch<TComparable>(TComparable comparable, MultiDictionaryIoPreference preference = default) where TComparable : IComparable<TKey>
         {
+            // We pass a default ct, so this will NOT return garbage.
             return BinarySearchInterruptibleNoThrow(comparable, preference, ctNoThrow: default);
         }
 
@@ -681,7 +682,7 @@ namespace AppViewLite.Storage
             if (pageKeys.Length != 0 && typeof(TKey) == typeof(TComparable))
             {
                 result = BinarySearchPaginatedInterruptibleNoThrow(comparable, preference, ctNoThrow);
-                if (false && Random.Shared.Next(100) < 25)
+                if (false && Random.Shared.Next(100) < 25 && !ctNoThrow.IsCancellationRequested)
                 {
                     var checkedResult = HugeSpanHelpers.BinarySearch(this.Keys.Span, comparable);
                     if (result != checkedResult)
@@ -746,6 +747,8 @@ namespace AppViewLite.Storage
             }
             else
             {
+                // Note: if ct is signaled, pageIndex will be garbage here (InterruptedDeadFoodPositive). We will also return garbage.
+
                 // the first (even partial) key of this page is the one we were looking for.
                 var pageStartsAtOffset = pageIndex * PageSizeInBytes;
                 var indexOfKey = pageStartsAtOffset / SizeOfTKey; // If "% sizeof(TKey) = 0", fine. Otherwise we get the round down for free.

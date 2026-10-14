@@ -166,29 +166,29 @@ namespace SkiaSharp
             public Rectangle Rectangle => new Rectangle(0, 0, bitmap.Width, bitmap.Height);
 
             public static SKBitmap Create(int width, int height) => new SKBitmap(width, height, ImageSharpCompat.BlittableSKColorType, SKAlphaType.Unpremul);
-            public static SKBitmap Load(string path, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul)
+            public static SKBitmap Load(string path, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul, bool autorotate = false)
             {
                 using var codec = SKCodec.Create(path).CheckSucceeded();
-                return Load(codec, colorType, alphaType);
+                return Load(codec, colorType, alphaType, autorotate);
             }
-            public static SKBitmap Load(string path, out SKCodecInfoStruct info, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul)
+            public static SKBitmap Load(string path, out SKCodecInfoStruct info, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul, bool autorotate = false)
             {
                 using var codec = SKCodec.Create(path).CheckSucceeded();
                 info = CopyCodecInfo(codec);
-                return Load(codec, colorType, alphaType);
+                return Load(codec, colorType, alphaType, autorotate);
             }
 
-            public static SKBitmap Load(ReadOnlySpan<byte> bytes, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul)
+            public static SKBitmap Load(ReadOnlySpan<byte> bytes, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul, bool autorotate = false)
             {
                 fixed (byte* b = bytes)
                 {
                     using var skdata = SKData.Create((IntPtr)b, bytes.Length);
                     using var codec = SKCodec.Create(skdata).CheckSucceeded();
-                    return Load(codec, colorType, alphaType);
+                    return Load(codec, colorType, alphaType, autorotate);
                 }
             }
 
-            private static SKBitmap Load(SKCodec codec, SKColorType colorType, SKAlphaType alphaType)
+            private static SKBitmap Load(SKCodec codec, SKColorType colorType, SKAlphaType alphaType, bool autorotate = false)
             {
                 var info = codec.Info;
                 info.ColorType = colorType;
@@ -203,6 +203,12 @@ namespace SkiaSharp
                     resultBitmap.Dispose();
                     throw new InvalidOperationException($"Decoding failed: {result}");
                 }
+                if (autorotate)
+                {
+                    var replaceable = (SKReplaceableBitmap)resultBitmap;
+                    replaceable.ApplyExifRotation(codec.EncodedOrigin);
+                    return replaceable.Bitmap;
+                }
                 return resultBitmap;
             }
 
@@ -215,7 +221,7 @@ namespace SkiaSharp
                     EncodedFormat = codec.EncodedFormat,
                 };
             }
-            public static SKBitmap Load(ReadOnlySpan<byte> bytes, out SKCodecInfoStruct info, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul)
+            public static SKBitmap Load(ReadOnlySpan<byte> bytes, out SKCodecInfoStruct info, SKColorType colorType = ImageSharpCompat.BlittableSKColorType, SKAlphaType alphaType = SKAlphaType.Unpremul, bool autorotate = false)
             {
                 fixed (byte* b = bytes)
                 {
@@ -227,6 +233,12 @@ namespace SkiaSharp
                     infoReal.AlphaType = alphaType;
                     var result = SKBitmap.Decode(codec, infoReal);
                     if (result == null) throw new InvalidDataException("Image could not be parsed.");
+                    if (autorotate)
+                    {
+                        var replaceable = (SKReplaceableBitmap)result;
+                        replaceable.ApplyExifRotation(codec.EncodedOrigin);
+                        return replaceable.Bitmap;
+                    }
                     return result;
                 }
             }
@@ -599,6 +611,7 @@ namespace SkiaSharp
         private SKBitmap bitmap;
         public SKBitmap Bitmap => bitmap;
         public SKImageInfo Info => bitmap.Info;
+        public Size Size => bitmap.Size;
         public SKReplaceableBitmap(SKBitmap bitmap)
         {
             this.bitmap = bitmap;

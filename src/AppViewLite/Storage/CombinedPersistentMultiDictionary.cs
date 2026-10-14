@@ -946,7 +946,8 @@ namespace AppViewLite.Storage
 
         public IEnumerable<DangerousHugeReadOnlyMemory<TValue>> GetValuesChunked(TKey key, TValue? minExclusive = null, TValue? maxExclusive = null, MultiDictionaryIoPreference preference = default, bool skipLogging = false)
         {
-            var wrapEnumerable = LogOperationForEnumerable<DangerousHugeReadOnlyMemory<TValue>>(nameof(GetValuesChunked), key, skipLogging: skipLogging);
+            //var wrapEnumerable = LogOperationForEnumerable<DangerousHugeReadOnlyMemory<TValue>>(nameof(GetValuesChunked), key, skipLogging: skipLogging);
+            using var _ = LogOperation(nameof(GetValuesChunked), key, skipLogging: skipLogging);
 
             InitializeIoPreferenceForKey(key, ref preference);
             if (behavior == PersistentDictionaryBehavior.PreserveOrder) throw new InvalidOperationException();

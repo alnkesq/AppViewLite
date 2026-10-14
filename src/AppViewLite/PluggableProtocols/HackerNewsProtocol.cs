@@ -1,6 +1,7 @@
 using AppViewLite.Models;
 using System;
 using System.Buffers;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,7 +45,8 @@ namespace AppViewLite.PluggableProtocols.HackerNews
                         var postMeta = post.NextElementSibling!;
                         var username = postMeta.QuerySelector(".hnuser")?.TextContent;
                         if (username == null) continue;
-                        var date = DateTime.UnixEpoch.AddSeconds(long.Parse(postMeta.QuerySelector(".age")!.GetAttribute("title")!.Split(' ')[1])); // format: title="2025-02-19T12:40:58 1739968858"
+                        // var date = DateTime.UnixEpoch.AddSeconds(long.Parse(postMeta.QuerySelector(".age")!.GetAttribute("title")!.Split(' ')[1])); // format: title="2025-02-19T12:40:58 1739968858"
+                        var date = DateTime.Parse(postMeta.QuerySelector(".age")!.GetAttribute("title")!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
                         var id = long.Parse(post.Id!);
                         var links = postMeta.QuerySelectorAll("a");
                         var threadLink = links[links.Count - 1];

@@ -4600,10 +4600,15 @@ namespace AppViewLite
             var positive = stats.FollowingEngagedPosts + otherEngagements * nonFeedWeight;
             var total = stats.FollowingSeenPosts + otherTotalEstimation * nonFeedWeight;
 
-            return (float)WeightedMeanWithPrior(positive, total, averageEngagementRatio, 50);
+            var zeroToOne = (float)WeightedMeanWithPrior(positive, total, averageEngagementRatio, 50);
+
+            return ScaleMinimum(zeroToOne, 0.03f);
 
         }
-
+        public static float ScaleMinimum(float value, float minimum)
+        {
+            return minimum + (1 - minimum) * value;
+        }
         public static double WeightedMeanWithPrior(double positive, double total, double prior, int priorWeight)
         {
             return (priorWeight * prior + positive) / (priorWeight + total);

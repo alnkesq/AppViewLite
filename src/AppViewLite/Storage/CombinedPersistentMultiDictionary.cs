@@ -54,6 +54,8 @@ namespace AppViewLite.Storage
         public long CompactationWriteBytes;
         public readonly static HitMissCounter SeekCacheCounter = new();
         public PersistentDictionaryBehavior Behavior => behavior;
+        
+        public static long MaxAllowedFileSize = long.MaxValue;
 
         internal readonly static SemaphoreSlim CompactationSemaphore = new SemaphoreSlim(2);
 
@@ -656,20 +658,26 @@ namespace AppViewLite.Storage
 
         public List<CompactationCandidate> GetCompactationCandidates(int minLength, bool force = false)
         {
+
             var maxOutputBytes = new DriveInfo(this.DirectoryPath).AvailableFreeSpace - 200_000_000;
             var candidates = new List<CompactationCandidate>();
             for (int start = 0; start < slices.Count; start++)
             {
-                long compactationBytes = 0;
+                SliceSize compactationSize = default;
                 long largestComponentBytes = 0;
                 for (int end = start + 1; end <= slices.Count; end++) // do not "optimize" this into a start + 2 (totalBytes accumulator)
                 {
-                    var componentBytes = slices[end - 1].SizeInBytes;
-                    largestComponentBytes = Math.Max(largestComponentBytes, componentBytes);
-                    compactationBytes += componentBytes;
+                    var componentBytes = slices[end - 1].Size;
+                    largestComponentBytes = Math.Max(largestComponentBytes, componentBytes.TotalSize);
+                    compactationSize += componentBytes;
                     var length = end - start;
                     if (length < minLength) continue;
+                    var compactationBytes = compactationSize.TotalSize;
                     if (compactationBytes > maxOutputBytes) break;
+
+                    if (compactationSize.KeysFileSize > MaxAllowedFileSize) break;
+                    if (compactationSize.OffsetsFileSize > MaxAllowedFileSize) break;
+                    if (compactationSize.DataFileSize > MaxAllowedFileSize) break;
 
                     var ratioOfLargestComponent = ((double)largestComponentBytes / compactationBytes);
                     if (!force && ratioOfLargestComponent > GetMaximumRatioOfLargestSliceForCompactation(compactationBytes, slices.Count)) continue;
@@ -1943,6 +1951,15 @@ namespace AppViewLite.Storage
     public readonly record struct SliceSize(long KeysFileSize, long OffsetsFileSize, long DataFileSize)
     {
         public long TotalSize => KeysFileSize + OffsetsFileSize + DataFileSize;
+
+        public static SliceSize operator +(SliceSize a, SliceSize b)
+        {
+            return new SliceSize(
+                a.KeysFileSize + b.KeysFileSize, 
+                a.OffsetsFileSize + b.OffsetsFileSize, 
+                a.DataFileSize + b.DataFileSize
+            ); 
+        }
     }
 
 }

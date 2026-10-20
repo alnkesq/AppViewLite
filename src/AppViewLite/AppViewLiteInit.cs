@@ -173,11 +173,18 @@ namespace AppViewLite
         {
             var apis = BlueskyEnrichedApis.Instance;
             if (apis == null) return false;
+
             var isUrgent = BlueskyRelationshipsClientBase.CurrentThreadRequestContext?.IsUrgent;
             if (isUrgent == true) return true;
+
             var primaryLock = apis.primarySecondaryPair.relationshipsUnlocked.Lock;
-            return primaryLock.IsWriteLockHeld;
-            //return false;
+            if (primaryLock.IsWriteLockHeld)
+            {
+                if (!apis.primarySecondaryPair.urgentWriteTasks.IsEmpty ||
+                    !apis.primarySecondaryPair.urgentReadTasks.IsEmpty)
+                    return true;
+            }
+            return false;
         }
 
         private static async Task RunLargeObjectHeapCompactationLoop()

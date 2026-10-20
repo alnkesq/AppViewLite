@@ -511,10 +511,11 @@ namespace AppViewLite.Storage
         public event EventHandler? BeforeWrite;
 
         public MultiDictionary2<TKey, TValue> QueuedItems => queue;
-        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, long PruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, long SizeInBytes)
+        public record struct SliceInfo(DateTime StartTime, DateTime EndTime, long PruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> ReaderHandle, SliceSize Size)
         {
+            public readonly long SizeInBytes => Size.TotalSize;
             public SliceInfo(DateTime startTime, DateTime endTime, long pruneId, ReferenceCountHandle<ImmutableMultiDictionaryReader<TKey, TValue>> readerHandle)
-                 : this(startTime, endTime, pruneId, readerHandle, readerHandle.Value.SizeInBytes)
+                 : this(startTime, endTime, pruneId, readerHandle, readerHandle.Value.SliceSize)
             {
 
             }
@@ -1939,6 +1940,10 @@ namespace AppViewLite.Storage
         }
     }
 
+    public readonly record struct SliceSize(long KeysFileSize, long OffsetsFileSize, long DataFileSize)
+    {
+        public long TotalSize => KeysFileSize + OffsetsFileSize + DataFileSize;
+    }
 
 }
 

@@ -25,7 +25,7 @@ namespace AppViewLite.Storage
 
         public TKey MinimumKey { get; private set; }
         public TKey MaximumKey { get; private set; }
-        public long SizeInBytes { get; private set; }
+        public SliceSize SliceSize { get; private set; }
         public long PageIndexSize => (pageKeys.Length + 1) * Unsafe.SizeOf<TKey>();
 
         public bool IsSingleValueOrKeySet => behavior is PersistentDictionaryBehavior.SingleValue or PersistentDictionaryBehavior.KeySetOnly;
@@ -127,10 +127,11 @@ namespace AppViewLite.Storage
                     this.MaximumKey = Keys[Keys.Length - 1];
                 }
             }
-            this.SizeInBytes =
-                Keys.Length * Unsafe.SizeOf<TKey>() +
-                (HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0) +
-                (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>();
+            this.SliceSize = new(
+                Keys.Length * Unsafe.SizeOf<TKey>(),
+                (Offsets?.Length ?? 0) * Unsafe.SizeOf<UInt48>(),
+                HasValues ? Values.Length * Unsafe.SizeOf<TValue>() : 0
+                );
 
         }
 

@@ -3012,8 +3012,19 @@ namespace AppViewLite
             }
         }
 
+
+        private readonly static double BalancedFeedRandomBoostMinimum = 0.03f;
+        private readonly static double BalancedFeedRandomBoostMaximum = 0.3f;
+
+
         private static float GetBalancedFeedPerUserScore(long likeCount, TimeSpan age) => GetDecayedScore(likeCount, age, 0.3);
-        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age, float userScore) => GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8) * userScore;
+        private static float GetBalancedFeedGlobalScore(long likeCount, TimeSpan age, float userScore)
+        {
+            var minimum = double.Lerp(BalancedFeedRandomBoostMinimum, BalancedFeedRandomBoostMaximum, Math.Pow(Random.Shared.NextSingle(), 2.5));
+            var randomBoostedUserScore = (float)BlueskyRelationships.ScaleMinimum(userScore, minimum);
+
+            return GetDecayedScore(Math.Pow(likeCount, 0.1), age, 1.8) * randomBoostedUserScore;
+        }
 
         private static float GetDecayedScore(double likeCount, TimeSpan age, double gravity, double baseHours = 2)
         {

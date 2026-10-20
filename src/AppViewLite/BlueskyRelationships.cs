@@ -4600,12 +4600,12 @@ namespace AppViewLite
             var positive = stats.FollowingEngagedPosts + otherEngagements * nonFeedWeight;
             var total = stats.FollowingSeenPosts + otherTotalEstimation * nonFeedWeight;
 
-            var zeroToOne = (float)WeightedMeanWithPrior(positive, total, averageEngagementRatio, 50);
+            var zeroToOne = WeightedMeanWithPrior(positive, total, averageEngagementRatio, 50);
 
-            return ScaleMinimum(zeroToOne, 0.03f);
+            return (float)ScaleMinimum(zeroToOne, 0.01f); // mostly to avoid roundings to zero. Actual minimum boosting is done in GetBalancedFeedGlobalScore
 
         }
-        public static float ScaleMinimum(float value, float minimum)
+        public static double ScaleMinimum(double value, double minimum)
         {
             return minimum + (1 - minimum) * value;
         }

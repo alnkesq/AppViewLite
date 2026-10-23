@@ -46,6 +46,7 @@
         <LexiconResolve Include="chat.bsky.actor.declaration" />
         <LexiconResolve Include="com.atproto.lexicon.schema" />
         <LexiconResolve Include="com.atproto.repo.strongRef" />
+        <LexiconResolve Include="app.bsky.actor.link" />
 
 
 

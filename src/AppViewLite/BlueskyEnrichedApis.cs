@@ -5030,11 +5030,12 @@ namespace AppViewLite
                     ExtensionMethods.MakeUtc(ref profileProto.FirstLogin);
                     ExtensionMethods.MakeUtc(ref profileProto.LastClearUnreadMessageCountDate);
 
+                    throw new NotImplementedException();
                     userContext = new AppViewLiteUserContext
                     {
                         PrivateProfile = profileProto,
                         Profile = rels.GetProfile(plc),
-                        PdsSession = profileProto.PdsSessionCbor != null ? BlueskyEnrichedApis.DeserializeAuthSession(profileProto.PdsSessionCbor!).Session : null,
+                        // PdsSession = profileProto.PdsSessionCbor != null ? BlueskyEnrichedApis.DeserializeAuthSession(profileProto.PdsSessionCbor!).Session : null,
                     };
                     userContext.UpdateRefreshTokenExpireDate();
 

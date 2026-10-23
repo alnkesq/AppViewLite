@@ -9,7 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FishyFlip" Version="4.3.0" />
     <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.13" />
     <PackageReference Include="System.IO.Hashing" Version="10.0.13" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
@@ -21,10 +20,15 @@
     <PackageReference Include="AngleSharp" Version="1.8.4" />
     <PackageReference Include="NNostr.Client" Version="0.0.55" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.13" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <PackageReference Include="System.Threading.RateLimiting" Version="10.0.13" />
     <PackageReference Include="SimpleBase" Version="5.6.4" />
     <PackageReference Include="SkiaSharp" Version="4.153.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AppViewLite.Lexicon\AppViewLite.Lexicon.csproj" />
   </ItemGroup>
 
 </Project>

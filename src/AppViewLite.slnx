@@ -1,4 +1,9 @@
 <Solution>
+  <Project Path="../../carpanet/src/CarpaNet.AspNetCore/CarpaNet.AspNetCore.csproj" />
+  <Project Path="../../carpanet/src/CarpaNet.Jetstream/CarpaNet.Jetstream.csproj" />
+  <Project Path="../../carpanet/src/CarpaNet.SourceGen/CarpaNet.SourceGen.csproj" />
+  <Project Path="../../carpanet/src/CarpaNet/CarpaNet.csproj" />
+  <Project Path="AppViewLite.Lexicon/AppViewLite.Lexicon.csproj" />
   <Project Path="AppViewLite.Web/AppViewLite.Web.csproj" />
   <Project Path="AppViewLite/AppViewLite.csproj" />
 </Solution>

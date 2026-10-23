@@ -29,6 +29,14 @@ namespace AppViewLite
             public string DidAsString => uri.AuthorityAsDid!.Value.DidAsString;
             public string? Rkey => uri.RecordKey;
         }
+        extension(ATCid cid)
+        {
+            public byte[] ToBytesV2()
+            {
+                if (!cid.IsValid) return null;
+                return cid.ToBytes();
+            }
+        }
         extension(ATDid did)
         {
             public string DidAsString

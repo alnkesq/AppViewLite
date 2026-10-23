@@ -304,7 +304,7 @@ namespace AppViewLite
 
         public static string GetSyntheticCid(ATUri uri)
         {
-            var c = new ATCid("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToBytes();
+            var c = new ATCid("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToBytesV2();
             var preservePrefix = 4;
             c.AsSpan(preservePrefix).Clear();
             var hash = SHA256.HashData(Encoding.UTF8.GetBytes(uri.ToString()));

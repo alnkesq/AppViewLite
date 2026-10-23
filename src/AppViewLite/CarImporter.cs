@@ -218,7 +218,7 @@ namespace AppViewLite
         }
 #endif
 
-        private static DuckDbUuid CidToUuid(ATCid cid) => StringUtils.HashToUuid(cid.ToBytes());
+        private static DuckDbUuid CidToUuid(ATCid cid) => StringUtils.HashToUuid(cid.ToBytesV2());
 
         public void Dispose()
         {

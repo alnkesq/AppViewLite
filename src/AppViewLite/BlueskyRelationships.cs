@@ -61,6 +61,7 @@ namespace AppViewLite
         public CombinedPersistentMultiDictionary<Relationship, ListEntry> ListItems;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListItemDeletions;
         public CombinedPersistentMultiDictionary<Relationship, byte> Lists;
+        public CombinedPersistentMultiDictionary<Relationship, byte> ProfileLinks;
         public CombinedPersistentMultiDictionary<Relationship, DateTime> ListDeletions;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> Threadgates;
         public CombinedPersistentMultiDictionary<PostIdTimeFirst, byte> Postgates;
@@ -331,6 +332,7 @@ namespace AppViewLite
 
             Lists = RegisterDictionary<Relationship, byte>("list", PersistentDictionaryBehavior.PreserveOrder);
             ListDeletions = RegisterDictionary<Relationship, DateTime>("list-deletion", PersistentDictionaryBehavior.SingleValue, getIoPreferenceForKey: _ => MultiDictionaryIoPreference.AllMmap);
+            ProfileLinks = RegisterDictionary<Relationship, byte>("profile-link", PersistentDictionaryBehavior.PreserveOrder);
 
             Threadgates = RegisterDictionary<PostIdTimeFirst, byte>("threadgate-2", PersistentDictionaryBehavior.PreserveOrder);
             Postgates = RegisterDictionary<PostIdTimeFirst, byte>("postgate-2", PersistentDictionaryBehavior.PreserveOrder);
@@ -1249,21 +1251,21 @@ namespace AppViewLite
             if (embed is Images { } ei)
             {
                 if (ei.ImagesValue.Any(x => !x.Image.Ref.IsValid)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
-                proto.Media = ei.ImagesValue!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.Image.Ref.ToBytes() }).ToArray();
+                proto.Media = ei.ImagesValue!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.Image.Ref.ToBytesV2()}).ToArray();
             }
             else if (embed is External { } ext)
             {
                 proto.ExternalTitle = ext.ExternalValue!.Title;
                 proto.ExternalUrl = ext.ExternalValue.Uri;
                 proto.ExternalDescription = ext.ExternalValue.Description;
-                proto.ExternalThumbCid = ext.ExternalValue.Thumb?.Ref.ToBytes();
+                proto.ExternalThumbCid = ext.ExternalValue.Thumb?.Ref.ToBytesV2();
             }
             else if (embed is Video { } vid)
             {
                 proto.Media = (proto.Media ?? []).Concat([new BlueskyMediaData
                 {
                     AltText = vid.Alt,
-                    Cid = vid.VideoValue!.Ref.ToBytes(),
+                    Cid = vid.VideoValue!.Ref.ToBytesV2(),
                     IsVideo = true,
                 }]).ToArray();
             }
@@ -1640,13 +1642,13 @@ namespace AppViewLite
             {
                 Description = pf.Description,
                 DisplayName = pf.DisplayName,
-                AvatarCidBytes = pf.Avatar?.Ref.ToBytes(),
-                BannerCidBytes = pf.Banner?.Ref.ToBytes(),
+                AvatarCidBytes = pf.Avatar?.Ref.ToBytesV2(),
+                BannerCidBytes = pf.Banner?.Ref.ToBytesV2(),
                 PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Value.Rkey).TidValue : null,
                 ExternalWebsite = StringUtils.NormalizeNull(pf.Website),
                 Pronouns = StringUtils.NormalizeNull(pf.Pronouns),
+                ProfileLinkRkeys = pf.Links != null && pf.Links.Count != 0 ? pf.Links.Select(x => Tid.Parse(x.Uri.Rkey).TidValue).ToArray() : null
             };
-
             IndexProfile(plc, proto);
             StoreProfileBasicInfo(plc, proto);
         }
@@ -2349,13 +2351,15 @@ namespace AppViewLite
 
         public BlueskyFullProfile GetFullProfile(Plc plc, RequestContext ctx, int followersYouFollowToLoad)
         {
+            var profile = GetProfile(plc, ctx);
             return new BlueskyFullProfile
             {
-                Profile = GetProfile(plc, ctx),
+                Profile = profile,
                 Followers = Follows.GetActorCount(plc),
                 FollowedByPeopleYouFollow = ctx.IsLoggedIn && followersYouFollowToLoad != 0 ? GetFollowersYouFollow(plc, ctx.LoggedInUser)?.Select((x, i) => i < followersYouFollowToLoad ? GetProfile(x, ctx, canOmitDescription: true) : new BlueskyProfile { PlcId = x.PlcValue, Did = null! }).ToList() : null,
                 HasFeeds = FeedGenerators.GetInRangeUnsorted(new RelationshipHashedRKey(plc, 0), new RelationshipHashedRKey(plc.GetNext(), 0)).Any(),
                 HasLists = Lists.GetInRangeUnsorted(new Relationship(plc, default), new Relationship(plc.GetNext(), default)).Any(),
+                ProfileLinks = profile.BasicData?.ProfileLinkRkeys is { } linkTids ? linkTids.Select(x => TryGetProfileLink(new Relationship(plc, new Tid(x)))).WhereNonNull().ToArray() : [],
             };
         }
 
@@ -2473,6 +2477,16 @@ namespace AppViewLite
             return "%" + name + "-" + minPopularity;
         }
 
+        internal static LinkData ProfileLinkToProto(AppBsky.Actor.Link link)
+        {
+            return new LinkData
+            {
+                Title = link.Title,
+                IconCid = link.Icon?.Ref.ToBytesV2(),
+                Url = link.Url,
+                
+            };
+        }
 
         internal static ListData ListToProto(AppBsky.Graph.List list)
         {
@@ -2487,7 +2501,7 @@ namespace AppViewLite
                     DefsReferencelistToken.Value => ListPurposeEnum.Reference,
                     _ => ListPurposeEnum.Unknown,
                 },
-                AvatarCid = list.Avatar?.Ref.ToBytes(),
+                AvatarCid = list.Avatar?.Ref.ToBytesV2(),
                 DescriptionFacets = GetFacetsAsProtos(list.DescriptionFacets),
             };
 
@@ -3210,6 +3224,15 @@ namespace AppViewLite
             return list;
         }
 
+        public LinkData? TryGetProfileLink(Relationship linkId)
+        {
+            if (this.ProfileLinks.TryGetPreserveOrderSpanLatest(linkId, out var linkBytes))
+            {
+                return DeserializeProto<LinkData>(linkBytes.AsSmallSpan());
+            }
+            return null;
+        }
+
         public ListData? TryGetListData(Relationship listId)
         {
             if (this.Lists.TryGetPreserveOrderSpanLatest(listId, out var listMetadataBytes))
@@ -3237,7 +3260,7 @@ namespace AppViewLite
             var proto = new BlueskyFeedGeneratorData
             {
                 DisplayName = generator.DisplayName,
-                AvatarCid = generator.Avatar?.Ref.ToBytes(),
+                AvatarCid = generator.Avatar?.Ref.ToBytesV2(),
                 Description = generator.Description,
                 DescriptionFacets = GetFacetsAsProtos(generator.DescriptionFacets),
                 RetrievalDate = retrievalDate,

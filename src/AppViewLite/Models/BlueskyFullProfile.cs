@@ -11,6 +11,7 @@ namespace AppViewLite.Models
         public bool HasFeeds;
         public bool HasLists;
         public RssRefreshInfo? RssFeedInfo;
+        public required LinkData[] ProfileLinks;
     }
 }
 

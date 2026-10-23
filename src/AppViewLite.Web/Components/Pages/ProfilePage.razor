@@ -249,6 +249,7 @@
                 var hasPronounsOrLocationOrDescription = hasPronounsOrLocation || description != null;
                 var pluggableExternalUrlToDisplayInBio = pluggableExternalUrl != null && SimpleProfile.PluggableProtocol!.ShouldDisplayExternalLinkInBio;
                 var parsedExternalWebsite = StringUtils.TryParseUri(SimpleProfile.ExternalWebsite);
+                var links = Profile?.ProfileLinks.Select(x => (x.Title, Url: StringUtils.TryParseUri(x.Url))).Where(x => x.Url != null).ToArray() ?? [];
             }
             @if (hasPronounsOrLocation)
             {
@@ -273,6 +274,16 @@
                 {
                     <a href="@pluggableExternalUrl" rel="noreferrer" target="_blank" class="blue-link display-block">@StringUtils.GetDisplayUrl(new Uri(pluggableExternalUrl!))</a>
                 }
+            }
+            @if(links.Length != 0)
+            {
+                <div>
+                @foreach (var link in links)
+                    {
+                        <a href="@link.Url" rel="noreferrer" target="_blank" class="blue-link display-block">@(link.Title ?? StringUtils.GetDisplayUrl(link.Url!))</a>
+                    }
+                </div>
+                
             }
             @if (BridgyMirroredProfile != null)
             {

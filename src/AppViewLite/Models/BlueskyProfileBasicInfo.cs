@@ -30,6 +30,7 @@ namespace AppViewLite.Models
         [ProtoMember(23)] public string? Location;
         [ProtoMember(24)] public string? Pronouns;
         [ProtoMember(25)] public string? ExternalWebsite;
+        [ProtoMember(26)] public long[]? ProfileLinkRkeys;
 
         public string? Error;
 

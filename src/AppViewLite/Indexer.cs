@@ -182,6 +182,7 @@ namespace AppViewLite
                     Listitem.RecordType => Listitem.FromJson(recordJson),
                     List.RecordType => List.FromJson(recordJson),
                     Generator.RecordType => Generator.FromJson(recordJson),
+                    Link.RecordType => Link.FromJson(recordJson),
                     _ => null,
                 };
 
@@ -247,7 +248,7 @@ namespace AppViewLite
                         return;
                     }
 
-                    if (l.Subject!.Uri!.Collection == Post.RecordType)
+                    if (l.Subject.Uri.Collection == Post.RecordType)
                     {
                         // quick check to avoid noisy exceptions
 
@@ -434,6 +435,10 @@ namespace AppViewLite
                 else if (record is List list)
                 {
                     relationships.Lists.AddRange(new Relationship(commitPlc, GetMessageTid(path, List.RecordType)), BlueskyRelationships.SerializeProto(BlueskyRelationships.ListToProto(list)));
+                }
+                else if (record is Link link)
+                {
+                    relationships.ProfileLinks.AddRange(new Relationship(commitPlc, GetMessageTid(path, Link.RecordType)), BlueskyRelationships.SerializeProto(BlueskyRelationships.ProfileLinkToProto(link)));
                 }
                 else if (record is Listitem listItem)
                 {

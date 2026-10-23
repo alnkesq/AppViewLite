@@ -1,5 +1,6 @@
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Models;
+using AppBsky.Feed;
+using CarpaNet;
+using CarpaNet;
 
 namespace AppViewLite.Models
 {

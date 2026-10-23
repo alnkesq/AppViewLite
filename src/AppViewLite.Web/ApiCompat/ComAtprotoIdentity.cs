@@ -1,5 +1,3 @@
-using FishyFlip.Lexicon.Com.Atproto.Identity;
-using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +6,7 @@ namespace AppViewLite.Web.ApiCompat
 {
     [ApiController]
     [EnableCors("BskyClient")]
-    public class ComAtprotoIdentity : FishyFlip.Xrpc.Lexicon.Com.Atproto.Identity.IdentityController
+    public class ComAtprotoIdentity : Xrpc.ComAtproto.Identity.IdentityController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;

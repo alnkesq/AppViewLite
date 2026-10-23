@@ -1,17 +1,16 @@
+using AppBsky.Actor;
+using AppBsky.Feed;
+using AppBsky.Graph;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
+using CarpaNet;
+using CarpaNet.Jetstream;
+using CarpaNet.Repo;
 using DuckDbSharp;
 using DuckDbSharp.Types;
-using FishyFlip;
-using FishyFlip.Events;
-using FishyFlip.Lexicon;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Graph;
-using FishyFlip.Lexicon.Com.Atproto.Label;
-using FishyFlip.Models;
-using FishyFlip.Tools;
+using Google.Protobuf;
+using Microsoft.Extensions.Logging;
 using AppViewLite;
 using System;
 using System.Collections.Generic;
@@ -128,11 +127,11 @@ namespace AppViewLite
                     }
                     else if (collection == Threadgate.RecordType)
                     {
-                        relationships.Threadgates.AddRange(new PostId(commitPlc, rel.RelationshipRKey), relationships.SerializeThreadgateToBytes(new Threadgate(), ctx, out _));
+                        relationships.Threadgates.AddRange(new PostId(commitPlc, rel.RelationshipRKey), relationships.SerializeThreadgateToBytes(new Threadgate { CreatedAt = default, Post = default }, ctx, out _));
                     }
                     else if (collection == Postgate.RecordType)
                     {
-                        relationships.Postgates.AddRange(new PostId(commitPlc, rel.RelationshipRKey), relationships.SerializePostgateToBytes(new Postgate(), ctx, out _));
+                        relationships.Postgates.AddRange(new PostId(commitPlc, rel.RelationshipRKey), relationships.SerializePostgateToBytes(new Postgate { CreatedAt = default, Post = default }, ctx, out _));
                     }
                     else if (collection == Listblock.RecordType)
                     {
@@ -158,13 +157,33 @@ namespace AppViewLite
 
 
 
-        public void OnRecordCreated(string commitAuthor, CollectionAndRKey path, ATObject record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
+        public void OnRecordCreated(string commitAuthor, CollectionAndRKey path, JsonElement recordJson, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
             var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
-            ctx ??= RequestContext.CreateForFirehose("Create:" + record.Type, allowStale: true);
+            var recordType = recordJson.AtProtoTypeId;
+            ctx ??= RequestContext.CreateForFirehose("Create:" + recordType, allowStale: true);
+
+
+            object? record =
+                recordType switch
+                {
+                    Like.RecordType => Like.FromJson(recordJson),
+                    Repost.RecordType => Repost.FromJson(recordJson),
+                    Follow.RecordType => Follow.FromJson(recordJson),
+                    Block.RecordType => Block.FromJson(recordJson),
+                    Post.RecordType => Post.FromJson(recordJson),
+                    Profile.RecordType => Profile.FromJson(recordJson),
+                    Threadgate.RecordType => Threadgate.FromJson(recordJson),
+                    Postgate.RecordType => Postgate.FromJson(recordJson),
+                    Listblock.RecordType => Listblock.FromJson(recordJson),
+                    Listitem.RecordType => Listitem.FromJson(recordJson),
+                    List.RecordType => List.FromJson(recordJson),
+                    Generator.RecordType => Generator.FromJson(recordJson),
+                    _ => null,
+                };
 
             var preresolved = WithRelationshipsLock(rels =>
             {
@@ -179,21 +198,21 @@ namespace AppViewLite
 
                 if (record is Like like && like.Subject!.Uri.Collection == Post.RecordType)
                 {
-                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(like.Subject!.Uri.Did!.Handler, ctx);
-                    viaPlc = like.Via?.Uri.Did is { } viaDid ? rels.TrySerializeDidMaybeReadOnly(viaDid.Handler, ctx) : default;
+                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(like.Subject!.Uri.DidAsString!, ctx);
+                    viaPlc = like.Via?.Uri.DidAsString is { } viaDid ? rels.TrySerializeDidMaybeReadOnly(viaDid, ctx) : default;
                     if (subjectPlc != default && !rels.Likes.HasActor(new PostIdTimeFirst(Tid.Parse(like.Subject.Uri.Rkey), subjectPlc), commitPlc, out _))
                         relationshipIsAbsent = true;
                 }
                 else if (record is Repost repost && repost.Subject!.Uri.Collection == Post.RecordType)
                 {
-                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(repost.Subject!.Uri.Did!.Handler, ctx);
-                    viaPlc = repost.Via?.Uri.Did is { } viaDid ? rels.TrySerializeDidMaybeReadOnly(viaDid.Handler, ctx) : default;
+                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(repost.Subject!.Uri.DidAsString!, ctx);
+                    viaPlc = repost.Via?.Uri.DidAsString is { } viaDid ? rels.TrySerializeDidMaybeReadOnly(viaDid, ctx) : default;
                     if (subjectPlc != default && !rels.Reposts.HasActor(new PostIdTimeFirst(Tid.Parse(repost.Subject.Uri.Rkey), subjectPlc), commitPlc, out _))
                         relationshipIsAbsent = true;
                 }
                 else if (record is Follow follow)
                 {
-                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(follow.Subject!.Handler, ctx);
+                    subjectPlc = rels.TrySerializeDidMaybeReadOnly(follow.Subject!.DidAsString, ctx);
                     if (subjectPlc != default && !rels.Follows.HasActor(subjectPlc, commitPlc, out _))
                         relationshipIsAbsent = true;
                 }
@@ -269,7 +288,7 @@ namespace AppViewLite
                             if (l.Via != null)
                             {
                                 if (l.Via.Uri.Collection != Repost.RecordType) throw new UnexpectedFirehoseDataException("Like.via should be a repost URL.");
-                                var viaRepostPlc = relationships.SerializeDidWithHint(l.Via.Uri.Did!.Handler, ctx, preresolved.viaPlc);
+                                var viaRepostPlc = relationships.SerializeDidWithHint(l.Via.Uri.DidAsString, ctx, preresolved.viaPlc);
                                 var viaRepostRkey = l.Via.Uri.Rkey;
                                 if (viaRepostPlc != postId.Author)
                                     relationships.AddNotification(viaRepostPlc, NotificationKind.LikedYourRepost, commitPlc, Tid.Parse(viaRepostRkey), ctx, likeRkey.Date);
@@ -284,7 +303,7 @@ namespace AppViewLite
                     else if (l.Subject.Uri.Collection == Generator.RecordType)
                     {
                         // TODO: handle deletions for feed likes
-                        var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.Did!.Handler, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
+                        var feedId = new RelationshipHashedRKey(relationships.SerializeDidWithHint(l.Subject.Uri.DidAsString, ctx, preresolved.subjectPlc), l.Subject.Uri.Rkey);
 
                         if (relationships.FeedGeneratorLikes.Add(feedId, new Relationship(commitPlc, likeRkey)))
                         {
@@ -313,7 +332,7 @@ namespace AppViewLite
                         return;
                     }
 
-                    var followed = relationships.SerializeDidWithHint(f.Subject!.Handler, ctx, preresolved.subjectPlc);
+                    var followed = relationships.SerializeDidWithHint(f.Subject!.DidAsString, ctx, preresolved.subjectPlc);
 
                     if (relationships.Follows.Add(followed, new Relationship(commitPlc, rkey), preresolved.relationshipIsAbsentAsOf))
                     {
@@ -347,7 +366,7 @@ namespace AppViewLite
                         if (r.Via != null)
                         {
                             if (r.Via.Uri.Collection != Repost.RecordType) throw new UnexpectedFirehoseDataException("Repost.via should be a repost URL.");
-                            var viaRepostPlc = relationships.SerializeDidWithHint(r.Via.Uri.Did!.Handler, ctx, preresolved.viaPlc);
+                            var viaRepostPlc = relationships.SerializeDidWithHint(r.Via.Uri.DidAsString, ctx, preresolved.viaPlc);
                             var viaRepostRkey = r.Via.Uri.Rkey;
 
                             if (viaRepostPlc != postId.Author)
@@ -361,7 +380,7 @@ namespace AppViewLite
                 }
                 else if (record is Block b)
                 {
-                    var blockedUser = relationships.SerializeDid(b.Subject!.Handler, ctx);
+                    var blockedUser = relationships.SerializeDid(b.Subject!.DidAsString, ctx);
                     var blockRkey = GetMessageTid(path, Block.RecordType);
                     relationships.Blocks.Add(blockedUser, new Relationship(commitPlc, blockRkey));
                     relationships.AddNotification(blockedUser, NotificationKind.BlockedYou, commitPlc, ctx, blockRkey.Date);
@@ -372,7 +391,7 @@ namespace AppViewLite
 
 
                     var isRootPost = p.Reply == null;
-                    var isReplyToOwnThread = p.Reply?.Root.Uri.Did?.Handler == commitAuthor;
+                    var isReplyToOwnThread = p.Reply?.Root.Uri.DidAsString == commitAuthor;
 
                     if (isRootPost || !isReplyToOwnThread)
                     {
@@ -418,11 +437,11 @@ namespace AppViewLite
                 }
                 else if (record is Listitem listItem)
                 {
-                    if (commitAuthor != listItem.List!.Did!.Handler) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
+                    if (commitAuthor != listItem.List!.DidAsString) throw new UnexpectedFirehoseDataException("Listitem for non-owned list.");
                     if (listItem.List.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listitem in non-listitem collection.");
                     var listRkey = Tid.Parse(listItem.List.Rkey);
                     var listItemRkey = GetMessageTid(path, Listitem.RecordType);
-                    var member = relationships.SerializeDid(listItem.Subject!.Handler, ctx);
+                    var member = relationships.SerializeDid(listItem.Subject!.DidAsString, ctx);
 
                     var listId = new Relationship(commitPlc, listRkey);
                     var entry = new ListEntry(member, listItemRkey);
@@ -458,7 +477,7 @@ namespace AppViewLite
                 {
                     var blockId = new Relationship(commitPlc, GetMessageTid(path, Listblock.RecordType));
                     if (listBlock.Subject!.Collection != List.RecordType) throw new UnexpectedFirehoseDataException("Listblock in non-listblock collection.");
-                    var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.Did!.Handler, ctx), Tid.Parse(listBlock.Subject.Rkey));
+                    var listId = new Relationship(relationships.SerializeDid(listBlock.Subject.DidAsString, ctx), Tid.Parse(listBlock.Subject.Rkey));
 
                     relationships.ListBlocks.Add(blockId, listId);
                     relationships.ListSubscribers.Add(listId, blockId);
@@ -492,38 +511,45 @@ namespace AppViewLite
             {
                 LogInfo("Fetching record " + uri);
 
-                var record = (await Apis.GetRecordAsync(uri.Did!.Handler, uri.Collection, uri.Rkey, ctx));
+                var record = (await Apis.GetRecordAsync(uri.DidAsString, uri.Collection!, uri.Rkey!, ctx)).Value;
 
-                OnRecordCreated(uri.Did.Handler, uri.GetParsedPath(), record, ignoreIfDisposing: true);
+                OnRecordCreated(uri.DidAsString, uri.GetParsedPath(), record, ignoreIfDisposing: true);
 
                 currentlyRunningRecordRetrievals.Remove(uri.ToString());
 
             });
         }
 
-        public void OnJetStreamEvent(JetStreamATWebSocketRecordEventArgs e, ATJetStream firehose)
+        public void OnJetStreamEvent(JetstreamEvent e)
         {
             if (!OnFirehoseEventBeginProcessing()) return;
 
-            if (e.Record.Account is { } acct)
+
+            if (!string.IsNullOrEmpty(e.Did))
+                VerifyValidForCurrentRelay?.Invoke(e.Did);
+
+            if (e.Account is { } acct)
             {
-                OnAccountStateChanged(acct.Did.Handler, acct.Active, acct.Status);
+                OnAccountStateChanged(acct.Did!, acct.Active, acct.Status);
                 return;
+
             }
 
-            VerifyValidForCurrentRelay!(e.Record.Did!.ToString());
-
-            if (e.Record.Commit?.Operation is ATWebSocketCommitType.Create or ATWebSocketCommitType.Update)
+            if (e.Commit is { } commit)
             {
-                OnRecordCreated(e.Record.Did!.ToString(), new CollectionAndRKey(e.Record.Commit.Collection!, e.Record.Commit.RKey!), e.Record.Commit.Record!, ignoreIfDisposing: true);
-            }
-            if (e.Record.Commit?.Operation == ATWebSocketCommitType.Delete)
-            {
-                OnRecordDeleted(e.Record.Did!.ToString(), new CollectionAndRKey(e.Record.Commit.Collection!, e.Record.Commit.RKey!), ignoreIfDisposing: true);
-            }
 
-            var date = e.Record.TimeUs;
-            BumpLargestSeenFirehoseCursor(firehose.LastDefinitelyProcessedCursor, date != null ? DateTime.UnixEpoch.AddMicroseconds(date.Value) : null);
+                var operation = commit.Operation;
+                if (operation is "create" or "update")
+                {
+                    OnRecordCreated(e.Did, new CollectionAndRKey(commit.Collection!, commit.Rkey!), commit.Record!.Value, ignoreIfDisposing: true);
+                }
+                else if (operation == "delete")
+                {
+                    OnRecordDeleted(e.Did, new CollectionAndRKey(commit.Collection!, commit.Rkey!), ignoreIfDisposing: true);
+                }
+            }
+            
+
         }
 
         private bool OnFirehoseEventBeginProcessing()
@@ -571,57 +597,58 @@ namespace AppViewLite
                 try
                 {
                     var tcs = new TaskCompletionSource();
-                    var options = new ATJetStreamBuilder()
-                        .WithInstanceUrl(FirehoseUrl.GetNext())
-                        .WithLogger(new LogWrapper())
-                        .WithTaskFactory(FirehoseThreadpoolTaskFactory!);
+                    using var client = new JetstreamClient(FirehoseUrl.GetNext());
+                    //.WithLogger(new LogWrapper())
+                    //.WithTaskFactory(FirehoseThreadpoolTaskFactory!);
+
 
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.RestartCount++;
 
                     LogFirehoseStartMessage(currentFirehoseCursor, isImportant: true);
-                    if (this.currentFirehoseCursor.CommittedCursor != null)
-                    {
-                        options.WithCursor(long.Parse(currentFirehoseCursor.CommittedCursor));
-                    }
-                    using var firehose = options.Build();
-                    using var watchdog = CreateFirehoseWatchdog(tcs);
-                    ct.Register(() =>
-                    {
-                        tcs.TrySetCanceled();
-                        firehose.Dispose();
-                    });
-                    firehose.OnConnectionUpdated += (_, e) =>
-                    {
-                        if (ct.IsCancellationRequested) return;
-
-                        if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
-                        {
-                            tcs.TrySetException(new UnexpectedFirehoseDataException("Firehose is in state: " + e.State));
-                        }
-                    };
-                    firehose.OnRawMessageReceived += (s, e) =>
-                    {
-                        OnRawMessageReceived();
-                    };
-                    firehose.OnRecordReceived += (s, e) =>
-                    {
-
-                        // Called from a Task.Run(() => ...) by the firehose socket reader
-                        TryProcessRecord(() =>
-                        {
-                            OnJetStreamEvent(e, firehose);
-                            watchdog?.Kick();
-                        }, e.Record.Did?.Handler);
-                    };
 
                     using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
-                    await firehose.ConnectAsync(connectionCts.Token);
-                    connectionCts.CancelAfter(Timeout.Infinite); // connection succeeded, now disable the timeout (token is also used in receive loop)
 
-                    currentFirehoseCursor.State = FirehoseState.Running;
+                    //var didReceiveFirstMessage = false;
+
+                    var outOfOrderTracker = new OutOfOrderCompletionTracker();
+                    
+                    var timeoutMillis = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS) ?? 30) * 1000;
+                    await foreach (var e in client.SubscribeAsync(new JetstreamSubscribeOptions
+                    {
+                        Cursor = this.currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null
+                    }, connectionCts.Token))
+                    {
+
+
+                        currentFirehoseCursor.State = FirehoseState.Running;
+
+                        var timeUs = e.TimeUs;
+                        if (timeUs <= 0) throw new Exception("Invalid timeUs value.");
+                        
+                        connectionCts.CancelAfter(timeoutMillis); 
+
+                        OnRawMessageReceived();
+
+                        var uniqueId = outOfOrderTracker.OnEventGenerated();
+                        FirehoseThreadpoolTaskFactory!.StartNew(() => 
+                        {
+                            
+                            TryProcessRecord(() => OnJetStreamEvent(e), e.Did);
+                            
+                            outOfOrderTracker.OnEventProcessed(uniqueId, timeUs);
+                            BumpLargestSeenFirehoseCursor(outOfOrderTracker.LastDefinitelyProcessedSeq, DateTime.UnixEpoch.AddMicroseconds(timeUs));
+                            
+                           
+                        }, ct).FireAndForget();
+
+
+
+                    }
+
+                    //await firehose.ConnectAsync(connectionCts.Token);
                     await tcs.Task;
                 }
                 catch (Exception ex)
@@ -654,6 +681,7 @@ namespace AppViewLite
 
         }
 
+#if false
         public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor, connectCt) => protocol.StartSubscribeReposAsync(cursor, token: connectCt), (protocol, cursor, watchdog) =>
@@ -669,6 +697,7 @@ namespace AppViewLite
                 }, e.Message.Commit?.Repo?.Handler);
             }, retryPolicy, useWatchdog: useWatchdog, ct: ct);
         }
+#endif
 
         private void OnRawMessageReceived()
         {
@@ -676,6 +705,7 @@ namespace AppViewLite
             Interlocked.Increment(ref currentFirehoseCursor!.ReceivedEvents);
         }
 
+#if false
         public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
             return StartListeningToAtProtoFirehoseCore((protocol, cursor, connectCt) => protocol.StartSubscribeLabelsAsync(cursor, token: connectCt), (protocol, cursor, watchdog) =>
@@ -692,6 +722,7 @@ namespace AppViewLite
             }, RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
         }
 
+
         private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, CancellationToken, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
@@ -706,11 +737,13 @@ namespace AppViewLite
                     currentFirehoseCursor.RestartCount++;
 
                     LogFirehoseStartMessage(currentFirehoseCursor, isImportant: !errorsAreUnimportant);
-                    using var firehose = new ATWebSocketProtocolBuilder()
-                        .WithInstanceUrl(FirehoseUrl.GetNext())
-                        .WithLogger(new LogWrapper())
-                        .WithTaskFactory(FirehoseThreadpoolTaskFactory!)
-                        .Build();
+
+                    using var firehose = new ATProtoClient(new ATProtoClientOptions
+                    {
+                        BaseUrl = FirehoseUrl.GetNext(),
+                        LoggerFactory = new LogWrapper.LogFactory(),
+                    });
+                    //.WithTaskFactory(FirehoseThreadpoolTaskFactory!)
                     using var watchdog = useWatchdog ? CreateFirehoseWatchdog(tcs) : null;
                     ct.Register(() =>
                     {
@@ -746,7 +779,7 @@ namespace AppViewLite
                 }
             }, ct, retryPolicy: retryPolicy, errorsAreUnimportant: errorsAreUnimportant);
         }
-
+#endif
         private Watchdog? CreateFirehoseWatchdog(TaskCompletionSource tcs)
         {
             if (Debugger.IsAttached) return null;
@@ -782,6 +815,7 @@ namespace AppViewLite
 
         internal FirehoseCursor? currentFirehoseCursor;
 
+#if false
         private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e, ATWebSocketProtocol protocol)
         {
             if (!OnFirehoseEventBeginProcessing()) return;
@@ -813,14 +847,14 @@ namespace AppViewLite
 
             BumpLargestSeenFirehoseCursor(protocol.LastDefinitelyProcessedCursor, e.Message.Commit?.Time);
         }
-
+#endif
         private void OnAccountStateChanged(string did, bool active, string? status)
         {
             VerifyValidForCurrentRelay!(did);
             var ctx = RequestContext.CreateForFirehose("FirehoseAccountState");
             Apis.SetAccountState(did, active, status, ctx);
         }
-
+#if false
         private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e, ATWebSocketProtocol protocol)
         {
             var labels = e.Message.Labels?.LabelsValue;
@@ -853,7 +887,7 @@ namespace AppViewLite
                     rels.LabelNames.AddRange(entry.KindHash, System.Text.Encoding.UTF8.GetBytes(label.Val));
                 }
 
-                if (!string.IsNullOrEmpty(uri.Pathname) && uri.Pathname != "/")
+                if (uri.Collection != null)
                 {
                     if (uri.Collection == Post.RecordType)
                     {
@@ -865,7 +899,7 @@ namespace AppViewLite
                 }
                 else
                 {
-                    var labeledUser = rels.SerializeDid(uri.Did!.Handler, ctx);
+                    var labeledUser = rels.SerializeDid(uri.DidAsString, ctx);
                     rels.ProfileLabels.Add(labeledUser, entry);
                     rels.LabelToProfiles.Add(new LabelId(entry.Labeler, entry.KindHash), labeledUser);
                     rels.AddNotification(labeledUser, NotificationKind.LabeledYourProfile, entry.Labeler, ctx, entry.Date);
@@ -874,7 +908,7 @@ namespace AppViewLite
 
             }, ctx);
         }
-
+#endif
         public Action<string>? VerifyValidForCurrentRelay;
 
         public async Task<Tid> ImportCarAsync(string did, string carPath, RequestContext ctx, Action<CarImportProgress>? progress, CancellationToken ct = default)
@@ -893,12 +927,13 @@ namespace AppViewLite
             using var importer = new CarImporter(did, probableDateOfEarliestRecord ?? await GetProbableDateOfEarliestRecordAsync(did, ctx), relationshipsUnlocked.CarSpillDirectory);
             importer.Log("Reading stream");
 
-            await foreach (var item in CarDecoder.DecodeCarAsync(stream).ConfigureAwait(false))
+            using var carReader = new CarReader(stream);
+            foreach (var item in carReader.ReadBlocks())
             {
                 ct.ThrowIfCancellationRequested();
                 //Console.Error.WriteLine(item.Cid + " = " + Convert.ToHexString(item.Cid.ToArray()));
 
-                importer.OnCarDecoded(new CarProgressStatusEvent(item.Cid, item.Bytes));
+                importer.OnCarDecoded(item.Cid, item.Data);
                 var estimatedProgress = importer.EstimatedRetrievalProgress;
                 var estimatedTotalSize = stream.Position / estimatedProgress;
                 progress?.Invoke(new CarImportProgress(stream.Position, (long)estimatedTotalSize, default, default, default));
@@ -987,10 +1022,13 @@ namespace AppViewLite
 
         private async Task<Stream> GetCarStreamAsync(string did, RequestContext ctx, Tid since = default, CancellationToken ct = default)
         {
+            throw new NotImplementedException();
+#if false
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
             var pds = (await at.ResolveATDidHostAsync(new ATDid(did), ct)).HandleResult()!;
-            var url = new Uri(new Uri(pds), FishyFlip.Lexicon.Com.Atproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "&since=" + since : null));
+            var url = new Uri(new Uri(pds), ComAtproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "&since=" + since : null));
             return await at.Client.GetStreamAsync(url, ct);
+#endif
 
         }
 
@@ -1007,7 +1045,14 @@ namespace AppViewLite
             {
                 while (true)
                 {
-                    var page = (await at.Repo.ListRecordsAsync(new ATDid(did), recordType, 100, cursor, reverse: true, cancellationToken: ct)).HandleResult();
+                    var page = await at.ComAtprotoRepoListRecordsAsync(new ComAtproto.Repo.ListRecordsParameters 
+                    {
+                        Repo = new ATDid(did),
+                        Collection = recordType, 
+                        Limit = 100, 
+                        Cursor = cursor, 
+                        Reverse = true
+                    }, cancellationToken: ct);
                     cursor = page!.Cursor;
                     foreach (var item in page.Records)
                     {
@@ -1432,10 +1477,15 @@ namespace AppViewLite
             var onePerPage = authenticatedCtx == null;
             while (!done)
             {
-                async Task<(GetFollowersOutput Response, bool Trusted)> protocolFunc(ATProtocol protocol)
+                async Task<(GetFollowersOutput Response, bool Trusted)> protocolFunc(ATProtoClient protocol)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var response = (await protocol.GetFollowersAsync(new ATDid(did), onePerPage ? 1 : 100, cursor, ct)).HandleResult()!;
+                    var response = await protocol.AppBskyGraphGetFollowersAsync(new GetFollowersParameters 
+                    {
+                        Actor = new ATDid(did), 
+                        Limit = onePerPage ? 1 : 100, 
+                        Cursor = cursor
+                    }, ct);
                     return (response, PdsIsTrustedToProvideRealBackreferences(protocol));
                 }
 
@@ -1449,7 +1499,7 @@ namespace AppViewLite
                 foreach (var follower in response.Followers)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var followerDid = follower.Did.Handler;
+                    var followerDid = follower.Did.DidAsString;
 
 
                     var followRkeyString =
@@ -1471,10 +1521,11 @@ namespace AppViewLite
                         recentmostFollow ??= followRkey;
                         if (isTrustedPds)
                         {
-                            OnRecordCreated(follower.Did.Handler, new(Follow.RecordType, followRkeyString), new Follow
+                            OnRecordCreated(follower.Did.DidAsString, new(Follow.RecordType, followRkeyString), new Follow
                             {
-                                Subject = new ATDid(did)
-                            }, ctx: ctx, isRepositoryImport: true);
+                                Subject = new ATDid(did),
+                                CreatedAt = follower.CreatedAt!.Value
+                            }.ToJson(), ctx: ctx, isRepositoryImport: true);
                         }
                         else
                         {
@@ -1513,7 +1564,7 @@ namespace AppViewLite
                     {
                         //Console.Error.WriteLine($"Checking follower PDS ({x.Did}) for alleged followee ({did}), rkey: {x.FollowRkey.ToString()}");
 
-                        var follow = (Follow)(await Apis.GetRecordAsync(x.Did, Follow.RecordType, x.FollowRkey.ToString()!, ctx, ct)).Value;
+                        var follow = (await Apis.GetRecordAsync(x.Did, Follow.RecordType, x.FollowRkey.ToString()!, ctx, ct)).Value;
                         OnRecordCreated(x.Did, new(Follow.RecordType, x.FollowRkey), follow, ctx: ctx, isRepositoryImport: true);
                     }
                     catch (Exception ex)
@@ -1533,9 +1584,10 @@ namespace AppViewLite
 
         }
 
-        private static bool PdsIsTrustedToProvideRealBackreferences(ATProtocol url)
+        private static bool PdsIsTrustedToProvideRealBackreferences(ATProtoClient url)
         {
-            return url.Options.Url.HasHostSuffix("bsky.app") || url.Options.Url.HasHostSuffix("host.bsky.network");
+            var instance = url.BaseUrl;
+            return instance.HasHostSuffix("bsky.app") || instance.HasHostSuffix("host.bsky.network");
         }
     }
     internal record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);

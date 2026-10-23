@@ -4,13 +4,12 @@ using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
 using AppViewLite.Storage;
 using DuckDbSharp.Types;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.App.Bsky.Embed;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Richtext;
-using FishyFlip.Lexicon.Com.Atproto.Label;
-using FishyFlip.Lexicon.Com.Atproto.Repo;
-using FishyFlip.Models;
+using AppBsky.Actor;
+using AppBsky.Embed;
+using AppBsky.Feed;
+using AppBsky.Richtext;
+using ComAtproto.Repo;
+using CarpaNet;
 using AppViewLite.Storage;
 using AppViewLite.Numerics;
 using AppViewLite.Storage;
@@ -29,6 +28,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using ComAtproto.Label;
+using AppBsky.Graph;
 
 namespace AppViewLite
 {
@@ -1072,7 +1073,7 @@ namespace AppViewLite
                 if (ignoreIfNotPost) return default;
                 throw new UnexpectedFirehoseDataException("Unexpected URI type: " + uri.Collection);
             }
-            return new PostId(SerializeDidWithHint(uri.Did!.Handler, ctx, hint), Tid.Parse(uri.Rkey));
+            return new PostId(SerializeDidWithHint(uri.DidAsString, ctx, hint), Tid.Parse(uri.Rkey));
         }
         public static PostIdString GetPostIdStr(StrongRef uri)
         {
@@ -1084,7 +1085,7 @@ namespace AppViewLite
             {
                 throw new ArgumentException("Unexpected URI type: " + uri.Collection);
             }
-            return new PostIdString(uri.Did!.Handler, uri.Rkey);
+            return new PostIdString(uri.DidAsString, uri.Rkey!);
         }
 
         public BlueskyProfileBasicInfo? GetProfileBasicInfo(Plc plc, bool canOmitDescription = false)
@@ -1127,7 +1128,7 @@ namespace AppViewLite
                 // We will change them later if necessary.
                 RootPostPlc = postId.Author.PlcValue,
                 RootPostRKey = postId.PostRKey.TidValue,
-                SelfLabels = GetSelfLabels(p.Labels)
+                SelfLabels = GetSelfLabels(p.Labels as DefsSelfLabels)
             };
             var lang = p.Langs?.FirstOrDefault();
 
@@ -1143,9 +1144,9 @@ namespace AppViewLite
             {
                 foreach (var facet in p.Facets)
                 {
-                    foreach (var feature in facet.Features!.OfType<Tag>())
+                    foreach (var feature in facet.Features!.OfType<FacetTag>())
                     {
-                        var tag = feature.TagValue;
+                        var tag = feature.Tag;
                         if (!string.IsNullOrEmpty(tag))
                         {
                             AddToSearchIndex("#" + tag.ToLowerInvariant(), GetApproxTime32(proto.PostId.PostRKey));
@@ -1216,10 +1217,10 @@ namespace AppViewLite
             }
 
 
-            var embed = p.Embed;
-            if (embed is EmbedRecord { } er)
+            object? embed = p.Embed;
+            if (embed is Record { } er)
             {
-                var quoted = this.GetPostId(er.Record!, ctx, ignoreIfNotPost: true);
+                var quoted = this.GetPostId(er.RecordValue, ctx, ignoreIfNotPost: true);
                 if (quoted != default)
                 {
                     proto.QuotedPlc = quoted.Author.PlcValue;
@@ -1232,7 +1233,7 @@ namespace AppViewLite
             }
             else if (embed is RecordWithMedia { } rm)
             {
-                var quoted = this.GetPostId(rm.Record!.Record!, ctx, ignoreIfNotPost: true);
+                var quoted = this.GetPostId(rm.Record!.RecordValue, ctx, ignoreIfNotPost: true);
                 if (quoted != default)
                 {
                     proto.QuotedPlc = quoted.Author.PlcValue;
@@ -1245,30 +1246,30 @@ namespace AppViewLite
             }
 
 
-            if (embed is EmbedImages { } ei)
+            if (embed is Images { } ei)
             {
-                if (ei.Images.Any(x => x.ImageValue?.Ref?.Link == null)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
-                proto.Media = ei.Images!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.ImageValue.Ref!.Link!.ToBytes() }).ToArray();
+                if (ei.ImagesValue.Any(x => !x.Image.Ref.IsValid)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
+                proto.Media = ei.ImagesValue!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.Image.Ref.ToBytes() }).ToArray();
             }
-            else if (embed is EmbedExternal { } ext)
+            else if (embed is External { } ext)
             {
-                proto.ExternalTitle = ext.External!.Title;
-                proto.ExternalUrl = ext.External.Uri;
-                proto.ExternalDescription = ext.External.Description;
-                proto.ExternalThumbCid = ext.External.Thumb?.Ref?.Link?.ToBytes();
+                proto.ExternalTitle = ext.ExternalValue!.Title;
+                proto.ExternalUrl = ext.ExternalValue.Uri;
+                proto.ExternalDescription = ext.ExternalValue.Description;
+                proto.ExternalThumbCid = ext.ExternalValue.Thumb?.Ref.ToBytes();
             }
-            else if (embed is EmbedVideo { } vid)
+            else if (embed is Video { } vid)
             {
                 proto.Media = (proto.Media ?? []).Concat([new BlueskyMediaData
                 {
                     AltText = vid.Alt,
-                    Cid = vid.Video!.Ref!.Link!.ToBytes(),
+                    Cid = vid.VideoValue!.Ref.ToBytes(),
                     IsVideo = true,
                 }]).ToArray();
             }
-            else if (embed is EmbedRecord { } rec)
+            else if (embed is Record { } rec)
             {
-                proto.EmbedRecordUri = rec.Record!.Uri!.ToString();
+                proto.EmbedRecordUri = rec.RecordValue.Uri.ToString();
             }
 
             if (proto.Facets != null)
@@ -1295,10 +1296,9 @@ namespace AppViewLite
             return proto;
         }
 
-        private static SelfLabelsEnum GetSelfLabels(SelfLabels? labels)
+        private static SelfLabelsEnum GetSelfLabels(DefsSelfLabels? labels)
         {
             if (labels == null) return default;
-
             SelfLabelsEnum selfLabels = default;
             foreach (var item in labels.Values)
             {
@@ -1366,11 +1366,11 @@ namespace AppViewLite
                     Length = (int)(x.Index.ByteEnd! - x.Index.ByteStart),
                 };
 
-                if (feature is Mention m)
+                if (feature is FacetMention m)
                 {
-                    facet.Did = m.Did!.Handler;
+                    facet.Did = m.Did!.DidAsString;
                 }
-                else if (feature is Link l)
+                else if (feature is FacetLink l)
                 {
                     facet.Link = l.Uri!;
                 }
@@ -1633,16 +1633,16 @@ namespace AppViewLite
             //PlcToBasicInfo.AddRange(plc, [.. Encoding.UTF8.GetBytes(pf.DisplayName ?? string.Empty), 0, .. (pf.Avatar?.Ref?.Link?.ToArray() ?? [])]);
 
             var pinnedPost = pf.PinnedPost?.Uri;
-            if (pinnedPost != null && SerializeDid(pinnedPost.Did!.Handler, ctx) != plc)
+            if (pinnedPost != null && SerializeDid(pinnedPost.Value.DidAsString, ctx) != plc)
                 pinnedPost = null;
 
             var proto = new BlueskyProfileBasicInfo
             {
                 Description = pf.Description,
                 DisplayName = pf.DisplayName,
-                AvatarCidBytes = pf.Avatar?.Ref?.Link?.ToBytes(),
-                BannerCidBytes = pf.Banner?.Ref?.Link?.ToBytes(),
-                PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Rkey).TidValue : null,
+                AvatarCidBytes = pf.Avatar?.Ref.ToBytes(),
+                BannerCidBytes = pf.Banner?.Ref.ToBytes(),
+                PinnedPostTid = pinnedPost != null ? Tid.Parse(pinnedPost.Value.Rkey).TidValue : null,
                 ExternalWebsite = StringUtils.NormalizeNull(pf.Website),
                 Pronouns = StringUtils.NormalizeNull(pf.Pronouns),
             };
@@ -2334,7 +2334,7 @@ namespace AppViewLite
         public PostId GetPostId(ATUri uri, RequestContext ctx)
         {
             if (uri.Collection != Post.RecordType) throw new ArgumentException("GetPostId: not an app.bsky.feed.post URI");
-            return GetPostId(uri.Did!.ToString(), uri.Rkey, ctx);
+            return GetPostId(uri.DidAsString, uri.Rkey, ctx);
         }
 
         public BlueskyProfile[] GetFollowers(Plc plc, Relationship continuation, int limit)
@@ -2474,7 +2474,7 @@ namespace AppViewLite
         }
 
 
-        internal static ListData ListToProto(FishyFlip.Lexicon.App.Bsky.Graph.List list)
+        internal static ListData ListToProto(AppBsky.Graph.List list)
         {
             return new ListData
             {
@@ -2482,12 +2482,12 @@ namespace AppViewLite
                 DisplayName = list.Name,
                 Purpose = list.Purpose switch
                 {
-                    FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Curatelist => ListPurposeEnum.Curation,
-                    FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Modlist => ListPurposeEnum.Moderation,
-                    FishyFlip.Lexicon.App.Bsky.Graph.ListPurpose.Referencelist => ListPurposeEnum.Reference,
+                    DefsCuratelistToken.Value => ListPurposeEnum.Curation,
+                    DefsModlistToken.Value => ListPurposeEnum.Moderation,
+                    DefsReferencelistToken.Value => ListPurposeEnum.Reference,
                     _ => ListPurposeEnum.Unknown,
                 },
-                AvatarCid = list.Avatar?.Ref?.Link?.ToBytes(),
+                AvatarCid = list.Avatar?.Ref.ToBytes(),
                 DescriptionFacets = GetFacetsAsProtos(list.DescriptionFacets),
             };
 
@@ -2502,12 +2502,12 @@ namespace AppViewLite
             {
                 HiddenReplies = threadGate.HiddenReplies?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
                 AllowlistedOnly = threadGate.Allow != null,
-                AllowFollowing = threadGate.Allow?.Any(x => x is FollowingRule) ?? false,
-                AllowFollowers = threadGate.Allow?.Any(x => x is FollowerRule) ?? false,
-                AllowMentioned = threadGate.Allow?.Any(x => x is MentionRule) ?? false,
-                AllowLists = threadGate.Allow?.OfType<ListRule>().Select(x =>
+                AllowFollowing = threadGate.Allow?.Any(x => x is ThreadgateFollowingRule) ?? false,
+                AllowFollowers = threadGate.Allow?.Any(x => x is ThreadgateFollowerRule) ?? false,
+                AllowMentioned = threadGate.Allow?.Any(x => x is ThreadgateMentionRule) ?? false,
+                AllowLists = threadGate.Allow?.OfType<ThreadgateListRule>().Select(x =>
                 {
-                    return new RelationshipProto { Plc = SerializeDid(x.List.Did!.Handler, ctx).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
+                    return new RelationshipProto { Plc = SerializeDid(x.List.DidAsString, ctx).PlcValue, Tid = Tid.Parse(x.List.Rkey).TidValue };
                 }).ToArray()
             };
             return SerializeProto(proto, x => x.Dummy = true);
@@ -2517,7 +2517,7 @@ namespace AppViewLite
             proto = new BlueskyPostgate
             {
                 DetachedEmbeddings = postgate.DetachedEmbeddingUris?.Select(x => RelationshipProto.FromPostId(GetPostId(x, ctx))).ToArray(),
-                DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is DisableRule) ?? false
+                DisallowQuotes = postgate.EmbeddingRules?.Any(x => x is PostgateDisableRule) ?? false
             };
             return SerializeProto(proto, x => x.Dummy = true);
         }
@@ -3237,11 +3237,11 @@ namespace AppViewLite
             var proto = new BlueskyFeedGeneratorData
             {
                 DisplayName = generator.DisplayName,
-                AvatarCid = generator.Avatar?.Ref?.Link?.ToBytes(),
+                AvatarCid = generator.Avatar?.Ref.ToBytes(),
                 Description = generator.Description,
                 DescriptionFacets = GetFacetsAsProtos(generator.DescriptionFacets),
                 RetrievalDate = retrievalDate,
-                ImplementationDid = generator.Did!.Handler,
+                ImplementationDid = generator.Did!.DidAsString,
                 //IsVideo = generator.ContentMode == "contentModeVideo",
                 AcceptsInteractions = generator.AcceptsInteractions,
                 RKey = rkey,
@@ -3305,13 +3305,13 @@ namespace AppViewLite
             if (aturi == null) return null;
             var parsed = new ATUri(aturi);
 
-            var plc = SerializeDid(parsed.Did!.Handler, ctx);
+            var plc = SerializeDid(parsed.DidAsString, ctx);
             if (parsed.Collection == Generator.RecordType)
             {
-                return GetFeedGenerator(plc, parsed.Rkey, ctx);
+                return GetFeedGenerator(plc, parsed.Rkey!, ctx);
             }
 
-            if (parsed.Collection == FishyFlip.Lexicon.App.Bsky.Graph.List.RecordType)
+            if (parsed.Collection == AppBsky.Graph.List.RecordType)
             {
                 return GetList(new Relationship(plc, Tid.Parse(parsed.Rkey)), ctx: ctx);
             }
@@ -4674,7 +4674,7 @@ namespace AppViewLite
 
         public void StoreThreadgate(string commitAuthor, Plc commitPlc, Tid rkey, Threadgate threadGate, RequestContext ctx)
         {
-            if (threadGate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
+            if (threadGate.Post!.DidAsString != commitAuthor) throw new UnexpectedFirehoseDataException("Threadgate for non-owned thread.");
             if (threadGate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Threadgate with mismatching rkey.");
             if (threadGate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-threadgate collection.");
             Threadgates.AddRange(new PostId(commitPlc, rkey), SerializeThreadgateToBytes(threadGate, ctx, out var threadgateProto));
@@ -4684,7 +4684,7 @@ namespace AppViewLite
                 {
                     var replyId = hiddenReply.PostId;
                     var replyRkey = replyId.PostRKey;
-                    var now = threadGate.CreatedAt ?? replyRkey.Date;
+                    var now = threadGate.CreatedAt.UtcDateTime; // ?? replyRkey.Date;
                     AddNotificationDateInvariant(replyId.Author, NotificationKind.HidYourReply, commitPlc, replyRkey, ctx, now, replyRkey.Date < now ? replyRkey.Date : now);
                 }
             }
@@ -4692,7 +4692,7 @@ namespace AppViewLite
 
         public void StorePostgate(string commitAuthor, Plc commitPlc, Tid rkey, Postgate postgate, RequestContext ctx)
         {
-            if (postgate.Post!.Did!.Handler != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
+            if (postgate.Post!.DidAsString != commitAuthor) throw new UnexpectedFirehoseDataException("Postgate for non-owned post.");
             if (postgate.Post.Rkey != rkey.ToString()) throw new UnexpectedFirehoseDataException("Postgate with mismatching rkey.");
             if (postgate.Post.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Threadgate in non-postgate collection.");
             Postgates.AddRange(new PostId(commitPlc, rkey), SerializePostgateToBytes(postgate, ctx, out var proto));
@@ -4702,7 +4702,7 @@ namespace AppViewLite
                 {
                     var quoterId = detachedQuote.PostId;
                     var quoterRkey = quoterId.PostRKey;
-                    var now = postgate.CreatedAt ?? quoterRkey.Date;
+                    var now = postgate.CreatedAt.UtcDateTime; // ?? quoterRkey.Date;
                     AddNotificationDateInvariant(quoterId.Author, NotificationKind.DetachedYourQuotePost, commitPlc, quoterRkey, ctx, now, quoterRkey.Date < now ? quoterRkey.Date : now);
                 }
             }

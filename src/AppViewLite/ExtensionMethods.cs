@@ -1,7 +1,7 @@
 using AngleSharp.Dom;
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using FishyFlip.Models;
+using CarpaNet;
 using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;

@@ -1,0 +1,283 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <CarpaNet_LexiconAutoResolve>true</CarpaNet_LexiconAutoResolve>
+        <CarpaNet_EmitXrpcEndpoints>true</CarpaNet_EmitXrpcEndpoints>
+
+    </PropertyGroup>
+    <Import Project="..\..\..\carpanet\src\CarpaNet\build\CarpaNet.targets" />
+    <ItemGroup>
+        <!--<PackageReference Include="CarpaNet" Version="1.2.0-alpha.3" />
+        <PackageReference Include="CarpaNet.Jetstream" Version="1.2.0-alpha.3" />
+        <PackageReference Include="CarpaNet.AspNetCore" Version="1.2.0-alpha.3" />-->
+        
+        <ProjectReference Include="..\..\..\carpanet\src\CarpaNet.AspNetCore\CarpaNet.AspNetCore.csproj" />
+        <ProjectReference Include="..\..\..\carpanet\src\CarpaNet.Jetstream\CarpaNet.Jetstream.csproj" />
+        <ProjectReference Include="..\..\..\carpanet\src\CarpaNet.SourceGen\CarpaNet.SourceGen.csproj"  OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\carpanet\src\CarpaNet\CarpaNet.csproj" />
+        
+    </ItemGroup>
+    <ItemGroup>
+        <LexiconResolve Include="app.bsky.actor.profile" />
+        <LexiconResolve Include="app.bsky.actor.status" />
+        <LexiconResolve Include="app.bsky.embed.external" />
+        <LexiconResolve Include="app.bsky.embed.images" />
+        <LexiconResolve Include="app.bsky.embed.record" />
+        <LexiconResolve Include="app.bsky.embed.recordWithMedia" />
+        <LexiconResolve Include="app.bsky.embed.video" />
+        <LexiconResolve Include="app.bsky.feed.generator" />
+        <LexiconResolve Include="app.bsky.feed.like" />
+        <LexiconResolve Include="app.bsky.feed.post" />
+        <LexiconResolve Include="app.bsky.feed.postgate" />
+        <LexiconResolve Include="app.bsky.feed.repost" />
+        <LexiconResolve Include="app.bsky.feed.threadgate" />
+        <LexiconResolve Include="app.bsky.graph.block" />
+        <LexiconResolve Include="app.bsky.graph.follow" />
+        <LexiconResolve Include="app.bsky.graph.list" />
+        <LexiconResolve Include="app.bsky.graph.listblock" />
+        <LexiconResolve Include="app.bsky.graph.listitem" />
+        <LexiconResolve Include="app.bsky.graph.starterpack" />
+        <LexiconResolve Include="app.bsky.graph.verification" />
+        <LexiconResolve Include="app.bsky.labeler.service" />
+        <LexiconResolve Include="app.bsky.notification.declaration" />
+        <LexiconResolve Include="app.bsky.richtext.facet" />
+        <LexiconResolve Include="chat.bsky.actor.declaration" />
+        <LexiconResolve Include="com.atproto.lexicon.schema" />
+        <LexiconResolve Include="com.atproto.repo.strongRef" />
+
+
+
+
+        <LexiconResolve Include="app.bsky.actor.getPreferences" />
+        <LexiconResolve Include="app.bsky.actor.getProfile" />
+        <LexiconResolve Include="app.bsky.actor.getProfiles" />
+        <LexiconResolve Include="app.bsky.actor.getSuggestions" />
+        <LexiconResolve Include="app.bsky.actor.putPreferences" />
+        <LexiconResolve Include="app.bsky.actor.searchActors" />
+        <LexiconResolve Include="app.bsky.actor.searchActorsTypeahead" />
+        <LexiconResolve Include="app.bsky.ageassurance.begin" />
+        <LexiconResolve Include="app.bsky.ageassurance.getConfig" />
+        <LexiconResolve Include="app.bsky.ageassurance.getState" />
+        <LexiconResolve Include="app.bsky.bookmark.createBookmark" />
+        <LexiconResolve Include="app.bsky.bookmark.deleteBookmark" />
+        <LexiconResolve Include="app.bsky.bookmark.getBookmarks" />
+        <LexiconResolve Include="app.bsky.contact.dismissMatch" />
+        <LexiconResolve Include="app.bsky.contact.getMatches" />
+        <LexiconResolve Include="app.bsky.contact.getSyncStatus" />
+        <LexiconResolve Include="app.bsky.contact.importContacts" />
+        <LexiconResolve Include="app.bsky.contact.removeData" />
+        <LexiconResolve Include="app.bsky.contact.sendNotification" />
+        <LexiconResolve Include="app.bsky.contact.startPhoneVerification" />
+        <LexiconResolve Include="app.bsky.contact.verifyPhone" />
+        <LexiconResolve Include="app.bsky.draft.createDraft" />
+        <LexiconResolve Include="app.bsky.draft.deleteDraft" />
+        <LexiconResolve Include="app.bsky.draft.getDrafts" />
+        <LexiconResolve Include="app.bsky.draft.updateDraft" />
+        <LexiconResolve Include="app.bsky.feed.describeFeedGenerator" />
+        <LexiconResolve Include="app.bsky.feed.getActorFeeds" />
+        <LexiconResolve Include="app.bsky.feed.getActorLikes" />
+        <LexiconResolve Include="app.bsky.feed.getAuthorFeed" />
+        <LexiconResolve Include="app.bsky.feed.getFeed" />
+        <LexiconResolve Include="app.bsky.feed.getFeedGenerator" />
+        <LexiconResolve Include="app.bsky.feed.getFeedGenerators" />
+        <LexiconResolve Include="app.bsky.feed.getFeedSkeleton" />
+        <LexiconResolve Include="app.bsky.feed.getLikes" />
+        <LexiconResolve Include="app.bsky.feed.getListFeed" />
+        <LexiconResolve Include="app.bsky.feed.getPosts" />
+        <LexiconResolve Include="app.bsky.feed.getPostThread" />
+        <LexiconResolve Include="app.bsky.feed.getQuotes" />
+        <LexiconResolve Include="app.bsky.feed.getRepostedBy" />
+        <LexiconResolve Include="app.bsky.feed.getSuggestedFeeds" />
+        <LexiconResolve Include="app.bsky.feed.getTimeline" />
+        <LexiconResolve Include="app.bsky.feed.searchPosts" />
+        <LexiconResolve Include="app.bsky.feed.sendInteractions" />
+        <LexiconResolve Include="app.bsky.graph.getActorStarterPacks" />
+        <LexiconResolve Include="app.bsky.graph.getBlocks" />
+        <LexiconResolve Include="app.bsky.graph.getFollowers" />
+        <LexiconResolve Include="app.bsky.graph.getFollows" />
+        <LexiconResolve Include="app.bsky.graph.getKnownFollowers" />
+        <LexiconResolve Include="app.bsky.graph.getList" />
+        <LexiconResolve Include="app.bsky.graph.getListBlocks" />
+        <LexiconResolve Include="app.bsky.graph.getListMutes" />
+        <LexiconResolve Include="app.bsky.graph.getLists" />
+        <LexiconResolve Include="app.bsky.graph.getListsWithMembership" />
+        <LexiconResolve Include="app.bsky.graph.getMutes" />
+        <LexiconResolve Include="app.bsky.graph.getRelationships" />
+        <LexiconResolve Include="app.bsky.graph.getStarterPack" />
+        <LexiconResolve Include="app.bsky.graph.getStarterPacks" />
+        <LexiconResolve Include="app.bsky.graph.getStarterPacksWithMembership" />
+        <LexiconResolve Include="app.bsky.graph.getSuggestedFollowsByActor" />
+        <LexiconResolve Include="app.bsky.graph.muteActor" />
+        <LexiconResolve Include="app.bsky.graph.muteActorList" />
+        <LexiconResolve Include="app.bsky.graph.muteThread" />
+        <LexiconResolve Include="app.bsky.graph.searchStarterPacks" />
+        <LexiconResolve Include="app.bsky.graph.unmuteActor" />
+        <LexiconResolve Include="app.bsky.graph.unmuteActorList" />
+        <LexiconResolve Include="app.bsky.graph.unmuteThread" />
+        <LexiconResolve Include="app.bsky.labeler.getServices" />
+        <LexiconResolve Include="app.bsky.notification.getPreferences" />
+        <LexiconResolve Include="app.bsky.notification.getUnreadCount" />
+        <LexiconResolve Include="app.bsky.notification.listActivitySubscriptions" />
+        <LexiconResolve Include="app.bsky.notification.listNotifications" />
+        <LexiconResolve Include="app.bsky.notification.putActivitySubscription" />
+        <LexiconResolve Include="app.bsky.notification.putPreferences" />
+        <LexiconResolve Include="app.bsky.notification.putPreferencesV2" />
+        <LexiconResolve Include="app.bsky.notification.registerPush" />
+        <LexiconResolve Include="app.bsky.notification.unregisterPush" />
+        <LexiconResolve Include="app.bsky.notification.updateSeen" />
+        
+        <!--<LexiconResolve Include="app.bsky.unspecced.getAgeAssuranceState" />
+        <LexiconResolve Include="app.bsky.unspecced.getConfig" />
+        <LexiconResolve Include="app.bsky.unspecced.getOnboardingSuggestedStarterPacks" />
+        <LexiconResolve Include="app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.getPopularFeedGenerators" />
+        <LexiconResolve Include="app.bsky.unspecced.getPostThreadOtherV2" />
+        <LexiconResolve Include="app.bsky.unspecced.getPostThreadV2" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestedFeeds" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestedFeedsSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestedStarterPacks" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestedStarterPacksSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestedUsers" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestedUsersSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.getSuggestionsSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.getTaggedSuggestions" />
+        <LexiconResolve Include="app.bsky.unspecced.getTrendingTopics" />
+        <LexiconResolve Include="app.bsky.unspecced.getTrends" />
+        <LexiconResolve Include="app.bsky.unspecced.getTrendsSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.initAgeAssurance" />
+        <LexiconResolve Include="app.bsky.unspecced.searchActorsSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.searchPostsSkeleton" />
+        <LexiconResolve Include="app.bsky.unspecced.searchStarterPacksSkeleton" />-->
+        <LexiconResolve Include="app.bsky.video.getJobStatus" />
+        <LexiconResolve Include="app.bsky.video.getUploadLimits" />
+        <LexiconResolve Include="app.bsky.video.uploadVideo" />
+        <LexiconResolve Include="chat.bsky.actor.deleteAccount" />
+        <LexiconResolve Include="chat.bsky.actor.exportAccountData" />
+        <LexiconResolve Include="chat.bsky.convo.acceptConvo" />
+        <LexiconResolve Include="chat.bsky.convo.addReaction" />
+        <LexiconResolve Include="chat.bsky.convo.deleteMessageForSelf" />
+        <LexiconResolve Include="chat.bsky.convo.getConvo" />
+        <LexiconResolve Include="chat.bsky.convo.getConvoAvailability" />
+        <LexiconResolve Include="chat.bsky.convo.getConvoForMembers" />
+        <LexiconResolve Include="chat.bsky.convo.getLog" />
+        <LexiconResolve Include="chat.bsky.convo.getMessages" />
+        <LexiconResolve Include="chat.bsky.convo.leaveConvo" />
+        <LexiconResolve Include="chat.bsky.convo.listConvos" />
+        <LexiconResolve Include="chat.bsky.convo.muteConvo" />
+        <LexiconResolve Include="chat.bsky.convo.removeReaction" />
+        <LexiconResolve Include="chat.bsky.convo.sendMessage" />
+        <LexiconResolve Include="chat.bsky.convo.sendMessageBatch" />
+        <LexiconResolve Include="chat.bsky.convo.unmuteConvo" />
+        <LexiconResolve Include="chat.bsky.convo.updateAllRead" />
+        <LexiconResolve Include="chat.bsky.convo.updateRead" />
+        <LexiconResolve Include="chat.bsky.moderation.getActorMetadata" />
+        <LexiconResolve Include="chat.bsky.moderation.getMessageContext" />
+        <LexiconResolve Include="chat.bsky.moderation.updateActorAccess" />
+        <LexiconResolve Include="com.atproto.admin.deleteAccount" />
+        <LexiconResolve Include="com.atproto.admin.disableAccountInvites" />
+        <LexiconResolve Include="com.atproto.admin.disableInviteCodes" />
+        <LexiconResolve Include="com.atproto.admin.enableAccountInvites" />
+        <LexiconResolve Include="com.atproto.admin.getAccountInfo" />
+        <LexiconResolve Include="com.atproto.admin.getAccountInfos" />
+        <LexiconResolve Include="com.atproto.admin.getInviteCodes" />
+        <LexiconResolve Include="com.atproto.admin.getSubjectStatus" />
+        <LexiconResolve Include="com.atproto.admin.searchAccounts" />
+        <LexiconResolve Include="com.atproto.admin.sendEmail" />
+        <LexiconResolve Include="com.atproto.admin.updateAccountEmail" />
+        <LexiconResolve Include="com.atproto.admin.updateAccountHandle" />
+        <LexiconResolve Include="com.atproto.admin.updateAccountPassword" />
+        <LexiconResolve Include="com.atproto.admin.updateAccountSigningKey" />
+        <LexiconResolve Include="com.atproto.admin.updateSubjectStatus" />
+        <LexiconResolve Include="com.atproto.identity.getRecommendedDidCredentials" />
+        <LexiconResolve Include="com.atproto.identity.refreshIdentity" />
+        <LexiconResolve Include="com.atproto.identity.requestPlcOperationSignature" />
+        <LexiconResolve Include="com.atproto.identity.resolveDid" />
+        <LexiconResolve Include="com.atproto.identity.resolveHandle" />
+        <LexiconResolve Include="com.atproto.identity.resolveIdentity" />
+        <LexiconResolve Include="com.atproto.identity.signPlcOperation" />
+        <LexiconResolve Include="com.atproto.identity.submitPlcOperation" />
+        <LexiconResolve Include="com.atproto.identity.updateHandle" />
+        <LexiconResolve Include="com.atproto.label.queryLabels" />
+        <LexiconResolve Include="com.atproto.label.subscribeLabels" />
+        <LexiconResolve Include="com.atproto.lexicon.resolveLexicon" />
+        <LexiconResolve Include="com.atproto.moderation.createReport" />
+        <LexiconResolve Include="com.atproto.repo.applyWrites" />
+        <LexiconResolve Include="com.atproto.repo.createRecord" />
+        <LexiconResolve Include="com.atproto.repo.deleteRecord" />
+        <LexiconResolve Include="com.atproto.repo.describeRepo" />
+        <LexiconResolve Include="com.atproto.repo.getRecord" />
+        <LexiconResolve Include="com.atproto.repo.importRepo" />
+        <LexiconResolve Include="com.atproto.repo.listMissingBlobs" />
+        <LexiconResolve Include="com.atproto.repo.listRecords" />
+        <LexiconResolve Include="com.atproto.repo.putRecord" />
+        <LexiconResolve Include="com.atproto.repo.uploadBlob" />
+        <LexiconResolve Include="com.atproto.server.activateAccount" />
+        <LexiconResolve Include="com.atproto.server.checkAccountStatus" />
+        <LexiconResolve Include="com.atproto.server.confirmEmail" />
+        <LexiconResolve Include="com.atproto.server.createAccount" />
+        <LexiconResolve Include="com.atproto.server.createAppPassword" />
+        <LexiconResolve Include="com.atproto.server.createInviteCode" />
+        <LexiconResolve Include="com.atproto.server.createInviteCodes" />
+        <LexiconResolve Include="com.atproto.server.createSession" />
+        <LexiconResolve Include="com.atproto.server.deactivateAccount" />
+        <LexiconResolve Include="com.atproto.server.deleteAccount" />
+        <LexiconResolve Include="com.atproto.server.deleteSession" />
+        <LexiconResolve Include="com.atproto.server.describeServer" />
+        <LexiconResolve Include="com.atproto.server.getAccountInviteCodes" />
+        <LexiconResolve Include="com.atproto.server.getServiceAuth" />
+        <LexiconResolve Include="com.atproto.server.getSession" />
+        <LexiconResolve Include="com.atproto.server.listAppPasswords" />
+        <LexiconResolve Include="com.atproto.server.refreshSession" />
+        <LexiconResolve Include="com.atproto.server.requestAccountDelete" />
+        <LexiconResolve Include="com.atproto.server.requestEmailConfirmation" />
+        <LexiconResolve Include="com.atproto.server.requestEmailUpdate" />
+        <LexiconResolve Include="com.atproto.server.requestPasswordReset" />
+        <LexiconResolve Include="com.atproto.server.reserveSigningKey" />
+        <LexiconResolve Include="com.atproto.server.resetPassword" />
+        <LexiconResolve Include="com.atproto.server.revokeAppPassword" />
+        <LexiconResolve Include="com.atproto.server.updateEmail" />
+        <LexiconResolve Include="com.atproto.sync.getBlob" />
+        <LexiconResolve Include="com.atproto.sync.getBlocks" />
+        <LexiconResolve Include="com.atproto.sync.getHostStatus" />
+        <LexiconResolve Include="com.atproto.sync.getLatestCommit" />
+        <LexiconResolve Include="com.atproto.sync.getRecord" />
+        <LexiconResolve Include="com.atproto.sync.getRepo" />
+        <LexiconResolve Include="com.atproto.sync.getRepoStatus" />
+        <LexiconResolve Include="com.atproto.sync.listBlobs" />
+        <LexiconResolve Include="com.atproto.sync.listHosts" />
+        <LexiconResolve Include="com.atproto.sync.listRepos" />
+        <LexiconResolve Include="com.atproto.sync.listReposByCollection" />
+        <LexiconResolve Include="com.atproto.sync.requestCrawl" />
+        <LexiconResolve Include="com.atproto.sync.subscribeRepos" />
+        
+        <!--<LexiconResolve Include="com.atproto.temp.addReservedHandle" />
+        <LexiconResolve Include="com.atproto.temp.checkHandleAvailability" />
+        <LexiconResolve Include="com.atproto.temp.checkSignupQueue" />
+        <LexiconResolve Include="com.atproto.temp.dereferenceScope" />
+        <LexiconResolve Include="com.atproto.temp.requestPhoneVerification" />
+        <LexiconResolve Include="com.atproto.temp.revokeAccountCredentials" />-->
+
+
+        <!--<LexiconResolve Include="app.bsky.actor.getProfile" />
+        <LexiconResolve Include="app.bsky.feed.post" />
+        <LexiconResolve Include="app.bsky.feed.repost" />
+        <LexiconResolve Include="app.bsky.feed.like" />
+        <LexiconResolve Include="app.bsky.feed.postgate" />
+        <LexiconResolve Include="app.bsky.embed.recordWithMedia" />
+        <LexiconResolve Include="app.bsky.embed.external" />
+        <LexiconResolve Include="app.bsky.embed.external#external" />
+        <LexiconResolve Include="app.bsky.graph.block" />
+        <LexiconResolve Include="app.bsky.graph.follow" />
+        <LexiconResolve Include="app.bsky.graph.list" />
+        <LexiconResolve Include="app.bsky.graph.listblock" />
+        <LexiconResolve Include="app.bsky.graph.listitem" />
+        
+        <LexiconResolve Include="com.atproto.repo.createRecord" />
+        <LexiconResolve Include="com.atproto.repo.deleteRecord" />
+        <LexiconResolve Include="com.atproto.repo.listRecords" />
+        <LexiconResolve Include="com.atproto.repo.getRecord" />-->
+    </ItemGroup>
+
+</Project>

@@ -1,5 +1,6 @@
 using AppViewLite.Numerics;
-using FishyFlip.Models;
+using CarpaNet;
+using CarpaNet;
 
 namespace AppViewLite.Models
 {

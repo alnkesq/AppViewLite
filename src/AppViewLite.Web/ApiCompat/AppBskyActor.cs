@@ -1,6 +1,4 @@
 using AppViewLite.Models;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Models;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +7,7 @@ namespace AppViewLite.Web
 {
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyActor : FishyFlip.Xrpc.Lexicon.App.Bsky.Actor.ActorController
+    public class AppBskyActor : Xrpc.AppBsky.Actor.ActorController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;

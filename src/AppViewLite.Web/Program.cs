@@ -1,9 +1,7 @@
 using AppViewLite.Models;
 using AppViewLite.PluggableProtocols;
 using AppViewLite.Web.Components;
-using FishyFlip;
-using FishyFlip.Lexicon;
-using FishyFlip.Models;
+using CarpaNet.AspNetCore;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -279,7 +277,11 @@ namespace AppViewLite.Web
                     if (firehoseUrl.IsJetStream)
                         indexer.StartListeningToJetstreamFirehose(Indexer.CreateMainFirehoseRetryPolicy()).FireAndForget();
                     else
-                        indexer.StartListeningToAtProtoFirehoseRepos(Indexer.CreateMainFirehoseRetryPolicy()).FireAndForget();
+                    {
+                        // TODO: AtProto firehoses
+                        //throw new NotImplementedException();
+                        //indexer.StartListeningToAtProtoFirehoseRepos(Indexer.CreateMainFirehoseRetryPolicy()).FireAndForget();
+                    }
 
                 }
 
@@ -502,22 +504,22 @@ namespace AppViewLite.Web
             navigation.NavigateTo("/login?return=" + Uri.EscapeDataString(new Uri(navigation.Uri).PathAndQuery), true);
         }
 
-        public static Results<ATResult<T>, ATErrorResult> ToJsonResultOk<T>(this T result) where T : ATObject
+        public static Results<Ok<T>, ATErrorResult> ToJsonResultOk<T>(this T result)
         {
-            return ATResult<T>.Ok(result);
+            return TypedResults.Ok(result);
         }
-        public static Task<Results<ATResult<T>, ATErrorResult>> ToJsonResultOkTask<T>(this T result) where T : ATObject
+        public static Task<Results<Ok<T>, ATErrorResult>> ToJsonResultOkTask<T>(this T result)
         {
-            return Task.FromResult<Results<ATResult<T>, ATErrorResult>>(ATResult<T>.Ok(result));
+            return Task.FromResult<Results<Ok<T>, ATErrorResult>>(TypedResults.Ok(result));
         }
         public static Task<Results<Ok, ATErrorResult>> ToJsonResultTask(this Ok result)
         {
             return Task.FromResult<Results<Ok, ATErrorResult>>(result);
         }
 
-        public static Task<Results<ATResult<T>, ATErrorResult>> ToJsonResultTask<T>(this ATErrorResult error) where T : ATObject
+        public static Task<Results<Ok<T>, ATErrorResult>> ToJsonResultTask<T>(this ATErrorResult error) 
         {
-            return Task.FromResult<Results<ATResult<T>, ATErrorResult>>(error);
+            return Task.FromResult<Results<Ok<T>, ATErrorResult>>(error);
         }
 
         public static string HashToCssColor(string? table, string? operation) => HashToCssColor(table + "|" + operation);

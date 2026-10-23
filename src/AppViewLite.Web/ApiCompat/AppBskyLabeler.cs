@@ -8,7 +8,7 @@ namespace AppViewLite.Web.ApiCompat
 {
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyLabeler : FishyFlip.Xrpc.Lexicon.App.Bsky.Labeler.LabelerController
+    public class AppBskyLabeler : Xrpc.AppBsky.Labeler.LabelerController
     {
         private readonly BlueskyEnrichedApis apis;
         public AppBskyLabeler(BlueskyEnrichedApis apis)

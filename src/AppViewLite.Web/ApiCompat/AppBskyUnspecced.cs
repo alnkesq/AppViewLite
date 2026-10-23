@@ -8,7 +8,7 @@ namespace AppViewLite.Web.ApiCompat
 {
     [ApiController]
     [EnableCors("BskyClient")]
-    public class AppBskyUnspecced : FishyFlip.Xrpc.Lexicon.App.Bsky.Unspecced.UnspeccedController
+    public class AppBskyUnspecced : Xrpc.AppBsky.Unspecced.UnspeccedController
     {
         private readonly BlueskyEnrichedApis apis;
         private readonly RequestContext ctx;

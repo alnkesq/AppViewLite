@@ -3,19 +3,15 @@ using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
 using DnsClient;
 using DuckDbSharp.Types;
-using FishyFlip;
-using FishyFlip.Lexicon;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.App.Bsky.Embed;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Richtext;
-using FishyFlip.Lexicon.Chat.Bsky.Convo;
-using FishyFlip.Lexicon.Com.Atproto.Repo;
-using FishyFlip.Lexicon.Com.Atproto.Sync;
-using FishyFlip.Models;
-using FishyFlip.Tools;
+using AppBsky.Actor;
+using AppBsky.Embed;
+using AppBsky.Feed;
+using AppBsky.Richtext;
+using ChatBsky.Convo;
+using ComAtproto.Repo;
+using ComAtproto.Sync;
+using CarpaNet;
 using Microsoft.Extensions.ObjectPool;
-using PeterO.Cbor;
 using AppViewLite.Storage;
 using System;
 using System.Buffers;
@@ -35,11 +31,18 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Block = FishyFlip.Lexicon.App.Bsky.Graph.Block;
-using Follow = FishyFlip.Lexicon.App.Bsky.Graph.Follow;
-using List = FishyFlip.Lexicon.App.Bsky.Graph.List;
-using Listblock = FishyFlip.Lexicon.App.Bsky.Graph.Listblock;
-using Listitem = FishyFlip.Lexicon.App.Bsky.Graph.Listitem;
+using Block = AppBsky.Graph.Block;
+using Follow = AppBsky.Graph.Follow;
+using List = AppBsky.Graph.List;
+using Listblock = AppBsky.Graph.Listblock;
+using Listitem = AppBsky.Graph.Listitem;
+using DefsReplyRef = AppBsky.Feed.DefsReplyRef;
+using CarpaNet;
+using System.Text.Json;
+using CarpaNet.Auth;
+using Microsoft.Extensions.Logging;
+using CarpaNet.Blob;
+using CarpaNet.Identity;
 
 namespace AppViewLite
 {
@@ -105,7 +108,8 @@ namespace AppViewLite
                             };
                             indexer.FirehoseUrl = FirehoseUrlWithFallbacks.Parse(newpds);
                             Log("Starting secondary firehose: " + newpds);
-                            indexer.StartListeningToAtProtoFirehoseRepos(RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, cts.Token).FireAndForget();
+                            throw new NotImplementedException();
+                            //indexer.StartListeningToAtProtoFirehoseRepos(RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, cts.Token).FireAndForget();
                             SecondaryFirehoses.Add(newpds, cts);
                         }
                     }
@@ -133,7 +137,7 @@ namespace AppViewLite
             ctx.AssertForDictionary();
             using var _ = LogNetworkOperation(ctx, nameof(FetchAndStoreAccountStateFromPdsCoreAsync), argument: did);
             using var protocol = await CreateProtocolForDidAsync(did, ctx);
-            var response = (await protocol.GetRepoStatusAsync(new ATDid(did))).HandleResult()!;
+            var response = await protocol.ComAtprotoSyncGetRepoStatusAsync(new GetRepoStatusParameters { Did = new ATDid(did) });
             return SetAccountState(did, response.Active, response.Status, ctx);
         }
 
@@ -216,7 +220,7 @@ namespace AppViewLite
         private async Task<(long MinVersion, IReadOnlyList<LabelId> Labels)> FetchAndStoreLabelerServiceMetadataCoreAsync(string did, RequestContext ctx)
         {
             ctx.AssertForDictionary();
-            var record = (FishyFlip.Lexicon.App.Bsky.Labeler.Service)(await GetRecordAsync(did, FishyFlip.Lexicon.App.Bsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value;
+            var record = AppBsky.Labeler.Service.FromJson((await GetRecordAsync(did, AppBsky.Labeler.Service.RecordType, "self", ctx: ctx)).Value)!;
 
             var defs = (record.Policies?.LabelValueDefinitions ?? [])?.ToDictionary(x => x.Identifier);
 
@@ -329,7 +333,7 @@ namespace AppViewLite
                 Profile? response = null;
                 try
                 {
-                    response = (Profile)(await GetRecordAsync(did, Profile.RecordType, "self", ctx)).Value;
+                    response = Profile.FromJson((await GetRecordAsync(did, Profile.RecordType, "self", ctx)).Value);
                 }
                 catch (Exception)
                 {
@@ -360,7 +364,7 @@ namespace AppViewLite
             List? response = null;
             try
             {
-                response = (List)(await GetRecordAsync(listId.Did, List.RecordType, listId.RKey, ctx)).Value;
+                response = List.FromJson((await GetRecordAsync(listId.Did, List.RecordType, listId.RKey, ctx)).Value);
             }
             catch (Exception)
             {
@@ -390,7 +394,7 @@ namespace AppViewLite
             var loadPostgate = FetchAndStorePostgateDict.GetValueAsync(postId, ctx);
             try
             {
-                response = (Post)(await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, ctx)).Value;
+                response = Post.FromJson((await GetRecordAsync(postId.Did, Post.RecordType, postId.RKey, ctx)).Value)!;
 
                 if (response.Reply != null)
                     rootPostId = BlueskyRelationships.GetPostIdStr(response.Reply.Root);
@@ -459,7 +463,7 @@ namespace AppViewLite
             Threadgate? response = null;
             try
             {
-                response = (Threadgate)(await GetRecordAsync(rootPostId.Did, Threadgate.RecordType, rootPostId.RKey, ctx)).Value;
+                response = Threadgate.FromJson((await GetRecordAsync(rootPostId.Did, Threadgate.RecordType, rootPostId.RKey, ctx)).Value);
             }
             catch (Exception)
             {
@@ -484,7 +488,7 @@ namespace AppViewLite
             Postgate? response = null;
             try
             {
-                response = (Postgate)(await GetRecordAsync(postId.Did, Postgate.RecordType, postId.RKey, ctx)).Value;
+                response = Postgate.FromJson((await GetRecordAsync(postId.Did, Postgate.RecordType, postId.RKey, ctx)).Value);
             }
             catch (Exception)
             {
@@ -606,7 +610,7 @@ namespace AppViewLite
             var response = await ListRecordsAsync(did, Follow.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var following = WithRelationshipsUpgradableLock(rels =>
             {
-                return response!.Records!.TrySelect(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Follow)x.Value!).Subject!.Handler, ctx))).ToArray();
+                return response!.Records!.TrySelect(x => rels.GetProfile(rels.SerializeDid((AppBsky.Graph.Follow.FromJson(x.Value)!).Subject!.DidAsString, ctx))).ToArray();
             }, ctx);
             await EnrichAsync(following, ctx);
             return (following, response.Records.Count > limit ? response!.Cursor : null);
@@ -618,7 +622,7 @@ namespace AppViewLite
             var response = await ListRecordsAsync(did, Block.RecordType, limit: limit + 1, cursor: continuation, ctx);
             var following = WithRelationshipsUpgradableLock(rels =>
             {
-                return response!.Records!.TrySelect(x => rels.GetProfile(rels.SerializeDid(((FishyFlip.Lexicon.App.Bsky.Graph.Block)x.Value!).Subject!.Handler, ctx))).ToArray();
+                return response!.Records!.TrySelect(x => rels.GetProfile(rels.SerializeDid((AppBsky.Graph.Block.FromJson(x.Value)!).Subject!.DidAsString, ctx))).ToArray();
             }, ctx);
             await EnrichAsync(following, ctx);
             return (following, response.Records.Count > limit ? response!.Cursor : null);
@@ -854,7 +858,7 @@ namespace AppViewLite
 
         private static ATIdentifier GetAtId(string did)
         {
-            return ATIdentifier.Create(did)!;
+            return new ATIdentifier(did);
         }
 
         public record struct CachedSearchResult(BlueskyPost? Post, long LikeCount);
@@ -1342,7 +1346,7 @@ namespace AppViewLite
                     var posts = await ListRecordsAsync(did, Post.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
                     return posts.Records.Select(x =>
                     {
-                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey, new PostIdString(did, x.Uri.Rkey), (Post)x.Value));
+                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey!, new PostIdString(did, x.Uri.Rkey!), Post.FromJson(x.Value)!));
                     }).Where(x => x != default).ToArray();
                 }, CollectionKind.Posts),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidReposts, async max =>
@@ -1350,7 +1354,7 @@ namespace AppViewLite
                     var posts = await ListRecordsAsync(did, Repost.RecordType, limit, max != Tid.MaxValue ? max.ToString() : null, ctx);
                     return posts.Records.Select(x =>
                     {
-                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Repost)x.Value).Subject!)));
+                        return TryGetPostReference(() => new PostReference(x.Uri.Rkey!, BlueskyRelationships.GetPostIdStr((Repost.FromJson(x.Value)!).Subject!)));
                     }).Where(x => x != default).ToArray();
                 }, CollectionKind.Reposts),
                 new MergeablePostEnumerator(parsedContinuation.MaxTidLikes, async max =>
@@ -1359,7 +1363,8 @@ namespace AppViewLite
 
                     var likeRecords = posts.Records.Select(x =>
                     {
-                        return (Record: x.Value as Like, Reference: TryGetPostReference(() => new PostReference(x.Uri.Rkey, BlueskyRelationships.GetPostIdStr(((Like)x.Value).Subject!))));
+                        var like = Like.FromJson(x.Value)!;
+                        return (Record: like, Reference: TryGetPostReference(() => new PostReference(x.Uri.Rkey!, BlueskyRelationships.GetPostIdStr(like.Subject!))));
                     }).Where(x => x.Reference != default).ToArray();
 
                     if (isSelf)
@@ -1374,7 +1379,7 @@ namespace AppViewLite
                             var indexer = new Indexer(this);
                             foreach(var item in missing)
                             {
-                                indexer.OnRecordCreated(did, new(Like.RecordType, item.Reference.RKey), item.Record!);
+                                indexer.OnRecordCreated(did, new(Like.RecordType, item.Reference.RKey), item.Record.ToJson());
                             }
                             ctx.BumpMinimumVersion(this.relationshipsUnlocked.Version);
                         }
@@ -1748,7 +1753,7 @@ namespace AppViewLite
                     foreach (var item in postUrls)
                     {
                         if (item.Collection != Post.RecordType) throw new UnexpectedFirehoseDataException("Incorrect collection for feed skeleton entry");
-                        var author = rels.TrySerializeDidMaybeReadOnly(item.Did!.Handler, ctx);
+                        var author = rels.TrySerializeDidMaybeReadOnly(item.DidAsString, ctx);
                         if (author == default) return default;
                         postIds.Add(new PostId(author, Tid.Parse(item.Rkey)));
                     }
@@ -1787,10 +1792,15 @@ namespace AppViewLite
 
                 if (proxyViaPds)
                 {
-                    var feed = (await PerformPdsActionAsync(x =>
+                    var feed = await PerformPdsActionAsync(async x =>
                     {
-                        return x.GetFeedAsync(new ATUri($"at://{did}/app.bsky.feed.generator/{rkey}"), limit, continuation);
-                    }, ctx)).HandleResult()!;
+                        return await x.AppBskyFeedGetFeedAsync(new GetFeedParameters
+                        {
+                            Feed = new ATUri($"at://{did}/app.bsky.feed.generator/{rkey}"),
+                            Limit = limit,
+                            Cursor = continuation
+                        });
+                    }, ctx);
                     postsJson = new AtFeedSkeletonResponse
                     {
                         cursor = feed.Cursor,
@@ -1826,14 +1836,14 @@ namespace AppViewLite
         }
         private async Task<string?> GetExceptionMessageForExternalServerErrorAsync(string subjectDisplayText, Exception ex, string? did, string? pds, RequestContext ctx)
         {
-            if (ex is ATNetworkErrorException at)
+            if (ex is ATProtoException at)
             {
-                var code = at.AtError.Detail?.Error;
+                var code = at.ErrorCode;
                 if (code == "RecordNotFound")
                     return "This record was not found.";
 
-                var message = at.AtError.Detail?.Message ?? at.AtError.Detail?.Error;
-                if (string.IsNullOrEmpty(message)) return subjectDisplayText + " returned error " + at.AtError.StatusCode;
+                var message = at.Message;
+                if (string.IsNullOrEmpty(message)) return subjectDisplayText + " returned error " + at.ErrorCode;
 
                 if (message == "Repo not found" || message.StartsWith("Could not find repo:", StringComparison.Ordinal))
                 {
@@ -1884,11 +1894,10 @@ namespace AppViewLite
 
             if (result == null || ((now - result.RetrievalDate).TotalHours > 6 && !IsReadOnly))
             {
-                var recordOutput = await GetRecordAsync(did, Generator.RecordType, rkey, ctx);
-                var generator = (Generator)recordOutput!.Value!;
+                var generator = Generator.FromJson((await GetRecordAsync(did, Generator.RecordType, rkey, ctx)).Value)!;
                 WithRelationshipsWriteLock(rels =>
                 {
-                    rels.IndexFeedGenerator(plc, rkey, (Generator)recordOutput.Value, DateTime.UtcNow);
+                    rels.IndexFeedGenerator(plc, rkey, generator, DateTime.UtcNow);
                     result = rels.TryGetFeedGeneratorData(new(plc, rkey));
                 }, ctx);
             }
@@ -2270,7 +2279,7 @@ namespace AppViewLite
             {
                 try
                 {
-                    cidString = ATCid.Read(cid).ToString();
+                    cidString = ATCid.FromBytes(cid).ToString();
                 }
                 catch (Exception)
                 {
@@ -2815,7 +2824,7 @@ namespace AppViewLite
 
                 var (skeleton, _) = await this.GetFeedSkeletonAsync(did, feed.Subscription.FeedRKey, null, default, ctx, feedInfo.ImplementationDid, null);
 
-                postIds = WithRelationshipsLockForDids(skeleton.Select(x => x.Did!.Handler).ToArray(), (_, rels) =>
+                postIds = WithRelationshipsLockForDids(skeleton.Select(x => x.DidAsString).ToArray(), (_, rels) =>
                 {
                     return skeleton
                         .Where(x => x.Collection == Post.RecordType)
@@ -3181,9 +3190,9 @@ namespace AppViewLite
         {
             while (true)
             {
-                if (exception is ATNetworkErrorException at)
+                if (exception is ATProtoException at)
                 {
-                    return at.AtError.Detail?.Error ?? at.AtError.StatusCode.ToString();
+                    return at.ErrorCode ?? at.StatusCode.ToString();
                 }
                 if (exception.InnerException != null)
                 {
@@ -3198,48 +3207,62 @@ namespace AppViewLite
 
 
 
-        public async Task<Tid> CreateRecordAsync(ATObject record, RequestContext ctx, string? rkey = null)
+        public async Task<Tid> CreateRecordAsync(JsonElement record, RequestContext ctx, string? rkey = null)
         {
             var tid = await PerformPdsActionAsync(async session =>
             {
-                var did = new ATDid(session.Session!.Did.Handler);
+                var did = new ATDid(session.AuthenticatedDid!);
                 if (rkey != null)
                 {
                     // PutRecord supports overwriting
-                    return Tid.Parse((await session.PutRecordAsync(did, record.Type, rkey, record)).HandleResult()!.Uri.Rkey);
+                    return Tid.Parse((await session.ComAtprotoRepoPutRecordAsync(new PutRecordInput 
+                    {
+                        Repo = did,
+                        Collection = record.AtProtoTypeId,
+                        Rkey = rkey,
+                        Record = record,
+                    })).Uri.Rkey);
                 }
                 else
                 {
                     // CreateRecord supports rkey generation
-                    return Tid.Parse((await session.CreateRecordAsync(did, record.Type, record, rkey)).HandleResult()!.Uri.Rkey);
+                    return Tid.Parse((await session.ComAtprotoRepoCreateRecordAsync(new CreateRecordInput 
+                    {
+                        Repo = did,
+                        Collection = record.AtProtoTypeId,
+                        Record = record,
+                        Rkey = rkey
+                    })).Uri.Rkey);
                 }
             }, ctx);
 
             var indexer = new Indexer(this);
-            indexer.OnRecordCreated(ctx.UserContext.Did!, new(record.Type, tid), record, ctx: ctx);
+            indexer.OnRecordCreated(ctx.UserContext.Did!, new(record.AtProtoTypeId, tid), record, ctx: ctx);
             return tid;
         }
 
-        public async Task<T> PerformPdsActionAsync<T>(Func<ATProtocol, Task<T>> func, RequestContext ctx)
+        public async Task<T> PerformPdsActionAsync<T>(Func<ATProtoClient, Task<T>> func, RequestContext ctx)
         {
             var session = ctx.Session;
             using var sessionProtocol = await GetSessionProtocolAsync(ctx);
-            if (sessionProtocol.AuthSession!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)
-            {
-                try
-                {
-                    return await func(sessionProtocol);
-                }
-                catch (Exception ex) when (ex.AnyInnerException(x => x is ATNetworkErrorException at && at.AtError.Detail?.Error == "ExpiredToken"))
-                {
-                    // continue
-                }
-            }
+            throw new NotImplementedException();
+#if false
+            //if (sessionProtocol.TokenProvider.!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)
+            //{
+            //    try
+            //    {
+            //        return await func(sessionProtocol);
+            //    }
+            //    catch (Exception ex) when (ex.AnyInnerException(x => x is ATProtoException at && at.ErrorCode == "ExpiredToken"))
+            //    {
+            //        // continue
+            //    }
+            //}
 
-            AuthSession authSession;
+            ComAtproto.Server.RefreshSessionOutput authSession;
             try
             {
-                authSession = (await sessionProtocol.RefreshAuthSessionResultAsync()).HandleResult()!;
+                authSession = await sessionProtocol.ComAtprotoServerRefreshSessionAsync();
                 if (authSession == null) throw new Exception("Null authSession");
             }
             catch (Exception ex)
@@ -3257,6 +3280,7 @@ namespace AppViewLite
 
             using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
             return await func(sessionProtocol2);
+#endif
         }
 
         public void SaveAppViewLiteProfile(RequestContext ctx)
@@ -3267,36 +3291,39 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public static byte[] SerializeAuthSession(AuthSession authSession)
-        {
-            return CBORObject.FromJSONString(authSession.ToString()).EncodeToBytes();
-        }
-        public static AuthSession DeserializeAuthSession(byte[] bytes)
-        {
-            return AuthSession.FromString(CBORObject.DecodeFromBytes(bytes).ToJSONString())!;
-        }
+        //public static byte[] SerializeAuthSession(AuthSession authSession)
+        //{
+        //    return CBORObject.FromJSONString(authSession.ToString()).EncodeToBytes();
+        //}
+        //public static AuthSession DeserializeAuthSession(byte[] bytes)
+        //{
+        //    return AuthSession.FromString(CBORObject.DecodeFromBytes(bytes).ToJSONString())!;
+        //}
 
-        public async Task<ATProtocol> GetSessionProtocolAsync(RequestContext ctx)
+        public async Task<ATProtoClient> GetSessionProtocolAsync(RequestContext ctx)
         {
             if (!ctx.IsLoggedIn) throw AssertionLiteException.Throw("Cannot create own PDS client when not logged in.");
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.UserContext.PdsSession!;
             using var _ = LogNetworkOperation(ctx, nameof(GetSessionProtocolAsync));
+            throw new NotImplementedException();
+#if false
             var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler, ctx);
             (await sessionProtocol.AuthenticateWithPasswordSessionResultAsync(new AuthSession(pdsSession))).HandleResult();
             return sessionProtocol;
+#endif
 
         }
 
-        public async Task<Session> LoginToPdsAsync(string did, string password, RequestContext ctx)
+        public async Task<SessionResponse> LoginToPdsAsync(string did, string password, RequestContext ctx)
         {
             using var _ = LogNetworkOperation(ctx, nameof(LoginToPdsAsync));
             var sessionProtocol = await CreateProtocolForDidAsync(did, ctx);
-            var session = (await sessionProtocol.AuthenticateWithPasswordResultAsync(did, password)).HandleResult()!;
+            var session = (await sessionProtocol.LoginAsync(did, password))!;
             return session;
         }
 
-        public async Task<ATProtocol?> TryCreateProtocolForDidAsync(string did, RequestContext ctx)
+        public async Task<ATProtoClient?> TryCreateProtocolForDidAsync(string did, RequestContext ctx)
         {
             if (!BlueskyRelationships.IsNativeAtProtoDid(did)) return null;
             return await CreateProtocolForDidAsync(did, ctx)!;
@@ -3304,42 +3331,49 @@ namespace AppViewLite
 
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Consistency with other factory methods")]
-        public ATProtocol CreateQuickBackfillProtocol()
+        public ATProtoClient CreateQuickBackfillProtocol()
         {
             var instance = AppViewLiteConfiguration.GetString(AppViewLiteParameter.APPVIEWLITE_QUICK_REVERSE_BACKFILL_INSTANCE) ?? "https://public.api.bsky.app";
             if (instance == "-") throw new Exception("Quick reverse backfill is not enabled.");
             return CreateUnauthenticatedProtocol(new Uri(instance));
         }
 
-        public static ATProtocol CreateUnauthenticatedProtocol(Uri instanceUrl)
+        public static ATProtoClient CreateUnauthenticatedProtocol(Uri instanceUrl)
         {
-            var builder = new ATProtocolBuilder()
-                .WithInstanceUrl(instanceUrl)
-                .WithLogger(CreateClientAtProtocolLogger());
-            return builder.Build();
+            return ATProtoClient.Create(new ATProtoClientOptions 
+            { 
+                BaseUrl = instanceUrl,
+                LoggerFactory = CreateClientAtProtocolLogger()
+            });
         }
 
-        public async Task<ATProtocol> CreateProtocolForDidAsync(string did, RequestContext ctx)
+        public async Task<ATProtoClient> CreateProtocolForDidAsync(string did, RequestContext ctx)
         {
             var diddoc = await GetDidDocAsync(did, ctx);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
 
             var pds = diddoc.Pds;
             if (pds == null) throw new UnexpectedFirehoseDataException("No PDS is specified in the DID doc of this user.");
-            var builder = new ATProtocolBuilder()
-                .WithInstanceUrl(new Uri(pds))
-                .WithLogger(CreateClientAtProtocolLogger());
-            var dict = new Dictionary<ATDid, Uri>
+
+            var identityResolver = new IdentityResolver(BlueskyEnrichedApis.DefaultHttpClient, new IdentityResolverOptions 
+            { 
+                 Cache = new PrefetchedSingletonIdentityResolverCache { Did = did, Pds = pds }
+            });
+            return new ATProtoClient(new ATProtoClientOptions 
             {
-                { new ATDid(did), new Uri(pds) }
-            };
-            builder.WithATDidCache(dict);
-            return builder.Build();
+                BaseUrl = new Uri(pds),
+                JsonOptions = ATProtoClientFactory.CreateJsonOptions(),
+                CborContext = CarpaNet.Cbor.ATProtoCborContext.Default,
+                LoggerFactory = CreateClientAtProtocolLogger(),
+                IdentityResolver = identityResolver
+            });
+
+            
         }
 
-        private static LogWrapper CreateClientAtProtocolLogger()
+        private static ILoggerFactory CreateClientAtProtocolLogger()
         {
-            return new LogWrapper(Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Information)
+            return new LogWrapper.LogFactory(Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Information)
             {
                 IsLowImportanceException = x => x.AnyInnerException(x => x is HttpRequestException),
                 IsLowImportanceMessage = x => x.StartsWith("ATError:", StringComparison.Ordinal)
@@ -3348,11 +3382,11 @@ namespace AppViewLite
 
         public async Task<Tid> CreateFollowAsync(string did, RequestContext ctx)
         {
-            return await CreateRecordAsync(new Follow { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }, ctx);
+            return await CreateRecordAsync(new Follow { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }.ToJson(), ctx);
         }
         public async Task<Tid> CreateBlockAsync(string did, RequestContext ctx)
         {
-            return await CreateRecordAsync(new Block { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }, ctx);
+            return await CreateRecordAsync(new Block { Subject = new ATDid(did), CreatedAt = UtcNowMillis() }.ToJson(), ctx);
         }
 
         private static DateTime UtcNowMillis()
@@ -3372,13 +3406,13 @@ namespace AppViewLite
         {
             var via = await GetViaRepostAsync(viaRepost, ctx);
             var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
-            return await CreateRecordAsync(new Like { Via = via, Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
+            return await CreateRecordAsync(new Like { Via = via, Subject = StrongRef.Create(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid)/* { Type = null! }*/, CreatedAt = UtcNowMillis() }.ToJson(), ctx);
         }
         public async Task<Tid> CreateRepostAsync(string did, Tid rkey, RelationshipStr viaRepost, RequestContext ctx)
         {
             var via = await GetViaRepostAsync(viaRepost, ctx);
             var cid = await GetCidAsync(did, Post.RecordType, rkey, ctx);
-            return await CreateRecordAsync(new Repost { Via = via, Subject = new StrongRef(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) { Type = null! }, CreatedAt = UtcNowMillis() }, ctx);
+            return await CreateRecordAsync(new Repost { Via = via, Subject = StrongRef.Create(new ATUri("at://" + did + "/" + Post.RecordType + "/" + rkey), cid) /*{ Type = null! }*/, CreatedAt = UtcNowMillis() }.ToJson(), ctx);
         }
 
         private async Task<StrongRef?> GetViaRepostAsync(RelationshipStr viaRepost, RequestContext ctx)
@@ -3389,7 +3423,7 @@ namespace AppViewLite
             {
 
                 var repost = await GetRecordAsync(viaRepost.Did, Repost.RecordType, viaRepost.RKey, ctx);
-                return new StrongRef(repost.Uri, repost.Cid!) { Type = null! };
+                return StrongRef.Create(repost.Uri, repost.Cid!)/* { Type = null! }*/;
             }
             catch (Exception ex)
             {
@@ -3442,17 +3476,17 @@ namespace AppViewLite
             var threadRkey = postData.RootPostId.PostRKey;
 
 
-            var threadgate = (Threadgate?)(await TryGetRecordAsync(ctx.UserContext.Did!, Threadgate.RecordType, threadRkey.ToString()!, ctx))?.Value ?? new Threadgate();
+            var threadgateRecord = await TryGetRecordAsync(ctx.UserContext.Did!, Threadgate.RecordType, threadRkey.ToString()!, ctx);
+            var threadgate = threadgateRecord != null ? Threadgate.FromJson(threadgateRecord.Value)! : new Threadgate { CreatedAt = UtcNowMillis(), Post = new ATUri("at://" + ctx.UserContext.Did + "/" + Post.RecordType + "/" + threadRkey.ToString()) };
 
             threadgate.CreatedAt = UtcNowMillis();
-            threadgate.Post = new ATUri("at://" + ctx.UserContext.Did + "/" + Post.RecordType + "/" + threadRkey.ToString());
             threadgate.HiddenReplies ??= [];
             var postUri = new ATUri("at://" + postDid + "/" + Post.RecordType + "/" + postRkey.ToString());
             if (!threadgate.HiddenReplies.Contains(postUri))
             {
                 threadgate.HiddenReplies.Add(postUri);
             }
-            await CreateRecordAsync(threadgate, ctx, rkey: threadRkey.ToString());
+            await CreateRecordAsync(threadgate.ToJson(), ctx, rkey: threadRkey.ToString());
         }
         public async Task DeleteRepostAsync(Tid repostRKey, RequestContext ctx)
         {
@@ -3460,7 +3494,12 @@ namespace AppViewLite
         }
         public async Task DeleteRecordAsync(string collection, Tid rkey, RequestContext ctx)
         {
-            await PerformPdsActionAsync(session => session.DeleteRecordAsync(session.Session!.Did, collection, rkey.ToString()!), ctx);
+            await PerformPdsActionAsync(session => session.ComAtprotoRepoDeleteRecordAsync(new DeleteRecordInput 
+            {
+                Repo = session.AuthenticatedDid!,
+                Collection = collection,
+                Rkey = rkey.ToString()!
+            }), ctx);
             var indexer = new Indexer(this);
             indexer.OnRecordDeleted(ctx.UserContext.Did!, new(collection, rkey), ctx: ctx);
         }
@@ -3478,11 +3517,11 @@ namespace AppViewLite
                 externalLink = null;
             }
 
-            EmbedExternal? embedExternal = null;
+            External? embedExternal = null;
             if (externalLink != null)
             {
                 var opengraph = await GetOpenGraphDataAsync(externalLink, ctx);
-                Blob? thumb = null;
+                ATBlob? thumb = null;
                 if (opengraph.ExternalThumbnailUrl != null)
                 {
                     var processedContentType = "image/webp";
@@ -3502,23 +3541,16 @@ namespace AppViewLite
                     {
                         var response = await PerformPdsActionAsync(async protocol =>
                         {
-                            var streamContent = new StreamContent(processedImage.ProcessedBytes);
-                            streamContent.Headers.ContentType = new(processedContentType);
-                            var response = (await protocol.UploadBlobAsync(streamContent, ct)).HandleResult()!;
+                            var response = await protocol.UploadBlobAsync(processedImage.ProcessedBytes, processedContentType, ct);
                             return response;
                         }, ctx);
 
-                        thumb = new Blob
-                        {
-                            MimeType = processedContentType,
-                            Size = (int)processedImage.ProcessedBytes.Length,
-                            Ref = response.Blob.Ref,
-                        };
+                        thumb = response.ToATBlob();
                     }
                 }
-                embedExternal = new EmbedExternal
+                embedExternal = new External
                 {
-                    External = new External
+                    ExternalValue = new ExternalExternal
                     {
                         Title = StringUtils.NormalizeLineEndings(opengraph.ExternalTitle ?? externalLink.ToString()),
                         Description = StringUtils.NormalizeLineEndings(opengraph.ExternalDescription ?? string.Empty),
@@ -3528,22 +3560,22 @@ namespace AppViewLite
                 };
             }
 
-            var embedRecord = quotedPost != null ? new EmbedRecord((await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef) : null;
-            ReplyRefDef? replyRefDef = null;
+            var embedRecord = quotedPost != null ? new Record { RecordValue = ((await GetPostStrongRefAsync(quotedPost, ctx)).StrongRef) } : null;
+            PostReplyRef? replyRefDef = null;
             if (inReplyTo != null)
             {
                 var inReplyToRef = await GetPostStrongRefAsync(inReplyTo, ctx);
                 var originalRoot = inReplyToRef.Record.Reply?.Root;
-                originalRoot?.Type = null!;
-                replyRefDef = new ReplyRefDef
+                // originalRoot?.Type = null!;
+                replyRefDef = new PostReplyRef
                 {
-                    Type = null!,
+                    // Type = null!,
                     Parent = inReplyToRef.StrongRef,
                     Root = originalRoot ?? inReplyToRef.StrongRef,
                 };
             }
 
-            var processedAttachments = new List<Image>();
+            var processedAttachments = new List<ImagesImage>();
             foreach (var attachment in attachments)
             {
                 var processedImage = await ImageUploadProcessor.ProcessAsync(attachment.UploadedBytes, ct);
@@ -3551,41 +3583,38 @@ namespace AppViewLite
 
                 var response = await PerformPdsActionAsync(async protocol =>
                 {
-                    var streamContent = new StreamContent(processedImage.ProcessedBytes);
-                    streamContent.Headers.ContentType = new(processedContentType);
-                    var response = (await protocol.UploadBlobAsync(streamContent, ct)).HandleResult()!;
+                    var response = await protocol.UploadBlobAsync(processedImage.ProcessedBytes, processedContentType, ct);
                     return response;
                 }, ctx);
-                processedAttachments.Add(new Image
+                processedAttachments.Add(new ImagesImage
                 {
                     Alt = string.IsNullOrWhiteSpace(attachment.AltText) ? string.Empty : StringUtils.NormalizeLineEndings(attachment.AltText.Trim()),
-                    AspectRatio = new AspectRatio
+                    AspectRatio = new DefsAspectRatio
                     {
                         Height = processedImage.Height,
                         Width = processedImage.Width,
                     },
-                    ImageValue = new Blob
-                    {
-                        MimeType = processedContentType,
-                        Size = (int)processedImage.ProcessedBytes.Length,
-                        Ref = response.Blob.Ref,
-                    },
+                    Image = response.ToATBlob(),
                 });
             }
 
 
-            ATObject? embedImagesOrExternalPreview =
+            object? embedImagesOrExternalPreview =
                 embedExternal != null ? embedExternal :
-                processedAttachments.Count != 0 ? new EmbedImages(processedAttachments) : null;
+                processedAttachments.Count != 0 ? new Images { ImagesValue = processedAttachments } : null;
 
-            ATObject? embed = null;
+            IPostEmbed? embed = null;
             if (embedImagesOrExternalPreview != null && embedRecord != null)
             {
-                embed = new RecordWithMedia(embedRecord, embedImagesOrExternalPreview);
+                embed = new RecordWithMedia
+                {
+                    Record =embedRecord,
+                    Media = (IRecordWithMediaMedia)embedImagesOrExternalPreview
+                };
             }
             else
             {
-                embed = (ATObject?)embedRecord ?? embedImagesOrExternalPreview;
+                embed = (IPostEmbed?)embedRecord ?? (IPostEmbed?)embedImagesOrExternalPreview;
             }
 
             var postRecord = new Post
@@ -3600,10 +3629,11 @@ namespace AppViewLite
             var facets = (StringUtils.GuessFacets(text, includeImplicitFacets: true) ?? [])
                 .Select(x =>
                 {
-                    var byteSlice = new ByteSlice(x.Start, x.End) { Type = null! };
+                    var byteSlice = new FacetByteSlice { ByteStart = x.Start, ByteEnd = x.End /*Type = null!*/ }
+                    ;
                     if (x.Did != null)
                     {
-                        return new Facet { Type = null!, Index = byteSlice, Features = [new Mention(new ATDid(x.Did))] };
+                        return new Facet { /*Type = null!,*/ Index = byteSlice, Features = [new FacetMention { Did = new ATDid(x.Did) }] };
                     }
                     if (x.IsLink)
                     {
@@ -3611,9 +3641,9 @@ namespace AppViewLite
                         if (link.StartsWith(StringUtils.HashtagLinkPrefix, StringComparison.Ordinal))
                         {
                             var hashtag = Uri.UnescapeDataString(link.AsSpan(StringUtils.HashtagLinkPrefix.Length)).Replace("#", null);
-                            return new Facet { Type = null!, Index = byteSlice, Features = [new Tag(hashtag)] };
+                            return new Facet { /*Type = null!,*/ Index = byteSlice, Features = [new FacetTag { Tag = hashtag }] };
                         }
-                        return new Facet { Type = null!, Index = byteSlice, Features = [new Link(link)] };
+                        return new Facet { /*Type = null!,*/ Index = byteSlice, Features = [new FacetLink { Uri = link }] };
                     }
 
                     return null;
@@ -3622,30 +3652,30 @@ namespace AppViewLite
                 .ToList();
             if (facets.Count != 0)
             {
-                foreach (var facet in facets)
-                {
-                    foreach (var feature in facet.Features)
-                    {
-                        if (feature is Mention m)
-                        {
-                            if (!m.Did.Handler.StartsWith("did:", StringComparison.Ordinal))
-                            {
-                                var did = await this.ResolveHandleAsync(m.Did.Handler, ctx);
-                                m.Did = new ATDid(did);
-                            }
-                        }
-                    }
-                }
+                //foreach (var facet in facets)
+                //{
+                //    foreach (var feature in facet.Features)
+                //    {
+                //        if (feature is FacetMention m)
+                //        {
+                //            if (!m.Did.Value.StartsWith("did:", StringComparison.Ordinal))
+                //            {
+                //                var did = await this.ResolveHandleAsync(m.Did., ctx);
+                //                m.Did = new ATDid(did);
+                //            }
+                //        }
+                //    }
+                //}
                 postRecord.Facets = facets;
             }
 
-            return await CreateRecordAsync(postRecord, ctx);
+            return await CreateRecordAsync(postRecord.ToJson(), ctx);
         }
 
         private async Task<(StrongRef StrongRef, Post Record)> GetPostStrongRefAsync(PostIdString post, RequestContext ctx)
         {
             var info = await GetRecordAsync(post.Did, Post.RecordType, post.RKey, ctx);
-            return (new StrongRef(info.Uri, info.Cid!) { Type = null! }, (Post)info.Value);
+            return (StrongRef.Create(info.Uri, info.Cid!) /*{ Type = null! }*/, Post.FromJson(info.Value)!);
 
         }
 
@@ -3676,8 +3706,8 @@ namespace AppViewLite
             {
                 return response!.Records!.TrySelect(x =>
                 {
-                    var listblock = (Listblock)x.Value;
-                    return rels.GetList(new Models.Relationship(rels.SerializeDid(listblock.Subject!.Did!.Handler, ctx), Tid.Parse(listblock.Subject.Rkey)), ctx: ctx);
+                    var listblock = Listblock.FromJson(x.Value)!;
+                    return rels.GetList(new Models.Relationship(rels.SerializeDid(listblock.Subject!.DidAsString, ctx), Tid.Parse(listblock.Subject.Rkey)), ctx: ctx);
                 }).ToArray();
             }, ctx);
             ctx.IncreaseTimeout(TimeSpan.FromSeconds(3));
@@ -3846,9 +3876,9 @@ namespace AppViewLite
             {
                 return response!.Records!.TrySelect(x =>
                 {
-                    var listItem = (FishyFlip.Lexicon.App.Bsky.Graph.Listitem)x.Value!;
+                    var listItem = AppBsky.Graph.Listitem.FromJson(x.Value!)!;
                     if (listItem.List!.Rkey != rkey) return null;
-                    var profile = rels.GetProfile(rels.SerializeDid(listItem.Subject!.Handler, ctx), Tid.Parse(x.Uri.Rkey), ctx);
+                    var profile = rels.GetProfile(rels.SerializeDid(listItem.Subject!.DidAsString, ctx), Tid.Parse(x.Uri.Rkey), ctx);
                     return profile;
                 }).WhereNonNull().ToArray();
             }, ctx);
@@ -3862,10 +3892,17 @@ namespace AppViewLite
         {
             using var _ = LogNetworkOperation(ctx, nameof(ListRecordsAsync), collection, did);
             using var proto = await TryCreateProtocolForDidAsync(did, ctx);
-            if (proto == null) return new ListRecordsOutput(null, []);
+            if (proto == null) return new ListRecordsOutput { Records = [] };
             try
             {
-                return (await proto.ListRecordsAsync(GetAtId(did), collection, limit, cursor, descending ? null : true, cancellationToken: ct)).HandleResult()!;
+                return await proto.ComAtprotoRepoListRecordsAsync(new ListRecordsParameters 
+                {
+                    Repo = GetAtId(did),
+                    Collection = collection,
+                    Limit = limit,
+                    Cursor = cursor, 
+                    Reverse = descending ? null : true
+                }, cancellationToken: ct);
             }
             catch (Exception ex)
             {
@@ -3874,9 +3911,9 @@ namespace AppViewLite
 
         }
 
-        private static string? GetPds(ATProtocol proto)
+        private static string? GetPds(ATProtoClient proto)
         {
-            return proto.Options.Url.AbsoluteUri;
+            return proto.BaseUrl.AbsoluteUri;
         }
 
         public async Task<GetRecordOutput> GetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
@@ -3885,7 +3922,12 @@ namespace AppViewLite
             using var proto = await CreateProtocolForDidAsync(did, ctx);
             try
             {
-                return (await proto.GetRecordAsync(GetAtId(did), collection, rkey, cancellationToken: ct)).HandleResult()!;
+                return await proto.ComAtprotoRepoGetRecordAsync(new ComAtproto.Repo.GetRecordParameters 
+                {
+                    Repo = GetAtId(did),
+                    Collection = collection,
+                    Rkey = rkey
+                }, cancellationToken: ct);
             }
             catch (Exception ex)
             {
@@ -3894,13 +3936,13 @@ namespace AppViewLite
 
         }
 
-        public async Task<GetRecordOutput?> TryGetRecordAsync(string did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
+        public async Task<GetRecordOutput?> TryGetRecordAsync(ATDid did, string collection, string rkey, RequestContext ctx, CancellationToken ct = default)
         {
             try
             {
                 return await GetRecordAsync(did, collection, rkey, ctx, ct);
             }
-            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATNetworkErrorException { AtError: ATError { Detail.Error: "RecordNotFound" } })
+            catch (UnexpectedFirehoseDataException e) when (e.InnerException is ATProtoException { ErrorCode: "RecordNotFound" })
             {
                 return null;
             }
@@ -4086,7 +4128,7 @@ namespace AppViewLite
                 return response!.Records!.TrySelect(x =>
                 {
                     var listId = new Models.Relationship(plc, Tid.Parse(x.Uri.Rkey));
-                    return rels.GetList(listId, BlueskyRelationships.ListToProto((List)x.Value), ctx: ctx);
+                    return rels.GetList(listId, BlueskyRelationships.ListToProto(List.FromJson(x.Value)!), ctx: ctx);
                 }).ToArray();
             }, ctx);
             await EnrichAsync(lists, ctx);
@@ -4108,7 +4150,7 @@ namespace AppViewLite
                     var feedId = new RelationshipHashedRKey(plc, x.Uri.Rkey);
                     if (!rels.FeedGenerators.ContainsKey(feedId))
                     {
-                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey, (Generator)x.Value, DateTime.UtcNow), ctx);
+                        rels.WithWriteUpgrade(() => rels.IndexFeedGenerator(plc, x.Uri.Rkey!, Generator.FromJson(x.Value)!, DateTime.UtcNow), ctx);
                     }
                     return rels.TryGetFeedGenerator(feedId, ctx)!;
                 }).ToArray();
@@ -4529,10 +4571,25 @@ namespace AppViewLite
         public async Task<ATUri> ResolveUriAsync(string uri, RequestContext ctx)
         {
             var aturi = new ATUri(uri);
-            if (aturi.Did != null) return aturi;
+            if (aturi.AuthorityAsDid != null) return aturi;
 
-            var did = await ResolveHandleAsync(aturi.Handle!.Handle, ctx);
-            return new ATUri("at://" + did + aturi.Pathname + aturi.Hash);
+            var did = await ResolveHandleAsync(aturi.AuthorityAsHandle!.Value.Value, ctx);
+            var rkey = aturi.RecordKey;
+            var collection = aturi.Collection;
+            if (rkey != null)
+            {
+                return new ATUri("at://" + did + "/" + collection + "/" + rkey);
+            }
+            else if (collection != null)
+            {
+                throw new NotImplementedException();
+                return new ATUri("at://" + did + "/" + collection);
+            }
+            else
+            {
+                return new ATUri("at://" + did + "/");
+            }
+            
         }
 
         public void RegisterPluggableProtocol(Type type)
@@ -5050,7 +5107,8 @@ namespace AppViewLite
 
                 if (!isReadOnly)
                 {
-                    userContext.PrivateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession!));
+                    throw new NotImplementedException();
+                    //userContext.PrivateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession!));
                     userContext.PdsSession = atSession;
                     userContext.UpdateRefreshTokenExpireDate();
                 }
@@ -5597,7 +5655,8 @@ namespace AppViewLite
                         throw new UnexpectedFirehoseDataException($"Labeler firehose {endpoint} ({string.Join(", ", allowedLabelerDids)}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
                 }
             };
-            indexer.StartListeningToAtProtoFirehoseLabels(endpoint).FireAndForget();
+            throw new NotImplementedException();
+            //indexer.StartListeningToAtProtoFirehoseLabels(endpoint).FireAndForget();
         }
 
         public async Task<BlueskyLabel[]> GetAllPostLabelsAsync(string did, string rkey, RequestContext ctx)
@@ -5682,12 +5741,16 @@ namespace AppViewLite
                 {
                     var ctx = RequestContext.CreateForRequest("ConversationPolling", session, urgent: false);
 
-                    var conversations = await PerformPdsActionAsync(async protocol => (await protocol.ChatBskyConvo.ListConvosAsync(limit: 100, readState: "unread", cancellationToken: ct)).HandleResult()!, ctx);
+                    var conversations = await PerformPdsActionAsync(async protocol => (await protocol.ChatBskyConvoListConvosAsync(new ListConvosParameters 
+                    {
+                        Limit = 100,
+                        ReadState = "unread"
+                    }, cancellationToken: ct)), ctx);
                     ct.ThrowIfCancellationRequested();
 
                     var unreadConversations = 0;
 
-                    WithRelationshipsLockForDids(conversations.Convos.SelectMany(x => x.Members.Select(x => x.Did.Handler!)).ToArray(), (_, rels) =>
+                    WithRelationshipsLockForDids(conversations.Convos.SelectMany(x => x.Members.Select(x => x.Did.DidAsString)).ToArray(), (_, rels) =>
                     {
                         foreach (var conv in conversations.Convos)
                         {
@@ -5695,26 +5758,26 @@ namespace AppViewLite
                             var hasAnyNonBlockedMembers = false;
                             foreach (var member in conv.Members)
                             {
-                                if (member.Did.Handler == ctx.UserContext.Did) continue;
+                                if (member.Did.DidAsString == ctx.UserContext.Did) continue;
                                 if (member.Associated == null) continue; // spam or dead account
-                                var plc = rels.SerializeDid(member.Did.Handler, ctx);
+                                var plc = rels.SerializeDid(member.Did.DidAsString, ctx);
                                 if (rels.UsersHaveBlockRelationship(session.UserContext.Plc, plc, ctx) != default) continue;
                                 if (ctx.UserContext.PrivateProfile!.MuteRulesByPlc[plc].Any(x => x.Word == null)) continue;
                                 hasAnyNonBlockedMembers = true;
                             }
                             if (!hasAnyNonBlockedMembers) continue;
 
-                            var lastMessage = (conv.LastMessage as MessageView)?.SentAt ?? (conv.LastMessage as DeletedMessageView)?.SentAt;
+                            var lastMessage = (conv.LastMessage as DefsMessageView)?.SentAt ?? (conv.LastMessage as DefsDeletedMessageView)?.SentAt;
                             if (lastMessage != null)
                             {
 
-                                var lastMessageSender = (conv.LastMessage as MessageView)?.Sender.Did ?? (conv.LastMessage as DeletedMessageView)?.Sender.Did;
+                                var lastMessageSender = (conv.LastMessage as DefsMessageView)?.Sender.Did ?? (conv.LastMessage as DefsDeletedMessageView)?.Sender.Did;
 
-                                if (lastMessageSender != null && lastMessageSender.Handler != session.Did)
+                                if (lastMessageSender != null && lastMessageSender.Value.DidAsString != session.Did)
                                 {
 
                                     if (lastMessage.Value > lastSeenMessage)
-                                        lastSeenMessage = lastMessage.Value;
+                                        lastSeenMessage = lastMessage.Value.UtcDateTime;
 
                                     if (lastMessage.Value >= ctx.PrivateProfile.LastClearUnreadMessageCountDate)
                                     {

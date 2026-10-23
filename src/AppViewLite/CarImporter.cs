@@ -1,15 +1,14 @@
 using AppViewLite.Numerics;
 using DuckDbSharp.Types;
-using FishyFlip.Lexicon;
-using FishyFlip.Models;
-using FishyFlip.Tools;
-using PeterO.Cbor;
+using CarpaNet;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using AppBsky.Feed;
+using System.Text.Json;
 
 namespace AppViewLite
 {
@@ -23,7 +22,7 @@ namespace AppViewLite
         private FileStream? spilledRecords;
         private readonly string diskSpillDirectory;
 
-        private record struct RecordLocation(ATObject? InMemory, long SpilledStart, int SpilledLength);
+        private record struct RecordLocation(JsonElement? InMemory, long SpilledStart, int SpilledLength);
 
         public CarImporter(string did, DateTime probableDateOfEarliestRecord, string diskSpillDirectory)
         {
@@ -68,11 +67,11 @@ namespace AppViewLite
         internal static long GlobalDecodedBytes;
 
         private readonly HashSet<string> internedCollectionNames = [];
-        public void OnCarDecoded(CarProgressStatusEvent p)
+        public void OnCarDecoded(ATCid cid, byte[] data)
         {
-
-
-            using var blockStream = new MemoryStream(p.Bytes.ToArray());
+            throw new NotImplementedException();
+#if false
+            using var blockStream = new MemoryStream(data);
             CBORObject blockObj;
             try
             {
@@ -147,11 +146,11 @@ namespace AppViewLite
                     //Console.Error.WriteLine((Tid.TryParse(rkey, out var t) ? t.Date : default) + "Path:   " + collection + " cid: " + valCid);
 
                     if (Tid.TryParse(rkey, out var tid) && collection is
-                        FishyFlip.Lexicon.App.Bsky.Graph.Follow.RecordType or
-                        FishyFlip.Lexicon.App.Bsky.Graph.Block.RecordType or
-                        FishyFlip.Lexicon.App.Bsky.Feed.Like.RecordType or
-                        FishyFlip.Lexicon.App.Bsky.Feed.Repost.RecordType or
-                        FishyFlip.Lexicon.App.Bsky.Feed.Post.RecordType)
+                        AppBsky.Graph.Follow.RecordType or
+                        AppBsky.Graph.Block.RecordType or
+                        AppBsky.Feed.Like.RecordType or
+                        AppBsky.Feed.Repost.RecordType or
+                        AppBsky.Feed.Post.RecordType)
                     {
                         var date = tid.Date;
                         //if (SmallestSeenRecordDate == null ||date < SmallestSeenRecordDate)
@@ -179,6 +178,7 @@ namespace AppViewLite
                 }
 
             }
+#endif
         }
 
         public void LogStats()
@@ -186,18 +186,19 @@ namespace AppViewLite
             Log("Read " + pathToCid.Count + " CIDs, " + recordsByCid.Count + " records. Populating...");
         }
 
-        public IEnumerable<(string Did, string Path, ATObject Record)> EnumerateRecords()
+        public IEnumerable<(string Did, string Path, JsonElement Record)> EnumerateRecords()
         {
-            foreach (var item in pathToCid.DistinctBy(x => (x.CidHash, x.RKey, x.Collection)).OrderBy(x => x.RKey))
-            {
-                if (!recordsByCid.TryGetValue(item.CidHash, out var recordLocation)) continue;
+            throw new NotImplementedException();
+            //foreach (var item in pathToCid.DistinctBy(x => (x.CidHash, x.RKey, x.Collection)).OrderBy(x => x.RKey))
+            //{
+            //    if (!recordsByCid.TryGetValue(item.CidHash, out var recordLocation)) continue;
 
-                var record = TryReadRecord(recordLocation);
-                if (record != null)
-                    yield return (Did, item.Collection + "/" + item.RKey, record);
-            }
+            //    var record = TryReadRecord(recordLocation);
+            //    if (record != null)
+            //        yield return (Did, item.Collection + "/" + item.RKey, record);
+            //}
         }
-
+#if false
         private ATObject? TryReadRecord(RecordLocation recordLocation)
         {
             if (recordLocation.InMemory != null) return recordLocation.InMemory;
@@ -215,6 +216,7 @@ namespace AppViewLite
                 return null;
             }
         }
+#endif
 
         private static DuckDbUuid CidToUuid(ATCid cid) => StringUtils.HashToUuid(cid.ToBytes());
 

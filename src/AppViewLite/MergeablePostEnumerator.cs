@@ -1,6 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
-using FishyFlip.Lexicon.App.Bsky.Feed;
+using AppBsky.Feed;
 using System;
 using System.Collections.Generic;
 using System.Linq;

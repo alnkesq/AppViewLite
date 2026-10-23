@@ -1,38 +1,37 @@
+using AppBsky.Actor;
+using AppBsky.Embed;
+using AppBsky.Feed;
+using AppBsky.Graph;
+using AppBsky.Richtext;
 using AppViewLite.Models;
-using FishyFlip;
-using FishyFlip.Lexicon;
-using FishyFlip.Lexicon.App.Bsky.Actor;
-using FishyFlip.Lexicon.App.Bsky.Embed;
-using FishyFlip.Lexicon.App.Bsky.Feed;
-using FishyFlip.Lexicon.App.Bsky.Graph;
-using FishyFlip.Lexicon.App.Bsky.Richtext;
-using FishyFlip.Lexicon.Com.Atproto.Repo;
-using FishyFlip.Models;
+using CarpaNet;
+using ComAtproto.Repo;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AppViewLite
 {
     public static class ApiCompatUtils
     {
-        public static ThreadViewPost ToApiCompatThreadViewPost(this BlueskyPost post, RequestContext ctx, BlueskyPost? rootPost, ThreadViewPost? parent = null)
+        public static DefsThreadViewPost ToApiCompatThreadViewPost(this BlueskyPost post, RequestContext ctx, BlueskyPost? rootPost, DefsThreadViewPost? parent = null)
         {
-            return new ThreadViewPost
+            return new DefsThreadViewPost
             {
                 Post = post.ToApiCompatPostView(ctx, rootPost),
                 Parent = parent,
             };
         }
-        public static PostView ToApiCompatPostView(this BlueskyPost post, RequestContext ctx, BlueskyPost? rootPost = null)
+        public static DefsPostView ToApiCompatPostView(this BlueskyPost post, RequestContext ctx, BlueskyPost? rootPost = null)
         {
             var aturi = GetPostUri(post.Author.Did, post.RKey);
 
-            return new PostView
+            return new DefsPostView
             {
                 Uri = aturi,
                 Embed = ToApiCompatEmbedView(post),
@@ -48,7 +47,7 @@ namespace AppViewLite
             };
         }
 
-        private static ATObject? ToApiCompatEmbedView(BlueskyPost post)
+        private static IDefsPostViewEmbed? ToApiCompatEmbedView(BlueskyPost post)
         {
 
             /*
@@ -59,7 +58,7 @@ namespace AppViewLite
                 ViewRecordDef
                 ViewRecordWithMedia
              */
-            ATObject? embed = null;
+            IDefsPostViewEmbed? embed = null;
             if (post.IsImagePost)
             {
                 if (post.Data!.Media![0].IsVideo)
@@ -71,7 +70,7 @@ namespace AppViewLite
                 }
                 else
                 {
-                    embed = new ViewImages
+                    embed = new ImagesView
                     {
                         Images = post.Data.Media.Select(x => ToApiCompatViewImage(x, post.Author)).ToList()
                     };
@@ -80,9 +79,9 @@ namespace AppViewLite
 
             if (post.Data?.ExternalUrl != null)
             {
-                embed = new ViewExternal
+                embed = new ExternalView
                 {
-                    External = new ViewExternalExternal
+                    External = new ExternalViewExternal
                     {
                         Description = post.Data.ExternalDescription ?? string.Empty,
                         Title = post.Data.ExternalTitle ?? string.Empty,
@@ -93,10 +92,10 @@ namespace AppViewLite
             }
             if (post.QuotedPost != null)
             {
-                var recordView = new ViewRecordDef { Record = ToApiCompatRecordView(post.QuotedPost) };
+                var recordView = new RecordView { Record = ToApiCompatRecordView(post.QuotedPost) };
                 if (embed != null)
                 {
-                    embed = new ViewRecordWithMedia { Media = embed, Record = recordView };
+                    embed = new RecordWithMediaView { Media = (IRecordWithMediaViewMedia)embed, Record = recordView };
                 }
                 else
                 {
@@ -106,7 +105,7 @@ namespace AppViewLite
             return embed;
         }
 
-        private static ATObject? ToApiCompatEmbed(BlueskyPost post)
+        private static IPostEmbed? ToApiCompatEmbed(BlueskyPost post)
         {
             /*
              Must return one of:
@@ -116,7 +115,7 @@ namespace AppViewLite
                 EmbedRecord
                 RecordWithMedia
              */
-            ATObject? embed = null;
+            IPostEmbed? embed = null;
             if (post.IsImagePost)
             {
                 if (post.Data!.Media![0].IsVideo)
@@ -128,37 +127,33 @@ namespace AppViewLite
                 }
                 else
                 {
-                    embed = new EmbedImages
+                    embed = new Images
                     {
-                        Images = post.Data.Media.Select(x => ToApiCompatImage(x)).ToList()
+                        ImagesValue = post.Data.Media.Select(x => ToApiCompatImage(x)).ToList()
                     };
                 }
             }
 
             if (post.Data?.ExternalUrl != null)
             {
-                embed = new EmbedExternal
+                embed = new External
                 {
-                    External = new External
+                    ExternalValue = new ExternalExternal
                     {
                         Description = post.Data.ExternalDescription ?? string.Empty,
                         Title = post.Data.ExternalTitle ?? string.Empty,
                         Uri = post.Data.ExternalUrl,
-                        Thumb = post.Data.ExternalThumbCid != null ? new Blob
-                        {
-                            Ref = new ATLinkRef(ATCid.Read(post.Data.ExternalThumbCid)),
-                            MimeType = "image/jpeg"
-                        } : null
+                        Thumb = post.Data.ExternalThumbCid != null ? new ATBlob(ATCid.FromBytes(post.Data.ExternalThumbCid), "image/jpeg", 0) : null
                     }
                 };
             }
 
             if (post.QuotedPost != null)
             {
-                var record = new EmbedRecord { Record = GetPostStrongRef(post.QuotedPost!.Did, post.QuotedPost.RKey) };
+                var record = new Record { RecordValue = GetPostStrongRef(post.QuotedPost!.Did, post.QuotedPost.RKey) };
                 if (embed != null)
                 {
-                    embed = new RecordWithMedia { Media = embed, Record = record };
+                    return new RecordWithMedia { Media = (IRecordWithMediaMedia)embed, Record = record };
                 }
                 else
                 {
@@ -169,19 +164,19 @@ namespace AppViewLite
         }
 
 
-        private static FishyFlip.Lexicon.App.Bsky.Feed.ViewerState ToApiCompatPostViewerState(BlueskyPost post, RequestContext ctx)
+        private static AppBsky.Feed.DefsViewerState ToApiCompatPostViewerState(BlueskyPost post, RequestContext ctx)
         {
-            return new FishyFlip.Lexicon.App.Bsky.Feed.ViewerState
+            return new AppBsky.Feed.DefsViewerState
             {
                 Like = post.IsLikedBySelf != null ? new ATUri("at://" + ctx.UserContext.Did + "/" + Like.RecordType + "/" + post.IsLikedBySelf.Value) : null,
                 Repost = post.IsRepostedBySelf != null ? new ATUri("at://" + ctx.UserContext.Did + "/" + Repost.RecordType + "/" + post.IsRepostedBySelf.Value) : null,
             };
         }
 
-        private static ViewRecord ToApiCompatRecordView(BlueskyPost post)
+        private static RecordViewRecord ToApiCompatRecordView(BlueskyPost post)
         {
             var aturi = post.AtUri;
-            return new ViewRecord
+            return new RecordViewRecord
             {
                 Value = ToApiCompatPost(post),
                 Uri = aturi,
@@ -193,17 +188,17 @@ namespace AppViewLite
                 QuoteCount = post.QuoteCount,
                 ReplyCount = post.ReplyCount,
                 Labels = [],
-                Embeds = ToApiCompatEmbedView(post) is { } v ? [v] : [],
+                Embeds = ToApiCompatEmbedView(post) is { } v ? [(IRecordViewRecordEmbeds)v] : [],
             };
         }
 
-        public static Post ToApiCompatPost(BlueskyPost post)
+        public static JsonElement ToApiCompatPost(BlueskyPost post)
         {
             return new Post
             {
                 CreatedAt = post.Date,
                 Text = post.Data != null ? (post.Data.Error != null ? "[" + post.Data.Error + "]" : post.Data.Text) : "[Post data not loaded yet, please refresh page or post]",
-                Reply = post.InReplyToPostId != null ? new ReplyRefDef
+                Reply = post.InReplyToPostId != null ? new PostReplyRef
                 {
                     Parent = GetPostStrongRef(post.InReplyToUser!.Did, post.Data!.InReplyToRKeyString!),
                     Root = GetPostStrongRef(post.RootPostDid!, post.RootPostId.PostRKey.ToString()!)
@@ -211,7 +206,7 @@ namespace AppViewLite
                 Facets = ToApiCompatFacets(post.Data?.Facets, post.Data?.GetUtf8IfNeededByCompactFacets()),
                 Langs = post.Data?.Language != null ? [ToApiCompatLanguage(post.Data.Language.Value)] : null,
                 Embed = ToApiCompatEmbed(post)
-            };
+            }.ToJson();
         }
 
         private static string ToApiCompatLanguage(LanguageEnum language)
@@ -220,27 +215,32 @@ namespace AppViewLite
         }
 
 
-        private static Image ToApiCompatImage(BlueskyMediaData x)
+        private static ImagesImage ToApiCompatImage(BlueskyMediaData x)
         {
-            return new Image
+            return new ImagesImage
             {
                 Alt = x.AltText ?? string.Empty,
-                ImageValue = new Blob
+                Image = new ATBlob
                 {
-                    Ref = new ATLinkRef(ATCid.Read(x.Cid)),
+                    Ref = ATCid.FromBytes(x.Cid),
                 },
                 AspectRatio = GetDefaultAspectRatio()
             };
         }
 
-        private static AspectRatio GetDefaultAspectRatio()
+        private static DefsAspectRatio GetDefaultAspectRatio()
         {
-            return new AspectRatio(1600, 900); // best guess
+            // best guess
+            return new DefsAspectRatio
+            {
+                Width = 1600,
+                Height = 900
+            };
         }
 
-        private static ViewImage ToApiCompatViewImage(BlueskyMediaData x, BlueskyProfile author)
+        private static ImagesViewImage ToApiCompatViewImage(BlueskyMediaData x, BlueskyProfile author)
         {
-            return new ViewImage
+            return new ImagesViewImage
             {
                 Alt = x.AltText ?? string.Empty,
                 Fullsize = BlueskyEnrichedApis.Instance.GetImageFullUrl(author.Did, x.Cid, author.Pds)!,
@@ -254,14 +254,14 @@ namespace AppViewLite
             if (facets == null) return null;
             return facets.Select(x =>
             {
-                ATObject? feature = null;
+                IFacetFeatures? feature = null;
                 if (x.Did != null)
                 {
-                    feature = new Mention { Did = new ATDid(x.Did) };
+                    feature = new FacetMention { Did = new ATDid(x.Did) };
                 }
                 else if (x.IsLink)
                 {
-                    feature = new Link
+                    feature = new FacetLink
                     {
                         Uri = x.GetLink(utf8)!
                     };
@@ -270,21 +270,21 @@ namespace AppViewLite
                 if (feature == null) return null;
                 return new Facet
                 {
-                    Index = new ByteSlice(x.Start, x.Start + x.Length),
+                    Index = new FacetByteSlice { ByteStart = x.Start, ByteEnd = x.Start + x.Length },
                     Features = [feature]
                 };
             }).WhereNonNull().ToList();
         }
 
-        public static FeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post, RequestContext ctx)
+        public static DefsFeedViewPost ToApiCompatFeedViewPost(this BlueskyPost post, RequestContext ctx)
         {
-            return new FeedViewPost
+            return new DefsFeedViewPost
             {
                 Post = post.ToApiCompatPostView(ctx, null),
-                Reply = post.InReplyToFullPost != null ? new ReplyRef
+                Reply = post.InReplyToFullPost != null ? new DefsReplyRef
                 {
-                    Parent = post.InReplyToFullPost.ToApiCompatFeedViewPost(ctx),
-                    Root = post.RootFullPost!.ToApiCompatFeedViewPost(ctx),
+                    Parent = (IDefsReplyRefParent)post.InReplyToFullPost.ToApiCompatFeedViewPost(ctx),
+                    Root = (IDefsReplyRefRoot)post.RootFullPost!.ToApiCompatFeedViewPost(ctx),
                     GrandparentAuthor = post.InReplyToFullPost.Author.ToApiCompatProfileViewBasic(),
                 } : null
             };
@@ -304,12 +304,12 @@ namespace AppViewLite
 
         public static string GetSyntheticCid(ATUri uri)
         {
-            var c = ATCid.Decode("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToBytes();
+            var c = new ATCid("bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").ToBytes();
             var preservePrefix = 4;
             c.AsSpan(preservePrefix).Clear();
             var hash = SHA256.HashData(Encoding.UTF8.GetBytes(uri.ToString()));
             hash.CopyTo(c.AsSpan(preservePrefix));
-            var q = ATCid.Read(c);
+            var q = ATCid.FromBytes(c);
             return q.ToString();
         }
 
@@ -320,18 +320,18 @@ namespace AppViewLite
 
         private readonly static DateTime DummyDate = new DateTime(2023, 2, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        public static ProfileView ToApiCompatProfileView(this BlueskyProfile profile)
+        public static DefsProfileView ToApiCompatProfileView(this BlueskyProfile profile)
         {
-            return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileView
+            return new AppBsky.Actor.DefsProfileView
             {
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
                 CreatedAt = DummyDate,
                 Avatar = GetAvatarUrl(profile),
-                Did = new FishyFlip.Models.ATDid(profile.Did),
+                Did = new ATDid(profile.Did),
                 Handle = GetHandle(profile),
                 Description = profile.BasicData?.Description,
-                Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
+                Viewer = new AppBsky.Actor.DefsViewerState
                 {
                     Muted = false,
                     BlockedBy = false,
@@ -341,7 +341,7 @@ namespace AppViewLite
 
         private static ATHandle GetHandle(BlueskyProfile profile)
         {
-            return new FishyFlip.Models.ATHandle(profile.HandleIsUncertain || profile.PossibleHandle == null ? "handle.invalid" : profile.PossibleHandle);
+            return new ATHandle(profile.HandleIsUncertain || profile.PossibleHandle == null ? "handle.invalid" : profile.PossibleHandle);
         }
 
         private static string? GetAvatarUrl(BlueskyProfile profile)
@@ -353,37 +353,37 @@ namespace AppViewLite
             return BlueskyEnrichedApis.Instance.GetAvatarUrl(feed.Did, feed.Data?.AvatarCid, feed.Author.Pds);
         }
 
-        public static ProfileViewBasic ToApiCompatProfileViewBasic(this BlueskyProfile profile)
+        public static DefsProfileViewBasic ToApiCompatProfileViewBasic(this BlueskyProfile profile)
         {
-            return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileViewBasic
+            return new AppBsky.Actor.DefsProfileViewBasic
             {
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
                 CreatedAt = DummyDate,
                 Avatar = GetAvatarUrl(profile),
-                Did = new FishyFlip.Models.ATDid(profile.Did),
+                Did = new ATDid(profile.Did),
                 Handle = GetHandle(profile),
-                Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
+                Viewer = new AppBsky.Actor.DefsViewerState
                 {
                     Muted = false,
                     BlockedBy = false,
                 },
             };
         }
-        public static ProfileViewDetailed ToApiCompatProfileDetailed(this BlueskyFullProfile fullProfile)
+        public static DefsProfileViewDetailed ToApiCompatProfileDetailed(this BlueskyFullProfile fullProfile)
         {
             var profile = fullProfile.Profile;
-            return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileViewDetailed
+            return new AppBsky.Actor.DefsProfileViewDetailed
             {
                 DisplayName = profile.DisplayNameOrFallback,
                 Labels = [],
                 CreatedAt = DummyDate,
                 Avatar = GetAvatarUrl(profile),
-                Did = new FishyFlip.Models.ATDid(profile.Did),
+                Did = new ATDid(profile.Did),
                 Handle = GetHandle(profile),
                 Description = profile.BasicData?.Description,
                 Banner = BlueskyEnrichedApis.Instance.GetImageBannerUrl(profile.Did, profile.BasicData?.BannerCidBytes, profile.Pds),
-                Viewer = new FishyFlip.Lexicon.App.Bsky.Actor.ViewerState
+                Viewer = new AppBsky.Actor.DefsViewerState
                 {
                     Muted = false,
                     BlockedBy = false,
@@ -394,9 +394,9 @@ namespace AppViewLite
             };
         }
 
-        private static ProfileAssociated ToApiCompatProfileAssociated(BlueskyFullProfile fullProfile)
+        private static DefsProfileAssociated ToApiCompatProfileAssociated(BlueskyFullProfile fullProfile)
         {
-            return new ProfileAssociated
+            return new DefsProfileAssociated
             {
                 Lists = fullProfile.HasLists ? 1 : 0,
                 Feedgens = fullProfile.HasFeeds ? 1 : 0,
@@ -404,24 +404,24 @@ namespace AppViewLite
             };
         }
 
-        private static ProfileAssociated CreateProfileAssociated()
+        private static DefsProfileAssociated CreateProfileAssociated()
         {
-            return new FishyFlip.Lexicon.App.Bsky.Actor.ProfileAssociated
+            return new AppBsky.Actor.DefsProfileAssociated
             {
                 Lists = 0,
                 Feedgens = 0,
                 StarterPacks = 0,
                 Labeler = false,
-                Chat = new FishyFlip.Lexicon.App.Bsky.Actor.ProfileAssociatedChat
+                Chat = new AppBsky.Actor.DefsProfileAssociatedChat
                 {
                     AllowIncoming = "none"
                 }
             };
         }
 
-        public static GeneratorView ToApiCompatGeneratorView(this BlueskyFeedGenerator feed)
+        public static DefsGeneratorView ToApiCompatGeneratorView(this BlueskyFeedGenerator feed)
         {
-            return new GeneratorView
+            return new DefsGeneratorView
             {
                 Cid = GetSyntheticCid(feed.Uri),
                 DisplayName = feed.DisplayName,
@@ -435,9 +435,9 @@ namespace AppViewLite
             };
         }
 
-        public static ListView ToApiCompatListView(BlueskyList x)
+        public static DefsListView ToApiCompatListView(BlueskyList x)
         {
-            return new ListView
+            return new DefsListView
             {
                 Avatar = x.AvatarUrl,
                 Cid = GetSyntheticCid(x.AtUri),
@@ -452,9 +452,9 @@ namespace AppViewLite
             };
         }
 
-        private static ListViewerState ToApiCompatListViewer(BlueskyList x)
+        private static DefsListViewerState ToApiCompatListViewer(BlueskyList x)
         {
-            return new ListViewerState()
+            return new DefsListViewerState()
             {
                 //Blocked = x.Mode == ModerationBehavior.Block ? "dummy",
                 Blocked = null,
@@ -473,34 +473,35 @@ namespace AppViewLite
             };
         }
 
-        public static ListItemView ToApiCompatToListItemView(BlueskyProfile x, string moderatorDid)
+        public static DefsListItemView ToApiCompatToListItemView(BlueskyProfile x, string moderatorDid)
         {
-            return new ListItemView
+            return new DefsListItemView
             {
                 Subject = ToApiCompatProfileView(x),
                 Uri = new ATUri(moderatorDid + "/app.bsky.graph.listitem/" + x.RelationshipRKey.ToString()),
             };
         }
 
-        public static async Task<T> RequestBodyToATObjectAsync<T>(Stream requestBody) where T : IJsonEncodable<T>
-        {
-            using var reader = new StreamReader(requestBody);
-            var json = await reader.ReadToEndAsync();
-            return T.FromJson(json);
-        }
+        //public static async Task<T> RequestBodyToATObjectAsync<T>(Stream requestBody) where T : IJsonEncodable<T>
+        //{
+        //    using var reader = new StreamReader(requestBody);
+        //    var json = await reader.ReadToEndAsync();
+        //    return T.FromJson(json);
+        //}
 
         public static Generator ToApiCompatGenerator(BlueskyFeedGenerator feed)
         {
             return new Generator
             {
+                CreatedAt = DateTime.UtcNow,
                 DisplayName = feed.DisplayNameOrFallback,
                 Description = feed.Data?.Description,
                 DescriptionFacets = ToApiCompatFacets(feed.Data?.DescriptionFacets, Encoding.UTF8.GetBytes(feed.Data?.Description ?? string.Empty)),
                 Did = feed.Data?.ImplementationDid != null ? new ATDid(feed.Data.ImplementationDid) : null,
-                Avatar = new Blob
+                Avatar = feed.Data?.AvatarCid != null ? new ATBlob
                 {
-                    Ref = feed.Data?.AvatarCid != null ? new ATLinkRef(ATCid.Read(feed.Data.AvatarCid)) : null
-                }
+                    Ref = ATCid.FromBytes(feed.Data.AvatarCid)
+                } : null
             };
         }
     }

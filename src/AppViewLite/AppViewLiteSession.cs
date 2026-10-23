@@ -42,8 +42,7 @@ namespace AppViewLite
         public BlueskyProfile? Profile;
         public string? Did => Profile?.Did;
 
-        public object? PdsSession;
-        //public Session? PdsSession;
+        public Session? PdsSession;
 
         public Dictionary<Plc, PrivateFollow> PrivateFollows = [];
         public AppViewLiteProfileProto? PrivateProfile;
@@ -69,9 +68,8 @@ namespace AppViewLite
 
         public AppViewLiteSessionProto? TryGetAppViewLiteSession(string? sessionId)
         {
-            throw new NotImplementedException();
-            //if (!string.IsNullOrEmpty(PdsSession?.AccessJwt) && CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(sessionId), MemoryMarshal.AsBytes<char>(PdsSession!.AccessJwt)))
-            //    return PrivateProfile!.Sessions.Last();
+            if (!string.IsNullOrEmpty(PdsSession?.AccessJwt) && CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(sessionId), MemoryMarshal.AsBytes<char>(PdsSession!.AccessJwt)))
+                return PrivateProfile!.Sessions.Last();
 
             if (sessionId == null) return null;
             return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
@@ -80,18 +78,15 @@ namespace AppViewLite
         public DateTime? RefreshTokenExpireDate;
         public void UpdateRefreshTokenExpireDate()
         {
-            throw new NotImplementedException();
 
-            //var refreshJwt = PdsSession?.RefreshJwt;
-            //if (refreshJwt == null)
-            //{
-            //    RefreshTokenExpireDate = null;
-            //    return;
-            //}
+            var refreshJwt = PdsSession?.RefreshJwt;
+            if (refreshJwt == null)
+            {
+                RefreshTokenExpireDate = null;
+                return;
+            }
 
-            //var handler = new JwtSecurityTokenHandler();
-            //var jwtToken = handler.ReadJwtToken(refreshJwt);
-            //RefreshTokenExpireDate = jwtToken.ValidTo;
+            RefreshTokenExpireDate = StringUtils.GetJwtExpirationDate(refreshJwt);
         }
 
 

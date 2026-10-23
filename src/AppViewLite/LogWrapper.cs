@@ -81,7 +81,7 @@ namespace AppViewLite
             private readonly LogLevel messageMinLogLevel;
             private readonly LogLevel messageStdErrMinLogLevel;
             public Func<Exception, bool>? IsLowImportanceException;
-            public new Func<string, bool>? IsLowImportanceMessage;
+            public Func<string, bool>? IsLowImportanceMessage;
 
             public LogFactory()
                 : this(LogLevel.Warning, LogLevel.Warning, LogLevel.Debug)

@@ -3245,25 +3245,37 @@ namespace AppViewLite
         {
             var session = ctx.Session;
             using var sessionProtocol = await GetSessionProtocolAsync(ctx);
-            throw new NotImplementedException();
-#if false
-            //if (sessionProtocol.TokenProvider.!.Session.ExpiresIn.AddMinutes(-5) > DateTime.UtcNow)
-            //{
-            //    try
-            //    {
-            //        return await func(sessionProtocol);
-            //    }
-            //    catch (Exception ex) when (ex.AnyInnerException(x => x is ATProtoException at && at.ErrorCode == "ExpiredToken"))
-            //    {
-            //        // continue
-            //    }
-            //}
+            var userCtx = ctx.UserContext;
+            var pdsSession = userCtx.PdsSession;
+            if (userCtx.RefreshTokenExpireDate!.Value.AddMinutes(-5) > DateTime.UtcNow)
+            {
+                try
+                {
+                    return await func(sessionProtocol);
+                }
+                catch (Exception ex) when (ex.AnyInnerException(x => x is ATProtoException at && at.ErrorCode == "ExpiredToken"))
+                {
+                    // continue
+                }
+            }
 
-            ComAtproto.Server.RefreshSessionOutput authSession;
+            AuthSession authSession;
             try
             {
-                authSession = await sessionProtocol.ComAtprotoServerRefreshSessionAsync();
-                if (authSession == null) throw new Exception("Null authSession");
+                var response = await sessionProtocol.ComAtprotoServerRefreshSessionAsync();
+                if (response.Did != userCtx.Did!) throw new Exception("Mismatching did from refreshSession XRPC");
+                authSession = new AuthSession
+                {
+                    Session = new Session
+                    {
+                        AccessJwt = response.AccessJwt,
+                        Did = pdsSession.Did,
+                        DidDoc = pdsSession.DidDoc,
+                        Email = response.Email,
+                        Handle = response.Handle,
+                        RefreshJwt = response.RefreshJwt,
+                    }
+                };
             }
             catch (Exception ex)
             {
@@ -3271,7 +3283,6 @@ namespace AppViewLite
                 throw new LoggedOutException("You have been logged out.", ex);
             }
 
-            var userCtx = ctx.UserContext;
             userCtx.PrivateProfile!.PdsSessionCbor = SerializeAuthSession(authSession!);
             userCtx.PdsSession = authSession!.Session;
             userCtx.UpdateRefreshTokenExpireDate();
@@ -3280,7 +3291,7 @@ namespace AppViewLite
 
             using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
             return await func(sessionProtocol2);
-#endif
+
         }
 
         public void SaveAppViewLiteProfile(RequestContext ctx)
@@ -3291,14 +3302,15 @@ namespace AppViewLite
             }, ctx);
         }
 
-        //public static byte[] SerializeAuthSession(AuthSession authSession)
-        //{
-        //    return CBORObject.FromJSONString(authSession.ToString()).EncodeToBytes();
-        //}
-        //public static AuthSession DeserializeAuthSession(byte[] bytes)
-        //{
-        //    return AuthSession.FromString(CBORObject.DecodeFromBytes(bytes).ToJSONString())!;
-        //}
+        public static byte[] SerializeAuthSession(AuthSession authSession)
+        {
+            return JsonCborUtils.JsonToCbor(authSession.ToString());
+        }
+        public static AuthSession DeserializeAuthSession(byte[] bytes)
+        {
+            var json = JsonCborUtils.CborToJson(bytes);
+            return AuthSession.FromString(json)!;
+        }
 
         public async Task<ATProtoClient> GetSessionProtocolAsync(RequestContext ctx)
         {
@@ -3306,21 +3318,29 @@ namespace AppViewLite
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
             var pdsSession = ctx.UserContext.PdsSession!;
             using var _ = LogNetworkOperation(ctx, nameof(GetSessionProtocolAsync));
-            throw new NotImplementedException();
-#if false
-            var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.Handler, ctx);
-            (await sessionProtocol.AuthenticateWithPasswordSessionResultAsync(new AuthSession(pdsSession))).HandleResult();
+            var tokenProvider = new SessionTokenProvider(BlueskyEnrichedApis.DefaultHttpClient);
+            tokenProvider.RestoreSession(pdsSession.AccessJwt, pdsSession.RefreshJwt, pdsSession.Did, pdsSession.DidDoc!.Handle, new Uri(pdsSession.DidDoc!.PdsEndpoint!));
+            var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.DidAsString, ctx, tokenProvider);
             return sessionProtocol;
-#endif
 
         }
 
-        public async Task<SessionResponse> LoginToPdsAsync(string did, string password, RequestContext ctx)
+        public async Task<Session> LoginToPdsAsync(string did, string password, RequestContext ctx)
         {
             using var _ = LogNetworkOperation(ctx, nameof(LoginToPdsAsync));
-            var sessionProtocol = await CreateProtocolForDidAsync(did, ctx);
-            var session = (await sessionProtocol.LoginAsync(did, password))!;
-            return session;
+            var tokenProvider = new SessionTokenProvider(BlueskyEnrichedApis.DefaultHttpClient);
+            var sessionProtocol = await CreateProtocolForDidAsync(did, ctx, tokenProvider);
+            var session = (await sessionProtocol.LoginAsync(did, password));
+            return new Session
+            {
+                AccessJwt = session.AccessJwt,
+                Did = session.Did,
+                DidDoc = session.DidDoc,
+                Email = session.Email,
+                //ExpiresIn = session
+                Handle = session.Handle,
+                RefreshJwt = session.RefreshJwt,
+            };
         }
 
         public async Task<ATProtoClient?> TryCreateProtocolForDidAsync(string did, RequestContext ctx)
@@ -3347,7 +3367,7 @@ namespace AppViewLite
             });
         }
 
-        public async Task<ATProtoClient> CreateProtocolForDidAsync(string did, RequestContext ctx)
+        public async Task<ATProtoClient> CreateProtocolForDidAsync(string did, RequestContext ctx, ITokenProvider? tokenProvider = null)
         {
             var diddoc = await GetDidDocAsync(did, ctx);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
@@ -3365,7 +3385,9 @@ namespace AppViewLite
                 JsonOptions = ATProtoClientFactory.CreateJsonOptions(),
                 CborContext = CarpaNet.Cbor.ATProtoCborContext.Default,
                 LoggerFactory = CreateClientAtProtocolLogger(),
-                IdentityResolver = identityResolver
+                IdentityResolver = identityResolver,
+                HttpClient = BlueskyEnrichedApis.DefaultHttpClient,
+                TokenProvider = tokenProvider
             });
 
             
@@ -5030,12 +5052,11 @@ namespace AppViewLite
                     ExtensionMethods.MakeUtc(ref profileProto.FirstLogin);
                     ExtensionMethods.MakeUtc(ref profileProto.LastClearUnreadMessageCountDate);
 
-                    throw new NotImplementedException();
                     userContext = new AppViewLiteUserContext
                     {
                         PrivateProfile = profileProto,
                         Profile = rels.GetProfile(plc),
-                        // PdsSession = profileProto.PdsSessionCbor != null ? BlueskyEnrichedApis.DeserializeAuthSession(profileProto.PdsSessionCbor!).Session : null,
+                        PdsSession = profileProto.PdsSessionCbor != null ? BlueskyEnrichedApis.DeserializeAuthSession(profileProto.PdsSessionCbor!).Session : null,
                     };
                     userContext.UpdateRefreshTokenExpireDate();
 
@@ -5108,8 +5129,7 @@ namespace AppViewLite
 
                 if (!isReadOnly)
                 {
-                    throw new NotImplementedException();
-                    //userContext.PrivateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession(atSession!));
+                    userContext.PrivateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession { Session = atSession! });
                     userContext.PdsSession = atSession;
                     userContext.UpdateRefreshTokenExpireDate();
                 }
@@ -5137,6 +5157,7 @@ namespace AppViewLite
             }, ctx);
 
             ctx.Session = session;
+            ctx.UserContext.UpdateRefreshTokenExpireDate();
             await OnSessionCreatedOrRestoredAsync(session.UserContext, ctx);
 
             SessionDictionary[id] = session;

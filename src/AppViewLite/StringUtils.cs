@@ -10,6 +10,7 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -1053,6 +1054,13 @@ namespace AppViewLite
                 }
             }
             return null;
+        }
+
+        public static DateTime GetJwtExpirationDate(string jwt)
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadJwtToken(jwt);
+            return jwtToken.ValidTo;
         }
 
     }

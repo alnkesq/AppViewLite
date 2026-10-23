@@ -1251,7 +1251,7 @@ namespace AppViewLite
             if (embed is Images { } ei)
             {
                 if (ei.ImagesValue.Any(x => !x.Image.Ref.IsValid)) throw new UnexpectedFirehoseDataException("Missing CID in EmbedImages");
-                proto.Media = ei.ImagesValue!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.Image.Ref.ToBytesV2()}).ToArray();
+                proto.Media = ei.ImagesValue!.Select(x => new BlueskyMediaData { AltText = string.IsNullOrEmpty(x.Alt) ? null : x.Alt, Cid = x.Image.Ref.ToBytesV2() }).ToArray();
             }
             else if (embed is External { } ext)
             {
@@ -1272,6 +1272,18 @@ namespace AppViewLite
             else if (embed is Record { } rec)
             {
                 proto.EmbedRecordUri = rec.RecordValue.Uri.ToString();
+            }
+            else if (embed is Gallery { } gall)
+            {
+                proto.Media = gall.Items.Select(x =>
+                {
+                    if (x is GalleryImage gallImg)
+                    {
+                        return new BlueskyMediaData { AltText = string.IsNullOrEmpty(gallImg.Alt) ? null : gallImg.Alt, Cid = gallImg.Image.Ref.ToBytesV2() };
+                    }
+                    return null;
+                }).WhereNonNull().ToArray();
+
             }
 
             if (proto.Facets != null)

@@ -3363,7 +3363,8 @@ namespace AppViewLite
             return ATProtoClient.Create(new ATProtoClientOptions 
             { 
                 BaseUrl = instanceUrl,
-                LoggerFactory = CreateClientAtProtocolLogger()
+                LoggerFactory = CreateClientAtProtocolLogger(),
+                HttpClient = BlueskyEnrichedApis.DefaultHttpClient,
             });
         }
 

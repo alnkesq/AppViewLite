@@ -379,6 +379,8 @@ namespace AppViewLite.PluggableProtocols
                 try
                 {
                     await attempt(ct);
+                    if (ct.IsCancellationRequested) return;
+                    throw new Exception("The callback provided to RetryInfiniteLoopAsync completed, despite CancellationToken not being signaled yet.");
                 }
                 catch when (ct.IsCancellationRequested)
                 {

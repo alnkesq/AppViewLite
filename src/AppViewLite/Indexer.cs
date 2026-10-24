@@ -603,9 +603,6 @@ namespace AppViewLite
                 {
                     var tcs = new TaskCompletionSource();
                     using var client = new JetstreamClient(FirehoseUrl.GetNext());
-                    //.WithLogger(new LogWrapper())
-                    //.WithTaskFactory(FirehoseThreadpoolTaskFactory!);
-
 
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;
@@ -615,12 +612,11 @@ namespace AppViewLite
 
                     using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
-
-                    //var didReceiveFirstMessage = false;
-
+                    
                     var outOfOrderTracker = new OutOfOrderCompletionTracker();
                     
                     var timeoutMillis = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS) ?? 30) * 1000;
+
                     await foreach (var e in client.SubscribeAsync(new JetstreamSubscribeOptions
                     {
                         Cursor = this.currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null
@@ -653,7 +649,6 @@ namespace AppViewLite
 
                     }
 
-                    //await firehose.ConnectAsync(connectionCts.Token);
                     await tcs.Task;
                 }
                 catch (Exception ex)

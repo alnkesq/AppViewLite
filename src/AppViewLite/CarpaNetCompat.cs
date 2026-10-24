@@ -7,7 +7,7 @@ using System.Text.Json;
 
 namespace AppViewLite
 {
-    internal static class CarpaNetCompat
+    public static class CarpaNetCompat
     {
         extension(JsonElement json)
         { 

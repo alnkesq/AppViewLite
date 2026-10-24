@@ -13,7 +13,7 @@ namespace AppViewLite.Models
     {
         [ProtoMember(1)] public DateTime? FirstLogin;
         [ProtoMember(2)] public AppViewLiteSessionProto[] Sessions = null!;
-        [ProtoMember(3)] public byte[]? PdsSessionCbor;
+        [Obsolete] [ProtoMember(3)] public byte[]? PdsSessionCbor;
         [ProtoMember(4)] public PrivateFollow[] PrivateFollows = null!;
         [ProtoMember(5)] public MuteRule[] MuteRules = null!;
         [ProtoMember(6)] public int LastAssignedMuteRuleId;
@@ -26,7 +26,7 @@ namespace AppViewLite.Models
         [ProtoMember(13)] public string? LastPostLanguage;
         [ProtoMember(14)] public HashSet<PostIdProto> MutedThreads = null!;
         [ProtoMember(15)] public DateTime LastClearUnreadMessageCountDate;
-
+        [ProtoMember(16)] public StoredSession? StoredSession;
         public ObjectIdentityBasedCache<MuteRule[], ILookup<Plc, MuteRule>>? _muteRulesByPlc;
         public ObjectIdentityBasedCache<MuteRule[], Func<IReadOnlyList<string>, Uri[], MuteRule[]>>? _textCouldContainGlobalMuteWords;
         public ObjectIdentityBasedCache<MuteRule[], HashSet<string>>? _globalPluggableAuthorMuteRules;

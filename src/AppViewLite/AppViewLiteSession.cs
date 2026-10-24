@@ -42,8 +42,6 @@ namespace AppViewLite
         public BlueskyProfile? Profile;
         public string? Did => Profile?.Did;
 
-        public Session? PdsSession;
-
         public Dictionary<Plc, PrivateFollow> PrivateFollows = [];
         public AppViewLiteProfileProto? PrivateProfile;
         public IEnumerable<ListEntry> PrivateFollowsAsListEntries => PrivateFollows.Keys.Select(x => new ListEntry(x, default));
@@ -68,27 +66,12 @@ namespace AppViewLite
 
         public AppViewLiteSessionProto? TryGetAppViewLiteSession(string? sessionId)
         {
-            if (!string.IsNullOrEmpty(PdsSession?.AccessJwt) && CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(sessionId), MemoryMarshal.AsBytes<char>(PdsSession!.AccessJwt)))
-                return PrivateProfile!.Sessions.Last();
+            //if (!string.IsNullOrEmpty(PrivateProfile?.AccessJwt) && CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(sessionId), MemoryMarshal.AsBytes<char>(PrivateProfile!.AccessJwt)))
+            //    return PrivateProfile!.Sessions.Last();
 
             if (sessionId == null) return null;
             return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
         }
-
-        public DateTime? RefreshTokenExpireDate;
-        public void UpdateRefreshTokenExpireDate()
-        {
-
-            var refreshJwt = PdsSession?.RefreshJwt;
-            if (refreshJwt == null)
-            {
-                RefreshTokenExpireDate = null;
-                return;
-            }
-
-            RefreshTokenExpireDate = StringUtils.GetJwtExpirationDate(refreshJwt);
-        }
-
 
         public ConcurrentSet<PostId>? RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts;
         public DateTime RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset;
@@ -111,12 +94,11 @@ namespace AppViewLite
                 this.Did,
                 InitializeAsync = this.InitializeAsync?.Status.ToString(),
                 this.MinVersion,
-                HasPdsSession = this.PdsSession != null,
                 PrivateFollows = PrivateFollows.Count,
                 HasProfile = this.Profile != null,
                 RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts = this.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts?.Count,
                 this.RecentlySeenOrAlreadyDiscardedFromFollowingFeedPostsLastReset,
-                this.RefreshTokenExpireDate,
+                this.PrivateProfile?.StoredSession?.RefreshJwtExpirationDate,
                 UserEngagementCache = this.UserEngagementCache?.Count,
                 this.UserEngagementCacheVersion,
                 this.UnreadMessageCount,

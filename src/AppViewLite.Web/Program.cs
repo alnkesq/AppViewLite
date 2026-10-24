@@ -175,14 +175,9 @@ namespace AppViewLite.Web
                 if (reqCtx.IsLoggedIn)
                 {
                     var userCtx = reqCtx.UserContext;
-                    var refreshTokenExpire = userCtx.RefreshTokenExpireDate;
-                    if (refreshTokenExpire == null)
-                    {
-                        userCtx.UpdateRefreshTokenExpireDate();
-                        refreshTokenExpire = userCtx.RefreshTokenExpireDate;
-                    }
 
-                    if ((refreshTokenExpire!.Value - DateTime.UtcNow).TotalDays < 1)
+
+                    if (userCtx.PrivateProfile!.StoredSession == null || (userCtx.PrivateProfile!.StoredSession!.RefreshJwtExpirationDate - DateTime.UtcNow).TotalDays < 1)
                     {
                         if (ctx.Request.Method == "GET" && ctx.Request.Headers["sec-fetch-dest"].FirstOrDefault() != "empty")
                         {

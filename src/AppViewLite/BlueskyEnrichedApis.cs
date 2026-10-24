@@ -3243,55 +3243,8 @@ namespace AppViewLite
 
         public async Task<T> PerformPdsActionAsync<T>(Func<ATProtoClient, Task<T>> func, RequestContext ctx)
         {
-            var session = ctx.Session;
             using var sessionProtocol = await GetSessionProtocolAsync(ctx);
-            var userCtx = ctx.UserContext;
-            var pdsSession = userCtx.PdsSession;
-            if (userCtx.RefreshTokenExpireDate!.Value.AddMinutes(-5) > DateTime.UtcNow)
-            {
-                try
-                {
-                    return await func(sessionProtocol);
-                }
-                catch (Exception ex) when (ex.AnyInnerException(x => x is ATProtoException at && at.ErrorCode == "ExpiredToken"))
-                {
-                    // continue
-                }
-            }
-
-            AuthSession authSession;
-            try
-            {
-                var response = await sessionProtocol.ComAtprotoServerRefreshSessionAsync();
-                if (response.Did != userCtx.Did!) throw new Exception("Mismatching did from refreshSession XRPC");
-                authSession = new AuthSession
-                {
-                    Session = new Session
-                    {
-                        AccessJwt = response.AccessJwt,
-                        Did = pdsSession.Did,
-                        DidDoc = pdsSession.DidDoc,
-                        Email = response.Email,
-                        Handle = response.Handle,
-                        RefreshJwt = response.RefreshJwt,
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                LogOut(new(ctx.Session.Did!, ctx.Session.SessionToken!), ctx);
-                throw new LoggedOutException("You have been logged out.", ex);
-            }
-
-            userCtx.PrivateProfile!.PdsSessionCbor = SerializeAuthSession(authSession!);
-            userCtx.PdsSession = authSession!.Session;
-            userCtx.UpdateRefreshTokenExpireDate();
-
-            SaveAppViewLiteProfile(ctx);
-
-            using var sessionProtocol2 = await GetSessionProtocolAsync(ctx);
-            return await func(sessionProtocol2);
-
+            return await func(sessionProtocol);
         }
 
         public void SaveAppViewLiteProfile(RequestContext ctx)
@@ -3302,45 +3255,49 @@ namespace AppViewLite
             }, ctx);
         }
 
-        public static byte[] SerializeAuthSession(AuthSession authSession)
-        {
-            return JsonCborUtils.JsonToCbor(authSession.ToString());
-        }
-        public static AuthSession DeserializeAuthSession(byte[] bytes)
-        {
-            var json = JsonCborUtils.CborToJson(bytes);
-            return AuthSession.FromString(json)!;
-        }
-
         public async Task<ATProtoClient> GetSessionProtocolAsync(RequestContext ctx)
         {
             if (!ctx.IsLoggedIn) throw AssertionLiteException.Throw("Cannot create own PDS client when not logged in.");
             if (ctx.Session.IsReadOnlySimulation) throw new InvalidOperationException("Read only simulation.");
-            var pdsSession = ctx.UserContext.PdsSession!;
             using var _ = LogNetworkOperation(ctx, nameof(GetSessionProtocolAsync));
             var tokenProvider = new SessionTokenProvider(BlueskyEnrichedApis.DefaultHttpClient);
-            tokenProvider.RestoreSession(pdsSession.AccessJwt, pdsSession.RefreshJwt, pdsSession.Did, pdsSession.DidDoc!.Handle, new Uri(pdsSession.DidDoc!.PdsEndpoint!));
-            var sessionProtocol = await CreateProtocolForDidAsync(pdsSession.Did.DidAsString, ctx, tokenProvider);
+            var session = ctx.PrivateProfile.StoredSession!;
+            var diddoc = await GetDidDocAsync(ctx.Session.Did!, ctx);
+            if (diddoc.Pds != session.Pds)
+            {
+                ctx.PrivateProfile.StoredSession = null;
+                SaveAppViewLiteProfile(ctx);
+                throw new LoggedOutException($"Invalidating session, because your PDS has changed from '{session.Pds}' to '{diddoc.Pds}'.", null);
+            }
+            tokenProvider.RestoreSession(session.AccessJwt, session.RefreshJwt, ctx.Session.Did!, null, new Uri(session.Pds));
+            tokenProvider.TokenRefreshed += (_, e) =>
+            {
+
+                ctx.PrivateProfile.StoredSession = new StoredSession
+                {
+                    Pds = session.Pds,
+                    AccessJwt = e.AccessToken,
+                    RefreshJwt = e.RefreshToken,
+                    RefreshJwtExpirationDate = StringUtils.GetJwtExpirationDate(e.RefreshToken)
+                };
+                SaveAppViewLiteProfile(ctx);
+            };
+            tokenProvider.SessionInvalidated += (_, e) =>
+            {
+                LogOut(new(ctx.Session.Did!, ctx.Session.SessionToken!), ctx);
+                throw new LoggedOutException("You have been logged out.", e.Exception);
+            };
+            var sessionProtocol = await CreateProtocolForDidAsync(ctx.Session.Did!, ctx, tokenProvider);
             return sessionProtocol;
 
         }
 
-        public async Task<Session> LoginToPdsAsync(string did, string password, RequestContext ctx)
+        public async Task<SessionResponse> LoginToPdsAsync(string did, string password, RequestContext ctx)
         {
             using var _ = LogNetworkOperation(ctx, nameof(LoginToPdsAsync));
             var tokenProvider = new SessionTokenProvider(BlueskyEnrichedApis.DefaultHttpClient);
             var sessionProtocol = await CreateProtocolForDidAsync(did, ctx, tokenProvider);
-            var session = (await sessionProtocol.LoginAsync(did, password));
-            return new Session
-            {
-                AccessJwt = session.AccessJwt,
-                Did = session.Did,
-                DidDoc = session.DidDoc,
-                Email = session.Email,
-                //ExpiresIn = session
-                Handle = session.Handle,
-                RefreshJwt = session.RefreshJwt,
-            };
+            return await sessionProtocol.LoginAsync(did, password);
         }
 
         public async Task<ATProtoClient?> TryCreateProtocolForDidAsync(string did, RequestContext ctx)
@@ -3368,9 +3325,9 @@ namespace AppViewLite
             });
         }
 
-        public async Task<ATProtoClient> CreateProtocolForDidAsync(string did, RequestContext ctx, ITokenProvider? tokenProvider = null)
+        public async Task<ATProtoClient> CreateProtocolForDidAsync(string did, RequestContext ctx, ITokenProvider? tokenProvider = null, DidDocProto? diddoc = null)
         {
-            var diddoc = await GetDidDocAsync(did, ctx);
+            diddoc ??= await GetDidDocAsync(did, ctx);
             AdministrativeBlocklist.ThrowIfBlockedOutboundConnection(did, diddoc);
 
             var pds = diddoc.Pds;
@@ -5057,10 +5014,7 @@ namespace AppViewLite
                     {
                         PrivateProfile = profileProto,
                         Profile = rels.GetProfile(plc),
-                        PdsSession = profileProto.PdsSessionCbor != null ? BlueskyEnrichedApis.DeserializeAuthSession(profileProto.PdsSessionCbor!).Session : null,
                     };
-                    userContext.UpdateRefreshTokenExpireDate();
-
                     UserContexts.Add(did, userContext);
                     return userContext;
                 }, ctx);
@@ -5080,14 +5034,15 @@ namespace AppViewLite
                 // now verified.
                 var userContext = unverifiedUserContext;
 
-                userContext.PdsSession = null;
                 foreach (var other in userContext.PrivateProfile!.Sessions)
                 {
                     SessionDictionary!.Remove(other.SessionToken, out _);
                 }
+                userContext.PrivateProfile.StoredSession = null;
                 userContext.PrivateProfile!.Sessions = [];
+#pragma warning disable CS0612 // Obsolete
                 userContext.PrivateProfile.PdsSessionCbor = null;
-                userContext.UpdateRefreshTokenExpireDate();
+#pragma warning restore CS0612
                 SaveAppViewLiteProfile(ctx);
             }
 
@@ -5130,9 +5085,13 @@ namespace AppViewLite
 
                 if (!isReadOnly)
                 {
-                    userContext.PrivateProfile.PdsSessionCbor = BlueskyEnrichedApis.SerializeAuthSession(new AuthSession { Session = atSession! });
-                    userContext.PdsSession = atSession;
-                    userContext.UpdateRefreshTokenExpireDate();
+                    userContext.PrivateProfile.StoredSession = new StoredSession
+                    {
+                        AccessJwt = atSession!.AccessJwt,
+                        RefreshJwt = atSession.RefreshJwt,
+                        Pds = atSession.DidDoc!.PdsEndpoint!,
+                        RefreshJwtExpirationDate = StringUtils.GetJwtExpirationDate(atSession.RefreshJwt)
+                    };
                 }
                 var now = DateTime.UtcNow;
                 var sessionProto = new AppViewLiteSessionProto
@@ -5158,7 +5117,6 @@ namespace AppViewLite
             }, ctx);
 
             ctx.Session = session;
-            ctx.UserContext.UpdateRefreshTokenExpireDate();
             await OnSessionCreatedOrRestoredAsync(session.UserContext, ctx);
 
             SessionDictionary[id] = session;

@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 
 namespace SkiaSharp
 {
-    public static class ImageSharpCompat
+    public unsafe static class ImageSharpCompat
     {
 
         private static int Pow2(int a) => a * a;
@@ -549,7 +549,7 @@ namespace SkiaSharp
 
     }
 
-    public readonly struct PixelAccessor
+    public unsafe readonly struct PixelAccessor
     {
         public readonly int Width => width;
 

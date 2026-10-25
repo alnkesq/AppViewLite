@@ -669,7 +669,7 @@ namespace AppViewLite
                 }
             }
 
-            return ListenToFirehoseAsync(CoreAsync, OnRepoFirehoseEvent, retryPolicy, useWatchdog: useWatchdog, ct: ct);
+            return ListenToFirehoseAsync(CoreAsync, OnRepoFirehoseEvent, retryPolicy, getDidForDebugging: x => (x as SubscribeReposCommit)?.Repo.Value, useWatchdog: useWatchdog, ct: ct);
         }
 
         public Task ListenToFirehoseJetstream(RetryPolicy? retryPolicy, CancellationToken ct = default)
@@ -690,12 +690,12 @@ namespace AppViewLite
             {
                 OnJetStreamEvent(e);
                 return new FirehoseEventCursor(DateTime.UnixEpoch.AddMicroseconds(e.TimeUs), e.TimeUs);
-            }, retryPolicy, ct: ct);
+            }, retryPolicy, getDidForDebugging: x => x.Did, ct: ct);
         }
 
 
 
-        private async Task ListenToFirehoseAsync<T>(Func<string?, CancellationToken, IAsyncEnumerable<T>> subscribeKind, Func<T, FirehoseEventCursor> onEvent, RetryPolicy? retryPolicy, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
+        private async Task ListenToFirehoseAsync<T>(Func<string?, CancellationToken, IAsyncEnumerable<T>> subscribeKind, Func<T, FirehoseEventCursor> onEvent, RetryPolicy? retryPolicy, Func<T, string?>? getDidForDebugging = null, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
             await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
@@ -736,7 +736,7 @@ namespace AppViewLite
                             TryProcessRecord(() =>
                             {
                                 cursor = onEvent(e);
-                            });
+                            }, getDidForDebugging?.Invoke(e) ?? this.FirehoseUrl.CanonicalIdentifier);
 
                             
                             outOfOrderTracker.OnEventProcessed(uniqueId, cursor.Cursor != 0 ? cursor.Cursor : null);

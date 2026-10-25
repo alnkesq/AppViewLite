@@ -7,6 +7,8 @@ using AppViewLite.PluggableProtocols;
 using CarpaNet;
 using CarpaNet.Jetstream;
 using CarpaNet.Repo;
+using ComAtproto.Label;
+using ComAtproto.Sync;
 using DuckDbSharp;
 using DuckDbSharp.Types;
 using Google.Protobuf;
@@ -553,7 +555,6 @@ namespace AppViewLite
                     OnRecordDeleted(e.Did, new CollectionAndRKey(commit.Collection!, commit.Rkey!), ignoreIfDisposing: true);
                 }
             }
-            
 
         }
 
@@ -594,67 +595,8 @@ namespace AppViewLite
 
         public static Tid GetMessageTid(CollectionAndRKey path, string prefix) => Tid.Parse(GetMessageRKey(path, prefix));
 
-        public async Task StartListeningToJetstreamFirehose(RetryPolicy? retryPolicy, CancellationToken ct = default)
-        {
-            await Task.Yield();
-            await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
-            {
-                try
-                {
-                    using var client = new JetstreamClient(FirehoseUrl.GetNext()) { BufferSize = 2 * 1024 * 1024 };
-
-                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
-                    currentFirehoseCursor.State = FirehoseState.Starting;
-                    currentFirehoseCursor.RestartCount++;
-
-                    LogFirehoseStartMessage(currentFirehoseCursor, isImportant: true);
-
-                    using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
-                    
-                    var outOfOrderTracker = new OutOfOrderCompletionTracker();
-                    
-                    var timeoutMillis = (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS) ?? 30) * 1000;
-
-                    await foreach (var e in client.SubscribeAsync(new JetstreamSubscribeOptions
-                    {
-                        Cursor = this.currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null
-                    }, connectionCts.Token))
-                    {
 
 
-                        currentFirehoseCursor.State = FirehoseState.Running;
-
-                        var timeUs = e.TimeUs;
-                        if (timeUs <= 0) throw new Exception("Invalid timeUs value.");
-                        
-                        connectionCts.CancelAfter(timeoutMillis); 
-
-                        OnRawMessageReceived();
-
-                        var uniqueId = outOfOrderTracker.OnEventGenerated();
-                        FirehoseThreadpoolTaskFactory!.StartNew(() => 
-                        {
-                            
-                            TryProcessRecord(() => OnJetStreamEvent(e), e.Did);
-                            
-                            outOfOrderTracker.OnEventProcessed(uniqueId, timeUs);
-                            BumpLargestSeenFirehoseCursor(outOfOrderTracker.LastDefinitelyProcessedSeq, DateTime.UnixEpoch.AddMicroseconds(timeUs));
-                            
-                           
-                        }, ct).FireAndForget();
-
-                    }
-                }
-                catch (Exception ex)
-                {
-                    currentFirehoseCursor!.State = FirehoseState.Error;
-                    currentFirehoseCursor.LastException = ex;
-                    currentFirehoseCursor.LastExceptionDate = DateTime.UtcNow;
-                    throw;
-                }
-            }, ct, retryPolicy);
-        }
 
         public static RetryPolicy CreateMainFirehoseRetryPolicy()
         {
@@ -676,94 +618,134 @@ namespace AppViewLite
 
         }
 
-#if false
-        public Task StartListeningToAtProtoFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
+
+
+
+
+        public Task ListenToFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore((protocol, cursor, connectCt) => protocol.StartSubscribeReposAsync(cursor, token: connectCt), (protocol, cursor, watchdog) =>
+
+            async IAsyncEnumerable<ISubscribeLabelsMessage> CoreAsync(string? cursor, [EnumeratorCancellation] CancellationToken connectionCt)
             {
-                protocol.OnMessageReceived += (s, e) =>
+                using var client = new ATProtoClient(new ATProtoClientOptions
                 {
-                    OnRawMessageReceived();
-                };
-                protocol.OnSubscribedRepoMessage += (s, e) => TryProcessRecord(() =>
+                    BaseUrl = FirehoseUrl.GetNext(),
+                    LoggerFactory = new LogWrapper.LogFactory(),
+                    JsonOptions = ATProtoClientFactory.CreateJsonOptions(),
+                    CborContext = CarpaNet.Cbor.ATProtoCborContext.Default,
+                    HttpClient = BlueskyEnrichedApis.DefaultHttpClient,
+                });
+                await foreach (var e in client.ComAtprotoLabelSubscribeLabelsAsync(new SubscribeLabelsParameters
                 {
-                    OnRepoFirehoseEvent(s, e, protocol);
-                    watchdog?.Kick();
-                }, e.Message.Commit?.Repo?.Handler);
-            }, retryPolicy, useWatchdog: useWatchdog, ct: ct);
-        }
-#endif
+                    Cursor = cursor != null ? long.Parse(cursor) : null
+                }, connectionCt))
+                {
+                    yield return e;
+                }
+            }
 
-        private void OnRawMessageReceived()
-        {
-            currentFirehoseCursor!.SystemTimeLastRawReceived = DateTime.UtcNow;
-            Interlocked.Increment(ref currentFirehoseCursor!.ReceivedEvents);
+            return ListenToFirehoseAsync(CoreAsync, OnLabelFirehoseEvent, RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct: ct);
         }
 
-#if false
-        public Task StartListeningToAtProtoFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
+        public Task ListenToFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
         {
-            return StartListeningToAtProtoFirehoseCore((protocol, cursor, connectCt) => protocol.StartSubscribeLabelsAsync(cursor, token: connectCt), (protocol, cursor, watchdog) =>
+
+            async IAsyncEnumerable<ISubscribeReposMessage> CoreAsync(string? cursor, [EnumeratorCancellation] CancellationToken connectionCt)
             {
-                protocol.OnMessageReceived += (s, e) =>
+                using var client = new ATProtoClient(new ATProtoClientOptions
                 {
-                    Interlocked.Increment(ref cursor.ReceivedEvents);
-                };
-                protocol.OnSubscribedLabelMessage += (s, e) => TryProcessRecord(() =>
+                    BaseUrl = FirehoseUrl.GetNext(),
+                    LoggerFactory = new LogWrapper.LogFactory(),
+                    JsonOptions = ATProtoClientFactory.CreateJsonOptions(),
+                    CborContext = CarpaNet.Cbor.ATProtoCborContext.Default,
+                    HttpClient = BlueskyEnrichedApis.DefaultHttpClient,
+                });
+                await foreach (var e in client.ComAtprotoSyncSubscribeReposAsync(new SubscribeReposParameters
                 {
-                    OnLabelFirehoseEvent(s, e, protocol);
-                    watchdog?.Kick();
-                }, nameForDebugging);
-            }, RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct);
+                    Cursor = cursor != null ? long.Parse(cursor) : null
+                }, connectionCt))
+                {
+                    yield return e;
+                }
+            }
+
+            return ListenToFirehoseAsync(CoreAsync, OnRepoFirehoseEvent, retryPolicy, useWatchdog: useWatchdog, ct: ct);
+        }
+
+        public Task ListenToFirehoseJetstream(RetryPolicy? retryPolicy, CancellationToken ct = default)
+        {
+            async IAsyncEnumerable<JetstreamEvent> CoreAsync(string? cursor, [EnumeratorCancellation] CancellationToken connectionCt)
+            {
+                using var client = new JetstreamClient(FirehoseUrl.GetNext()) { BufferSize = 2 * 1024 * 1024 };
+                await foreach (var e in client.SubscribeAsync(new JetstreamSubscribeOptions
+                {
+                    Cursor = cursor != null ? long.Parse(cursor) : null
+                }, connectionCt))
+                {
+                    yield return e;
+                }
+            }
+
+            return ListenToFirehoseAsync(CoreAsync, e =>
+            {
+                OnJetStreamEvent(e);
+                return new FirehoseEventCursor(DateTime.UnixEpoch.AddMicroseconds(e.TimeUs), e.TimeUs);
+            }, retryPolicy, ct: ct);
         }
 
 
-        private async Task StartListeningToAtProtoFirehoseCore(Func<ATWebSocketProtocol, long?, CancellationToken, Task> subscribeKind, Action<ATWebSocketProtocol, FirehoseCursor, Watchdog?> setupHandler, RetryPolicy? retryPolicy, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
+
+        private async Task ListenToFirehoseAsync<T>(Func<string?, CancellationToken, IAsyncEnumerable<T>> subscribeKind, Func<T, FirehoseEventCursor> onEvent, RetryPolicy? retryPolicy, bool useWatchdog = true, bool errorsAreUnimportant = false, CancellationToken ct = default)
         {
             await Task.Yield();
-
             await PluggableProtocol.RetryInfiniteLoopAsync(FirehoseUrl.CanonicalIdentifier, async ct =>
             {
                 try
                 {
-                    var tcs = new TaskCompletionSource();
-                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier);
+
+                    this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.RestartCount++;
 
-                    LogFirehoseStartMessage(currentFirehoseCursor, isImportant: !errorsAreUnimportant);
-
-                    using var firehose = new ATProtoClient(new ATProtoClientOptions
-                    {
-                        BaseUrl = FirehoseUrl.GetNext(),
-                        LoggerFactory = new LogWrapper.LogFactory(),
-                    });
-                    //.WithTaskFactory(FirehoseThreadpoolTaskFactory!)
-                    using var watchdog = useWatchdog ? CreateFirehoseWatchdog(tcs) : null;
-                    ct.Register(() =>
-                    {
-                        tcs.TrySetCanceled();
-                        firehose.StopSubscriptionAsync();
-                        firehose.Dispose();
-                    });
-                    firehose.OnConnectionUpdated += (_, e) =>
-                    {
-                        if (ct.IsCancellationRequested) return;
-
-                        if (!(e.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.Connecting))
-                        {
-                            tcs.TrySetException(new Exception("Firehose is in state: " + e.State));
-                        }
-                    };
-                    setupHandler(firehose, currentFirehoseCursor, watchdog);
+                    LogFirehoseStartMessage(currentFirehoseCursor, isImportant: true);
 
                     using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
-                    await subscribeKind(firehose, currentFirehoseCursor.CommittedCursor != null ? long.Parse(currentFirehoseCursor.CommittedCursor) : null, connectionCts.Token);
-                    connectionCts.CancelAfter(Timeout.Infinite); // connection succeeded, now disable the timeout (token is also used in receive loop)
 
-                    currentFirehoseCursor.State = FirehoseState.Running;
-                    await tcs.Task;
+                    var outOfOrderTracker = new OutOfOrderCompletionTracker();
+
+                    var timeoutMillis = useWatchdog ? (AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS) ?? 30) * 1000 : Timeout.Infinite;
+                    
+                    await foreach(var e in subscribeKind(currentFirehoseCursor.CommittedCursor, connectionCts.Token))
+                    {
+
+
+                        currentFirehoseCursor.State = FirehoseState.Running;
+
+
+                        connectionCts.CancelAfter(timeoutMillis);
+
+                        currentFirehoseCursor!.SystemTimeLastRawReceived = DateTime.UtcNow;
+                        Interlocked.Increment(ref currentFirehoseCursor!.ReceivedEvents);
+
+                        var uniqueId = outOfOrderTracker.OnEventGenerated();
+                        FirehoseThreadpoolTaskFactory!.StartNew(() =>
+                        {
+
+                            FirehoseEventCursor cursor = default;
+                            TryProcessRecord(() =>
+                            {
+                                cursor = onEvent(e);
+                            });
+
+                            
+                            outOfOrderTracker.OnEventProcessed(uniqueId, cursor.Cursor != 0 ? cursor.Cursor : null);
+                            BumpLargestSeenFirehoseCursor(outOfOrderTracker.LastDefinitelyProcessedSeq, cursor.Date);
+
+
+                        }, ct).FireAndForget();
+
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -773,8 +755,9 @@ namespace AppViewLite
                     throw;
                 }
             }, ct, retryPolicy: retryPolicy, errorsAreUnimportant: errorsAreUnimportant);
+
         }
-#endif
+
         private Watchdog? CreateFirehoseWatchdog(TaskCompletionSource tcs)
         {
             if (Debugger.IsAttached) return null;
@@ -810,62 +793,78 @@ namespace AppViewLite
 
         internal FirehoseCursor? currentFirehoseCursor;
 
-#if false
-        private void OnRepoFirehoseEvent(object? sender, SubscribedRepoEventArgs e, ATWebSocketProtocol protocol)
+
+        private FirehoseEventCursor OnRepoFirehoseEvent(ISubscribeReposMessage e)
         {
-            if (!OnFirehoseEventBeginProcessing()) return;
+            if (!OnFirehoseEventBeginProcessing()) return default;
 
-            if (e.Message.Account is { } acct)
+            
+            if (e is SubscribeReposAccount acct)
             {
-                OnAccountStateChanged(acct.Did!.Handler, acct.Active, null); // TODO: pass status instead of null
-                return;
+                VerifyValidForCurrentRelay!(acct.Did.DidAsString);
+
+                OnAccountStateChanged(acct.Did!.DidAsString, acct.Active, acct.Status);
+                return new FirehoseEventCursor(acct.Time.UtcDateTime, acct.Seq);
             }
 
-            var commitAuthor = e.Message.Commit?.Repo!.Handler;
-            if (commitAuthor == null) return;
-            var message = e.Message;
-
-            VerifyValidForCurrentRelay!(commitAuthor);
-
-            foreach (var op in message.Commit?.Ops ?? [])
+            if (e is SubscribeReposCommit commit)
             {
-                if (op.Action == "delete")
+                var commitAuthor = commit.Repo.DidAsString;
+
+                VerifyValidForCurrentRelay!(commitAuthor);
+
+                var carReader = new CarpaNet.Repo.CarReader(commit.Blocks);
+                var blocks = carReader.ReadAllBlocks();
+                
+                
+                foreach (var op in commit.Ops)
                 {
-                    OnRecordDeleted(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), ignoreIfDisposing: true);
+                    if (op.Action == "delete")
+                    {
+                        OnRecordDeleted(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), ignoreIfDisposing: true);
+                    }
+                    else
+                    {
+                        var block = blocks[op.Cid!.Value.Value];
+                        throw new NotImplementedException();
+                        //var record = commit.Records!.First(x => x.Cid.Equals(op.Cid)).Value;
+
+                        //OnRecordCreated(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), record, ignoreIfDisposing: true);
+                    }
                 }
-                else
-                {
-                    var record = e.Message.Records!.First(x => x.Cid.Equals(op.Cid)).Value;
-                    OnRecordCreated(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), record, ignoreIfDisposing: true);
-                }
+                return new FirehoseEventCursor(commit.Time.UtcDateTime, commit.Seq);
+
             }
 
-            BumpLargestSeenFirehoseCursor(protocol.LastDefinitelyProcessedCursor, e.Message.Commit?.Time);
+            return default;
         }
-#endif
+
         private void OnAccountStateChanged(string did, bool active, string? status)
         {
             VerifyValidForCurrentRelay!(did);
             var ctx = RequestContext.CreateForFirehose("FirehoseAccountState");
             Apis.SetAccountState(did, active, status, ctx);
         }
-#if false
-        private void OnLabelFirehoseEvent(object? sender, SubscribedLabelEventArgs e, ATWebSocketProtocol protocol)
+
+        private FirehoseEventCursor OnLabelFirehoseEvent(ISubscribeLabelsMessage e)
         {
-            var labels = e.Message.Labels?.LabelsValue;
-            if (labels == null) return;
-
-            var ctx = RequestContext.CreateForFirehose("Label");
-            foreach (var label in labels)
+            if (e is SubscribeLabelsLabels labels)
             {
-                VerifyValidForCurrentRelay!(label.Src.Handler);
-                OnLabelCreated(label.Src.Handler, label, ctx);
-            }
 
-            BumpLargestSeenFirehoseCursor(protocol.LastDefinitelyProcessedCursor, e.Message.Labels?.LabelsValue.LastOrDefault()?.Cts);
+                var ctx = RequestContext.CreateForFirehose("Label");
+                foreach (var label in labels.Labels)
+                {
+                    VerifyValidForCurrentRelay!(label.Src.DidAsString);
+                    OnLabelCreated(label.Src.DidAsString, label, ctx);
+                }
+
+
+                return new FirehoseEventCursor(labels.Labels.LastOrDefault()!.Cts.UtcDateTime, labels.Seq);
+            }
+            return default;
         }
 
-        private void OnLabelCreated(string labeler, Label label, RequestContext ctx)
+        private void OnLabelCreated(string labeler, DefsLabel label, RequestContext ctx)
         {
             var uri = new ATUri(label.Uri);
             if (string.IsNullOrEmpty(label.Val))
@@ -875,7 +874,7 @@ namespace AppViewLite
             WithRelationshipsWriteLock(rels =>
             {
 
-                var entry = new LabelEntry(rels.SerializeDid(labeler, ctx), (ApproximateDateTime32)(label.Cts ?? DateTime.UtcNow), BlueskyRelationships.HashLabelName(label.Val), label.Neg ?? false);
+                var entry = new LabelEntry(rels.SerializeDid(labeler, ctx), (ApproximateDateTime32)label.Cts.UtcDateTime, BlueskyRelationships.HashLabelName(label.Val), label.Neg ?? false);
 
                 if (!rels.LabelNames.ContainsKey(entry.KindHash))
                 {
@@ -903,7 +902,7 @@ namespace AppViewLite
 
             }, ctx);
         }
-#endif
+
         public Action<string>? VerifyValidForCurrentRelay;
 
         public async Task<Tid> ImportCarAsync(string did, string carPath, RequestContext ctx, Action<CarImportProgress>? progress, CancellationToken ct = default)
@@ -977,7 +976,7 @@ namespace AppViewLite
             return new DateTime(2024, 3, 1, 0, 0, 0, DateTimeKind.Utc);
         }
 
-        private static void TryProcessRecord(Action action, string? authorForDebugging)
+        private static void TryProcessRecord(Action action, string? authorForDebugging = null)
         {
             try
             {
@@ -1586,5 +1585,6 @@ namespace AppViewLite
         }
     }
     internal record struct ContinueOutsideLock(Action OutsideLock, Action<BlueskyRelationships> Complete);
+    public record struct FirehoseEventCursor(DateTime Date, long Cursor);
 }
 

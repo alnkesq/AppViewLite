@@ -5636,8 +5636,7 @@ namespace AppViewLite
                         throw new UnexpectedFirehoseDataException($"Labeler firehose {endpoint} ({string.Join(", ", allowedLabelerDids)}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
                 }
             };
-            throw new NotImplementedException();
-            //indexer.StartListeningToAtProtoFirehoseLabels(endpoint).FireAndForget();
+            indexer.ListenToFirehoseLabels(endpoint).FireAndForget();
         }
 
         public async Task<BlueskyLabel[]> GetAllPostLabelsAsync(string did, string rkey, RequestContext ctx)

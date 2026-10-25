@@ -26,7 +26,15 @@ namespace AppViewLite
 
         extension(ATUri uri)
         {
-            public string DidAsString => uri.AuthorityAsDid!.Value.DidAsString;
+            public string DidAsString
+            {
+                get
+                {
+                    if (uri.Value.StartsWith("did:", StringComparison.Ordinal)) return uri.Value;
+                    return uri.AuthorityAsDid!.Value.DidAsString;
+                }
+            }
+
             public string? Rkey => uri.RecordKey;
         }
         extension(ATCid cid)

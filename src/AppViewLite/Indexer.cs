@@ -601,7 +601,6 @@ namespace AppViewLite
             {
                 try
                 {
-                    var tcs = new TaskCompletionSource();
                     using var client = new JetstreamClient(FirehoseUrl.GetNext());
 
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
@@ -645,11 +644,7 @@ namespace AppViewLite
                            
                         }, ct).FireAndForget();
 
-
-
                     }
-
-                    await tcs.Task;
                 }
                 catch (Exception ex)
                 {

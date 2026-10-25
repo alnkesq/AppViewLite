@@ -601,7 +601,7 @@ namespace AppViewLite
             {
                 try
                 {
-                    using var client = new JetstreamClient(FirehoseUrl.GetNext());
+                    using var client = new JetstreamClient(FirehoseUrl.GetNext()) { BufferSize = 2 * 1024 * 1024 };
 
                     this.currentFirehoseCursor = relationshipsUnlocked.GetOrCreateFirehoseCursorThreadSafe(FirehoseUrl.CanonicalIdentifier); currentFirehoseCursor.State = FirehoseState.Starting;
                     currentFirehoseCursor.State = FirehoseState.Starting;

@@ -5,7 +5,7 @@
         <Nullable>enable</Nullable>
         <CarpaNet_LexiconAutoResolve>true</CarpaNet_LexiconAutoResolve>
         <CarpaNet_EmitXrpcEndpoints>true</CarpaNet_EmitXrpcEndpoints>
-
+        <CarpaNet_LexiconCacheTtlHours>876000</CarpaNet_LexiconCacheTtlHours>
     </PropertyGroup>
     <Import Project="..\..\..\carpanet\src\CarpaNet\build\CarpaNet.targets" />
     <ItemGroup>

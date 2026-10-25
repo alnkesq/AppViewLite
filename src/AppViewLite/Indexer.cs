@@ -5,6 +5,7 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols;
 using CarpaNet;
+using CarpaNet.Cbor;
 using CarpaNet.Jetstream;
 using CarpaNet.Repo;
 using ComAtproto.Label;
@@ -15,11 +16,13 @@ using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using AppViewLite;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -159,34 +162,22 @@ namespace AppViewLite
 
 
 
-        public void OnRecordCreated(string commitAuthor, CollectionAndRKey path, JsonElement recordJson, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
+        public void OnRecordCreated(string commitAuthor, CollectionAndRKey path, object record, bool ignoreIfDisposing = false, RequestContext? ctx = null, bool isRepositoryImport = false)
         {
             if (Apis.AdministrativeBlocklist.ShouldBlockIngestion(commitAuthor)) return;
             var now = DateTime.UtcNow;
 
             ContinueOutsideLock? continueOutsideLock = null;
-            var recordType = recordJson.AtProtoTypeId;
-            ctx ??= RequestContext.CreateForFirehose("Create:" + recordType, allowStale: true);
+            ctx ??= RequestContext.CreateForFirehose("Create:" + path.Collection, allowStale: true);
 
+            if (record is JsonElement recordJson)
+            {
+                record = TryRecordJsonToObject(path.Collection, recordJson)!;
+                if (record == null) return;
+            }
 
-            object? record =
-                recordType switch
-                {
-                    Like.RecordType => Like.FromJson(recordJson),
-                    Repost.RecordType => Repost.FromJson(recordJson),
-                    Follow.RecordType => Follow.FromJson(recordJson),
-                    Block.RecordType => Block.FromJson(recordJson),
-                    Post.RecordType => Post.FromJson(recordJson),
-                    Profile.RecordType => Profile.FromJson(recordJson),
-                    Threadgate.RecordType => Threadgate.FromJson(recordJson),
-                    Postgate.RecordType => Postgate.FromJson(recordJson),
-                    Listblock.RecordType => Listblock.FromJson(recordJson),
-                    Listitem.RecordType => Listitem.FromJson(recordJson),
-                    List.RecordType => List.FromJson(recordJson),
-                    Generator.RecordType => Generator.FromJson(recordJson),
-                    Link.RecordType => Link.FromJson(recordJson),
-                    _ => null,
-                };
+            
+
 
             var preresolved = WithRelationshipsLock(rels =>
             {
@@ -509,6 +500,28 @@ namespace AppViewLite
             }
         }
 
+        private static object? TryRecordJsonToObject(string collection, JsonElement recordJson)
+        {
+            // TODO: this can probably be done with CarpaNet.Json.ATProtoJsonContext.DefaultOptions
+            return
+                collection switch
+                {
+                    Like.RecordType => Like.FromJson(recordJson),
+                    Repost.RecordType => Repost.FromJson(recordJson),
+                    Follow.RecordType => Follow.FromJson(recordJson),
+                    Block.RecordType => Block.FromJson(recordJson),
+                    Post.RecordType => Post.FromJson(recordJson),
+                    Profile.RecordType => Profile.FromJson(recordJson),
+                    Threadgate.RecordType => Threadgate.FromJson(recordJson),
+                    Postgate.RecordType => Postgate.FromJson(recordJson),
+                    Listblock.RecordType => Listblock.FromJson(recordJson),
+                    Listitem.RecordType => Listitem.FromJson(recordJson),
+                    List.RecordType => List.FromJson(recordJson),
+                    Generator.RecordType => Generator.FromJson(recordJson),
+                    Link.RecordType => Link.FromJson(recordJson),
+                    _ => null,
+                };
+        }
 
         private readonly ConcurrentSet<string> currentlyRunningRecordRetrievals = [];
         private void ScheduleRecordIndexing(ATUri uri, RequestContext ctx)
@@ -819,17 +832,24 @@ namespace AppViewLite
                 
                 foreach (var op in commit.Ops)
                 {
+                    var collectionAndRkey = CollectionAndRKey.ParseUnprefixed(op.Path!);
                     if (op.Action == "delete")
                     {
-                        OnRecordDeleted(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), ignoreIfDisposing: true);
+                        OnRecordDeleted(commitAuthor, collectionAndRkey, ignoreIfDisposing: true);
                     }
-                    else
+                    else if (op.Action is "create" or "update")
                     {
                         var block = blocks[op.Cid!.Value.Value];
-                        throw new NotImplementedException();
-                        //var record = commit.Records!.First(x => x.Cid.Equals(op.Cid)).Value;
 
-                        //OnRecordCreated(commitAuthor, CollectionAndRKey.ParseUnprefixed(op.Path!), record, ignoreIfDisposing: true);
+                        var record = TryDeserializeCbor(block, collectionAndRkey.Collection);
+
+                        if (record != null)
+                        {
+                            OnRecordCreated(commitAuthor, collectionAndRkey, record, ignoreIfDisposing: true);
+                        }
+
+
+
                     }
                 }
                 return new FirehoseEventCursor(commit.Time.UtcDateTime, commit.Seq);
@@ -838,6 +858,21 @@ namespace AppViewLite
 
             return default;
         }
+
+
+        private static object? TryDeserializeCbor(byte[] cbor, string collection)
+        {
+            if (ATProtoCborContext.Default.TryGetTypeFromDiscriminator(collection, out var type))
+            {
+                if (ATProtoCborContext.Default.TryGetTypeInfo(type!, out var typeInfo))
+                {
+                    var reader = new DagCborReader(cbor);
+                    return typeInfo!.ReadObject(ref reader);
+                }
+            }
+            return null;
+        }
+
 
         private void OnAccountStateChanged(string did, bool active, string? status)
         {
@@ -1519,7 +1554,7 @@ namespace AppViewLite
                             {
                                 Subject = new ATDid(did),
                                 CreatedAt = follower.CreatedAt!.Value
-                            }.ToJson(), ctx: ctx, isRepositoryImport: true);
+                            }, ctx: ctx, isRepositoryImport: true);
                         }
                         else
                         {

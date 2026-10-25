@@ -51,7 +51,8 @@ namespace AppViewLite
             {
                 get
                 {
-                    if (did.Value is null || !did.Value.StartsWith("did:", StringComparison.Ordinal))
+                    if (string.IsNullOrEmpty(did.Value)) throw new InvalidOperationException("Empty did.");
+                    if (!did.Value.StartsWith("did:", StringComparison.Ordinal))
                         throw new InvalidOperationException("Not a did:.");
                     return did.Value;
                 }

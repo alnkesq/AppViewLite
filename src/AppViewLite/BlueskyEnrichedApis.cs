@@ -1379,7 +1379,7 @@ namespace AppViewLite
                             var indexer = new Indexer(this);
                             foreach(var item in missing)
                             {
-                                indexer.OnRecordCreated(did, new(Like.RecordType, item.Reference.RKey), item.Record.ToJson());
+                                indexer.OnRecordCreated(did, new(Like.RecordType, item.Reference.RKey), item.Record);
                             }
                             ctx.BumpMinimumVersion(this.relationshipsUnlocked.Version);
                         }

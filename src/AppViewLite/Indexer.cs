@@ -723,7 +723,12 @@ namespace AppViewLite
                     LogFirehoseStartMessage(currentFirehoseCursor, isImportant: true);
 
                     using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    connectionCts.CancelAfter(TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS) ?? DefaultFirehoseConnectTimeoutMs));
+                    if (useWatchdog)
+                    {
+                        connectionCts.CancelAfter(TimeSpan.FromMilliseconds(
+                            AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_CONNECT_TIMEOUT_MS)
+                            ?? DefaultFirehoseConnectTimeoutMs));
+                    }
 
                     var outOfOrderTracker = new OutOfOrderCompletionTracker();
 

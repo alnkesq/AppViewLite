@@ -776,19 +776,6 @@ namespace AppViewLite
 
         }
 
-        private Watchdog? CreateFirehoseWatchdog(TaskCompletionSource tcs)
-        {
-            if (Debugger.IsAttached) return null;
-            var timeout = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_FIREHOSE_WATCHDOG_SECONDS) ?? 120;
-            if (timeout == 0) return null;
-            return new Watchdog(TimeSpan.FromSeconds(timeout), () =>
-            {
-                Log("Firehouse watchdog");
-                File.AppendAllText(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/firehose-watchdog.txt", DateTime.UtcNow.ToString("O") + " " + FirehoseUrl + "\n");
-                tcs.TrySetException(new Exception("Firehose watchdog"));
-            });
-        }
-
 
         private void BumpLargestSeenFirehoseCursor(long? definitelyProcessedCursor, DateTime? recentEventDate)
         {

@@ -146,7 +146,13 @@ public static class JsonCborUtils
 
             case CborReaderState.Finished:
                 throw new FormatException("Unexpected end of CBOR data.");
+            case CborReaderState.Tag:
+                _ = reader.ReadTag();
+                CborToJson(reader, writer);
 
+                // writer.WritePropertyName("_tag");
+                // writer.WriteStringValue(tag.ToString());
+                break;
             default:
                 throw new FormatException(
                     $"Unsupported CBOR type: {reader.PeekState()}");

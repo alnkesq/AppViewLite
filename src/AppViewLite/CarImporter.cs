@@ -119,20 +119,6 @@ namespace AppViewLite
                 return;
 
             }
-            
-            try
-            {
-                var cborReader = new DagCborReader(bytes);
-                var propCount = cborReader.ReadStartMap();
-
-
-                //blockObj = Indexer.TryDeserializeCbor(bytes);
-            }
-            catch (Exception ex)
-            {
-                Log("Unable to deserialize CBOR: " + ex.Message);
-                return;
-            }
 
             Interlocked.Add(ref currentImportDecodedBytes, bytes.Length);
             Interlocked.Add(ref GlobalDecodedBytes, bytes.Length);

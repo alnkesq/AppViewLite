@@ -5089,8 +5089,8 @@ namespace AppViewLite
                     userContext.PrivateProfile.StoredSession = new StoredSession
                     {
                         AccessJwt = atSession!.AccessJwt,
-                        RefreshJwt = atSession.RefreshJwt,
-                        Pds = atSession.DidDoc?.PdsEndpoint ?? didDoc.Pds,
+                        RefreshJwt = atSession!.RefreshJwt,
+                        Pds = atSession!.DidDoc?.PdsEndpoint ?? didDoc.Pds!,
                         RefreshJwtExpirationDate = StringUtils.GetJwtExpirationDate(atSession.RefreshJwt)
                     };
                 }

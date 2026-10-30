@@ -635,7 +635,7 @@ namespace AppViewLite
 
 
 
-        public Task ListenToFirehoseLabels(string nameForDebugging, CancellationToken ct = default)
+        public Task ListenToFirehoseLabelsAsync(string nameForDebugging, CancellationToken ct = default)
         {
 
             async IAsyncEnumerable<ISubscribeLabelsMessage> CoreAsync(string? cursor, [EnumeratorCancellation] CancellationToken connectionCt)
@@ -660,7 +660,7 @@ namespace AppViewLite
             return ListenToFirehoseAsync(CoreAsync, OnLabelFirehoseEvent, RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, errorsAreUnimportant: FirehoseUrl.CanonicalIdentifier != "https://mod.bsky.app/", ct: ct);
         }
 
-        public Task ListenToFirehoseRepos(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
+        public Task ListenToFirehoseReposAsync(RetryPolicy? retryPolicy, bool useWatchdog = true, CancellationToken ct = default)
         {
 
             async IAsyncEnumerable<ISubscribeReposMessage> CoreAsync(string? cursor, [EnumeratorCancellation] CancellationToken connectionCt)
@@ -685,7 +685,7 @@ namespace AppViewLite
             return ListenToFirehoseAsync(CoreAsync, OnRepoFirehoseEvent, retryPolicy, getDidForDebugging: x => (x as SubscribeReposCommit)?.Repo.Value, useWatchdog: useWatchdog, ct: ct);
         }
 
-        public Task ListenToFirehoseJetstream(RetryPolicy? retryPolicy, CancellationToken ct = default)
+        public Task ListenToFirehoseJetstreamAsync(RetryPolicy? retryPolicy, CancellationToken ct = default)
         {
             async IAsyncEnumerable<JetstreamEvent> CoreAsync(string? cursor, [EnumeratorCancellation] CancellationToken connectionCt)
             {

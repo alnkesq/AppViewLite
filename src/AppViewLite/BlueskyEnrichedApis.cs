@@ -108,8 +108,7 @@ namespace AppViewLite
                             };
                             indexer.FirehoseUrl = FirehoseUrlWithFallbacks.Parse(newpds);
                             Log("Starting secondary firehose: " + newpds);
-                            throw new NotImplementedException();
-                            //indexer.StartListeningToAtProtoFirehoseRepos(RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, cts.Token).FireAndForget();
+                            indexer.ListenToFirehoseReposAsync(RetryPolicy.CreateForUnreliableServer(), useWatchdog: false, cts.Token).FireAndForget();
                             SecondaryFirehoses.Add(newpds, cts);
                         }
                     }
@@ -5637,7 +5636,7 @@ namespace AppViewLite
                         throw new UnexpectedFirehoseDataException($"Labeler firehose {endpoint} ({string.Join(", ", allowedLabelerDids)}) attempted to provide a label on behalf of labeler {labelerDidFromFirehose}.");
                 }
             };
-            indexer.ListenToFirehoseLabels(endpoint).FireAndForget();
+            indexer.ListenToFirehoseLabelsAsync(endpoint).FireAndForget();
         }
 
         public async Task<BlueskyLabel[]> GetAllPostLabelsAsync(string did, string rkey, RequestContext ctx)

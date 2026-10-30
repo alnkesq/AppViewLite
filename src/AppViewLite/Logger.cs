@@ -5,6 +5,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Text;
 
 namespace AppViewLite
 {
@@ -32,6 +33,31 @@ namespace AppViewLite
         }
 
 
+        // Escape terminal control characters before writing untrusted data to logs.
+        // This prevents ANSI escape sequences, cursor movement, and other control
+        // characters from being interpreted by the terminal.
+        private static string SanitizeLogText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            var result = new StringBuilder(text.Length);
+
+            foreach (char c in text)
+            {
+                if (char.IsControl(c))
+                {
+                    result.Append("\\u");
+                    result.Append(((int)c).ToString("X4"));
+                }
+                else
+                {
+                    result.Append(c);
+                }
+            }
+
+            return result.ToString();
+        }
+
         private static void LogToFile(string text)
         {
             if (LogFile != null)
@@ -45,6 +71,7 @@ namespace AppViewLite
 
         public static void Log(string text)
         {
+            text = SanitizeLogText(text);
             Console.Error.WriteLine(text);
             LogToFile(text);
         }
@@ -154,7 +181,7 @@ namespace AppViewLite
 
         public static void LogInfo(string text)
         {
-            Console.Error.WriteLine(text);
+            Console.Error.WriteLine(SanitizeLogText(text));
         }
 
         public static void FlushLog()

@@ -175,6 +175,11 @@ namespace AppViewLite
                 record = TryRecordJsonToObject(path.Collection, recordJson)!;
                 if (record == null) return;
             }
+            else if (record is byte[])
+            {
+                // Record from a CAR for which we don't have a deserializer. Skip.
+                return;
+            }
 
             
 
@@ -852,7 +857,7 @@ namespace AppViewLite
         }
 
 
-        private static object? TryDeserializeCbor(byte[] cbor, string collection)
+        public static object? TryDeserializeCbor(byte[] cbor, string collection)
         {
             if (ATProtoCborContext.Default.TryGetTypeFromDiscriminator(collection, out var type))
             {
@@ -948,7 +953,7 @@ namespace AppViewLite
             using var importer = new CarImporter(did, probableDateOfEarliestRecord ?? await GetProbableDateOfEarliestRecordAsync(did, ctx), relationshipsUnlocked.CarSpillDirectory);
             importer.Log("Reading stream");
 
-            using var carReader = new CarReader(stream);
+            using var carReader = new AppViewLite.CarReader(stream);
             foreach (var item in carReader.ReadBlocks())
             {
                 ct.ThrowIfCancellationRequested();
@@ -968,15 +973,14 @@ namespace AppViewLite
                 ct.ThrowIfCancellationRequested();
                 recordCount++;
 
-                var path = CollectionAndRKey.ParseUnprefixed(record.Path);
-                if (Tid.TryParse(path.RKey, out var tid))
+                if (Tid.TryParse(record.RKey, out var tid))
                     progress?.Invoke(new CarImportProgress(totalSize, totalSize, recordCount, importer.TotalRecords, tid));
 
                 await Apis.DangerousUnlockedRelationships.CarRecordInsertionSemaphore.WaitAsync(ct);
                 try
                 {
 
-                    TryProcessRecord(() => OnRecordCreated(record.Did, path, record.Record, isRepositoryImport: true), record.Did);
+                    TryProcessRecord(() => OnRecordCreated(record.Did, new CollectionAndRKey(record.Collection, record.RKey), record.Record, isRepositoryImport: true), record.Did);
                 }
                 finally
                 {
@@ -1043,13 +1047,12 @@ namespace AppViewLite
 
         private async Task<Stream> GetCarStreamAsync(string did, RequestContext ctx, Tid since = default, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
-#if false
             using var at = await Apis.CreateProtocolForDidAsync(did, ctx);
-            var pds = (await at.ResolveATDidHostAsync(new ATDid(did), ct)).HandleResult()!;
-            var url = new Uri(new Uri(pds), ComAtproto.Sync.SyncEndpoints.GetRepo + "?did=" + did + (since != default ? "&since=" + since : null));
-            return await at.Client.GetStreamAsync(url, ct);
-#endif
+            var pds = (await Apis.GetDidDocAsync(did, ctx)).Pds!;
+
+            var url = new Uri(new Uri(pds), "/xrpc/com.atproto.sync.getRepo?did=" + did + (since != default ? "&since=" + since : null));
+            return await BlueskyEnrichedApis.DefaultHttpClient.GetStreamAsync(url, ct);
+
 
         }
 

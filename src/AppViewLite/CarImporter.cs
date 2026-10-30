@@ -1,14 +1,18 @@
+using AppBsky.Feed;
+using AppViewLite.Models;
 using AppViewLite.Numerics;
-using DuckDbSharp.Types;
 using CarpaNet;
+using CarpaNet.Cbor;
+using CarpaNet.Repo;
+using DuckDbSharp.Types;
+using AppViewLite.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using AppBsky.Feed;
 using System.Text.Json;
+using System.Threading;
 
 namespace AppViewLite
 {
@@ -22,7 +26,7 @@ namespace AppViewLite
         private FileStream? spilledRecords;
         private readonly string diskSpillDirectory;
 
-        private record struct RecordLocation(JsonElement? InMemory, long SpilledStart, int SpilledLength);
+        private record struct RecordLocation(object? InMemory, long SpilledStart, int SpilledLength);
 
         public CarImporter(string did, DateTime probableDateOfEarliestRecord, string diskSpillDirectory)
         {
@@ -67,15 +71,62 @@ namespace AppViewLite
         internal static long GlobalDecodedBytes;
 
         private readonly HashSet<string> internedCollectionNames = [];
-        public void OnCarDecoded(ATCid cid, byte[] data)
+
+
+
+        public void OnCarDecoded(ATCid cid, byte[] bytes)
         {
-            throw new NotImplementedException();
-#if false
-            using var blockStream = new MemoryStream(data);
-            CBORObject blockObj;
+
+            object? asRecord = null;
+            MstNode? asNode = null;
+            RepoCommit? asCommit = null;
+
+            string? recordType = null;
+            var isRecord = false;
+            var isCommit = false;
+            var isNode = false;
+
             try
             {
-                blockObj = CBORObject.Read(blockStream);
+                var cborReader = new DagCborReader(bytes);
+
+                cborReader.ReadStartMap();
+                while (true)
+                {
+
+                    var p = cborReader.PeekState();
+                    if (p == System.Formats.Cbor.CborReaderState.TextString)
+                    {
+                        var propname = cborReader.ReadTextString();
+                        if (propname == "$type") { isRecord = true; recordType = cborReader.ReadTextString(); continue; }
+                        else if (propname == "sig") isCommit = true;
+                        else if (propname == "e") isNode = true;
+
+                        cborReader.SkipValue();
+                    }
+                    else if (p == System.Formats.Cbor.CborReaderState.EndMap) break;
+                    else throw new Exception("Unexpected CBOR key type: " + p);
+                }
+
+                if (isRecord) asRecord = Indexer.TryDeserializeCbor(bytes, recordType!);
+                else if (isCommit) asCommit = RepoCommit.FromCbor(bytes);
+                else if (isNode) asNode = MstNode.FromCbor(bytes);
+                else throw new UnexpectedFirehoseDataException("Unknown CBOR entry type in CAR.");
+            }
+            catch (Exception ex)
+            {
+                Log("Unable to deserialize CBOR: " + ex.Message);
+                return;
+
+            }
+            
+            try
+            {
+                var cborReader = new DagCborReader(bytes);
+                var propCount = cborReader.ReadStartMap();
+
+
+                //blockObj = Indexer.TryDeserializeCbor(bytes);
             }
             catch (Exception ex)
             {
@@ -83,10 +134,10 @@ namespace AppViewLite
                 return;
             }
 
-            Interlocked.Add(ref currentImportDecodedBytes, p.Bytes.Length);
-            Interlocked.Add(ref GlobalDecodedBytes, p.Bytes.Length);
+            Interlocked.Add(ref currentImportDecodedBytes, bytes.Length);
+            Interlocked.Add(ref GlobalDecodedBytes, bytes.Length);
 
-            if (blockObj["$type"] is not null)
+            if (isRecord)
             {
                 if (GlobalDecodedBytes > CarSpillToDiskBytes)
                 {
@@ -95,57 +146,42 @@ namespace AppViewLite
                         Directory.CreateDirectory(diskSpillDirectory);
                         spilledRecords = new FileStream(Path.Combine(diskSpillDirectory, Guid.NewGuid() + ".tmp"), FileMode.Create, FileAccess.ReadWrite, FileShare.Delete, 4096, FileOptions.DeleteOnClose);
                     }
-                    recordsByCid[CidToUuid(p.Cid)] = new RecordLocation(null, spilledRecords.Position, p.Bytes.Length);
-                    spilledRecords.Write(p.Bytes);
+                    recordsByCid[CidToUuid(cid)] = new RecordLocation(null, spilledRecords.Position, bytes.Length);
+                    spilledRecords.Write(bytes);
                 }
                 else
                 {
                     //Console.Error.WriteLine("Record: " + blockObj["$type"] + " cid: " + p.Cid);
                     try
                     {
-                        recordsByCid[CidToUuid(p.Cid)] = new RecordLocation(blockObj.ToATObject(), default, default);
+                        recordsByCid[CidToUuid(cid)] = new RecordLocation(asRecord ?? bytes, default, default);
 
                     }
                     catch (Exception ex)
                     {
-                        Log(blockObj["$type"] + " " + ex.Message);
+                        Log(recordType + " " + ex.Message);
                         return;
                     }
                 }
             }
-            else if (blockObj["sig"] is not null)
+            else if (asCommit != null)
             {
-                var rev = blockObj["rev"].AsString();
+                var rev = asCommit.Rev;
                 var parsedRev = Tid.Parse(rev);
                 if (parsedRev.TidValue > LargestSeenRev.TidValue)
                 {
                     LargestSeenRev = parsedRev;
                 }
             }
-            else
+            else if (asNode != null)
             {
-                var buf = new StringBuilder();
-                var e = blockObj["e"];
-                for (int i = 0; i < e.Count; i++)
+                foreach (var ee in asNode.Entries)
                 {
-                    var ee = e[i];
-                    var compressedPath = Encoding.UTF8.GetString(ee["k"].GetByteString());
-                    var prev = ee["p"].AsInt32();
-                    if (prev > buf.Length) AssertionLiteException.Throw("CAR: p is beyond previous buffer");
-                    buf.Length = prev;
-                    buf.Append(compressedPath);
-                    var path = buf.ToString();
-                    var val = ee["v"].GetByteString();
-                    if (val[0] != 0) throw AssertionLiteException.Throw("CAR: v is not zero");
-                    var valCid = ATCid.Read(val.AsSpan(1).ToArray());
-                    var bak = valCid.ToBytes();
-                    var slash = path.IndexOf('/');
-                    var collection = path.Substring(0, slash);
-                    var rkey = path.Substring(slash + 1);
 
-                    //Console.Error.WriteLine((Tid.TryParse(rkey, out var t) ? t.Date : default) + "Path:   " + collection + " cid: " + valCid);
+                    var valCid = ee.Value;
+                    var path = CollectionAndRKey.ParseUnprefixed(ee.Key);
 
-                    if (Tid.TryParse(rkey, out var tid) && collection is
+                    if (Tid.TryParse(path.RKey, out var tid) && path.Collection is
                         AppBsky.Graph.Follow.RecordType or
                         AppBsky.Graph.Block.RecordType or
                         AppBsky.Feed.Like.RecordType or
@@ -170,15 +206,15 @@ namespace AppViewLite
 
 
                     }
-                    if (internedCollectionNames.TryGetValue(collection, out var interned))
-                        collection = interned;
+                    if (internedCollectionNames.TryGetValue(path.Collection, out var interned))
+                        path.Collection = interned;
                     else
-                        internedCollectionNames.Add(collection);
-                    pathToCid.Add((collection, rkey, CidToUuid(valCid)));
+                        internedCollectionNames.Add(path.Collection);
+                    pathToCid.Add((path.Collection, path.RKey, CidToUuid(valCid)));
                 }
 
             }
-#endif
+
         }
 
         public void LogStats()
@@ -186,37 +222,36 @@ namespace AppViewLite
             Log("Read " + pathToCid.Count + " CIDs, " + recordsByCid.Count + " records. Populating...");
         }
 
-        public IEnumerable<(string Did, string Path, JsonElement Record)> EnumerateRecords()
+        public IEnumerable<(string Did, string Collection, string RKey, object Record)> EnumerateRecords()
         {
-            throw new NotImplementedException();
-            //foreach (var item in pathToCid.DistinctBy(x => (x.CidHash, x.RKey, x.Collection)).OrderBy(x => x.RKey))
-            //{
-            //    if (!recordsByCid.TryGetValue(item.CidHash, out var recordLocation)) continue;
+            foreach (var item in pathToCid.DistinctBy(x => (x.CidHash, x.RKey, x.Collection)).OrderBy(x => x.RKey))
+            {
+                if (!recordsByCid.TryGetValue(item.CidHash, out var recordLocation)) continue;
 
-            //    var record = TryReadRecord(recordLocation);
-            //    if (record != null)
-            //        yield return (Did, item.Collection + "/" + item.RKey, record);
-            //}
+                var record = TryReadRecord(recordLocation, item.Collection);
+                if (record != null)
+                    yield return (Did, item.Collection, item.RKey, record);
+            }
         }
-#if false
-        private ATObject? TryReadRecord(RecordLocation recordLocation)
+
+        private object? TryReadRecord(RecordLocation recordLocation, string collection)
         {
             if (recordLocation.InMemory != null) return recordLocation.InMemory;
             var bytes = new byte[recordLocation.SpilledLength];
             spilledRecords!.Seek(recordLocation.SpilledStart, SeekOrigin.Begin);
             spilledRecords.ReadExactly(bytes);
-            var cbor = CBORObject.DecodeFromBytes(bytes); // This succeeded during OnCarDecoded
+            
             try
             {
-                return cbor.ToATObject();
+                return Indexer.TryDeserializeCbor(bytes, collection);
             }
             catch (Exception ex)
             {
-                Log(cbor["$type"] + " " + ex.Message);
+                Log(collection + " " + ex.Message);
                 return null;
             }
         }
-#endif
+
 
         private static DuckDbUuid CidToUuid(ATCid cid) => StringUtils.HashToUuid(cid.ToBytesV2());
 

@@ -5064,6 +5064,7 @@ namespace AppViewLite
             var isReadOnly = AllowPublicReadOnlyFakeLogin ? password == "readonly" : false;
 
             var did = await apis.ResolveHandleAsync(handle, ctx, allowUnendorsed: false);
+            var didDoc = await apis.GetDidDocAsync(did, ctx);
             var atSession = isReadOnly ? null : await apis.LoginToPdsAsync(did, password, ctx);
 
 
@@ -5089,7 +5090,7 @@ namespace AppViewLite
                     {
                         AccessJwt = atSession!.AccessJwt,
                         RefreshJwt = atSession.RefreshJwt,
-                        Pds = atSession.DidDoc!.PdsEndpoint!,
+                        Pds = atSession.DidDoc?.PdsEndpoint ?? didDoc.Pds,
                         RefreshJwtExpirationDate = StringUtils.GetJwtExpirationDate(atSession.RefreshJwt)
                     };
                 }

@@ -1,12 +1,12 @@
-@page "/debug/requests/{Guid:guid}"
+@page "/debug/requests/{guid}"
 @using System.Runtime.InteropServices
 @layout AppViewLite.Web.Components.Layout.NoLayout
 @inject NavigationManager Navigation
 
 @code {
-
-    [Parameter] public Guid Guid { get; set; }
+    [Parameter] public required string Guid { get; set; }
     [Parameter][SupplyParameterFromQuery] public int? Zoom { get; set; }
+    [Parameter][SupplyParameterFromQuery] public int? Seconds { get; set; }
 
     public int PixelsPerSecond => Zoom ?? 4096;
 
@@ -25,27 +25,75 @@
 }
 
 @{
-    var req = RequestContext.RecentRequestContextsUrgent.Concat(RequestContext.RecentRequestContextsNonUrgent)
-        .FirstOrDefault(x => x.Guid == Guid);
-    if (req == null) Navigation.NavigateTo("/debug/requests");
-    var entries = req!.GetOperationEntriesPlusImportant();
-    var lockLogs = req.LockLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
-    var networkLogs = req.NetworkLogEntries?.OrderBy(x => x.Start.StopwatchTicks).ToArray() ?? [];
-    var allEntriesAndLogs = lockLogs.Concat(entries).ToArray();
-    var firstStopwatchTicks = allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Min(x => x.Start.StopwatchTicks) : 0;
-    var finalStopwatchTicks = req.CompletionTimeStopwatchTicks != 0 ? req.CompletionTimeStopwatchTicks : allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Max(x => x.End.StopwatchTicks) : 64;
+    var allReqs = RequestContext.RecentRequestContexts;
+    RequestContext[] reqs;
+    RequestContext? singleReq;
+    var seconds = Seconds ?? 10;
+
+    if (Guid == "*")
+    {
+        var minDate = DateTime.UtcNow.AddSeconds(-seconds);
+        if (Zoom == null)
+        {
+            // Zoom is pixels per second
+            Zoom = 2000 / seconds;
+        }
+        reqs = allReqs.Where(x => x.StartDate >= minDate).ToArray();
+        singleReq = null;
+    }
+    else
+    {
+        var guid = System.Guid.Parse(Guid);
+        singleReq = allReqs.FirstOrDefault(x => x.Guid == guid);
+        if (singleReq == null)
+        {
+            Navigation.NavigateTo("/debug/requests");
+            return;
+        }
+        reqs = [singleReq];
+    }
+
+    var reqsSnapshot = reqs.Select(req => req.GetSnapshotForPerformanceGraph(forMultiChart: singleReq == null)).Where(x => x.StopwatchTicks.Min != 0).ToArray();
+    var bundles = new List<List<RequestContextSnapshotForPerformanceChart>>();
+    foreach (var r in reqsSnapshot)
+    {
+        var b = bundles.FirstOrDefault(x => !x.Any(y => y.StopwatchTicks.OverlapsWith(r.StopwatchTicks)));
+        if (b == null)
+        {
+            b = new List<RequestContextSnapshotForPerformanceChart>();
+            bundles.Add(b);
+        }
+        b.Add(r);
+    }
+    foreach (var bundle in bundles)
+    {
+        bundle.Sort((a, b) => a.StopwatchTicks.Min.CompareTo(b.StopwatchTicks.Min));
+    }
+
+    var title = singleReq?.ToString() ?? "All requests";
+    var now = System.Diagnostics.Stopwatch.GetTimestamp();
+    var firstStopwatchTicks = singleReq != null ? reqsSnapshot[0].StopwatchTicks.Min : now - BlueskyRelationshipsClientBase.TimespanToStopwatchTicks(TimeSpan.FromSeconds(seconds));
+    var finalStopwatchTicks = singleReq != null ? reqsSnapshot[0].StopwatchTicks.Max : now;
 }
 
-<PageTitle>@req.ToString()</PageTitle>
+<PageTitle>@title</PageTitle>
 
 <div style="position: fixed; margin-left: 10px;">
-    <h3>@req.ToString()</h3>
+    <h3>@title</h3>
     <a class="blue-link" href="/debug">Debug</a> |
     <a class="blue-link" href="/debug/requests">Requests</a> |
     <a class="blue-link" href="/debug/performance">Performance by task kind</a> |
+    @if (Guid != "*")
+    {
+        <a class="blue-link" href="/debug/requests/*">Show all requests</a><text> |</text>
+    }
     <a class="blue-link" id="request-profiler-zoom-in" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 4 * 1024 * 1024))">Zoom in</a> |
     <a class="blue-link" id="request-profiler-zoom-out" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 32))">Zoom out</a>
 </div>
+@if (singleReq == null && (!BlueskyRelationshipsClientBase.ProfileAllRequests || RequestContext.RecentRequestsToProfile < 5000))
+{
+    <div><b>Warning! Chart might be incomplete, because APPVIEWLITE_PROFILE_ALL_REQUESTS is not enabled, or APPVIEWLITE_RECENT_REQUESTS_TO_PROFILE is too low.</b></div>
+}
 <script>
     document.documentElement.style.overflowX = 'scroll';
     document.addEventListener('keydown', e => {
@@ -79,39 +127,51 @@
 
 <br>
 <br>
-<div class="performance-timeline" style="width: @(entries.Count != 0 ? (Math.Min(StopwatchTicksToPixels(finalStopwatchTicks - firstStopwatchTicks), 1024 * 1024)) : 64)px">
 
-    @foreach (var b in entries)
-    {
-        var delta = b.End - b.Start;
+@foreach (var bundle in bundles)
+{
+    
+    <div class="performance-timeline" style="width: @(Math.Min(StopwatchTicksToPixels(finalStopwatchTicks - firstStopwatchTicks), 1024 * 1024))px">
 
-        <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(delta.MaxGcGeneration != -1 ? "red" : b.TableName != null ? Program.HashToCssColor(b.TableName, b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
-            @b.TableName
-            @b.Operation
-            @(delta.MaxGcGeneration != -1 ? $" [GC {delta.MaxGcGeneration}]" : null)
-        </div>
-        
+        @foreach (var r in bundle)
+        {
+            var delta = r.StopwatchTicks.Max - r.StopwatchTicks.Min;
+            <div title="@r.Request.ToString()" class="performance-timeline-request" style="background-color: @(Program.HashToCssColor(MemoryMarshal.AsBytes([r.Request.Guid]), minLight: 90, maxLight: 90).ToString()); width: @(Math.Max(1, StopwatchTicksToPixels(delta)))px; left: @(StopwatchTicksToPixels(r.StopwatchTicks.Min - firstStopwatchTicks))px;"></div>
+        }
 
-    }
+        @foreach (var b in bundle.SelectMany(x => x.Entries))
+        {
+            var delta = b.End - b.Start;
 
-    @foreach (var b in lockLogs)
-    {
-        var delta = b.End - b.Start;
+            <div title="@b.TooltipText" class="performance-timeline-entry" style="background-color: @(delta.MaxGcGeneration != -1 ? "red" : b.TableName != null ? Program.HashToCssColor(b.TableName, b.Operation).ToString() : "transparent"); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+                @b.TableName
+                @b.Operation
+                @(delta.MaxGcGeneration != -1 ? $" [GC {delta.MaxGcGeneration}]" : null)
+            </div>
 
-        <div title="@b.TooltipText" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
-            @b.Operation
-        </div>
-    }
 
-    @foreach (var b in networkLogs)
-    {
-        var delta = b.End - b.Start;
+        }
 
-        <div title="@((b.Operation + (b.TableName != null ? $" ({b.TableName})" : null)) + "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks)))" class="performance-timeline-network" style="background-color: @Program.HashToCssColor(b.Operation, b.TableName); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
-            @(b.Operation + (b.TableName != null ? $" ({b.TableName})" : null))
-        </div>
-    }
-</div>
+        @foreach (var b in bundle.SelectMany(x => x.LockLogs))
+        {
+            var delta = b.End - b.Start;
+
+            <div title="@b.TooltipText" class="performance-timeline-lock performance-timeline-lock-@b.Operation" style="width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+                @b.Operation
+            </div>
+        }
+
+        @foreach (var b in bundle.SelectMany(x => x.NetworkLogs))
+        {
+            var delta = b.End - b.Start;
+
+            <div title="@((b.Operation + (b.TableName != null ? $" ({b.TableName})" : null)) + "\n" + StringUtils.ToHumanTimeSpanForProfiler(BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(delta.StopwatchTicks)))" class="performance-timeline-network" style="background-color: @Program.HashToCssColor(b.Operation, b.TableName); width: @(Math.Max(1, StopwatchTicksToPixels(delta.StopwatchTicks)))px; left: @(StopwatchTicksToPixels(b.Start.StopwatchTicks - firstStopwatchTicks))px;">
+                @(b.Operation + (b.TableName != null ? $" ({b.TableName})" : null))
+            </div>
+        }
+
+    </div>
+}
 <br>
 <br>
 <br>
@@ -127,7 +187,7 @@
         <th title="Total wall clock time">Duration</th>
     </tr>
     
-@foreach (var item in entries.GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks), IoReadBytes: x.Sum(x => x.Delta.IoReadBytes), IoReads: x.Sum(x => x.Delta.IoReads), PotentialMmapBytes: x.Sum(x => x.Delta.MmapPotentialReadBytes), SeekStopwatchTicks: x.Sum(x => x.Delta.SeekStopwatchTicks))).OrderByDescending(x => x.StopwatchTicks))
+@foreach (var item in reqsSnapshot.SelectMany(x => x.Entries).GroupBy(x => (x.TableName, x.Operation)).Where(x => x.Key != default).Select(x => (x.Key.TableName, x.Key.Operation, Count: x.Count(), StopwatchTicks: x.Sum(y => y.Delta.StopwatchTicks), IoReadBytes: x.Sum(x => x.Delta.IoReadBytes), IoReads: x.Sum(x => x.Delta.IoReads), PotentialMmapBytes: x.Sum(x => x.Delta.MmapPotentialReadBytes), SeekStopwatchTicks: x.Sum(x => x.Delta.SeekStopwatchTicks))).OrderByDescending(x => x.StopwatchTicks))
 {
         <tr>
             <td>@item.TableName</td>

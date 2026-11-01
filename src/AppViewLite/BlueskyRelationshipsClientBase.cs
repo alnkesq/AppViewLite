@@ -565,10 +565,12 @@ namespace AppViewLite
 
         public readonly static TimeSpan PrintLongPrimaryLocks = TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_LONG_LOCK_PRIMARY_MS) ?? 30);
         public readonly static TimeSpan PrintLongSecondaryLocks = TimeSpan.FromMilliseconds(AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_LONG_LOCK_SECONDARY_MS) ?? 50);
+        public readonly static bool ProfileAllRequests = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_PROFILE_ALL_REQUESTS, false);
 
 
         private static readonly double StopwatchTickConversionFactor = TimeSpan.TicksPerSecond / (double)Stopwatch.Frequency;
         public static TimeSpan StopwatchTicksToTimespan(long stopwatchTicks) => new TimeSpan((long)(stopwatchTicks * StopwatchTickConversionFactor));
+        public static long TimespanToStopwatchTicks(TimeSpan timespan) => (long)(timespan.Ticks / StopwatchTickConversionFactor);
 
         private static void MaybeLogLongLockUsage(PerformanceSnapshot begin, LockKind lockKind, RequestContext ctx)
         {
@@ -593,7 +595,7 @@ namespace AppViewLite
                 totalStopwatchTicks = Interlocked.Add(ref ctx.StopwatchTicksSpentInsidePrimaryLock, delta.StopwatchTicks);
 
             var isAboveThreshold = StopwatchTicksToTimespan(totalStopwatchTicks) >= (isSecondary ? PrintLongSecondaryLocks : PrintLongPrimaryLocks);
-            if (ctx.IsUrgent || isAboveThreshold)
+            if (ctx.IsUrgent || isAboveThreshold || ProfileAllRequests)
                 ctx.AddToMetricsTable();
 
             if (maxGcGeneration != -1) return;

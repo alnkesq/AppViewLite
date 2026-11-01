@@ -2211,6 +2211,14 @@ input[type=radio], input[type=checkbox]{
     box-sizing: border-box;
 }
 
+.performance-timeline-request {
+    position: absolute;
+    top: 0px;
+    height: 90px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
 
 .performance-timeline-lock{
     position: absolute;

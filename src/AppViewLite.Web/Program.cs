@@ -518,14 +518,14 @@ namespace AppViewLite.Web
         public static string HashToCssColor(string? table, string? operation) => HashToCssColor(table + "|" + operation);
         public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MemoryMarshal.AsBytes(seed));
 
-        public static string HashToCssColor(ReadOnlySpan<byte> seed)
+        public static string HashToCssColor(ReadOnlySpan<byte> seed, int minLight = 60, int maxLight = 80)
         {
             var seedInt = (int)System.IO.Hashing.XxHash32.HashToUInt32(seed);
             var rng = new Random(seedInt);
 
             int hue = rng.Next(0, 360);
             int sat = rng.Next(50, 91);
-            int light = rng.Next(60, 80);
+            int light = rng.Next(minLight, maxLight);
             return $"hsl({hue}, {sat}%, {light}%)";
         }
     }

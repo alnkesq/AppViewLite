@@ -9,7 +9,8 @@
     <a class="blue-link" href="/debug/performance">Performance by task kind</a> |
     <a class="blue-link" href="/debug/requests?minprimary=100">Long primary</a> |
     <a class="blue-link" href="/debug/requests?min=100">Long</a> |
-    <a class="blue-link" href="/debug/requests">All</a>
+    <a class="blue-link" href="/debug/requests">All</a> |
+    <a class="blue-link" href="/debug/requests/*">Performance chart (all requests)</a>
 </div>
 @code {
     [SupplyParameterFromQuery][Parameter] public int MinPrimary { get; set; }
@@ -46,7 +47,7 @@
     </tr>
 
 
-    @foreach (var req in RequestContext.RecentRequestContextsUrgent.Concat(RequestContext.RecentRequestContextsNonUrgent).OrderByDescending(x => x.StartDate))
+    @foreach (RequestContext req in RequestContext.RecentRequestContexts.OrderByDescending(x => x.StartDate))
     {
         var w = req.TimeSpentWaitingForLocks.Elapsed;
 

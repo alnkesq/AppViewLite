@@ -1,5 +1,6 @@
 using AppViewLite.Models;
 using AppViewLite.Numerics;
+using AppViewLite;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
@@ -65,6 +66,7 @@ namespace AppViewLite
 
         public static ConcurrentQueue<RequestContext> RecentRequestContextsUrgent = new();
         public static ConcurrentQueue<RequestContext> RecentRequestContextsNonUrgent = new();
+        public static IEnumerable<RequestContext> RecentRequestContexts => RecentRequestContextsUrgent.Concat(RecentRequestContextsNonUrgent);
 
         public long MinVersion;
 
@@ -72,13 +74,15 @@ namespace AppViewLite
         {
         }
 
+        public readonly static int RecentRequestsToProfile = AppViewLiteConfiguration.GetInt32(AppViewLiteParameter.APPVIEWLITE_RECENT_REQUESTS_TO_PROFILE) ?? 200;
+
         private int addedToMetricsTable;
         public void AddToMetricsTable()
         {
             if (Interlocked.Increment(ref addedToMetricsTable) != 1) return;
             var queue = IsUrgent ? RecentRequestContextsUrgent : RecentRequestContextsNonUrgent;
             queue.Enqueue(this);
-            while (queue.Count >= 200)
+            while (queue.Count > RecentRequestsToProfile)
                 queue.TryDequeue(out _);
         }
 
@@ -302,6 +306,30 @@ namespace AppViewLite
         {
             BlueskyRelationships.Assert(!IsLoggedIn);
         }
+
+
+        public RequestContextSnapshotForPerformanceChart GetSnapshotForPerformanceGraph(bool forMultiChart)
+        {
+            var req = this;
+            var entries = req.GetOperationEntriesPlusImportant();
+            var networkLogs = req.NetworkLogEntries?.OrderBy(x => x.Start.StopwatchTicks).ToArray() ?? [];
+            var lockLogs = req.LockLogEntries.OrderBy(x => x.Start.StopwatchTicks).ToArray();
+            var allEntriesAndLogs = lockLogs.Concat(entries).Concat(networkLogs).ToArray();
+
+            var interval =
+                forMultiChart 
+                ? (allEntriesAndLogs.Length != 0 ? new Interval<long>(allEntriesAndLogs.Min(x => x.Start.StopwatchTicks), allEntriesAndLogs.Max(x => x.End.StopwatchTicks)) : default)
+                : new Interval<long>(
+                    allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Min(x => x.Start.StopwatchTicks) : 0,
+                    req.CompletionTimeStopwatchTicks != 0 ? req.CompletionTimeStopwatchTicks : allEntriesAndLogs.Length != 0 ? allEntriesAndLogs.Max(x => x.End.StopwatchTicks) : 64);
+            return new RequestContextSnapshotForPerformanceChart(
+                req,
+                networkLogs,
+                entries,
+                lockLogs,
+                interval
+            );
+        }
     }
 
     public record OperationLogEntry(PerformanceSnapshot Start, PerformanceSnapshot End, string? TableName, string? Operation, object? Argument)
@@ -322,5 +350,6 @@ namespace AppViewLite
         }
     }
 
+    public record RequestContextSnapshotForPerformanceChart(RequestContext Request, OperationLogEntry[] NetworkLogs, IReadOnlyList<OperationLogEntry> Entries, OperationLogEntry[] LockLogs, Interval<long> StopwatchTicks);
 }
 

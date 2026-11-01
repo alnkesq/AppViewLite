@@ -2,6 +2,7 @@
 @using System.Runtime.InteropServices
 @layout AppViewLite.Web.Components.Layout.NoLayout
 @inject NavigationManager Navigation
+@inject RequestContext RequestContext
 
 @code {
     [Parameter] public required string Guid { get; set; }
@@ -20,7 +21,11 @@
         var timespan = BlueskyRelationshipsClientBase.StopwatchTicksToTimespan(stopwatchTicks);
         return timespan.TotalSeconds * PixelsPerSecond;
     }
-
+    
+    protected override void OnInitialized()
+    {
+        RequestContext.EnsureAdministrator();
+    }
 
 }
 

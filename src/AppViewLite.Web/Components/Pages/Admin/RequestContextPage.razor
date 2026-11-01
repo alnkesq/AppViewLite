@@ -92,10 +92,10 @@
     {
         <a class="blue-link" href="/debug/requests/*">Show all requests</a><text> |</text>
     }
-    <a class="blue-link" id="request-profiler-zoom-in" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 4 * 1024 * 1024))">Zoom in</a> |
-    <a class="blue-link" id="request-profiler-zoom-out" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 32))">Zoom out</a>
+    <a class="blue-link" id="request-profiler-zoom-in" href="/debug/requests/@Guid?zoom=@(Math.Min(PixelsPerSecond * 2, 4 * 1024 * 1024) + (Seconds != null ? "&seconds=" + Seconds : null))">Zoom in</a> |
+    <a class="blue-link" id="request-profiler-zoom-out" href="/debug/requests/@Guid?zoom=@(Math.Max(PixelsPerSecond / 2, 32) + (Seconds != null ? "&seconds=" + Seconds : null))">Zoom out</a>
 </div>
-@if (singleReq == null && (!BlueskyRelationshipsClientBase.ProfileAllRequests || RequestContext.RecentRequestsToProfile < 5000))
+@if (singleReq == null && (!BlueskyRelationshipsClientBase.ProfileAllRequests || RequestContext.RecentRequestsToProfile < 1000))
 {
     <div><b>Warning! Chart might be incomplete, because APPVIEWLITE_PROFILE_ALL_REQUESTS is not enabled, or APPVIEWLITE_RECENT_REQUESTS_TO_PROFILE is too low.</b></div>
 }

@@ -409,7 +409,7 @@ namespace AppViewLite
                 rootPostId != null &&
                 (
                     rootPostId == postId /* if this post is the root, it's unlikely we already have the threadgate, so don't bother checking in rels.Threadgates */ ||
-                    !WithRelationshipsLock(rels => rels.Threadgates.ContainsKey(rels.GetPostId(rootPostId.Did, rootPostId.RKey, ctx)), ctx))
+                    !WithRelationshipsLockForDid(rootPostId.Did, (rootPostPlc, rels) => rels.Threadgates.ContainsKey(BlueskyRelationships.GetPostId(rootPostPlc, rootPostId.RKey)), ctx))
                 )
             {
                 loadThreadgate = FetchAndStoreThreadgateDict.GetValueAsync(rootPostId, RequestContext.CreateForTaskDictionary(ctx));

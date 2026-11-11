@@ -12,7 +12,7 @@ using System.Threading;
 
 namespace AppViewLite.Storage
 {
-    public sealed unsafe class MemoryMappedFileSlim : IDisposable
+    public sealed class MemoryMappedFileSlim : IDisposable
     {
         public static ConcurrentDictionary<MemoryMappedFileSlim, byte> Sections = new();
         public string Path { get; private set; }
@@ -33,7 +33,7 @@ namespace AppViewLite.Storage
         public DirectIoReadCache? DirectIoReadCache;
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern SafeFileHandle CreateFile(
+        private static unsafe extern SafeFileHandle CreateFile(
             string lpFileName,
             uint dwDesiredAccess,
             FileShare dwShareMode,
@@ -44,7 +44,7 @@ namespace AppViewLite.Storage
         );
 
         [DllImport("libc.so.6", SetLastError = true)]
-        private static extern int open(string pathname, OpenFlags flags);
+        private static safe extern int open(string pathname, OpenFlags flags);
 
 
         // https://github.com/alnkesq/AppViewLite/issues/236
@@ -95,7 +95,7 @@ namespace AppViewLite.Storage
         }
 
         [DllImport("libc.so.6", SetLastError = true)]
-        private static extern int posix_fadvise(int fd, long offset, long length, FileAdvice advice);
+        private static unsafe extern int posix_fadvise(int fd, long offset, long length, FileAdvice advice);
 
 
         public MemoryMappedFileSlim(string path, bool writable, FileShare? fileShare = null, bool randomAccess = false)
@@ -125,7 +125,7 @@ namespace AppViewLite.Storage
 
             var stream = mmap.CreateViewStream(0, 0, access);
             this.handle = stream.SafeMemoryMappedViewHandle;
-            handle.AcquirePointer(ref ptr);
+            unsafe { handle.AcquirePointer(ref ptr); }
             Path = path;
             Sections[this] = 0;
         }
@@ -139,7 +139,7 @@ namespace AppViewLite.Storage
             {
                 if (OperatingSystem.IsWindows())
                 {
-                    var safeFileHandle = CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, fileOptions, IntPtr.Zero);
+                    var safeFileHandle = unsafe(CreateFile(path, GENERIC_READ, fileShare, IntPtr.Zero, OPEN_EXISTING, fileOptions, IntPtr.Zero));
                     if (safeFileHandle.IsInvalid)
                     {
                         if (Marshal.GetLastWin32Error() == 2) throw new FileNotFoundException("File not found: " + path, path);
@@ -159,7 +159,7 @@ namespace AppViewLite.Storage
                     var safeFileHandle = new SafeFileHandle(fd, ownsHandle: true);
                     if ((fileOptions & FileOptions.RandomAccess) != 0)
                     {
-                        var errno = posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM);
+                        var errno = unsafe(posix_fadvise(fd, 0, 0, FileAdvice.POSIX_FADV_RANDOM));
                         if (errno != 0)
                         {
                             safeFileHandle.Dispose();
@@ -186,7 +186,7 @@ namespace AppViewLite.Storage
             };
         }
 
-        public unsafe static Func<nuint, string?> GetPageToSectionFunc()
+        public static Func<nuint, string?> GetPageToSectionFunc()
         {
             var sorted = Sections.Keys
                 .Select(x => (x.Path, Start: (nuint)x.Pointer, x.Length))
@@ -227,7 +227,7 @@ namespace AppViewLite.Storage
         private int disposed;
 
         [Obsolete]
-        public MemoryMappedMemory Memory => new MemoryMappedMemory(this, ptr, Length);
+        public MemoryMappedMemory Memory => unsafe(new MemoryMappedMemory(this, ptr, Length));
         public byte* Pointer => ptr;
         private readonly long _length;
         public long Length => _length;
@@ -253,9 +253,9 @@ namespace AppViewLite.Storage
         }
     }
     [Obsolete]
-    public unsafe struct MemoryMappedMemory
+    public struct MemoryMappedMemory
     {
-        public MemoryMappedMemory(MemoryMappedFileSlim handle, byte* basePtr, long length)
+        public unsafe MemoryMappedMemory(MemoryMappedFileSlim handle, byte* basePtr, long length)
         {
             this.handle = handle;
             this.basePtr = basePtr;
@@ -279,7 +279,7 @@ namespace AppViewLite.Storage
         {
             var finalOffset = this.basePtr + offset;
             if (length < 0 || offset < 0 || offset > this.length) throw new IndexOutOfRangeException();
-            return new MemoryMappedMemory(handle, finalOffset, length);
+            return unsafe(new MemoryMappedMemory(handle, finalOffset, length));
         }
         public byte ReadByte() => Read<byte>();
         public uint ReadUInt32() => Read<uint>();
@@ -291,7 +291,7 @@ namespace AppViewLite.Storage
         public T Read<T>() where T : unmanaged
         {
             if (length < sizeof(T)) ThrowEndOfStream();
-            var val = Unsafe.ReadUnaligned<T>(basePtr);
+            var val = unsafe(Unsafe.ReadUnaligned<T>(basePtr));
             basePtr += sizeof(T);
             length -= sizeof(T);
             return val;

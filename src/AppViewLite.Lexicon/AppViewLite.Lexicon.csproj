@@ -6,6 +6,8 @@
         <CarpaNet_LexiconAutoResolve>true</CarpaNet_LexiconAutoResolve>
         <CarpaNet_EmitXrpcEndpoints>true</CarpaNet_EmitXrpcEndpoints>
         <CarpaNet_LexiconCacheTtlHours>876000</CarpaNet_LexiconCacheTtlHours>
+        <Features>$(Features);updated-memory-safety-rules</Features>
+        <LangVersion>preview</LangVersion>
     </PropertyGroup>
     <Import Project="..\..\..\carpanet\src\CarpaNet\build\CarpaNet.targets" />
     <ItemGroup>

@@ -1,3 +1,4 @@
+using AppViewLite;
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -36,7 +37,7 @@ namespace AppViewLite.Storage
             if (remainingStructs == 0) throw new EndOfStreamException();
             if (bufferOffsetStructs == bufferSizeStructs)
             {
-                var bufferBytes = MemoryMarshal.AsBytes(buffer.AsSpan(0, bufferSizeStructs));
+                var bufferBytes = MostlySafe.AsBytes(buffer.AsSpan(0, bufferSizeStructs));
                 stream.ReadAtLeast(bufferBytes, bufferSizeBytes, throwOnEndOfStream: false);
                 bufferOffsetStructs = 0;
             }

@@ -1,5 +1,6 @@
 using AppViewLite.Numerics;
 using DuckDbSharp.Types;
+using AppViewLite;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -43,11 +44,11 @@ namespace AppViewLite.Models
         public readonly DuckDbUuid GetExternalPostIdHash()
         {
             return StringUtils.HashToUuid([
-                ..MemoryMarshal.AsBytes<char>(Did),
+                ..MostlySafe.AsBytes<char>(Did),
                 (byte)(PostId.String != null ? 1 : PostId.Bytes != null ? 2 : 3),
-                ..MemoryMarshal.AsBytes<char>(PostId.String),
+                ..MostlySafe.AsBytes<char>(PostId.String),
                 ..PostId.Bytes.AsSpan(),
-                ..MemoryMarshal.AsBytes<long>([PostId.Int64]),
+                ..MostlySafe.AsBytes<long>([PostId.Int64]),
             ]);
         }
 

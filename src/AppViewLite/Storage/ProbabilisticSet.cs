@@ -15,7 +15,7 @@ namespace AppViewLite
     public class ProbabilisticSet<T> : ProbabilisticSet where T : unmanaged
     {
         public readonly ulong[] Array;
-        public Span<byte> ArrayAsBytes => MemoryMarshal.AsBytes<ulong>((Span<ulong>)Array);
+        public Span<byte> ArrayAsBytes => MostlySafe.AsBytes<ulong>((Span<ulong>)Array);
         private readonly int _hashFunctions;
         private readonly int _bitsPerFunction;
         private readonly ulong _getFunctionBitsMask;
@@ -103,10 +103,10 @@ namespace AppViewLite
 
         }
 
-        private static void RefillHashEnumerator(ref HashBitEnumerator enumerator)
+        private safe static void RefillHashEnumerator(ref HashBitEnumerator enumerator)
         {
             enumerator.RemainingBits = 128;
-            var next = XxHash128.HashToUInt128(MemoryMarshal.AsBytes(new ReadOnlySpan<UInt128>(in enumerator.HashData)));
+            var next = XxHash128.HashToUInt128(MostlySafe.AsBytes(new ReadOnlySpan<UInt128>(in enumerator.HashData)));
             enumerator.NextBits = next;
             enumerator.HashData = next;
         }
@@ -128,7 +128,7 @@ namespace AppViewLite
             public int RemainingBits;
         }
 
-        private static UInt128 GetHash(in T value) => System.IO.Hashing.XxHash128.HashToUInt128(MemoryMarshal.AsBytes<T>(new ReadOnlySpan<T>(in value)));
+        private safe static UInt128 GetHash(in T value) => System.IO.Hashing.XxHash128.HashToUInt128(MostlySafe.AsBytes<T>(new ReadOnlySpan<T>(in value)));
 
         public override string ToString()
         {

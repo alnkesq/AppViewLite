@@ -226,8 +226,8 @@ namespace AppViewLite.PluggableProtocols.Reddit
 
     public class RedditApiMediaMetadataSource
     {
-        public int y { get; set; }
-        public int x { get; set; }
+        public int? y { get; set; }
+        public int? x { get; set; }
         public string u { get; set; }
         public string gif { get; set; }
         public string mp4 { get; set; }
@@ -235,8 +235,8 @@ namespace AppViewLite.PluggableProtocols.Reddit
 
     public class RedditApiMediaMetadataPreview
     {
-        public int y { get; set; }
-        public int x { get; set; }
+        public int? y { get; set; }
+        public int? x { get; set; }
         public string u { get; set; }
     }
 

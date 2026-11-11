@@ -684,7 +684,7 @@ namespace AppViewLite.PluggableProtocols.Rss
             else
             {
                 var h = guid ?? url?.AbsoluteUri ?? date;
-                postId = new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, h), XxHash64.Hash(MemoryMarshal.AsBytes<char>(h)));
+                postId = new NonQualifiedPluggablePostId(CreateSyntheticTid(dateParsed, h), XxHash64.Hash(MostlySafe.AsBytes<char>(h)));
             }
 
 

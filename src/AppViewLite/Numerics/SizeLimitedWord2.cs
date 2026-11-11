@@ -1,3 +1,4 @@
+using AppViewLite;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -67,11 +68,11 @@ namespace AppViewLite.Models
             return AsUint16.GetHashCode();
         }
 
-        private readonly ushort AsUint16 => Unsafe.BitCast<SizeLimitedWord2, ushort>(this);
+        private readonly ushort AsUint16 => MostlySafe.BitCast<SizeLimitedWord2, ushort>(this);
 
         const int MaxLength = 2;
 
-        public readonly static SizeLimitedWord2 MaxValue = Unsafe.BitCast<ushort, SizeLimitedWord2>(ushort.MaxValue);
+        public readonly static SizeLimitedWord2 MaxValue = MostlySafe.BitCast<ushort, SizeLimitedWord2>(ushort.MaxValue);
 
         public readonly SizeLimitedWord2 GetMaxExclusiveForPrefixRange()
         {

@@ -2,6 +2,7 @@ using AppViewLite.Models;
 using AppViewLite.Numerics;
 using AppViewLite.PluggableProtocols.Rss;
 using DuckDbSharp.Types;
+using AppViewLite;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -400,7 +401,7 @@ namespace AppViewLite.PluggableProtocols
         {
             var roundedDate = new DateTime(date.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, DateTimeKind.Utc);
 
-            var hash = System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes(hashableData));
+            var hash = System.IO.Hashing.XxHash64.HashToUInt64(MostlySafe.AsBytes(hashableData));
 
             var fakeMicros = hash % 0x80000;
             if (fakeMicros >= 1_000_000) AssertionLiteException.Throw("fakeMicros is >= 1 million");

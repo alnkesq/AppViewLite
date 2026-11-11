@@ -2,6 +2,7 @@ using AppViewLite.Numerics;
 using DuckDbSharp;
 using DuckDbSharp.Types;
 using ProtoBuf;
+using AppViewLite;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -133,7 +134,7 @@ namespace AppViewLite.Models
                 var date = Date;
                 if (date < ApproximateDateTime32.MinValueAsDateTime)
                     date = ApproximateDateTime32.MinValueAsDateTime;
-                bw.Write(Unsafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)date));
+                bw.Write(MostlySafe.BitCast<ApproximateDateTime32, uint>((ApproximateDateTime32)date));
                 if (PdsId != null)
                 {
                     format |= DidDocEncoding.HasPds;
@@ -176,7 +177,7 @@ namespace AppViewLite.Models
             if (onlyIfProtobufEncoding) return null;
             var result = new DidDocProto
             {
-                Date = Unsafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32())
+                Date = MostlySafe.BitCast<uint, ApproximateDateTime32>(br.ReadUInt32())
             };
             if ((format & DidDocEncoding.HasPds) != 0)
             {

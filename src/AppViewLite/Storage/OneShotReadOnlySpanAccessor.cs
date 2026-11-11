@@ -30,7 +30,16 @@ namespace AppViewLite
         public DangerousHugeReadOnlyMemory<T> DangerousSpan => getItems != null ? getItems(fingerprint) : default;
         public long Length => DangerousSpan.Length;
 
-        public T this[long index] => DangerousSpan[index];
+        public unsafe T this[long index]
+        {
+            get
+            {
+                unsafe
+                {
+                    return DangerousSpan[index];
+                }
+            }
+        }
     }
 }
 

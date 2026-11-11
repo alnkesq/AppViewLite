@@ -1167,7 +1167,7 @@ namespace AppViewLite
                         if (checkGaps && x.Date > new DateTime(2022, 11, 18)) throw new Exception("PLC directory should start at 2022-11-17");
                         prevDate = x.Date;
                     }
-                    x.TrustedDid = BlueskyRelationships.DeserializeDidPlcFromUInt128(Unsafe.BitCast<DuckDbUuid, UInt128>(x.PlcAsUInt128));
+                    x.TrustedDid = BlueskyRelationships.DeserializeDidPlcFromUInt128(MostlySafe.BitCast<DuckDbUuid, UInt128>(x.PlcAsUInt128));
                     var delta = x.Date - prevDate.Value;
                     if (delta < TimeSpan.Zero) throw AssertionLiteException.Throw("Negative time delta in parquet PLC bundle import");
 

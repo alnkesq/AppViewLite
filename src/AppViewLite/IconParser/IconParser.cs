@@ -50,7 +50,7 @@ namespace AppViewLite.IconParser
             ushort bitCountFromEntry,
             ReadOnlySpan<byte> entryBytes)
         {
-            var header = MemoryMarshal.Read<BITMAPINFOHEADER>(entryBytes);
+            var header = unsafe(MemoryMarshal.Read<BITMAPINFOHEADER>(entryBytes));
 
             int bitCount = header.biBitCount;
 
@@ -72,7 +72,8 @@ namespace AppViewLite.IconParser
 
             var bitmap = SKBitmap.Create(width, height);
 
-            var bitmapAccessor = new PixelAccessor(bitmap);
+            PixelAccessor bitmapAccessor;
+            unsafe { bitmapAccessor = new PixelAccessor(bitmap); }
 
             bool hasAlpha = false;
 

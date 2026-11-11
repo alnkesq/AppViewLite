@@ -1,3 +1,4 @@
+using AppViewLite;
 using System;
 using System.IO;
 using System.Linq;
@@ -26,7 +27,7 @@ namespace AppViewLite.Storage
         }
         public void WriteElementRange<T>(int columnIndex, ReadOnlySpan<T> values) where T : unmanaged
         {
-            _columnWriters[columnIndex].Writer.Write(MemoryMarshal.AsBytes(values));
+            _columnWriters[columnIndex].Writer.Write(MostlySafe.AsBytes(values));
         }
 
         public long CommitAndGetSize()

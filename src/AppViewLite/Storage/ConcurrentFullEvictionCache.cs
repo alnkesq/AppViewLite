@@ -54,12 +54,15 @@ namespace AppViewLite
             }
         }
 
-        public unsafe TValue GetOrAdd(TKey key, Func<TValue> factory)
+        public safe TValue GetOrAdd(TKey key, Func<TValue> factory)
         {
             var wasAdded = false;
             var value = dict.GetOrAdd(key, static (key, arg) =>
             {
-                arg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                unsafe
+                {
+                    arg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                }
                 return arg.Factory();
             }, (Factory: factory, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
             if (wasAdded)
@@ -73,12 +76,15 @@ namespace AppViewLite
             }
             return value;
         }
-        public unsafe TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> factory, TArg arg)
+        public safe TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> factory, TArg arg)
         {
             var wasAdded = false;
             var value = dict.GetOrAdd(key, static (key, argg) =>
             {
-                argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                unsafe
+                {
+                    argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                }
                 return argg.factory(key, argg.arg);
             }, (factory, arg, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
             if (wasAdded)
@@ -93,13 +99,16 @@ namespace AppViewLite
             return value;
         }
 
-        public unsafe TValue AddOrUpdate(TKey key, TValue addValue, Func<TKey, TValue, TValue> updateValueFactory)
+        public safe TValue AddOrUpdate(TKey key, TValue addValue, Func<TKey, TValue, TValue> updateValueFactory)
         {
             var wasAdded = false;
             var value = dict.AddOrUpdate(key,
                 static (key, argg) =>
                 {
-                    argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                    unsafe
+                    {
+                        argg.WasAddedPtr.AsRef = true; // racy but doesn't matter, approximation only
+                    }
                     return argg.addValue;
                 },
                 static (key, prev, argg) =>
@@ -113,12 +122,15 @@ namespace AppViewLite
         }
 
 
-        public unsafe bool Add(TKey key, TValue value)
+        public safe bool Add(TKey key, TValue value)
         {
             var wasAdded = true;
             dict.AddOrUpdate(key, static (key, arg) => arg.Value, static (key, old, arg) =>
             {
-                arg.WasAddedPtr.AsRef = false; // Updating, so we must NOT increment approx count
+                unsafe
+                {
+                    arg.WasAddedPtr.AsRef = false; // Updating, so we must NOT increment approx count
+                }
                 return arg.Value;
             }, (Value: value, WasAddedPtr: (UnsafePointer<bool>)(&wasAdded)));
             if (wasAdded)

@@ -137,7 +137,7 @@ namespace AppViewLite.PluggableProtocols.ActivityPub
                     RecentlyStoredProfilesLastReset.Restart();
                 }
 
-                if (!RecentlyStoredProfiles.Add(System.IO.Hashing.XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(did))))
+                if (!RecentlyStoredProfiles.Add(System.IO.Hashing.XxHash128.HashToUInt128(MostlySafe.AsBytes<char>(did))))
                     return;
             }
 

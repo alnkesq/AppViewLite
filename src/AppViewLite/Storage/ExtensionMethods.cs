@@ -13,7 +13,7 @@ namespace AppViewLite.Storage
     {
         public static void WriteUnmanaged<T>(this BinaryWriter writer, T item) where T : unmanaged
         {
-            writer.Write(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in item)));
+            writer.Write(MostlySafe.AsBytes(new ReadOnlySpan<T>(in item)));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

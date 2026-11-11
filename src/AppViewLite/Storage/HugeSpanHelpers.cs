@@ -17,12 +17,12 @@ namespace AppViewLite
             if (comparable == null)
                 throw new ArgumentNullException();
 
-            return BinarySearch(ref Unsafe.AsRef(in span.GetReference()), span.Length, comparable);
+            return BinarySearch(ref unsafe(Unsafe.AsRef(in span.GetReference())), span.Length, comparable);
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long BinarySearchInterruptibleNoThrow<T, TComparable>(
+        public safe static long BinarySearchInterruptibleNoThrow<T, TComparable>(
             HugeReadOnlySpan<T> span, TComparable comparable, CancellationToken ctNoThrow)
             where TComparable : IComparable<T>, allows ref struct
         {
@@ -31,7 +31,7 @@ namespace AppViewLite
             if (comparable == null)
                 throw new ArgumentNullException();
 
-            return BinarySearchInterruptibleNoThrow(ref Unsafe.AsRef(in span.GetReference()), span.Length, comparable, ctNoThrow);
+            return unsafe(BinarySearchInterruptibleNoThrow(ref Unsafe.AsRef(in span.GetReference()), span.Length, comparable, ctNoThrow));
         }
 
         public static long BinarySearch<T, TComparable>(
@@ -62,7 +62,7 @@ namespace AppViewLite
                 //       `int i = lo + ((hi - lo) >> 1);`
                 long i = (long)(((ulong)hi + (ulong)lo) >> 1);
 
-                long c = comparable.CompareTo(Unsafe.Add(ref spanStart, (nint)i));
+                long c = comparable.CompareTo(unsafe(Unsafe.Add(ref spanStart, (nint)i)));
                 if (c == 0)
                 {
                     return i;
@@ -84,7 +84,7 @@ namespace AppViewLite
         }
 
         public const long InterruptedDeadFoodPositive = long.MaxValue / 4;
-        public static long BinarySearchInterruptibleNoThrow<T, TComparable>(
+        public unsafe static long BinarySearchInterruptibleNoThrow<T, TComparable>(
             ref T spanStart, long length, TComparable comparable, CancellationToken ctNoThrow)
             where TComparable : IComparable<T>, allows ref struct
         {
@@ -103,7 +103,7 @@ namespace AppViewLite
 
                 if (ctNoThrow.IsCancellationRequested) return InterruptedDeadFoodPositive;
 
-                long c = comparable.CompareTo(Unsafe.Add(ref spanStart, (nint)i));
+                long c = comparable.CompareTo(unsafe(Unsafe.Add(ref spanStart, (nint)i)));
                 if (c == 0)
                 {
                     return i;
@@ -141,7 +141,7 @@ namespace AppViewLite
                 //       `int i = lo + ((hi - lo) >> 1);`
                 long i = (long)(((ulong)hi + (ulong)lo) >> 1);
 
-                ref var value = ref Unsafe.Add(ref spanStart, (nint)i);
+                ref var value = ref unsafe(Unsafe.Add(ref spanStart, (nint)i));
                 MemoryInstrumentation.OnAccess(in value);
                 long c = comparable.CompareTo(value);
                 if (c == 0)

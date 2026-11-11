@@ -141,7 +141,7 @@
         @foreach (var r in bundle)
         {
             var delta = r.StopwatchTicks.Max - r.StopwatchTicks.Min;
-            <div title="@r.Request.ToString()" class="performance-timeline-request" style="background-color: @(Program.HashToCssColor(MemoryMarshal.AsBytes([r.Request.Guid]), minLight: 90, maxLight: 90).ToString()); width: @(Math.Max(1, StopwatchTicksToPixels(delta)))px; left: @(StopwatchTicksToPixels(r.StopwatchTicks.Min - firstStopwatchTicks))px;"></div>
+            <div title="@r.Request.ToString()" class="performance-timeline-request" style="background-color: @(Program.HashToCssColor(AppViewLite.MostlySafe.AsBytes([r.Request.Guid]), minLight: 90, maxLight: 90).ToString()); width: @(Math.Max(1, StopwatchTicksToPixels(delta)))px; left: @(StopwatchTicksToPixels(r.StopwatchTicks.Min - firstStopwatchTicks))px;"></div>
         }
 
         @foreach (var b in bundle.SelectMany(x => x.Entries))

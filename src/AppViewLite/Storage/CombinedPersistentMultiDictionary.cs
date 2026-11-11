@@ -146,7 +146,7 @@ namespace AppViewLite.Storage
             var nativeArray = ToNativeArray<T>(enumerable);
             return new OneShotReadOnlySpanAccessor<T>(0, _ => nativeArray);
         }
-        public unsafe static DangerousHugeReadOnlyMemory<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T : unmanaged
+        public static DangerousHugeReadOnlyMemory<T> ToNativeArray<T>(IEnumerable<T> enumerable) where T : unmanaged
         {
             var arena = UnalignedArenaForCurrentThread!;
             if (TryGetSpan(enumerable, out var src))
@@ -154,15 +154,18 @@ namespace AppViewLite.Storage
                 if (src.IsEmpty) return default;
                 var size = checked((int)(Unsafe.SizeOf<T>() * src.Length));
                 var ptr = arena.Allocate(size);
-                src.AsSmallSpan().CopyTo(new Span<T>(ptr, (int)src.Length));
-                return new DangerousHugeReadOnlyMemory<T>((T*)ptr, src.Length);
+                unsafe
+                {
+                    src.AsSmallSpan().CopyTo(new Span<T>(ptr, (int)src.Length));
+                    return new DangerousHugeReadOnlyMemory<T>((T*)ptr, src.Length);
+                }
             }
 
             return ToNativeArrayCore(enumerable, arena);
 
         }
 
-        private static unsafe DangerousHugeReadOnlyMemory<T> ToNativeArrayCore<T>(IEnumerable<T> enumerable, NativeArenaSlim arena) where T : unmanaged
+        private static DangerousHugeReadOnlyMemory<T> ToNativeArrayCore<T>(IEnumerable<T> enumerable, NativeArenaSlim arena) where T : unmanaged
         {
             if (enumerable.TryGetNonEnumeratedCount(out var count))
             {
@@ -172,13 +175,16 @@ namespace AppViewLite.Storage
                 var ptr = arena.Allocate(size);
 
 
-                var dest = new Span<T>((T*)ptr, count);
-                var index = 0;
-                foreach (var item in enumerable)
+                unsafe
                 {
-                    dest[index++] = item;
+                    var dest = new Span<T>((T*)ptr, count);
+                    var index = 0;
+                    foreach (var item in enumerable)
+                    {
+                        dest[index++] = item;
+                    }
+                    return new DangerousHugeReadOnlyMemory<T>((T*)ptr, count);
                 }
-                return new DangerousHugeReadOnlyMemory<T>((T*)ptr, count);
 
             }
             else
@@ -194,7 +200,7 @@ namespace AppViewLite.Storage
             bool result = true;
             if (source.GetType() == typeof(TSource[]))
             {
-                span = Unsafe.As<TSource[]>(source);
+                span = unsafe(Unsafe.As<TSource[]>(source));
             }
             else if (source is DangerousHugeReadOnlyMemory<TSource> nativeArray)
             {
@@ -449,7 +455,7 @@ namespace AppViewLite.Storage
             }
         }
 
-        private unsafe void AddToCaches(SliceInfo slice, int sliceIndex)
+        private void AddToCaches(SliceInfo slice, int sliceIndex)
         {
             if (Caches == null) return;
             foreach (var cache in Caches)
@@ -833,7 +839,7 @@ namespace AppViewLite.Storage
 
             foreach (var item in GetValuesChunkedLatestFirst(key))
             {
-                value = item[item.Count - 1];
+                unsafe { value = item[item.Count - 1]; }
                 return true;
             }
             value = default;
@@ -861,7 +867,7 @@ namespace AppViewLite.Storage
                     var vals = slice.Reader.GetValues(key, preference);
                     if (vals.Length != 0)
                     {
-                        value = vals[0];
+                        unsafe { value = vals[0]; }
                         return true;
                     }
                 }
@@ -1152,7 +1158,9 @@ namespace AppViewLite.Storage
                     var v = slice.Reader.GetValues(key);
                     for (int i = 0; i < v.Length; i++)
                     {
-                        yield return v[i];
+                        TValue val;
+                        unsafe { val = v[i]; }
+                        yield return val;
                     }
                 }
                 if (queue.TryGetValues(key, out var vals))
@@ -1527,7 +1535,7 @@ namespace AppViewLite.Storage
                 {
                     var key = keys.Span[i];
                     if (!IsInRange(key, min, maxExclusive)) break;
-                    yield return (key, slice.Reader.GetValues(i, preference));
+                    yield return (key, unsafe(slice.Reader.GetValues(i, preference)));
                 }
 
 
@@ -1535,7 +1543,7 @@ namespace AppViewLite.Storage
                 {
                     var key = keys.Span[i];
                     if (!IsInRange(key, min, maxExclusive)) break;
-                    yield return (key, slice.Reader.GetValues(i, preference));
+                    yield return (key, unsafe(slice.Reader.GetValues(i, preference)));
                 }
 
             }

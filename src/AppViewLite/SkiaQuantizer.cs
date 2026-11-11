@@ -128,7 +128,8 @@ internal static class SkiaQuantizer
         var palette = boxes.Select(b => b.Average()).ToArray();
 
         var result = SKBitmap.Create(source.Width, source.Height);
-        var resultAccessor = new PixelAccessor(result);
+        PixelAccessor resultAccessor;
+        unsafe { resultAccessor = new PixelAccessor(result); }
         for (int y = 0; y < source.Height; y++)
         {
             for (int x = 0; x < source.Width; x++)

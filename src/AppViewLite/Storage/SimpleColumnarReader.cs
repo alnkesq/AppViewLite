@@ -52,29 +52,29 @@ namespace AppViewLite.Storage
         }
 
         public MemoryMappedFileSlim GetMemoryMappedFile(int index) => columns[index];
-        public unsafe HugeReadOnlyMemory<T> GetColumnHugeMemory<T>(int index) where T : unmanaged
+        public HugeReadOnlyMemory<T> GetColumnHugeMemory<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new HugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col));
+            return unsafe(new HugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col)));
         }
-        public unsafe DangerousHugeReadOnlyMemory<T> GetColumnDangerousHugeMemory<T>(int index) where T : unmanaged
+        public DangerousHugeReadOnlyMemory<T> GetColumnDangerousHugeMemory<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new DangerousHugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col));
+            return unsafe(new DangerousHugeReadOnlyMemory<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col)));
         }
-        public unsafe HugeReadOnlySpan<T> GetColumnHugeSpan<T>(int index) where T : unmanaged
+        public HugeReadOnlySpan<T> GetColumnHugeSpan<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new HugeReadOnlySpan<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col));
+            return unsafe(new HugeReadOnlySpan<T>((T*)col.Pointer, ByteLengthToElementCount<T>(col)));
         }
-        public unsafe ReadOnlySpan<T> GetColumnSpan<T>(int index) where T : unmanaged
+        public ReadOnlySpan<T> GetColumnSpan<T>(int index) where T : unmanaged
         {
             var col = columns[index];
             col.EnsureValid();
-            return new ReadOnlySpan<T>((T*)col.Pointer, checked((int)ByteLengthToElementCount<T>(col)));
+            return unsafe(new ReadOnlySpan<T>((T*)col.Pointer, checked((int)ByteLengthToElementCount<T>(col))));
         }
     }
 }

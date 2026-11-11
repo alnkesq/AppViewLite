@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace AppViewLite
 {
-    public static unsafe class MemoryInstrumentation
+    public static class MemoryInstrumentation
     {
 #if MEMORY_INSTRUMENTATION
         public readonly static bool IsEnabled = true;
@@ -29,7 +29,7 @@ namespace AppViewLite
         [Conditional("MEMORY_INSTRUMENTATION")]
         public static void OnAccess<T>(ref readonly T item)
         {
-            OnAccess(Unsafe.AsPointer(ref Unsafe.AsRef(in item)));
+            OnAccess(unsafe(Unsafe.AsPointer(ref Unsafe.AsRef(in item))));
         }
 
         [Conditional("MEMORY_INSTRUMENTATION")]

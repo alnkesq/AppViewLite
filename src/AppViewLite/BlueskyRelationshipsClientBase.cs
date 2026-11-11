@@ -27,7 +27,7 @@ namespace AppViewLite
 
 
         [DllImport("libc")]
-        private static extern int gettid();
+        private static safe extern int gettid();
 
         private static readonly bool wantManagedNativeThreadMapping = AppViewLiteConfiguration.GetBool(AppViewLiteParameter.APPVIEWLITE_TRACK_MANAGED_NATIVE_THREAD_ID_MAPPINGS, true);
         [ThreadStatic] private static bool DidLogManagedNativeThreadIdMappingForCurrentThread;

@@ -829,7 +829,7 @@ namespace AppViewLite
             {
                 var handle = lockFile!.SafeFileHandle.DangerousGetHandle();
                 // First we flush all file data to physical disk, then we save the .pb checkpoint
-                if (syncfs((int)handle) < 0) // Flushes the whole file system on which the handle file resides
+                if (unsafe(syncfs((int)handle)) < 0) // Flushes the whole file system on which the handle file resides
                     throw new Win32Exception("syncfs failed with errno " + Marshal.GetLastWin32Error());
 
                 // On Windows, FlushFileBuffers() can work:
@@ -840,7 +840,7 @@ namespace AppViewLite
         }
 
         [DllImport("libc.so.6", SetLastError = true)]
-        public static extern int syncfs(int fd);
+        public static unsafe extern int syncfs(int fd);
 
         public void GarbageCollectOldSlices(bool allowTempFileDeletion = false)
         {
@@ -1416,12 +1416,12 @@ namespace AppViewLite
 
         private static HashedWord HashPlcForTextSearch(Plc author)
         {
-            return new(XxHash64.HashToUInt64(MemoryMarshal.AsBytes<int>([author.PlcValue])));
+            return new(XxHash64.HashToUInt64(MostlySafe.AsBytes<int>([author.PlcValue])));
         }
 
         public static HashedWord HashWord(ReadOnlySpan<char> word)
         {
-            return new(System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(word), 4662323635092061535));
+            return new(System.IO.Hashing.XxHash64.HashToUInt64(MostlySafe.AsBytes<char>(word), 4662323635092061535));
         }
 
 
@@ -1572,7 +1572,7 @@ namespace AppViewLite
         private static bool RemoveEmptySearchSlices<T>((long TotalCount, List<DangerousHugeReadOnlyMemory<T>> Slices)[] words, T approxDate) where T : unmanaged, IEquatable<T>
         {
             var firstWord = words[0].Slices;
-            var sliceIndex = firstWord.FindIndex(x => x[x.Count - 1].Equals(approxDate));
+            var sliceIndex = firstWord.FindIndex(x => unsafe(x[x.Count - 1].Equals(approxDate)));
             if (sliceIndex == -1) AssertionLiteException.Throw("RemoveEmptySearchSlices already empty");
             firstWord[sliceIndex] = firstWord[sliceIndex].Slice(0, firstWord[sliceIndex].Count - 1);
             firstWord.RemoveAll(x => x.Count == 0);
@@ -1596,7 +1596,7 @@ namespace AppViewLite
                 for (int wordIdx = 0; wordIdx < words.Length; wordIdx++)
                 {
                     // what's the latest possible post id for this specific word (across all slices)?
-                    var postId = words[wordIdx].Slices.Max(x => x[x.Count - 1]);
+                    var postId = unsafe(words[wordIdx].Slices.Max(x => x[x.Count - 1]));
                     if (postId.CompareTo(mostRecentCommonPost) < 0) // postId < mostRecentCommonPost
                     {
                         // because of this word, we know the latest possible post must be moved to a value closer to zero.
@@ -2451,10 +2451,11 @@ namespace AppViewLite
             else index = ~index;
             for (long i = index - 1; i >= 0; i--)
             {
-                var postId = slice.Reader.Keys[i];
+                PostId postId;
+                unsafe { postId = slice.Reader.Keys[i]; }
                 if (postId.PostRKey.Date > now) continue;
                 if (PostDeletions.ContainsKey(postId)) continue;
-                var postData = DeserializePostData(slice.Reader.GetValues(i, PostData.GetIoPreferenceForKey(postId)).Span.AsSmallSpan(), postId);
+                var postData = DeserializePostData(unsafe(slice.Reader.GetValues(i, PostData.GetIoPreferenceForKey(postId))).Span.AsSmallSpan(), postId);
                 yield return GetPost(postId, postData, ctx);
             }
         }
@@ -2697,7 +2698,7 @@ namespace AppViewLite
 
                 if (singleList.Count != 1) AssertionLiteException.Throw("GetSubscribedBlockLists deletion should've been SingleValue.");
 
-                lists.Add(singleList[0]);
+                unsafe { lists.Add(singleList[0]); }
             }
 
             return lists;
@@ -3552,7 +3553,7 @@ namespace AppViewLite
             Environment.FailFast(message);
             throw new Exception(message);
         }
-        public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<char>(label));
+        public static ulong HashLabelName(string label) => System.IO.Hashing.XxHash64.HashToUInt64(MostlySafe.AsBytes<char>(label));
         public BlueskyLabel GetLabel(LabelId x, RequestContext ctx)
         {
             if (ctx.LabelCache?.TryGetValue(x, out var cached) == true) return cached;
@@ -4700,10 +4701,10 @@ namespace AppViewLite
             }
         }
 
-        public static unsafe NativeMemoryRange AllocUnaligned(int length)
+        public static NativeMemoryRange AllocUnaligned(int length)
         {
             var ptr = CombinedPersistentMultiDictionary.UnalignedArenaForCurrentThread!.Allocate(length);
-            return new NativeMemoryRange((nuint)ptr, (nuint)length);
+            return unsafe(new NativeMemoryRange((nuint)ptr, (nuint)length));
         }
 
 

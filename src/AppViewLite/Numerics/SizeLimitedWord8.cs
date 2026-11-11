@@ -1,3 +1,4 @@
+using AppViewLite;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -72,11 +73,11 @@ namespace AppViewLite.Numerics
             return AsUint64.GetHashCode();
         }
 
-        private readonly ulong AsUint64 => Unsafe.BitCast<SizeLimitedWord8, ulong>(this);
+        private readonly ulong AsUint64 => MostlySafe.BitCast<SizeLimitedWord8, ulong>(this);
 
         const int MaxLength = 8;
 
-        public readonly static SizeLimitedWord8 MaxValue = Unsafe.BitCast<ulong, SizeLimitedWord8>(ulong.MaxValue);
+        public readonly static SizeLimitedWord8 MaxValue = MostlySafe.BitCast<ulong, SizeLimitedWord8>(ulong.MaxValue);
 
         public readonly SizeLimitedWord8 GetMaxExclusiveForPrefixRange()
         {

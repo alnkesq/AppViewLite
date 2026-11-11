@@ -38,11 +38,16 @@ internal static class LanczosResizer
                 SKColorType.Bgra8888,
                 SKAlphaType.Premul));
 
+        PixelAccessor inputAccessor;
+        PixelAccessor tempAccessor;
+        PixelAccessor outputAccessor;
 
-        
-        var inputAccessor = new PixelAccessor(input);
-        var tempAccessor = new PixelAccessor(temp);
-        var outputAccessor = new PixelAccessor(output);
+        unsafe
+        {
+            inputAccessor = new PixelAccessor(input);
+            tempAccessor = new PixelAccessor(temp);
+            outputAccessor = new PixelAccessor(output);
+        }
 
         // Horizontal pass: unpremul input -> premul temp
 

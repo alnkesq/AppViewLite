@@ -516,7 +516,7 @@ namespace AppViewLite.Web
         }
 
         public static string HashToCssColor(string? table, string? operation) => HashToCssColor(table + "|" + operation);
-        public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MemoryMarshal.AsBytes(seed));
+        public static string HashToCssColor(ReadOnlySpan<char> seed) => HashToCssColor(MostlySafe.AsBytes(seed));
 
         public static string HashToCssColor(ReadOnlySpan<byte> seed, int minLight = 60, int maxLight = 80)
         {

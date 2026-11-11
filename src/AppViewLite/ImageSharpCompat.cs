@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 
 namespace SkiaSharp
 {
-    public unsafe static class ImageSharpCompat
+    public static class ImageSharpCompat
     {
 
         private static int Pow2(int a) => a * a;
@@ -265,16 +265,22 @@ namespace SkiaSharp
 
             public void ProcessPixelRows(Action<PixelAccessor> processPixels)
             {
-                var accessor = new PixelAccessor(bitmap);
-                processPixels(accessor);
-                GC.KeepAlive(bitmap);
+                unsafe
+                {
+                    var accessor = new PixelAccessor(bitmap);
+                    processPixels(accessor);
+                    GC.KeepAlive(bitmap);
+                }
             }
             public T ProcessPixelRows<T>(Func<PixelAccessor, T> processPixels)
             {
-                var accessor = new PixelAccessor(bitmap);
-                var result = processPixels(accessor);
-                GC.KeepAlive(bitmap);
-                return result;
+                unsafe
+                {
+                    var accessor = new PixelAccessor(bitmap);
+                    var result = processPixels(accessor);
+                    GC.KeepAlive(bitmap);
+                    return result;
+                }
             }
             public SKBitmap CreateWithSameSize() => new SKBitmap(bitmap.Info);
             public SKBitmap CreateWithSize(Size size) => new SKBitmap(bitmap.Info.WithSize(size.AsSKSizeI));
@@ -500,7 +506,7 @@ namespace SkiaSharp
         }
     }
 
-    internal unsafe class SKBitmapRowMemoryManager : MemoryManager<SKColor>
+    internal class SKBitmapRowMemoryManager : MemoryManager<SKColor>
     {
         private readonly SKBitmap bitmap;
         private readonly SKColor* pointer;
@@ -521,21 +527,21 @@ namespace SkiaSharp
                 throw new ArgumentOutOfRangeException(nameof(row));
 
             var pixels = (byte*)bitmap.GetPixels(out _);
-            pointer = (SKColor*)(pixels + row * bitmap.RowBytes);
+            pointer =  (SKColor*)(pixels + row * bitmap.RowBytes);
             length = bitmap.Width;
         }
 
         public override Span<SKColor> GetSpan()
         {
             if (bitmap.Handle == default) throw new ObjectDisposedException(nameof(SKBitmap));
-            return new Span<SKColor>(pointer, length);
+            return unsafe(new Span<SKColor>(pointer, length));
         }
 
         public override MemoryHandle Pin(int elementIndex = 0)
         {
             if ((uint)elementIndex > (uint)length)
                 throw new ArgumentOutOfRangeException(nameof(elementIndex));
-            return new MemoryHandle(pointer + elementIndex);
+            return unsafe(new MemoryHandle(pointer + elementIndex));
         }
 
         public override void Unpin()
@@ -549,7 +555,7 @@ namespace SkiaSharp
 
     }
 
-    public unsafe readonly struct PixelAccessor
+    public readonly struct PixelAccessor
     {
         public readonly int Width => width;
 
@@ -559,7 +565,7 @@ namespace SkiaSharp
         private readonly int width;
         private readonly int height;
 
-        // SAFETY: Callers must GC.KeepAlive the bitmap until work with the PixelAccessor is done.
+        /// <safety>Callers must GC.KeepAlive the bitmap until work with the PixelAccessor is done.</safety>
         public unsafe PixelAccessor(SKBitmap bitmap)
         {
             var info = bitmap.Info;
@@ -577,29 +583,29 @@ namespace SkiaSharp
             if (width * 4 != rowBytes) throw new NotSupportedException();
         }
 
-        public unsafe Span<SKColor> GetRowSpan(int row)
+        public Span<SKColor> GetRowSpan(int row)
         {
             if ((uint)row >= (uint)height)
                 throw new ArgumentOutOfRangeException();
 
             var pointer = (SKColor*)(pixels + row * width * 4);
-            return new Span<SKColor>(pointer, width);
+            return unsafe(new Span<SKColor>(pointer, width));
         }
 
-        public unsafe Span<SKColor> AllPixels
+        public Span<SKColor> AllPixels
         {
             get
             {
-                return new Span<SKColor>(pixels, pixelLength);
+                return unsafe(new Span<SKColor>(pixels, pixelLength));
             }
         }
-        public unsafe ref SKColor this[int x, int y]
+        public ref SKColor this[int x, int y]
         {
             get
             {
                 var pixelIndex = y * width + x;
                 if ((uint)pixelIndex >= (uint)pixelLength) throw new IndexOutOfRangeException();
-                return ref Unsafe.AsRef<SKColor>((SKColor*)pixels + pixelIndex);
+                return ref unsafe(Unsafe.AsRef<SKColor>((SKColor*)pixels + pixelIndex));
             }
         }
     }

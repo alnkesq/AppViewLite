@@ -70,7 +70,7 @@ namespace AppViewLite
             //    return PrivateProfile!.Sessions.Last();
 
             if (sessionId == null) return null;
-            return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MemoryMarshal.AsBytes<char>(x.SessionToken), MemoryMarshal.AsBytes<char>(sessionId)));
+            return PrivateProfile!.Sessions.FirstOrDefault(x => CryptographicOperations.FixedTimeEquals(MostlySafe.AsBytes<char>(x.SessionToken), MostlySafe.AsBytes<char>(sessionId)));
         }
 
         public ConcurrentSet<PostId>? RecentlySeenOrAlreadyDiscardedFromFollowingFeedPosts;

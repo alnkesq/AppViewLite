@@ -335,7 +335,7 @@ namespace AppViewLite
                     var k = keySpan[i];
                     if (targetToApproxTarget!(k, false) != approxTarget)
                         break;
-                    var rels = slice.GetValues(i, relationshipValuesPreference);
+                    var rels = unsafe(slice.GetValues(i, relationshipValuesPreference));
                     if (ContainsRelationship(rels.Span.AsSmallSpan(), rel))
                         return k;
                 }
@@ -345,7 +345,7 @@ namespace AppViewLite
                     var k = keySpan[i];
                     if (targetToApproxTarget!(k, false) != approxTarget)
                         break;
-                    var rels = slice.GetValues(i, relationshipValuesPreference);
+                    var rels = unsafe(slice.GetValues(i, relationshipValuesPreference));
                     if (ContainsRelationship(rels.Span.AsSmallSpan(), rel))
                         return k;
 
@@ -402,7 +402,7 @@ namespace AppViewLite
         }
         public static RelationshipHash GetRelationshipHash(Relationship rel)
         {
-            var likeHash = System.IO.Hashing.XxHash64.HashToUInt64(MemoryMarshal.AsBytes<Relationship>(new ReadOnlySpan<Relationship>(in rel)));
+            var likeHash = System.IO.Hashing.XxHash64.HashToUInt64(MostlySafe.AsBytes<Relationship>(new ReadOnlySpan<Relationship>(in rel)));
             return new RelationshipHash((uint)likeHash, (ushort)(likeHash >> 32));
         }
 

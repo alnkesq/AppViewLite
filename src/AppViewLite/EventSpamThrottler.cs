@@ -65,7 +65,7 @@ namespace AppViewLite
             var actorSlot = (actor, (uint)(date.Ticks / slotTime.Ticks));
 
             var hashMaterial = (actorSlot, perActorEventId, salt);
-            var fingerprint = (int)(XxHash64.HashToUInt64(MemoryMarshal.AsBytes([hashMaterial])) % 64);
+            var fingerprint = (int)(XxHash64.HashToUInt64(MostlySafe.AsBytes([hashMaterial])) % 64);
             var fingerprintFlag = 1UL << fingerprint;
 
             var result = _seenEvents.AddOrUpdate(actorSlot, fingerprintFlag, (_, prev) => fingerprintFlag | prev);

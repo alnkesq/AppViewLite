@@ -90,7 +90,7 @@ namespace AppViewLite.PluggableProtocols.Nostr
             var did = GetDidFromPubKey(e.PublicKey);
             var didHash = StringUtils.HashUnicodeToUuid(did);
 
-            if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MemoryMarshal.AsBytes<char>(e.PublicKey + " " + e.Id))))
+            if (!RecentlyAddedPosts.TryAdd(XxHash128.HashToUInt128(MostlySafe.AsBytes<char>(e.PublicKey + " " + e.Id))))
                 return;
             if (RecentlyAddedPosts.Count >= 10_000)
                 RecentlyAddedPosts = [];

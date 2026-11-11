@@ -82,14 +82,14 @@ namespace AppViewLite
         [SkipLocalsInit]
         public static DuckDbUuid HashUnicodeToUuid(ReadOnlySpan<char> b)
         {
-            return HashToUuid(MemoryMarshal.AsBytes(b));
+            return HashToUuid(MostlySafe.AsBytes(b));
         }
 
 
         [SkipLocalsInit]
         public static DuckDbUuid HashToUuid(ReadOnlySpan<byte> b)
         {
-            Span<byte> buffer = stackalloc byte[32];
+            Span<byte> buffer = unsafe(stackalloc byte[32]);
             System.Security.Cryptography.SHA256.HashData(b, buffer);
             return new DuckDbUuid(buffer.Slice(0, 16));
         }
@@ -859,12 +859,12 @@ namespace AppViewLite
             var bytes = Base64Url.DecodeFromChars(continuation);
             if (bytes.Length != Unsafe.SizeOf<T>())
                 throw AssertionLiteException.Throw("Unmanaged struct deserialization from string: bad length");
-            return MemoryMarshal.Cast<byte, T>(bytes)[0];
+            return MostlySafe.Cast<byte, T>(bytes)[0];
         }
 
         public static string SerializeToString<T>(T value) where T : unmanaged
         {
-            var bytes = MemoryMarshal.AsBytes<T>(new ReadOnlySpan<T>(in value));
+            var bytes = MostlySafe.AsBytes<T>(new ReadOnlySpan<T>(in value));
             return Base64Url.EncodeToString(bytes);
         }
 

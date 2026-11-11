@@ -10,7 +10,7 @@ using System.Threading;
 namespace AppViewLite.Storage
 {
 
-    public unsafe class AlignedNativeArena : IDisposable
+    public class AlignedNativeArena : IDisposable
     {
         public readonly nuint Alignment;
         [Obsolete("Only for ObjectPool<> compatibility.", error: true)]
@@ -56,7 +56,7 @@ namespace AppViewLite.Storage
                 throw new ArgumentException();
         }
 
-        public Span<byte> GetRemaingSpaceInCurrentChunk() => new Span<byte>(nextAllocation, (checked((int)(nextAllocationThreshold - nextAllocation))));
+        public Span<byte> GetRemaingSpaceInCurrentChunk() => unsafe(new Span<byte>(nextAllocation, (checked((int)(nextAllocationThreshold - nextAllocation)))));
         public void AdvanceBy(nuint bytes)
         {
             EnsureAligned(bytes);

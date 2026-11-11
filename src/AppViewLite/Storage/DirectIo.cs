@@ -7,10 +7,10 @@ namespace AppViewLite.Storage
     public static class DirectIo
     {
 
-        public unsafe static NativeMemoryRange ReadAligned(SafeFileHandle handle, long fileOffset, int length, AlignedNativeArena arena)
+        public static NativeMemoryRange ReadAligned(SafeFileHandle handle, long fileOffset, int length, AlignedNativeArena arena)
         {
             var ptr = arena.Allocate((nuint)length);
-            var span = new Span<byte>(ptr, length);
+            var span = unsafe(new Span<byte>(ptr, length));
             var read = RandomAccess.Read(handle, span, fileOffset);
             // "read != length" can happen when we read near the end of a file (last block might not be complete)
             // Just make sure we read at least one byte.
@@ -18,7 +18,7 @@ namespace AppViewLite.Storage
             {
                 throw new EndOfStreamException();
             }
-            return new NativeMemoryRange((nuint)ptr, (nuint)length);
+            return unsafe(new NativeMemoryRange((nuint)ptr, (nuint)length));
         }
 
         [ThreadStatic] private static AlignedNativeArena? AlignedNativeArenaForCurrentThreadCacheReads;
@@ -104,7 +104,7 @@ namespace AppViewLite.Storage
             else
             {
                 var alignedSpan = ReadAligned(handle, alignedFileOffset, alignedLength, arena);
-                var unalignedSpan = new NativeMemoryRange(alignedSpan.Pointer + (nuint)offsetWithinBlock, (nuint)length);
+                var unalignedSpan = unsafe(new NativeMemoryRange(alignedSpan.Pointer + (nuint)offsetWithinBlock, (nuint)length));
                 return unalignedSpan;
             }
 
@@ -123,7 +123,7 @@ namespace AppViewLite.Storage
         }
 
         private const int ArenaForCacheReadsInitialBlockCount = 256;
-        private static unsafe AlignedNativeArena GetArenaForAlignedCacheReads(int blockSize)
+        private static AlignedNativeArena GetArenaForAlignedCacheReads(int blockSize)
         {
             var alignedArenaForCacheReads = AlignedNativeArenaForCurrentThreadCacheReads;
             if (alignedArenaForCacheReads == null)
@@ -136,9 +136,16 @@ namespace AppViewLite.Storage
         }
     }
 
-    public record struct NativeMemoryRange(nuint Pointer, nuint Length)
+    public readonly struct NativeMemoryRange
     {
-        public readonly unsafe Span<byte> AsSpan() => new Span<byte>((void*)Pointer, checked((int)Length));
+        public readonly nuint Pointer;
+        public readonly nuint Length;
+        public unsafe NativeMemoryRange(nuint pointer, nuint length)
+        {
+            this.Pointer = pointer;
+            this.Length = length;
+        }
+        public readonly Span<byte> AsSpan() => unsafe(new Span<byte>((void*)Pointer, checked((int)Length)));
         public readonly ReadOnlySpan<byte> AsReadOnlySpan() => AsSpan();
     }
 

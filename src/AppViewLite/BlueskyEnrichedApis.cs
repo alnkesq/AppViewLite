@@ -2011,7 +2011,7 @@ namespace AppViewLite
         {
             // The values in the multidictionary are sorted by (Plc,RKey) for each key, and we don't want to prioritize always the same accounts
             // This is not a perfect solution, since if there are more than "limit" accounts in such value list, we'll always prioritize those "limit" first.
-            new Random((int)System.IO.Hashing.XxHash32.HashToUInt32(MemoryMarshal.AsBytes<char>(seed))).Shuffle(items);
+            new Random((int)System.IO.Hashing.XxHash32.HashToUInt32(MostlySafe.AsBytes<char>(seed))).Shuffle(items);
         }
 
         private static void EnsureLimit(ref int limit, int defaultLimit = 50)

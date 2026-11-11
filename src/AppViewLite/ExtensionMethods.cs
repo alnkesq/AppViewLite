@@ -72,11 +72,11 @@ namespace AppViewLite
         public static T ReadUnmanaged<T>(this BinaryReader reader) where T : unmanaged
         {
             var bytes = reader.ReadBytes(Unsafe.SizeOf<T>());
-            return MemoryMarshal.Cast<byte, T>(bytes)[0];
+            return MostlySafe.Cast<byte, T>(bytes)[0];
         }
         public static void WriteUnmanaged<T>(this BinaryWriter writer, T item) where T : unmanaged
         {
-            writer.Write(MemoryMarshal.AsBytes([item]));
+            writer.Write(MostlySafe.AsBytes([item]));
         }
 
         internal static void MakeUtc(ref DateTime date)

@@ -41,7 +41,7 @@
             }
             else
             {
-                LoggedInAccounts = Apis.WithRelationshipsLock(rels => cookie.Sessions.Select(x => rels.GetProfile(rels.SerializeDid(x.UnverifiedDid, RequestContext))).ToArray(), RequestContext);
+                LoggedInAccounts = Apis.WithRelationshipsLockForDids(cookie.Sessions.Select(x => x.UnverifiedDid).ToArray(), (_, rels) => cookie.Sessions.Select(x => rels.GetProfile(rels.SerializeDid(x.UnverifiedDid, RequestContext))).ToArray(), RequestContext);
 
             }
 
